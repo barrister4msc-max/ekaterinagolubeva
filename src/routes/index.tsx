@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ShieldCheck, FileCheck2, Scale, Building2, Handshake, Globe2,
   KeyRound, ArrowUpRight, MapPin, Send, MessageCircle, Mail,
-  Sparkles, Clock, Eye, ShieldHalf, FileText, UserCheck,
+  Sparkles, Clock, Eye, ShieldHalf, FileText, UserCheck, Lock, User, BookOpen,
 } from "lucide-react";
 import heroImg from "@/assets/hero-advisor.jpg";
 import aboutImg from "@/assets/about-portrait.jpg";
