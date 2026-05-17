@@ -76,19 +76,19 @@ function HomePage() {
     <main>
       {/* HERO */}
       <section className="hero-gradient relative -mt-20 border-b border-border md:-mt-24">
-        <div className="container-wide grid items-center gap-12 pb-16 pt-32 md:grid-cols-12 md:gap-16 md:pb-28 md:pt-44">
-          <div className="md:col-span-6">
-            <div className="eyebrow mb-6">Premium Legal Real Estate Advisor</div>
+        <div className="container-wide relative grid items-center gap-12 pb-20 pt-32 md:grid-cols-12 md:gap-16 md:pb-32 md:pt-44">
+          <div className="relative z-10 md:col-span-6">
+            <div className="eyebrow mb-7">Premium Legal Real Estate Advisor</div>
             <h1 className="text-[2.4rem] leading-[1.04] md:text-[4rem]">
               Защита недвижимости,<br/>
               договоров<br/>
-              <span className="italic text-primary">и судебных интересов</span>
+              <span className="italic" style={{ color: "#B89B72", opacity: 0.82 }}>и судебных интересов</span>
             </h1>
-            <p className="mt-7 max-w-lg text-base leading-relaxed text-foreground/70 md:text-lg">
+            <p className="mt-8 max-w-lg text-base leading-relaxed text-foreground/70 md:text-lg">
               Спокойное сопровождение сделок с недвижимостью, аренды,
               договоров и судебных споров в Москве, МО и дистанционно по России.
             </p>
-            <div className="mt-9 flex flex-wrap gap-3">
+            <div className="mt-10 flex flex-wrap gap-3">
               <Link to="/contact" className="btn-primary">
                 Разобрать ситуацию <ArrowUpRight size={16} />
               </Link>
@@ -108,8 +108,8 @@ function HomePage() {
             </div>
           </div>
 
-          <div className="md:col-span-6">
-            <div className="relative overflow-hidden md:-mr-[calc((100vw-min(100vw,1280px))/2)] md:-mt-44 md:mb-[-4rem]">
+          <div className="relative md:col-span-6">
+            <div className="relative overflow-hidden rounded-[24px] md:-mt-32 md:mb-[-2rem] md:mr-10 md:mt-5 md:py-5">
               <img
                 src={url ? heroSrc(url, 1080) : heroImg}
                 srcSet={url ? heroSrcSet(url) : undefined}
@@ -118,13 +118,16 @@ function HomePage() {
                 width={1080}
                 height={1350}
                 fetchPriority="high"
-                className="aspect-[4/5] w-full object-cover md:aspect-auto md:h-[calc(100vh-0px)] md:max-h-[760px]"
+                className="aspect-[4/5] w-full rounded-[24px] object-cover md:aspect-auto md:h-[680px]"
                 style={{
                   objectPosition: `${posX}% ${posY}%`,
                   transform: scale !== 1 ? `scale(${scale})` : undefined,
                   transformOrigin: `${posX}% ${posY}%`,
                 }}
               />
+              <div className="pointer-events-none absolute inset-0 hidden rounded-[24px] md:block" style={{
+                background: "linear-gradient(90deg, rgba(245,241,235,1) 0%, rgba(245,241,235,0.92) 22%, rgba(245,241,235,0.15) 60%, rgba(245,241,235,0) 100%)"
+              }} />
             </div>
           </div>
         </div>
