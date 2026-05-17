@@ -31,6 +31,8 @@ import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spo
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
+import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
+import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -142,6 +144,16 @@ const WorkspaceLoginRoute = WorkspaceLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceLeadsRoute = WorkspaceLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceDashboardRoute = WorkspaceDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -165,6 +177,8 @@ export interface FileRoutesByFullPath {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/dashboard': typeof WorkspaceDashboardRoute
+  '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
 }
 export interface FileRoutesByTo {
@@ -189,6 +203,8 @@ export interface FileRoutesByTo {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/dashboard': typeof WorkspaceDashboardRoute
+  '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
 }
 export interface FileRoutesById {
@@ -214,6 +230,8 @@ export interface FileRoutesById {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/dashboard': typeof WorkspaceDashboardRoute
+  '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
 }
 export interface FileRouteTypes {
@@ -240,6 +258,8 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/workspace/dashboard'
+    | '/workspace/leads'
     | '/workspace/login'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -264,6 +284,8 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/workspace/dashboard'
+    | '/workspace/leads'
     | '/workspace/login'
   id:
     | '__root__'
@@ -288,6 +310,8 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/workspace/dashboard'
+    | '/workspace/leads'
     | '/workspace/login'
   fileRoutesById: FileRoutesById
 }
@@ -471,14 +495,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceLoginRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/leads': {
+      id: '/workspace/leads'
+      path: '/leads'
+      fullPath: '/workspace/leads'
+      preLoaderRoute: typeof WorkspaceLeadsRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/dashboard': {
+      id: '/workspace/dashboard'
+      path: '/dashboard'
+      fullPath: '/workspace/dashboard'
+      preLoaderRoute: typeof WorkspaceDashboardRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
   }
 }
 
 interface WorkspaceRouteChildren {
+  WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
+  WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
   WorkspaceLoginRoute: typeof WorkspaceLoginRoute
 }
 
 const WorkspaceRouteChildren: WorkspaceRouteChildren = {
+  WorkspaceDashboardRoute: WorkspaceDashboardRoute,
+  WorkspaceLeadsRoute: WorkspaceLeadsRoute,
   WorkspaceLoginRoute: WorkspaceLoginRoute,
 }
 
@@ -512,3 +554,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
