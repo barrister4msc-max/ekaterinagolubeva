@@ -77,7 +77,7 @@ function HomePage() {
       {/* HERO */}
       <section className="hero-gradient relative -mt-20 border-b border-border md:-mt-24">
         <div className="container-wide relative grid items-center gap-12 pb-20 pt-32 md:grid-cols-12 md:gap-16 md:pb-32 md:pt-44">
-          <div className="relative z-10 md:col-span-6">
+          <div className="relative z-10 md:col-span-7">
             <div className="eyebrow mb-7">Premium Legal Real Estate Advisor</div>
             <h1 className="text-[2.4rem] leading-[1.04] md:text-[4rem]">
               Защита недвижимости,<br/>
@@ -108,17 +108,17 @@ function HomePage() {
             </div>
           </div>
 
-          <div className="relative md:col-span-6">
-            <div className="relative overflow-hidden rounded-[24px] md:-mt-32 md:mb-[-2rem] md:mr-10 md:mt-5 md:py-5">
+          <div className="relative md:col-span-5">
+            <div className="relative mx-auto max-w-[420px] overflow-hidden rounded-[24px] md:mx-0 md:ml-auto md:mr-6 md:mt-8 md:max-w-[400px]">
               <img
-                src={url ? heroSrc(url, 1080) : heroImg}
+                src={url ? heroSrc(url, 900) : heroImg}
                 srcSet={url ? heroSrcSet(url) : undefined}
-                sizes="(min-width: 768px) 50vw, 100vw"
+                sizes="(min-width: 768px) 36vw, 90vw"
                 alt="Екатерина Голубева — Premium Legal Real Estate Advisor"
-                width={1080}
-                height={1350}
+                width={900}
+                height={1125}
                 fetchPriority="high"
-                className="aspect-[4/5] w-full rounded-[24px] object-cover md:aspect-auto md:h-[680px]"
+                className="aspect-[4/5] w-full rounded-[24px] object-cover md:h-[560px]"
                 style={{
                   objectPosition: `${posX}% ${posY}%`,
                   transform: scale !== 1 ? `scale(${scale})` : undefined,
