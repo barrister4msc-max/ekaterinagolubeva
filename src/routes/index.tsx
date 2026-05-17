@@ -69,53 +69,48 @@ function HomePage() {
   return (
     <main>
       {/* HERO */}
-      <section className="border-b border-border">
-        <div className="container-wide grid items-center gap-12 py-12 md:grid-cols-12 md:gap-16 md:py-24">
+      <section className="hero-gradient relative -mt-20 border-b border-border md:-mt-24">
+        <div className="container-wide grid items-center gap-12 pb-16 pt-32 md:grid-cols-12 md:gap-16 md:pb-28 md:pt-44">
           <div className="md:col-span-6">
             <div className="eyebrow mb-6">Premium Legal Real Estate Advisor</div>
-            <h1 className="text-[2.6rem] leading-[1.02] md:text-[4.4rem]">
-              Екатерина<br/>
-              <span className="italic text-primary">Голубева</span>
+            <h1 className="text-[2.4rem] leading-[1.04] md:text-[4rem]">
+              Защита недвижимости,<br/>
+              договоров<br/>
+              <span className="italic text-primary">и судебных интересов</span>
             </h1>
-            <p className="mt-7 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
-              Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров
-              в Москве, МО и дистанционно по России.
+            <p className="mt-7 max-w-lg text-base leading-relaxed text-foreground/70 md:text-lg">
+              Спокойное сопровождение сделок с недвижимостью, аренды,
+              договоров и судебных споров в Москве, МО и дистанционно по России.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link to="/contact" className="btn-primary">
                 Разобрать ситуацию <ArrowUpRight size={16} />
               </Link>
-              <Link to="/real-estate" className="btn-ghost">Проверить риски сделки</Link>
+              <a href="https://t.me/" target="_blank" rel="noreferrer" className="btn-ghost">
+                <Send size={14}/> Telegram
+              </a>
+              <a href="#" className="btn-ghost">
+                <MessageCircle size={14}/> MAX
+              </a>
             </div>
-            <div className="mt-8 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+            <div className="mt-8 flex flex-wrap items-center gap-4 text-xs text-foreground/60">
               <a href="https://wa.me/79000000000" className="inline-flex items-center gap-2 hover:text-primary">
                 <MessageCircle size={14}/> WhatsApp
               </a>
-              <span className="h-3 w-px bg-border" />
-              <a href="#" className="inline-flex items-center gap-2 hover:text-primary">
-                <Send size={14}/> MAX
-              </a>
-              <span className="h-3 w-px bg-border" />
-              <a href="https://t.me/" className="inline-flex items-center gap-2 hover:text-primary">
-                <Send size={14}/> Telegram
-              </a>
+              <span className="h-3 w-px bg-foreground/20" />
+              <span className="inline-flex items-center gap-2"><MapPin size={14}/> Москва · МО · Россия</span>
             </div>
           </div>
 
           <div className="md:col-span-6">
             <div className="relative">
-              <div className="absolute -inset-4 -z-10 rounded-sm bg-secondary/60" />
               <img
                 src={heroImg}
-                alt="Premium Legal Real Estate Advisor"
+                alt="Екатерина Голубева — Premium Legal Real Estate Advisor"
                 width={1080}
-                height={1620}
-                className="aspect-[3/4] w-full object-cover"
+                height={1350}
+                className="aspect-[4/5] w-full rounded-sm object-cover shadow-[0_30px_80px_-30px_rgba(47,41,37,0.35)]"
               />
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between bg-background/85 px-5 py-3 text-xs uppercase tracking-[0.22em] backdrop-blur md:bottom-6 md:left-6 md:right-6 md:px-6 md:py-4">
-                <span className="text-primary">Trusted Representative</span>
-                <span className="text-foreground/70">Москва · МО · Россия</span>
-              </div>
             </div>
           </div>
         </div>

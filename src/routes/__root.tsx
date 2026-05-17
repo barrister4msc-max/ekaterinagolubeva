@@ -99,7 +99,9 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <SiteHeader />
-      <Outlet />
+      <div className="pt-20 md:pt-24">
+        <Outlet />
+      </div>
       <SiteFooter />
       <FloatingMessengers />
     </QueryClientProvider>
