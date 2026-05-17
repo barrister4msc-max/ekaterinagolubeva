@@ -444,33 +444,21 @@ function HomePage() {
             </div>
           </div>
 
-          <form
-            className="md:col-span-6 card-soft space-y-5"
-            onSubmit={(e) => { e.preventDefault(); alert("Спасибо! Я свяжусь с вами."); }}
-          >
-            <label className="block">
-              <span className="eyebrow">Имя</span>
-              <input required type="text" placeholder="Как к вам обращаться"
-                className="mt-2 w-full border-b border-border bg-transparent py-3 text-base outline-none focus:border-primary" />
-            </label>
-            <label className="block">
-              <span className="eyebrow">Телефон</span>
-              <input required type="tel" placeholder="+7"
-                className="mt-2 w-full border-b border-border bg-transparent py-3 text-base outline-none focus:border-primary" />
-            </label>
-            <label className="block">
-              <span className="eyebrow">Ситуация</span>
-              <textarea required rows={4} placeholder="Кратко опишите вопрос"
-                className="mt-2 w-full resize-none border-b border-border bg-transparent py-3 text-base outline-none focus:border-primary" />
-            </label>
-            <button type="submit" className="btn-primary w-full justify-center">
-              Получить консультацию <ArrowUpRight size={16}/>
-            </button>
+          <div className="md:col-span-6 card-soft flex flex-col justify-between gap-6">
+            <div>
+              <div className="eyebrow mb-3">AI-помощник</div>
+              <p className="text-base leading-relaxed">
+                Опишите ситуацию в защищённой форме. AI-помощник задаст
+                2–3 уточняющих вопроса и подготовит сводку для разбора.
+              </p>
+            </div>
+            <Link to="/contact" className="btn-primary w-full justify-center">
+              Открыть форму обращения <ArrowUpRight size={16}/>
+            </Link>
             <p className="text-xs text-muted-foreground">
-              Нажимая кнопку, вы соглашаетесь с обработкой персональных данных.
-              Информация конфиденциальна.
+              Информация конфиденциальна. Свяжусь с вами в течение рабочего дня.
             </p>
-          </form>
+          </div>
         </div>
       </section>
     </main>
