@@ -229,14 +229,30 @@ function HomePage() {
       <section className="container-wide py-24 md:py-32">
         <div className="grid items-center gap-12 md:grid-cols-12 md:gap-20">
           <div className="md:col-span-5">
-            <img
-              src={aboutImg}
-              alt="Подход к работе"
-              width={1024}
-              height={1024}
-              loading="lazy"
-              className="aspect-[4/5] w-full object-cover"
-            />
+            <div className="relative">
+              <div className="absolute -left-3 -top-3 hidden h-24 w-24 border border-primary/40 md:block" aria-hidden />
+              <div className="absolute -right-3 -bottom-3 hidden h-24 w-24 border border-primary/40 md:block" aria-hidden />
+              <img
+                src={aboutImg}
+                alt="Екатерина Голубева — частный юридический советник"
+                width={1024}
+                height={1024}
+                loading="lazy"
+                className="relative aspect-[4/5] w-full object-cover shadow-[0_30px_80px_-40px_rgba(47,41,37,0.35)]"
+              />
+              <div className="absolute bottom-5 left-5 right-5 flex items-center justify-between gap-4 bg-background/85 px-5 py-4 backdrop-blur-md md:bottom-6 md:left-6 md:right-auto md:max-w-[78%]">
+                <div>
+                  <div className="eyebrow mb-1">Private Advisor</div>
+                  <div className="font-display text-lg leading-tight">Екатерина Голубева</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">Москва · дистанционно по России</div>
+                </div>
+                <div className="hidden h-10 w-px bg-primary/40 md:block" aria-hidden />
+                <div className="hidden text-right md:block">
+                  <div className="font-display text-2xl text-primary">10+</div>
+                  <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">лет практики</div>
+                </div>
+              </div>
+            </div>
           </div>
           <div className="md:col-span-7">
             <div className="eyebrow mb-5">Подход</div>
