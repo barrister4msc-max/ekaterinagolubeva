@@ -78,7 +78,7 @@ function HomePage() {
       <section className="hero-gradient relative -mt-20 border-b border-border md:-mt-24">
         <div className="container-wide relative grid items-center gap-12 pb-16 pt-28 md:grid-cols-12 md:gap-24 md:pb-24 md:pt-36 lg:gap-28">
           <div className="relative z-10 order-2 md:order-1 md:col-span-7">
-            <div className="eyebrow mb-8">Premium Legal Real Estate Advisor</div>
+            <div className="eyebrow mb-8">Real Estate · Contracts · Disputes</div>
             <h1 className="max-w-[560px] text-[2.1rem] leading-[1.15] md:text-[3.6rem] md:leading-[1.1]">
               Защита недвижимости,<br/>
               договоров<br/>
