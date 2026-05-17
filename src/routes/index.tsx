@@ -103,15 +103,52 @@ function HomePage() {
           </div>
 
           <div className="md:col-span-6">
-            <div className="relative">
+            <div className="relative md:-mr-[calc((100vw-min(100vw,1280px))/2)] md:-mt-44 md:mb-[-4rem]">
               <img
                 src={heroImg}
                 alt="Екатерина Голубева — Premium Legal Real Estate Advisor"
                 width={1080}
                 height={1350}
-                className="aspect-[4/5] w-full rounded-sm object-cover shadow-[0_30px_80px_-30px_rgba(47,41,37,0.35)]"
+                className="aspect-[4/5] w-full object-cover md:aspect-auto md:h-[calc(100vh-0px)] md:max-h-[760px]"
               />
             </div>
+          </div>
+        </div>
+
+        {/* VALUE STRIP */}
+        <div className="border-t border-border bg-[#E8E2D6]/70">
+          <div className="container-wide grid grid-cols-2 gap-y-6 py-7 text-[13px] md:grid-cols-5 md:gap-x-8 md:py-6">
+            {[
+              { icon: ShieldCheck, t: "Снижение рисков", s: "и защита интересов" },
+              { icon: BookOpen, t: "Опыт и глубокая", s: "экспертиза" },
+              { icon: User, t: "Индивидуальный", s: "подход" },
+              { icon: Clock, t: "Экономия", s: "времени" },
+              { icon: Lock, t: "Конфиденциальность", s: "и безопасность" },
+            ].map(({ icon: Icon, t, s }) => (
+              <div key={t} className="flex items-center gap-3">
+                <Icon size={22} className="shrink-0 text-foreground/70" strokeWidth={1.4} />
+                <div className="leading-tight">
+                  <div className="text-foreground">{t}</div>
+                  <div className="text-foreground/70">{s}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* SERVICES ROW (flat) */}
+        <div className="border-t border-border bg-background">
+          <div className="container-wide grid grid-cols-2 gap-x-8 gap-y-12 py-16 md:grid-cols-3 md:py-20 lg:grid-cols-6">
+            {services.slice(0, 6).map(({ to, icon: Icon, title, text }) => (
+              <Link key={to} to={to} className="group flex flex-col">
+                <Icon size={28} strokeWidth={1.3} className="text-primary" />
+                <h3 className="mt-6 font-display text-xl text-foreground">{title}</h3>
+                <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">{text}</p>
+                <span className="mt-5 inline-flex items-center gap-1 text-[11px] uppercase tracking-[0.22em] text-primary transition group-hover:gap-2">
+                  Подробнее <ArrowUpRight size={12} />
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
