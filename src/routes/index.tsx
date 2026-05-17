@@ -76,7 +76,7 @@ function HomePage() {
     <main>
       {/* HERO */}
       <section className="hero-gradient relative -mt-20 border-b border-border md:-mt-24">
-        <div className="container-wide relative grid items-center gap-12 pb-20 pt-32 md:grid-cols-12 md:gap-16 md:pb-32 md:pt-44">
+        <div className="container-wide relative grid items-center gap-8 pb-10 pt-24 md:grid-cols-12 md:gap-16 md:pb-14 md:pt-28">
           <div className="relative z-10 md:col-span-7">
             <div className="eyebrow mb-7">Premium Legal Real Estate Advisor</div>
             <h1 className="max-w-[620px] text-[2.4rem] leading-[1.1] md:text-[4rem] md:leading-[1.08]">
