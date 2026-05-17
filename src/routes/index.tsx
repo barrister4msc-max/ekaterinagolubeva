@@ -74,13 +74,12 @@ function HomePage() {
           <div className="md:col-span-6">
             <div className="eyebrow mb-6">Premium Legal Real Estate Advisor</div>
             <h1 className="text-[2.6rem] leading-[1.02] md:text-[4.4rem]">
-              Защита недвижимости,<br/>
-              договоров<br/>
-              <span className="italic text-primary">и судебных интересов</span>
+              Екатерина<br/>
+              <span className="italic text-primary">Голубева</span>
             </h1>
             <p className="mt-7 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
-              Юридическое сопровождение недвижимости, аренды, договоров и судебных споров
-              в Москве, Подольске, Московской области и дистанционно по России.
+              Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров
+              в Москве, МО и дистанционно по России.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link to="/contact" className="btn-primary">
