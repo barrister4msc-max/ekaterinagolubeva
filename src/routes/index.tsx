@@ -129,13 +129,13 @@ function HomePage() {
                   transformOrigin: `${posX}% ${posY}%`,
                 }}
               />
-              {/* Subtle warm editorial blend on LEFT edge only — does not touch the face */}
+              {/* Soft beige fog blending the LEFT edge of the photo into the page */}
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-y-0 left-0 w-1/3"
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/2"
                 style={{
                   background:
-                    "linear-gradient(90deg, rgba(245,238,230,0.10) 0%, rgba(245,238,230,0.04) 55%, rgba(245,238,230,0) 100%)",
+                    "linear-gradient(90deg, #F5EEE6 0%, rgba(245,238,230,0.85) 25%, rgba(245,238,230,0.45) 55%, rgba(245,238,230,0) 100%)",
                 }}
               />
             </div>
