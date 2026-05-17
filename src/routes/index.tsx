@@ -11,10 +11,10 @@ import moscowImg from "@/assets/moscow-architecture.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Legal Advisor — Premium Legal Real Estate Advisor в Москве" },
-      { name: "description", content: "Спокойное юридическое сопровождение недвижимости, аренды, договоров и судебных споров. Москва, Подольск, МО и дистанционно по России." },
-      { property: "og:title", content: "Legal Advisor — Premium Legal Real Estate Advisor" },
-      { property: "og:description", content: "Защита недвижимости, договоров и судебных интересов. Trusted Representative in Russia." },
+      { title: "Екатерина Голубева — Premium Legal Real Estate Advisor в Москве" },
+      { name: "description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров. Москва, МО и дистанционно по России." },
+      { property: "og:title", content: "Екатерина Голубева — Premium Legal Real Estate Advisor" },
+      { property: "og:description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров. Trusted Representative in Russia." },
       { property: "og:url", content: "https://example.com/" },
     ],
     links: [{ rel: "canonical", href: "https://example.com/" }],
