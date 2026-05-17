@@ -6,7 +6,7 @@ export const Route = createFileRoute("/contact")({
     meta: [
       { title: "Контакты — получить консультацию | Екатерина Голубева" },
       { name: "description", content: "Свяжитесь для бесплатного первичного разбора ситуации. WhatsApp, Telegram, MAX, email." },
-      { property: "og:title", content: "Контакты — Legal Advisor" },
+      { property: "og:title", content: "Контакты — Екатерина Голубева" },
     ],
   }),
   component: ContactPage,
