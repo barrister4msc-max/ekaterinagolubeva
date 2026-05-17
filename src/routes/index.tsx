@@ -79,23 +79,23 @@ function HomePage() {
         <div className="container-wide relative grid items-center gap-12 pb-20 pt-32 md:grid-cols-12 md:gap-16 md:pb-32 md:pt-44">
           <div className="relative z-10 md:col-span-7">
             <div className="eyebrow mb-7">Premium Legal Real Estate Advisor</div>
-            <h1 className="text-[2.4rem] leading-[1.04] md:text-[4rem]">
+            <h1 className="max-w-[620px] text-[2.4rem] leading-[1.1] md:text-[4rem] md:leading-[1.08]">
               Защита недвижимости,<br/>
               договоров<br/>
               <span className="italic" style={{ color: "#B89B72", opacity: 0.82 }}>и судебных интересов</span>
             </h1>
-            <p className="mt-8 max-w-lg text-base leading-relaxed text-foreground/70 md:text-lg">
+            <p className="mt-8 max-w-[560px] text-base leading-relaxed text-foreground/70 md:text-lg">
               Спокойное сопровождение сделок с недвижимостью, аренды,
               договоров и судебных споров в Москве, МО и дистанционно по России.
             </p>
-            <div className="mt-10 flex flex-wrap gap-3">
+            <div className="mt-10 flex flex-wrap items-center gap-3">
               <Link to="/contact" className="btn-primary">
                 Разобрать ситуацию <ArrowUpRight size={16} />
               </Link>
-              <a href="https://t.me/" target="_blank" rel="noreferrer" className="btn-ghost">
+              <a href="https://t.me/" target="_blank" rel="noreferrer" className="btn-ghost btn-ghost--equal">
                 <Send size={14}/> Telegram
               </a>
-              <a href="#" className="btn-ghost">
+              <a href="#" className="btn-ghost btn-ghost--equal">
                 <MessageCircle size={14}/> MAX
               </a>
             </div>
@@ -109,16 +109,16 @@ function HomePage() {
           </div>
 
           <div className="relative md:col-span-5">
-            <div className="relative mx-auto max-w-[460px] overflow-hidden rounded-[24px] md:mx-0 md:ml-auto md:mr-2 md:-mt-6 md:max-w-[460px]">
+            <div className="relative mx-auto max-w-[420px] overflow-hidden rounded-[24px] md:mx-0 md:ml-auto md:mr-2 md:mt-2 md:max-w-[400px]">
               <img
                 src={url ? heroSrc(url, 900) : heroImg}
                 srcSet={url ? heroSrcSet(url) : undefined}
-                sizes="(min-width: 768px) 36vw, 90vw"
+                sizes="(min-width: 768px) 34vw, 90vw"
                 alt="Екатерина Голубева — Premium Legal Real Estate Advisor"
                 width={900}
                 height={1125}
                 fetchPriority="high"
-                className="aspect-[4/5] w-full rounded-[24px] object-cover md:h-[560px]"
+                className="aspect-[4/5] w-full rounded-[24px] object-cover md:h-[510px]"
                 style={{
                   objectPosition: `${posX}% ${posY}%`,
                   transform: scale !== 1 ? `scale(${scale})` : undefined,
@@ -126,7 +126,7 @@ function HomePage() {
                 }}
               />
               <div className="pointer-events-none absolute inset-0 hidden rounded-[24px] md:block" style={{
-                background: "linear-gradient(90deg, rgba(245,241,235,1) 0%, rgba(245,241,235,0.92) 22%, rgba(245,241,235,0.15) 60%, rgba(245,241,235,0) 100%)"
+                background: "linear-gradient(90deg, rgba(245,241,235,0.78) 0%, rgba(245,241,235,0.45) 22%, rgba(245,241,235,0.08) 55%, rgba(245,241,235,0) 100%)"
               }} />
             </div>
           </div>
