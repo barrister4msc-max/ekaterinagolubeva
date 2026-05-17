@@ -147,6 +147,7 @@
   .btn-ghost {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.5rem;
     padding: 14px 26px;
     border: 1px solid rgba(184,155,114,0.35);
@@ -154,15 +155,40 @@
     font-size: 0.92rem;
     font-weight: 500;
     border-radius: 999px;
-    background-color: rgba(255,255,255,0.45);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background-color: rgba(255,255,255,0.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     transition: all 0.3s ease;
   }
   .btn-ghost:hover {
     background-color: #F1E8DC;
     color: #2F2925;
     transform: translateY(-2px);
+  }
+  .btn-ghost--equal {
+    min-width: 132px;
+    height: 48px;
+    padding: 0 22px;
+    font-size: 14px;
+  }
+  .btn-header {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    height: 48px;
+    padding-inline: 24px;
+    font-size: 15px;
+    font-weight: 500;
+    border-radius: 999px;
+    background-color: #B89B72;
+    color: #ffffff;
+    box-shadow: 0 8px 24px rgba(184,155,114,0.22);
+    transition: all 0.3s ease;
+  }
+  .btn-header:hover {
+    background-color: #9F7444;
+    transform: translateY(-1px);
   }
 
   .hero-gradient {
