@@ -6,7 +6,7 @@ export function SiteFooter() {
       <div className="container-wide py-16 md:py-20">
         <div className="grid gap-12 md:grid-cols-4">
           <div className="md:col-span-2">
-            <div className="font-display text-2xl">Legal Advisor<span className="text-primary">.</span></div>
+            <div className="font-display text-2xl">Екатерина Голубева<span className="text-primary">.</span></div>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
               Premium Legal Real Estate Advisor. Спокойное сопровождение
               сложных ситуаций — недвижимость, аренда, договоры, суды.
