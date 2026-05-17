@@ -62,7 +62,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden md:block">
-          <Link to="/contact" className="btn-primary">
+          <Link to="/contact" className="btn-header">
             Связаться
           </Link>
         </div>
