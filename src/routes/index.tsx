@@ -113,10 +113,6 @@ function HomePage() {
           <div className="relative order-1 md:order-2 md:col-span-5">
             <div
               className="relative mx-auto w-full max-w-[360px] overflow-hidden rounded-[24px] md:mx-0 md:ml-auto md:max-w-[420px]"
-              style={{
-                boxShadow: "0 12px 36px rgba(47,41,37,0.07)",
-                border: "1px solid rgba(184,155,114,0.10)",
-              }}
             >
               <img
                 src={url ? heroSrc(url, 900) : heroImg}
@@ -133,13 +129,13 @@ function HomePage() {
                   transformOrigin: `${posX}% ${posY}%`,
                 }}
               />
-              {/* Subtle warm editorial blend on LEFT edge only — does not touch the face */}
+              {/* Soft beige fog blending the LEFT edge of the photo into the page */}
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-y-0 left-0 w-1/3"
+                className="pointer-events-none absolute inset-y-0 left-0 w-1/2"
                 style={{
                   background:
-                    "linear-gradient(90deg, rgba(245,238,230,0.10) 0%, rgba(245,238,230,0.04) 55%, rgba(245,238,230,0) 100%)",
+                    "linear-gradient(90deg, #F5EEE6 0%, rgba(245,238,230,0.85) 25%, rgba(245,238,230,0.45) 55%, rgba(245,238,230,0) 100%)",
                 }}
               />
             </div>
