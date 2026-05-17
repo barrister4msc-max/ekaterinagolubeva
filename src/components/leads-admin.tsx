@@ -48,7 +48,7 @@ export function LeadsAdmin() {
     setErr(null);
     try {
       const res = await listLeads({ data: filter });
-      setLeads((res.leads as Lead[]) ?? []);
+      setLeads((res.leads as unknown as Lead[]) ?? []);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Ошибка загрузки");
     } finally {
