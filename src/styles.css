@@ -206,11 +206,20 @@
     border: 1px solid var(--color-border);
     border-radius: 4px;
     padding: 2rem;
-    transition: all 0.4s ease;
+    transition: all 0.3s ease;
   }
   .card-soft:hover {
     border-color: var(--color-primary);
     transform: translateY(-2px);
+    box-shadow: 0 18px 40px -20px rgba(47,41,37,0.18);
+  }
+
+  .hero-fade-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(245,241,235,1) 0%, rgba(245,241,235,0.92) 45%, rgba(245,241,235,0.15) 100%);
+    z-index: 1;
   }
 
   .hairline { height: 1px; background-color: var(--color-border); }
