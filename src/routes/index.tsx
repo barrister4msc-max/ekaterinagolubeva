@@ -113,10 +113,6 @@ function HomePage() {
           <div className="relative order-1 md:order-2 md:col-span-5">
             <div
               className="relative mx-auto w-full max-w-[360px] overflow-hidden rounded-[24px] md:mx-0 md:ml-auto md:max-w-[420px]"
-              style={{
-                boxShadow: "0 12px 36px rgba(47,41,37,0.07)",
-                border: "1px solid rgba(184,155,114,0.10)",
-              }}
             >
               <img
                 src={url ? heroSrc(url, 900) : heroImg}
