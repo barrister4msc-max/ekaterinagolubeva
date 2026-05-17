@@ -4,7 +4,7 @@ import { ArrowUpRight, MessageCircle, Send, Mail } from "lucide-react";
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Контакты — получить консультацию | Legal Advisor" },
+      { title: "Контакты — получить консультацию | Екатерина Голубева" },
       { name: "description", content: "Свяжитесь для бесплатного первичного разбора ситуации. WhatsApp, Telegram, MAX, email." },
       { property: "og:title", content: "Контакты — Legal Advisor" },
     ],

@@ -5,7 +5,7 @@ import interiorImg from "@/assets/real-estate-interior.jpg";
 export const Route = createFileRoute("/nedvizhimost")({
   head: () => ({
     meta: [
-      { title: "Риэлторское и юридическое сопровождение недвижимости | Legal Advisor" },
+      { title: "Риэлторское и юридическое сопровождение недвижимости | Екатерина Голубева" },
       { name: "description", content: "Проверка объекта, сопровождение сделки, регистрация права собственности, контроль расчётов. Безопасность и снижение рисков. Москва, МО, дистанционно." },
       { property: "og:title", content: "Риэлторское и юридическое сопровождение недвижимости" },
       { property: "og:description", content: "Сделка проходит спокойно, под контролем и без скрытых рисков." },

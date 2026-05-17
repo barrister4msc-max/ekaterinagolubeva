@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/vozvrat-zaloga-arenda")({
   head: () => ({
     meta: [
-      { title: "Возврат залога по аренде | Legal Advisor" },
+      { title: "Возврат залога по аренде | Екатерина Голубева" },
       { name: "description", content: "Возврат обеспечительного платежа по договору аренды: претензия, переговоры, взыскание через суд." },
     ],
   }),

@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/representation")({
   head: () => ({
     meta: [
-      { title: "Представительство интересов — дистанционно по России | Legal Advisor" },
+      { title: "Представительство интересов — дистанционно по России | Екатерина Голубева" },
       { name: "description", content: "Дистанционное представительство в Москве, МО и по всей России. Мессенджеры, ЭДО, защищённые каналы коммуникации." },
       { property: "og:title", content: "Представительство интересов" },
       { property: "og:description", content: "Беру коммуникации и процесс на себя." },

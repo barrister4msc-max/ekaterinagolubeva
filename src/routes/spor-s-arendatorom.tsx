@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/spor-s-arendatorom")({
   head: () => ({
     meta: [
-      { title: "Спор с арендатором — урегулирование и взыскание | Legal Advisor" },
+      { title: "Спор с арендатором — урегулирование и взыскание | Екатерина Голубева" },
       { name: "description", content: "Урегулирование споров с арендатором: задолженность, порча имущества, нарушение условий, выселение." },
     ],
   }),

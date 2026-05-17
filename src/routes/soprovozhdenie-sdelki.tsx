@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/soprovozhdenie-sdelki")({
   head: () => ({
     meta: [
-      { title: "Сопровождение сделки с недвижимостью | Legal Advisor" },
+      { title: "Сопровождение сделки с недвижимостью | Екатерина Голубева" },
       { name: "description", content: "Полное юридическое сопровождение сделки купли-продажи недвижимости от задатка до регистрации права." },
     ],
   }),

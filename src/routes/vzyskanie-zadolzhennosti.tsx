@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/vzyskanie-zadolzhennosti")({
   head: () => ({
     meta: [
-      { title: "Взыскание задолженности | Legal Advisor" },
+      { title: "Взыскание задолженности | Екатерина Голубева" },
       { name: "description", content: "Взыскание долгов: претензия, иск, исполнительное производство, работа с приставами, арест счетов и имущества." },
     ],
   }),
