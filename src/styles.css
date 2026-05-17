@@ -116,10 +116,10 @@
 
   .eyebrow {
     font-family: var(--font-sans);
-    font-size: 0.72rem;
-    letter-spacing: 0.22em;
+    font-size: 11px;
+    letter-spacing: 0.28em;
     text-transform: uppercase;
-    color: var(--color-primary);
+    color: #B89B72;
     font-weight: 500;
   }
 
@@ -128,19 +128,20 @@
     align-items: center;
     gap: 0.55rem;
     padding: 14px 28px;
-    background-color: #2F2925;
-    color: #F5F1EB;
+    background-color: #B89B72;
+    color: #ffffff;
     font-size: 0.92rem;
     font-weight: 500;
     letter-spacing: 0.01em;
     border-radius: 999px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-    transition: all 0.4s ease;
+    box-shadow: 0 10px 30px rgba(184,155,114,0.22);
+    transition: all 0.3s ease;
   }
   .btn-primary:hover {
-    background-color: #B89B72;
-    color: #F5F1EB;
-    box-shadow: 0 14px 36px rgba(184,155,114,0.28);
+    background-color: #9F7444;
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 14px 36px rgba(159,116,68,0.28);
   }
 
   .btn-ghost {
@@ -148,17 +149,20 @@
     align-items: center;
     gap: 0.5rem;
     padding: 14px 26px;
-    border: 1px solid #D8C8B6;
+    border: 1px solid rgba(184,155,114,0.35);
     color: #2F2925;
     font-size: 0.92rem;
     font-weight: 500;
     border-radius: 999px;
-    transition: all 0.4s ease;
-    background: transparent;
+    background-color: rgba(255,255,255,0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
   }
   .btn-ghost:hover {
     background-color: #F1E8DC;
     color: #2F2925;
+    transform: translateY(-2px);
   }
 
   .hero-gradient {
@@ -202,11 +206,20 @@
     border: 1px solid var(--color-border);
     border-radius: 4px;
     padding: 2rem;
-    transition: all 0.4s ease;
+    transition: all 0.3s ease;
   }
   .card-soft:hover {
     border-color: var(--color-primary);
     transform: translateY(-2px);
+    box-shadow: 0 18px 40px -20px rgba(47,41,37,0.18);
+  }
+
+  .hero-fade-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(245,241,235,1) 0%, rgba(245,241,235,0.92) 45%, rgba(245,241,235,0.15) 100%);
+    z-index: 1;
   }
 
   .hairline { height: 1px; background-color: var(--color-border); }
