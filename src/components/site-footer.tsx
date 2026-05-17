@@ -42,7 +42,7 @@ export function SiteFooter() {
 
         <div className="hairline mt-12" />
         <div className="mt-6 flex flex-col items-start justify-between gap-2 text-xs text-muted-foreground md:flex-row md:items-center">
-          <span>© {new Date().getFullYear()} Legal Advisor. Все права защищены.</span>
+          <span>© {new Date().getFullYear()} Екатерина Голубева. Все права защищены.</span>
           <span>Premium Private Advisor · Trusted Representative in Russia</span>
         </div>
       </div>
