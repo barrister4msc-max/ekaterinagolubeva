@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as VzyskanieZadolzhennostiRouteImport } from './routes/vzyskanie-zadolzhennosti'
 import { Route as VyselenieArendatoraRouteImport } from './routes/vyselenie-arendatora'
 import { Route as VozvratZalogaArendaRouteImport } from './routes/vozvrat-zaloga-arenda'
@@ -29,7 +30,17 @@ import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
 import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spory'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WorkspaceStatisticsRouteImport } from './routes/workspace.statistics'
+import { Route as WorkspaceSettingsRouteImport } from './routes/workspace.settings'
+import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
+import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
+import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
 
+const WorkspaceRoute = WorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VzyskanieZadolzhennostiRoute = VzyskanieZadolzhennostiRouteImport.update({
   id: '/vzyskanie-zadolzhennosti',
   path: '/vzyskanie-zadolzhennosti',
@@ -130,6 +141,31 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspaceStatisticsRoute = WorkspaceStatisticsRouteImport.update({
+  id: '/statistics',
+  path: '/statistics',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceSettingsRoute = WorkspaceSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceLoginRoute = WorkspaceLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceLeadsRoute = WorkspaceLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceDashboardRoute = WorkspaceDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -152,6 +188,12 @@ export interface FileRoutesByFullPath {
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/dashboard': typeof WorkspaceDashboardRoute
+  '/workspace/leads': typeof WorkspaceLeadsRoute
+  '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/settings': typeof WorkspaceSettingsRoute
+  '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -174,6 +216,12 @@ export interface FileRoutesByTo {
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/dashboard': typeof WorkspaceDashboardRoute
+  '/workspace/leads': typeof WorkspaceLeadsRoute
+  '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/settings': typeof WorkspaceSettingsRoute
+  '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -197,6 +245,12 @@ export interface FileRoutesById {
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/dashboard': typeof WorkspaceDashboardRoute
+  '/workspace/leads': typeof WorkspaceLeadsRoute
+  '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/settings': typeof WorkspaceSettingsRoute
+  '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -221,6 +275,12 @@ export interface FileRouteTypes {
     | '/vozvrat-zaloga-arenda'
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
+    | '/workspace'
+    | '/workspace/dashboard'
+    | '/workspace/leads'
+    | '/workspace/login'
+    | '/workspace/settings'
+    | '/workspace/statistics'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -243,6 +303,12 @@ export interface FileRouteTypes {
     | '/vozvrat-zaloga-arenda'
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
+    | '/workspace'
+    | '/workspace/dashboard'
+    | '/workspace/leads'
+    | '/workspace/login'
+    | '/workspace/settings'
+    | '/workspace/statistics'
   id:
     | '__root__'
     | '/'
@@ -265,6 +331,12 @@ export interface FileRouteTypes {
     | '/vozvrat-zaloga-arenda'
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
+    | '/workspace'
+    | '/workspace/dashboard'
+    | '/workspace/leads'
+    | '/workspace/login'
+    | '/workspace/settings'
+    | '/workspace/statistics'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -288,10 +360,18 @@ export interface RootRouteChildren {
   VozvratZalogaArendaRoute: typeof VozvratZalogaArendaRoute
   VyselenieArendatoraRoute: typeof VyselenieArendatoraRoute
   VzyskanieZadolzhennostiRoute: typeof VzyskanieZadolzhennostiRoute
+  WorkspaceRoute: typeof WorkspaceRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workspace': {
+      id: '/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof WorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/vzyskanie-zadolzhennosti': {
       id: '/vzyskanie-zadolzhennosti'
       path: '/vzyskanie-zadolzhennosti'
@@ -432,8 +512,63 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workspace/statistics': {
+      id: '/workspace/statistics'
+      path: '/statistics'
+      fullPath: '/workspace/statistics'
+      preLoaderRoute: typeof WorkspaceStatisticsRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/settings': {
+      id: '/workspace/settings'
+      path: '/settings'
+      fullPath: '/workspace/settings'
+      preLoaderRoute: typeof WorkspaceSettingsRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/login': {
+      id: '/workspace/login'
+      path: '/login'
+      fullPath: '/workspace/login'
+      preLoaderRoute: typeof WorkspaceLoginRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/leads': {
+      id: '/workspace/leads'
+      path: '/leads'
+      fullPath: '/workspace/leads'
+      preLoaderRoute: typeof WorkspaceLeadsRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/dashboard': {
+      id: '/workspace/dashboard'
+      path: '/dashboard'
+      fullPath: '/workspace/dashboard'
+      preLoaderRoute: typeof WorkspaceDashboardRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
   }
 }
+
+interface WorkspaceRouteChildren {
+  WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
+  WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
+  WorkspaceLoginRoute: typeof WorkspaceLoginRoute
+  WorkspaceSettingsRoute: typeof WorkspaceSettingsRoute
+  WorkspaceStatisticsRoute: typeof WorkspaceStatisticsRoute
+}
+
+const WorkspaceRouteChildren: WorkspaceRouteChildren = {
+  WorkspaceDashboardRoute: WorkspaceDashboardRoute,
+  WorkspaceLeadsRoute: WorkspaceLeadsRoute,
+  WorkspaceLoginRoute: WorkspaceLoginRoute,
+  WorkspaceSettingsRoute: WorkspaceSettingsRoute,
+  WorkspaceStatisticsRoute: WorkspaceStatisticsRoute,
+}
+
+const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
+  WorkspaceRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -456,6 +591,7 @@ const rootRouteChildren: RootRouteChildren = {
   VozvratZalogaArendaRoute: VozvratZalogaArendaRoute,
   VyselenieArendatoraRoute: VyselenieArendatoraRoute,
   VzyskanieZadolzhennostiRoute: VzyskanieZadolzhennostiRoute,
+  WorkspaceRoute: WorkspaceRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
