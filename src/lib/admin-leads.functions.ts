@@ -51,7 +51,7 @@ export const updateLeadFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertAdmin(context.userId);
-    const patch: Record<string, unknown> = {};
+    const patch: { status?: "new" | "in_progress" | "waiting" | "closed"; admin_notes?: string | null } = {};
     if (data.status !== undefined) patch.status = data.status;
     if (data.admin_notes !== undefined) patch.admin_notes = data.admin_notes;
     const { error } = await supabaseAdmin.from("leads").update(patch).eq("id", data.id);
