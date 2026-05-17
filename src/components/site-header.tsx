@@ -25,9 +25,18 @@ export function SiteHeader() {
     <header
       className={`fixed inset-x-0 top-0 z-40 transition-all duration-500 ${
         scrolled
-          ? "bg-background/70 backdrop-blur-xl shadow-[0_8px_30px_rgba(47,41,37,0.06)]"
-          : "bg-transparent"
+          ? "shadow-[0_8px_30px_rgba(0,0,0,0.04)]"
+          : ""
       }`}
+      style={
+        scrolled
+          ? {
+              backgroundColor: "rgba(245,241,235,0.72)",
+              backdropFilter: "blur(18px)",
+              WebkitBackdropFilter: "blur(18px)",
+            }
+          : { backgroundColor: "transparent" }
+      }
     >
       <div className="container-wide flex h-20 items-center justify-between md:h-24">
         <Link to="/" className="flex flex-col leading-tight">
