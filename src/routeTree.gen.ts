@@ -9,8 +9,56 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RepresentationAbroadRouteImport } from './routes/representation-abroad'
+import { Route as RepresentationRouteImport } from './routes/representation'
+import { Route as RentalDisputesRouteImport } from './routes/rental-disputes'
+import { Route as RealEstateRouteImport } from './routes/real-estate'
+import { Route as LitigationRouteImport } from './routes/litigation'
+import { Route as ContractsRouteImport } from './routes/contracts'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
 import { Route as IndexRouteImport } from './routes/index'
 
+const RepresentationAbroadRoute = RepresentationAbroadRouteImport.update({
+  id: '/representation-abroad',
+  path: '/representation-abroad',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepresentationRoute = RepresentationRouteImport.update({
+  id: '/representation',
+  path: '/representation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RentalDisputesRoute = RentalDisputesRouteImport.update({
+  id: '/rental-disputes',
+  path: '/rental-disputes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RealEstateRoute = RealEstateRouteImport.update({
+  id: '/real-estate',
+  path: '/real-estate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LitigationRoute = LitigationRouteImport.update({
+  id: '/litigation',
+  path: '/litigation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContractsRoute = ContractsRouteImport.update({
+  id: '/contracts',
+  path: '/contracts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommercialRentRoute = CommercialRentRouteImport.update({
+  id: '/commercial-rent',
+  path: '/commercial-rent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +67,144 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/commercial-rent': typeof CommercialRentRoute
+  '/contact': typeof ContactRoute
+  '/contracts': typeof ContractsRoute
+  '/litigation': typeof LitigationRoute
+  '/real-estate': typeof RealEstateRoute
+  '/rental-disputes': typeof RentalDisputesRoute
+  '/representation': typeof RepresentationRoute
+  '/representation-abroad': typeof RepresentationAbroadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/commercial-rent': typeof CommercialRentRoute
+  '/contact': typeof ContactRoute
+  '/contracts': typeof ContractsRoute
+  '/litigation': typeof LitigationRoute
+  '/real-estate': typeof RealEstateRoute
+  '/rental-disputes': typeof RentalDisputesRoute
+  '/representation': typeof RepresentationRoute
+  '/representation-abroad': typeof RepresentationAbroadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/commercial-rent': typeof CommercialRentRoute
+  '/contact': typeof ContactRoute
+  '/contracts': typeof ContractsRoute
+  '/litigation': typeof LitigationRoute
+  '/real-estate': typeof RealEstateRoute
+  '/rental-disputes': typeof RentalDisputesRoute
+  '/representation': typeof RepresentationRoute
+  '/representation-abroad': typeof RepresentationAbroadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/commercial-rent'
+    | '/contact'
+    | '/contracts'
+    | '/litigation'
+    | '/real-estate'
+    | '/rental-disputes'
+    | '/representation'
+    | '/representation-abroad'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/commercial-rent'
+    | '/contact'
+    | '/contracts'
+    | '/litigation'
+    | '/real-estate'
+    | '/rental-disputes'
+    | '/representation'
+    | '/representation-abroad'
+  id:
+    | '__root__'
+    | '/'
+    | '/commercial-rent'
+    | '/contact'
+    | '/contracts'
+    | '/litigation'
+    | '/real-estate'
+    | '/rental-disputes'
+    | '/representation'
+    | '/representation-abroad'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CommercialRentRoute: typeof CommercialRentRoute
+  ContactRoute: typeof ContactRoute
+  ContractsRoute: typeof ContractsRoute
+  LitigationRoute: typeof LitigationRoute
+  RealEstateRoute: typeof RealEstateRoute
+  RentalDisputesRoute: typeof RentalDisputesRoute
+  RepresentationRoute: typeof RepresentationRoute
+  RepresentationAbroadRoute: typeof RepresentationAbroadRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/representation-abroad': {
+      id: '/representation-abroad'
+      path: '/representation-abroad'
+      fullPath: '/representation-abroad'
+      preLoaderRoute: typeof RepresentationAbroadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/representation': {
+      id: '/representation'
+      path: '/representation'
+      fullPath: '/representation'
+      preLoaderRoute: typeof RepresentationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rental-disputes': {
+      id: '/rental-disputes'
+      path: '/rental-disputes'
+      fullPath: '/rental-disputes'
+      preLoaderRoute: typeof RentalDisputesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/real-estate': {
+      id: '/real-estate'
+      path: '/real-estate'
+      fullPath: '/real-estate'
+      preLoaderRoute: typeof RealEstateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/litigation': {
+      id: '/litigation'
+      path: '/litigation'
+      fullPath: '/litigation'
+      preLoaderRoute: typeof LitigationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contracts': {
+      id: '/contracts'
+      path: '/contracts'
+      fullPath: '/contracts'
+      preLoaderRoute: typeof ContractsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/commercial-rent': {
+      id: '/commercial-rent'
+      path: '/commercial-rent'
+      fullPath: '/commercial-rent'
+      preLoaderRoute: typeof CommercialRentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,7 +217,25 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CommercialRentRoute: CommercialRentRoute,
+  ContactRoute: ContactRoute,
+  ContractsRoute: ContractsRoute,
+  LitigationRoute: LitigationRoute,
+  RealEstateRoute: RealEstateRoute,
+  RentalDisputesRoute: RentalDisputesRoute,
+  RepresentationRoute: RepresentationRoute,
+  RepresentationAbroadRoute: RepresentationAbroadRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
