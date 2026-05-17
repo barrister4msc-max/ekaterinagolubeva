@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useSiteSettings, heroSrc } from "@/hooks/use-site-settings";
 import { Upload, LogOut, Save, ArrowUpRight } from "lucide-react";
+import { LeadsAdmin } from "@/components/leads-admin";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -172,6 +173,8 @@ function AdminPage() {
           </div>
         </div>
       </div>
+
+      <LeadsAdmin />
     </main>
   );
 }
