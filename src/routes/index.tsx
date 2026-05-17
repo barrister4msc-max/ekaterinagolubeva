@@ -110,9 +110,9 @@ function HomePage() {
             </div>
           </div>
 
-          <div className="relative order-1 md:order-2 md:col-span-5">
+          <div className="relative order-1 md:order-2 md:col-span-5 md:mt-10 lg:mt-16">
             <div
-              className="relative mx-auto w-full max-w-[360px] overflow-hidden rounded-[24px] md:mx-0 md:ml-auto md:max-w-[420px]"
+              className="relative mx-auto w-full max-w-[360px] overflow-hidden rounded-[24px] md:mx-0 md:mr-auto md:max-w-[420px]"
             >
               <img
                 src={url ? heroSrc(url, 900) : heroImg}
