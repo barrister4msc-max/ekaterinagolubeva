@@ -59,12 +59,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Екатерина Голубева — Premium Legal Real Estate Advisor в Москве" },
-      { name: "description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров в Москве, МО и дистанционно по России." },
-      { name: "author", content: "Екатерина Голубева" },
-      { property: "og:site_name", content: "Екатерина Голубева" },
+      { title: "Legal Advisor — Premium Legal Real Estate Advisor в Москве" },
+      { name: "description", content: "Спокойное юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и дистанционно по России." },
+      { name: "author", content: "Legal Advisor" },
+      { property: "og:site_name", content: "Legal Advisor" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:title", content: "Legal Advisor — Premium Legal Real Estate Advisor в Москве" },
+      { name: "twitter:title", content: "Legal Advisor — Premium Legal Real Estate Advisor в Москве" },
+      { property: "og:description", content: "Спокойное юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и дистанционно по России." },
+      { name: "twitter:description", content: "Спокойное юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и дистанционно по России." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/38278110-5fc0-49c8-a56d-fd6c00749661/id-preview-846f4bfd--0172752e-9cee-4e4a-ad5c-82ad0cbd7785.lovable.app-1779049069059.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/38278110-5fc0-49c8-a56d-fd6c00749661/id-preview-846f4bfd--0172752e-9cee-4e4a-ad5c-82ad0cbd7785.lovable.app-1779049069059.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -99,9 +105,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <SiteHeader />
-      <div className="pt-20 md:pt-24">
-        <Outlet />
-      </div>
+      <Outlet />
       <SiteFooter />
       <FloatingMessengers />
     </QueryClientProvider>
