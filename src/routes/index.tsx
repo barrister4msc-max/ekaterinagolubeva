@@ -7,6 +7,7 @@ import {
 import heroImg from "@/assets/hero-advisor.jpg";
 import aboutImg from "@/assets/about-portrait.jpg";
 import moscowImg from "@/assets/moscow-architecture.jpg";
+import { useSiteSettings, heroSrc, heroSrcSet } from "@/hooks/use-site-settings";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -66,6 +67,11 @@ const reviews = [
 const geo = ["Москва", "Подольск", "Химки", "Мытищи", "Красногорск", "Одинцово"];
 
 function HomePage() {
+  const { settings } = useSiteSettings();
+  const url = settings.hero_image_url;
+  const posX = settings.hero_object_position_x;
+  const posY = settings.hero_object_position_y;
+  const scale = settings.hero_scale;
   return (
     <main>
       {/* HERO */}
@@ -103,13 +109,21 @@ function HomePage() {
           </div>
 
           <div className="md:col-span-6">
-            <div className="relative md:-mr-[calc((100vw-min(100vw,1280px))/2)] md:-mt-44 md:mb-[-4rem]">
+            <div className="relative overflow-hidden md:-mr-[calc((100vw-min(100vw,1280px))/2)] md:-mt-44 md:mb-[-4rem]">
               <img
-                src={heroImg}
+                src={url ? heroSrc(url, 1080) : heroImg}
+                srcSet={url ? heroSrcSet(url) : undefined}
+                sizes="(min-width: 768px) 50vw, 100vw"
                 alt="Екатерина Голубева — Premium Legal Real Estate Advisor"
                 width={1080}
                 height={1350}
+                fetchPriority="high"
                 className="aspect-[4/5] w-full object-cover md:aspect-auto md:h-[calc(100vh-0px)] md:max-h-[760px]"
+                style={{
+                  objectPosition: `${posX}% ${posY}%`,
+                  transform: scale !== 1 ? `scale(${scale})` : undefined,
+                  transformOrigin: `${posX}% ${posY}%`,
+                }}
               />
             </div>
           </div>

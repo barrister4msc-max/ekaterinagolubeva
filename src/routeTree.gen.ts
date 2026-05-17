@@ -21,11 +21,13 @@ import { Route as RealEstateRouteImport } from './routes/real-estate'
 import { Route as ProverkaKvartiryMoskvaRouteImport } from './routes/proverka-kvartiry-moskva'
 import { Route as ProverkaDogovoraRouteImport } from './routes/proverka-dogovora'
 import { Route as NedvizhimostRouteImport } from './routes/nedvizhimost'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as LitigationRouteImport } from './routes/litigation'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
 import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spory'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
 const VzyskanieZadolzhennostiRoute = VzyskanieZadolzhennostiRouteImport.update({
@@ -88,6 +90,11 @@ const NedvizhimostRoute = NedvizhimostRouteImport.update({
   path: '/nedvizhimost',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LitigationRoute = LitigationRouteImport.update({
   id: '/litigation',
   path: '/litigation',
@@ -113,6 +120,11 @@ const ArbitrazhnyeSporyRoute = ArbitrazhnyeSporyRouteImport.update({
   path: '/arbitrazhnye-spory',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -121,11 +133,13 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
   '/litigation': typeof LitigationRoute
+  '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
   '/proverka-dogovora': typeof ProverkaDogovoraRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
@@ -141,11 +155,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
   '/litigation': typeof LitigationRoute
+  '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
   '/proverka-dogovora': typeof ProverkaDogovoraRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
@@ -162,11 +178,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
   '/litigation': typeof LitigationRoute
+  '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
   '/proverka-dogovora': typeof ProverkaDogovoraRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
@@ -184,11 +202,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
     | '/contact'
     | '/contracts'
     | '/litigation'
+    | '/login'
     | '/nedvizhimost'
     | '/proverka-dogovora'
     | '/proverka-kvartiry-moskva'
@@ -204,11 +224,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
     | '/contact'
     | '/contracts'
     | '/litigation'
+    | '/login'
     | '/nedvizhimost'
     | '/proverka-dogovora'
     | '/proverka-kvartiry-moskva'
@@ -224,11 +246,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
     | '/contact'
     | '/contracts'
     | '/litigation'
+    | '/login'
     | '/nedvizhimost'
     | '/proverka-dogovora'
     | '/proverka-kvartiry-moskva'
@@ -245,11 +269,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   ArbitrazhnyeSporyRoute: typeof ArbitrazhnyeSporyRoute
   CommercialRentRoute: typeof CommercialRentRoute
   ContactRoute: typeof ContactRoute
   ContractsRoute: typeof ContractsRoute
   LitigationRoute: typeof LitigationRoute
+  LoginRoute: typeof LoginRoute
   NedvizhimostRoute: typeof NedvizhimostRoute
   ProverkaDogovoraRoute: typeof ProverkaDogovoraRoute
   ProverkaKvartiryMoskvaRoute: typeof ProverkaKvartiryMoskvaRoute
@@ -350,6 +376,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NedvizhimostRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/litigation': {
       id: '/litigation'
       path: '/litigation'
@@ -385,6 +418,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ArbitrazhnyeSporyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -397,11 +437,13 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   ArbitrazhnyeSporyRoute: ArbitrazhnyeSporyRoute,
   CommercialRentRoute: CommercialRentRoute,
   ContactRoute: ContactRoute,
   ContractsRoute: ContractsRoute,
   LitigationRoute: LitigationRoute,
+  LoginRoute: LoginRoute,
   NedvizhimostRoute: NedvizhimostRoute,
   ProverkaDogovoraRoute: ProverkaDogovoraRoute,
   ProverkaKvartiryMoskvaRoute: ProverkaKvartiryMoskvaRoute,
