@@ -111,7 +111,7 @@ function ContactPage() {
           phone: phone.trim(),
           contact: contact.trim() || undefined,
           original_text: originalText.trim(),
-          category: (cat as never) ?? undefined,
+          category: (cat && CATEGORY_LABEL[cat] ? cat : null) as never,
           qa: finalQa,
         },
       });
