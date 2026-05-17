@@ -79,9 +79,8 @@ function HomePage() {
         <div className="container-wide relative grid items-center gap-8 pb-10 pt-24 md:grid-cols-12 md:gap-16 md:pb-14 md:pt-28">
           <div className="relative z-10 md:col-span-7">
             <div className="eyebrow mb-7">Premium Legal Real Estate Advisor</div>
-            <h1 className="max-w-[620px] text-[2.4rem] leading-[1.1] md:text-[4rem] md:leading-[1.08]">
-              Защита недвижимости,<br/>
-              договоров<br/>
+            <h1 className="max-w-[620px] text-[2rem] leading-[1.12] sm:text-[2.4rem] md:text-[3rem] md:leading-[1.1] lg:text-[3.6rem] xl:text-[4rem] xl:leading-[1.08]">
+              Защита недвижимости, договоров{" "}
               <span className="italic" style={{ color: "#B89B72", opacity: 0.82 }}>и судебных интересов</span>
             </h1>
             <p className="mt-8 max-w-[560px] text-base leading-relaxed text-foreground/70 md:text-lg">
