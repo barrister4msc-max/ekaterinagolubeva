@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/proverka-kvartiry-moskva")({
   head: () => ({
     meta: [
-      { title: "Проверка квартиры перед покупкой в Москве | Legal Advisor" },
+      { title: "Проверка квартиры перед покупкой в Москве | Екатерина Голубева" },
       { name: "description", content: "Полная юридическая проверка квартиры: история прав, обременения, аресты, риски оспаривания сделки. Москва и МО." },
     ],
   }),

@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/contracts")({
   head: () => ({
     meta: [
-      { title: "Договоры — проверка и составление | Legal Advisor" },
+      { title: "Договоры — проверка и составление | Екатерина Голубева" },
       { name: "description", content: "Проверка и составление договоров: подряд, поставка, услуги, аренда. Протоколы разногласий и защита интересов." },
       { property: "og:title", content: "Договоры — точные формулировки" },
       { property: "og:description", content: "Каждая фраза договора работает на вашу защиту." },

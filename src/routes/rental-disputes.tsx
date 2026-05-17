@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/rental-disputes")({
   head: () => ({
     meta: [
-      { title: "Споры по аренде недвижимости | Legal Advisor" },
+      { title: "Споры по аренде недвижимости | Екатерина Голубева" },
       { name: "description", content: "Споры с арендаторами, возврат залога, выселение, задолженность, порча имущества — спокойно и без эмоций." },
       { property: "og:title", content: "Споры по аренде — защита интересов" },
       { property: "og:description", content: "Помогаю собственникам и арендаторам выходить из конфликтов." },

@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/arbitrazhnye-spory")({
   head: () => ({
     meta: [
-      { title: "Арбитражные споры — ведение дел | Legal Advisor" },
+      { title: "Арбитражные споры — ведение дел | Екатерина Голубева" },
       { name: "description", content: "Ведение арбитражных дел: корпоративные споры, договорные, банкротство, взыскание. Полное представительство в арбитражном суде." },
     ],
   }),

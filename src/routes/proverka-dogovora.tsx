@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/proverka-dogovora")({
   head: () => ({
     meta: [
-      { title: "Проверка договора юристом | Legal Advisor" },
+      { title: "Проверка договора юристом | Екатерина Голубева" },
       { name: "description", content: "Юридическая проверка любого договора: подряд, поставка, услуги, аренда. Точечные замечания и протокол разногласий." },
     ],
   }),

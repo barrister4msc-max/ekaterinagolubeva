@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/representation-abroad")({
   head: () => ({
     meta: [
-      { title: "Представительство для клиентов за границей | Legal Advisor" },
+      { title: "Представительство для клиентов за границей | Екатерина Голубева" },
       { name: "description", content: "Сделки, суды, наследство, доверенности и аренда в России без необходимости личного присутствия. Trusted Representative in Russia." },
       { property: "og:title", content: "Представительство интересов для клиентов за границей" },
       { property: "og:description", content: "Trusted Representative in Russia — контроль ситуации на месте." },

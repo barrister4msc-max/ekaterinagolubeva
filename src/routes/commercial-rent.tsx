@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/commercial-rent")({
   head: () => ({
     meta: [
-      { title: "Коммерческая аренда — сопровождение и споры | Legal Advisor" },
+      { title: "Коммерческая аренда — сопровождение и споры | Екатерина Голубева" },
       { name: "description", content: "Договоры коммерческой аренды, депозит, досрочный выход, пересмотр условий, защита от одностороннего расторжения." },
       { property: "og:title", content: "Коммерческая аренда" },
       { property: "og:description", content: "Спокойная работа с арендой коммерческой недвижимости." },

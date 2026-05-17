@@ -11,10 +11,10 @@ import moscowImg from "@/assets/moscow-architecture.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Legal Advisor — Premium Legal Real Estate Advisor в Москве" },
-      { name: "description", content: "Спокойное юридическое сопровождение недвижимости, аренды, договоров и судебных споров. Москва, Подольск, МО и дистанционно по России." },
-      { property: "og:title", content: "Legal Advisor — Premium Legal Real Estate Advisor" },
-      { property: "og:description", content: "Защита недвижимости, договоров и судебных интересов. Trusted Representative in Russia." },
+      { title: "Екатерина Голубева — Premium Legal Real Estate Advisor в Москве" },
+      { name: "description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров. Москва, МО и дистанционно по России." },
+      { property: "og:title", content: "Екатерина Голубева — Premium Legal Real Estate Advisor" },
+      { property: "og:description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров. Trusted Representative in Russia." },
       { property: "og:url", content: "https://example.com/" },
     ],
     links: [{ rel: "canonical", href: "https://example.com/" }],
@@ -74,13 +74,12 @@ function HomePage() {
           <div className="md:col-span-6">
             <div className="eyebrow mb-6">Premium Legal Real Estate Advisor</div>
             <h1 className="text-[2.6rem] leading-[1.02] md:text-[4.4rem]">
-              Защита недвижимости,<br/>
-              договоров<br/>
-              <span className="italic text-primary">и судебных интересов</span>
+              Екатерина<br/>
+              <span className="italic text-primary">Голубева</span>
             </h1>
             <p className="mt-7 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
-              Юридическое сопровождение недвижимости, аренды, договоров и судебных споров
-              в Москве, Подольске, Московской области и дистанционно по России.
+              Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров
+              в Москве, МО и дистанционно по России.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link to="/contact" className="btn-primary">

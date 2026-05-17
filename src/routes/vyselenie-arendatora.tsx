@@ -4,7 +4,7 @@ import { PageShell, BulletSection } from "@/components/page-shell";
 export const Route = createFileRoute("/vyselenie-arendatora")({
   head: () => ({
     meta: [
-      { title: "Выселение арендатора — досудебно и через суд | Legal Advisor" },
+      { title: "Выселение арендатора — досудебно и через суд | Екатерина Голубева" },
       { name: "description", content: "Выселение проблемного арендатора: уведомления, претензии, судебное выселение, исполнительное производство." },
     ],
   }),
