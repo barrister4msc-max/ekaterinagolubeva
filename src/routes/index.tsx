@@ -67,6 +67,11 @@ const reviews = [
 const geo = ["Москва", "Подольск", "Химки", "Мытищи", "Красногорск", "Одинцово"];
 
 function HomePage() {
+  const { settings } = useSiteSettings();
+  const url = settings.hero_image_url;
+  const posX = settings.hero_object_position_x;
+  const posY = settings.hero_object_position_y;
+  const scale = settings.hero_scale;
   return (
     <main>
       {/* HERO */}
