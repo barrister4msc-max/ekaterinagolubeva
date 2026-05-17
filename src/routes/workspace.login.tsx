@@ -116,9 +116,9 @@ function WorkspaceLogin() {
           </button>
         </div>
 
-        <Link to="/" className="mt-6 flex items-center justify-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground hover:text-primary">
+        <a href="/" className="mt-6 flex items-center justify-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground hover:text-primary">
           <ArrowLeft size={12}/> На сайт
-        </Link>
+        </a>
       </div>
     </main>
   );

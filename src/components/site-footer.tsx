@@ -49,7 +49,7 @@ export function SiteFooter() {
               to="/workspace/login"
               className="text-[11px] uppercase tracking-[0.2em] text-foreground/35 transition hover:text-primary"
             >
-              Админ-вход
+              Advisor
             </Link>
           </div>
         </div>

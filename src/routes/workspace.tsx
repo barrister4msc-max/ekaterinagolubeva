@@ -92,9 +92,9 @@ function WorkspaceLayout() {
               ))}
             </nav>
             <div className="mt-6 border-t border-border/60 pt-4">
-              <Link to="/" className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-primary">
+              <a href="/" className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-primary">
                 <ArrowLeft size={12}/> На сайт
-              </Link>
+              </a>
               <button
                 onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/workspace/login" }))}
                 className="flex w-full items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-destructive"
