@@ -30,6 +30,7 @@ import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
 import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spory'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WorkspaceStatisticsRouteImport } from './routes/workspace.statistics'
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
@@ -139,6 +140,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspaceStatisticsRoute = WorkspaceStatisticsRouteImport.update({
+  id: '/statistics',
+  path: '/statistics',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 const WorkspaceLoginRoute = WorkspaceLoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -233,6 +241,7 @@ export interface FileRoutesById {
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -261,6 +270,7 @@ export interface FileRouteTypes {
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/statistics'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -287,6 +297,7 @@ export interface FileRouteTypes {
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/statistics'
   id:
     | '__root__'
     | '/'
@@ -313,6 +324,7 @@ export interface FileRouteTypes {
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/statistics'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -488,6 +500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workspace/statistics': {
+      id: '/workspace/statistics'
+      path: '/statistics'
+      fullPath: '/workspace/statistics'
+      preLoaderRoute: typeof WorkspaceStatisticsRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/workspace/login': {
       id: '/workspace/login'
       path: '/login'
@@ -516,12 +535,14 @@ interface WorkspaceRouteChildren {
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
   WorkspaceLoginRoute: typeof WorkspaceLoginRoute
+  WorkspaceStatisticsRoute: typeof WorkspaceStatisticsRoute
 }
 
 const WorkspaceRouteChildren: WorkspaceRouteChildren = {
   WorkspaceDashboardRoute: WorkspaceDashboardRoute,
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
   WorkspaceLoginRoute: WorkspaceLoginRoute,
+  WorkspaceStatisticsRoute: WorkspaceStatisticsRoute,
 }
 
 const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
