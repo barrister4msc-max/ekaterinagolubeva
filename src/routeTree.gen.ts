@@ -9,8 +9,104 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VzyskanieZadolzhennostiRouteImport } from './routes/vzyskanie-zadolzhennosti'
+import { Route as VyselenieArendatoraRouteImport } from './routes/vyselenie-arendatora'
+import { Route as VozvratZalogaArendaRouteImport } from './routes/vozvrat-zaloga-arenda'
+import { Route as SporSArendatoromRouteImport } from './routes/spor-s-arendatorom'
+import { Route as SoprovozhdenieSdelkiRouteImport } from './routes/soprovozhdenie-sdelki'
+import { Route as RepresentationAbroadRouteImport } from './routes/representation-abroad'
+import { Route as RepresentationRouteImport } from './routes/representation'
+import { Route as RentalDisputesRouteImport } from './routes/rental-disputes'
+import { Route as RealEstateRouteImport } from './routes/real-estate'
+import { Route as ProverkaKvartiryMoskvaRouteImport } from './routes/proverka-kvartiry-moskva'
+import { Route as ProverkaDogovoraRouteImport } from './routes/proverka-dogovora'
+import { Route as LitigationRouteImport } from './routes/litigation'
+import { Route as ContractsRouteImport } from './routes/contracts'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
+import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spory'
 import { Route as IndexRouteImport } from './routes/index'
 
+const VzyskanieZadolzhennostiRoute = VzyskanieZadolzhennostiRouteImport.update({
+  id: '/vzyskanie-zadolzhennosti',
+  path: '/vzyskanie-zadolzhennosti',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VyselenieArendatoraRoute = VyselenieArendatoraRouteImport.update({
+  id: '/vyselenie-arendatora',
+  path: '/vyselenie-arendatora',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VozvratZalogaArendaRoute = VozvratZalogaArendaRouteImport.update({
+  id: '/vozvrat-zaloga-arenda',
+  path: '/vozvrat-zaloga-arenda',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SporSArendatoromRoute = SporSArendatoromRouteImport.update({
+  id: '/spor-s-arendatorom',
+  path: '/spor-s-arendatorom',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SoprovozhdenieSdelkiRoute = SoprovozhdenieSdelkiRouteImport.update({
+  id: '/soprovozhdenie-sdelki',
+  path: '/soprovozhdenie-sdelki',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepresentationAbroadRoute = RepresentationAbroadRouteImport.update({
+  id: '/representation-abroad',
+  path: '/representation-abroad',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RepresentationRoute = RepresentationRouteImport.update({
+  id: '/representation',
+  path: '/representation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RentalDisputesRoute = RentalDisputesRouteImport.update({
+  id: '/rental-disputes',
+  path: '/rental-disputes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RealEstateRoute = RealEstateRouteImport.update({
+  id: '/real-estate',
+  path: '/real-estate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProverkaKvartiryMoskvaRoute = ProverkaKvartiryMoskvaRouteImport.update({
+  id: '/proverka-kvartiry-moskva',
+  path: '/proverka-kvartiry-moskva',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProverkaDogovoraRoute = ProverkaDogovoraRouteImport.update({
+  id: '/proverka-dogovora',
+  path: '/proverka-dogovora',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LitigationRoute = LitigationRouteImport.update({
+  id: '/litigation',
+  path: '/litigation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContractsRoute = ContractsRouteImport.update({
+  id: '/contracts',
+  path: '/contracts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommercialRentRoute = CommercialRentRouteImport.update({
+  id: '/commercial-rent',
+  path: '/commercial-rent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ArbitrazhnyeSporyRoute = ArbitrazhnyeSporyRouteImport.update({
+  id: '/arbitrazhnye-spory',
+  path: '/arbitrazhnye-spory',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +115,256 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
+  '/commercial-rent': typeof CommercialRentRoute
+  '/contact': typeof ContactRoute
+  '/contracts': typeof ContractsRoute
+  '/litigation': typeof LitigationRoute
+  '/proverka-dogovora': typeof ProverkaDogovoraRoute
+  '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
+  '/real-estate': typeof RealEstateRoute
+  '/rental-disputes': typeof RentalDisputesRoute
+  '/representation': typeof RepresentationRoute
+  '/representation-abroad': typeof RepresentationAbroadRoute
+  '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
+  '/spor-s-arendatorom': typeof SporSArendatoromRoute
+  '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
+  '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
+  '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
+  '/commercial-rent': typeof CommercialRentRoute
+  '/contact': typeof ContactRoute
+  '/contracts': typeof ContractsRoute
+  '/litigation': typeof LitigationRoute
+  '/proverka-dogovora': typeof ProverkaDogovoraRoute
+  '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
+  '/real-estate': typeof RealEstateRoute
+  '/rental-disputes': typeof RentalDisputesRoute
+  '/representation': typeof RepresentationRoute
+  '/representation-abroad': typeof RepresentationAbroadRoute
+  '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
+  '/spor-s-arendatorom': typeof SporSArendatoromRoute
+  '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
+  '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
+  '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
+  '/commercial-rent': typeof CommercialRentRoute
+  '/contact': typeof ContactRoute
+  '/contracts': typeof ContractsRoute
+  '/litigation': typeof LitigationRoute
+  '/proverka-dogovora': typeof ProverkaDogovoraRoute
+  '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
+  '/real-estate': typeof RealEstateRoute
+  '/rental-disputes': typeof RentalDisputesRoute
+  '/representation': typeof RepresentationRoute
+  '/representation-abroad': typeof RepresentationAbroadRoute
+  '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
+  '/spor-s-arendatorom': typeof SporSArendatoromRoute
+  '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
+  '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
+  '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/arbitrazhnye-spory'
+    | '/commercial-rent'
+    | '/contact'
+    | '/contracts'
+    | '/litigation'
+    | '/proverka-dogovora'
+    | '/proverka-kvartiry-moskva'
+    | '/real-estate'
+    | '/rental-disputes'
+    | '/representation'
+    | '/representation-abroad'
+    | '/soprovozhdenie-sdelki'
+    | '/spor-s-arendatorom'
+    | '/vozvrat-zaloga-arenda'
+    | '/vyselenie-arendatora'
+    | '/vzyskanie-zadolzhennosti'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/arbitrazhnye-spory'
+    | '/commercial-rent'
+    | '/contact'
+    | '/contracts'
+    | '/litigation'
+    | '/proverka-dogovora'
+    | '/proverka-kvartiry-moskva'
+    | '/real-estate'
+    | '/rental-disputes'
+    | '/representation'
+    | '/representation-abroad'
+    | '/soprovozhdenie-sdelki'
+    | '/spor-s-arendatorom'
+    | '/vozvrat-zaloga-arenda'
+    | '/vyselenie-arendatora'
+    | '/vzyskanie-zadolzhennosti'
+  id:
+    | '__root__'
+    | '/'
+    | '/arbitrazhnye-spory'
+    | '/commercial-rent'
+    | '/contact'
+    | '/contracts'
+    | '/litigation'
+    | '/proverka-dogovora'
+    | '/proverka-kvartiry-moskva'
+    | '/real-estate'
+    | '/rental-disputes'
+    | '/representation'
+    | '/representation-abroad'
+    | '/soprovozhdenie-sdelki'
+    | '/spor-s-arendatorom'
+    | '/vozvrat-zaloga-arenda'
+    | '/vyselenie-arendatora'
+    | '/vzyskanie-zadolzhennosti'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ArbitrazhnyeSporyRoute: typeof ArbitrazhnyeSporyRoute
+  CommercialRentRoute: typeof CommercialRentRoute
+  ContactRoute: typeof ContactRoute
+  ContractsRoute: typeof ContractsRoute
+  LitigationRoute: typeof LitigationRoute
+  ProverkaDogovoraRoute: typeof ProverkaDogovoraRoute
+  ProverkaKvartiryMoskvaRoute: typeof ProverkaKvartiryMoskvaRoute
+  RealEstateRoute: typeof RealEstateRoute
+  RentalDisputesRoute: typeof RentalDisputesRoute
+  RepresentationRoute: typeof RepresentationRoute
+  RepresentationAbroadRoute: typeof RepresentationAbroadRoute
+  SoprovozhdenieSdelkiRoute: typeof SoprovozhdenieSdelkiRoute
+  SporSArendatoromRoute: typeof SporSArendatoromRoute
+  VozvratZalogaArendaRoute: typeof VozvratZalogaArendaRoute
+  VyselenieArendatoraRoute: typeof VyselenieArendatoraRoute
+  VzyskanieZadolzhennostiRoute: typeof VzyskanieZadolzhennostiRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/vzyskanie-zadolzhennosti': {
+      id: '/vzyskanie-zadolzhennosti'
+      path: '/vzyskanie-zadolzhennosti'
+      fullPath: '/vzyskanie-zadolzhennosti'
+      preLoaderRoute: typeof VzyskanieZadolzhennostiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vyselenie-arendatora': {
+      id: '/vyselenie-arendatora'
+      path: '/vyselenie-arendatora'
+      fullPath: '/vyselenie-arendatora'
+      preLoaderRoute: typeof VyselenieArendatoraRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vozvrat-zaloga-arenda': {
+      id: '/vozvrat-zaloga-arenda'
+      path: '/vozvrat-zaloga-arenda'
+      fullPath: '/vozvrat-zaloga-arenda'
+      preLoaderRoute: typeof VozvratZalogaArendaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/spor-s-arendatorom': {
+      id: '/spor-s-arendatorom'
+      path: '/spor-s-arendatorom'
+      fullPath: '/spor-s-arendatorom'
+      preLoaderRoute: typeof SporSArendatoromRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/soprovozhdenie-sdelki': {
+      id: '/soprovozhdenie-sdelki'
+      path: '/soprovozhdenie-sdelki'
+      fullPath: '/soprovozhdenie-sdelki'
+      preLoaderRoute: typeof SoprovozhdenieSdelkiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/representation-abroad': {
+      id: '/representation-abroad'
+      path: '/representation-abroad'
+      fullPath: '/representation-abroad'
+      preLoaderRoute: typeof RepresentationAbroadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/representation': {
+      id: '/representation'
+      path: '/representation'
+      fullPath: '/representation'
+      preLoaderRoute: typeof RepresentationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rental-disputes': {
+      id: '/rental-disputes'
+      path: '/rental-disputes'
+      fullPath: '/rental-disputes'
+      preLoaderRoute: typeof RentalDisputesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/real-estate': {
+      id: '/real-estate'
+      path: '/real-estate'
+      fullPath: '/real-estate'
+      preLoaderRoute: typeof RealEstateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/proverka-kvartiry-moskva': {
+      id: '/proverka-kvartiry-moskva'
+      path: '/proverka-kvartiry-moskva'
+      fullPath: '/proverka-kvartiry-moskva'
+      preLoaderRoute: typeof ProverkaKvartiryMoskvaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/proverka-dogovora': {
+      id: '/proverka-dogovora'
+      path: '/proverka-dogovora'
+      fullPath: '/proverka-dogovora'
+      preLoaderRoute: typeof ProverkaDogovoraRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/litigation': {
+      id: '/litigation'
+      path: '/litigation'
+      fullPath: '/litigation'
+      preLoaderRoute: typeof LitigationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contracts': {
+      id: '/contracts'
+      path: '/contracts'
+      fullPath: '/contracts'
+      preLoaderRoute: typeof ContractsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/commercial-rent': {
+      id: '/commercial-rent'
+      path: '/commercial-rent'
+      fullPath: '/commercial-rent'
+      preLoaderRoute: typeof CommercialRentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/arbitrazhnye-spory': {
+      id: '/arbitrazhnye-spory'
+      path: '/arbitrazhnye-spory'
+      fullPath: '/arbitrazhnye-spory'
+      preLoaderRoute: typeof ArbitrazhnyeSporyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,17 +377,23 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ArbitrazhnyeSporyRoute: ArbitrazhnyeSporyRoute,
+  CommercialRentRoute: CommercialRentRoute,
+  ContactRoute: ContactRoute,
+  ContractsRoute: ContractsRoute,
+  LitigationRoute: LitigationRoute,
+  ProverkaDogovoraRoute: ProverkaDogovoraRoute,
+  ProverkaKvartiryMoskvaRoute: ProverkaKvartiryMoskvaRoute,
+  RealEstateRoute: RealEstateRoute,
+  RentalDisputesRoute: RentalDisputesRoute,
+  RepresentationRoute: RepresentationRoute,
+  RepresentationAbroadRoute: RepresentationAbroadRoute,
+  SoprovozhdenieSdelkiRoute: SoprovozhdenieSdelkiRoute,
+  SporSArendatoromRoute: SporSArendatoromRoute,
+  VozvratZalogaArendaRoute: VozvratZalogaArendaRoute,
+  VyselenieArendatoraRoute: VyselenieArendatoraRoute,
+  VzyskanieZadolzhennostiRoute: VzyskanieZadolzhennostiRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
