@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as VzyskanieZadolzhennostiRouteImport } from './routes/vzyskanie-zadolzhennosti'
 import { Route as VyselenieArendatoraRouteImport } from './routes/vyselenie-arendatora'
 import { Route as VozvratZalogaArendaRouteImport } from './routes/vozvrat-zaloga-arenda'
@@ -29,7 +30,13 @@ import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
 import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spory'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 
+const WorkspaceRoute = WorkspaceRouteImport.update({
+  id: '/workspace',
+  path: '/workspace',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VzyskanieZadolzhennostiRoute = VzyskanieZadolzhennostiRouteImport.update({
   id: '/vzyskanie-zadolzhennosti',
   path: '/vzyskanie-zadolzhennosti',
@@ -130,6 +137,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspaceLoginRoute = WorkspaceLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -152,6 +164,8 @@ export interface FileRoutesByFullPath {
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/login': typeof WorkspaceLoginRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -174,6 +188,8 @@ export interface FileRoutesByTo {
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/login': typeof WorkspaceLoginRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -197,6 +213,8 @@ export interface FileRoutesById {
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
+  '/workspace': typeof WorkspaceRouteWithChildren
+  '/workspace/login': typeof WorkspaceLoginRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -221,6 +239,8 @@ export interface FileRouteTypes {
     | '/vozvrat-zaloga-arenda'
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
+    | '/workspace'
+    | '/workspace/login'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -243,6 +263,8 @@ export interface FileRouteTypes {
     | '/vozvrat-zaloga-arenda'
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
+    | '/workspace'
+    | '/workspace/login'
   id:
     | '__root__'
     | '/'
@@ -265,6 +287,8 @@ export interface FileRouteTypes {
     | '/vozvrat-zaloga-arenda'
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
+    | '/workspace'
+    | '/workspace/login'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -288,10 +312,18 @@ export interface RootRouteChildren {
   VozvratZalogaArendaRoute: typeof VozvratZalogaArendaRoute
   VyselenieArendatoraRoute: typeof VyselenieArendatoraRoute
   VzyskanieZadolzhennostiRoute: typeof VzyskanieZadolzhennostiRoute
+  WorkspaceRoute: typeof WorkspaceRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workspace': {
+      id: '/workspace'
+      path: '/workspace'
+      fullPath: '/workspace'
+      preLoaderRoute: typeof WorkspaceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/vzyskanie-zadolzhennosti': {
       id: '/vzyskanie-zadolzhennosti'
       path: '/vzyskanie-zadolzhennosti'
@@ -432,8 +464,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/workspace/login': {
+      id: '/workspace/login'
+      path: '/login'
+      fullPath: '/workspace/login'
+      preLoaderRoute: typeof WorkspaceLoginRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
   }
 }
+
+interface WorkspaceRouteChildren {
+  WorkspaceLoginRoute: typeof WorkspaceLoginRoute
+}
+
+const WorkspaceRouteChildren: WorkspaceRouteChildren = {
+  WorkspaceLoginRoute: WorkspaceLoginRoute,
+}
+
+const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
+  WorkspaceRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -456,7 +507,18 @@ const rootRouteChildren: RootRouteChildren = {
   VozvratZalogaArendaRoute: VozvratZalogaArendaRoute,
   VyselenieArendatoraRoute: VyselenieArendatoraRoute,
   VzyskanieZadolzhennostiRoute: VzyskanieZadolzhennostiRoute,
+  WorkspaceRoute: WorkspaceRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
