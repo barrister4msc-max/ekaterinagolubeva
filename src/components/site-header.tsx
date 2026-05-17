@@ -39,11 +39,14 @@ export function SiteHeader() {
       }
     >
       <div className="container-wide flex h-20 items-center justify-between md:h-24">
-        <Link to="/" className="flex flex-col leading-tight">
-          <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/70 md:text-[11px]">
+        <Link to="/" className="flex flex-col">
+          <span
+            className="text-[9px] uppercase tracking-[0.28em] md:text-[10px]"
+            style={{ color: "#B89B72", lineHeight: 1.4 }}
+          >
             Premium Legal Real Estate Advisor
           </span>
-          <span className="font-display text-base text-foreground md:text-lg">
+          <span className="mt-1.5 font-display text-lg leading-[1.1] text-foreground md:text-xl">
             Екатерина Голубева
           </span>
         </Link>
