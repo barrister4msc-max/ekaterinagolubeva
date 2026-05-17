@@ -76,19 +76,19 @@ function HomePage() {
     <main>
       {/* HERO */}
       <section className="hero-gradient relative -mt-20 border-b border-border md:-mt-24">
-        <div className="container-wide relative grid items-center gap-8 pb-10 pt-24 md:grid-cols-12 md:gap-16 md:pb-14 md:pt-28">
-          <div className="relative z-10 md:col-span-7">
-            <div className="eyebrow mb-7">Premium Legal Real Estate Advisor</div>
-            <h1 className="max-w-[620px] text-[2.4rem] leading-[1.1] md:text-[4rem] md:leading-[1.08]">
+        <div className="container-wide relative grid items-center gap-12 pb-16 pt-28 md:grid-cols-12 md:gap-24 md:pb-24 md:pt-36 lg:gap-28">
+          <div className="relative z-10 order-2 md:order-1 md:col-span-7">
+            <div className="eyebrow mb-8">Premium Legal Real Estate Advisor</div>
+            <h1 className="max-w-[560px] text-[2.1rem] leading-[1.15] md:text-[3.6rem] md:leading-[1.1]">
               Защита недвижимости,<br/>
               договоров<br/>
               <span className="italic" style={{ color: "#B89B72", opacity: 0.82 }}>и судебных интересов</span>
             </h1>
-            <p className="mt-8 max-w-[560px] text-base leading-relaxed text-foreground/70 md:text-lg">
+            <p className="mt-10 max-w-[520px] text-base leading-[1.7] text-foreground/70 md:text-lg">
               Спокойное сопровождение сделок с недвижимостью, аренды,
               договоров и судебных споров в Москве, МО и дистанционно по России.
             </p>
-            <div className="mt-10 flex flex-wrap items-center gap-3">
+            <div className="mt-12 flex flex-wrap items-center gap-3">
               <Link to="/contact" className="btn-primary">
                 Разобрать ситуацию <ArrowUpRight size={16} />
               </Link>
@@ -99,7 +99,7 @@ function HomePage() {
                 <MessageCircle size={14}/> MAX
               </a>
             </div>
-            <div className="mt-8 flex flex-wrap items-center gap-4 text-xs text-foreground/60">
+            <div className="mt-10 flex flex-wrap items-center gap-4 text-xs text-foreground/60">
               <a href="https://wa.me/79000000000" className="inline-flex items-center gap-2 hover:text-primary">
                 <MessageCircle size={14}/> WhatsApp
               </a>
@@ -108,26 +108,23 @@ function HomePage() {
             </div>
           </div>
 
-          <div className="relative md:col-span-5">
-            <div className="relative mx-auto max-w-[420px] overflow-hidden rounded-[24px] md:mx-0 md:ml-auto md:mr-2 md:mt-2 md:max-w-[400px]">
+          <div className="relative order-1 md:order-2 md:col-span-5">
+            <div className="relative mx-auto w-full max-w-[320px] overflow-hidden rounded-[20px] shadow-[0_30px_80px_-40px_rgba(47,41,37,0.35)] md:mx-0 md:ml-auto md:max-w-[380px]">
               <img
                 src={url ? heroSrc(url, 900) : heroImg}
                 srcSet={url ? heroSrcSet(url) : undefined}
-                sizes="(min-width: 768px) 34vw, 90vw"
+                sizes="(min-width: 768px) 32vw, 80vw"
                 alt="Екатерина Голубева — Premium Legal Real Estate Advisor"
                 width={900}
                 height={1125}
                 fetchPriority="high"
-                className="aspect-[4/5] w-full rounded-[24px] object-cover md:h-[510px]"
+                className="aspect-[4/5] w-full rounded-[20px] object-cover"
                 style={{
                   objectPosition: `${posX}% ${posY}%`,
                   transform: scale !== 1 ? `scale(${scale})` : undefined,
                   transformOrigin: `${posX}% ${posY}%`,
                 }}
               />
-              <div className="pointer-events-none absolute inset-0 hidden rounded-[24px] md:block" style={{
-                background: "linear-gradient(90deg, rgba(245,241,235,0.78) 0%, rgba(245,241,235,0.45) 22%, rgba(245,241,235,0.08) 55%, rgba(245,241,235,0) 100%)"
-              }} />
             </div>
           </div>
         </div>
