@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 
 const nav = [
@@ -12,16 +12,34 @@ const nav = [
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
-      <div className="container-wide flex h-16 items-center justify-between md:h-20">
-        <Link to="/" className="font-display text-lg tracking-tight md:text-xl">
-          Екатерина&nbsp;Голубева
-          <span className="ml-1 text-primary">.</span>
+    <header
+      className={`fixed inset-x-0 top-0 z-40 transition-all duration-500 ${
+        scrolled
+          ? "bg-background/70 backdrop-blur-xl shadow-[0_8px_30px_rgba(47,41,37,0.06)]"
+          : "bg-transparent"
+      }`}
+    >
+      <div className="container-wide flex h-20 items-center justify-between md:h-24">
+        <Link to="/" className="flex flex-col leading-tight">
+          <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/70 md:text-[11px]">
+            Premium Legal Real Estate Advisor
+          </span>
+          <span className="font-display text-base text-foreground md:text-lg">
+            Екатерина Голубева
+          </span>
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
+        <nav className="hidden items-center gap-9 md:flex">
           {nav.map((n) => (
             <Link
               key={n.to}
@@ -50,7 +68,7 @@ export function SiteHeader() {
       </div>
 
       {open && (
-        <div className="md:hidden border-t border-border bg-background">
+        <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-xl">
           <div className="container-wide flex flex-col py-4">
             {nav.map((n) => (
               <Link
