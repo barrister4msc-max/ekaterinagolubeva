@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { listLeadsFn } from "@/lib/admin-leads.functions";
+import { useAuth } from "@/hooks/use-auth";
 import { Inbox, AlertCircle, Clock, CheckCircle2, ArrowUpRight } from "lucide-react";
 
 export const Route = createFileRoute("/workspace/dashboard")({
