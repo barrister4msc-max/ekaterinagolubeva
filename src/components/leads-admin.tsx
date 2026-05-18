@@ -38,6 +38,7 @@ const URGENCY_LABEL: Record<NonNullable<Lead["urgency"]>, { label: string; cls: 
 export function LeadsAdmin() {
   const listLeads = useServerFn(listLeadsFn);
   const updateLead = useServerFn(updateLeadFn);
+  const { session } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
