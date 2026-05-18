@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
+import { ContactCta } from "./contact-cta";
 
 const nav = [
   { to: "/real-estate", label: "Недвижимость" },
@@ -65,9 +66,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden md:block">
-          <Link to="/contact" className="btn-header">
-            Связаться
-          </Link>
+          <ContactCta />
         </div>
 
         <button
