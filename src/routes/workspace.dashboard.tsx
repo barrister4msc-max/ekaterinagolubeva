@@ -25,15 +25,17 @@ const URGENCY_LABEL: Record<NonNullable<Lead["urgency"]>, { label: string; cls: 
 
 function Dashboard() {
   const listLeads = useServerFn(listLeadsFn);
+  const { session } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!session) return;
     listLeads({ data: {} }).then((r) => {
       setLeads((r.leads as unknown as Lead[]) ?? []);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+  }, [session]);
 
   const now = Date.now();
   const week = 7 * 24 * 60 * 60 * 1000;
