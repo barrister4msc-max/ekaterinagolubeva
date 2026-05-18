@@ -36,6 +36,7 @@ import { Route as WorkspaceSeedRouteImport } from './routes/workspace.seed'
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
+import { Route as ApiPublicSeedAdminRouteImport } from './routes/api/public/seed-admin'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -172,6 +173,11 @@ const WorkspaceDashboardRoute = WorkspaceDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const ApiPublicSeedAdminRoute = ApiPublicSeedAdminRouteImport.update({
+  id: '/api/public/seed-admin',
+  path: '/api/public/seed-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -201,6 +207,7 @@ export interface FileRoutesByFullPath {
   '/workspace/seed': typeof WorkspaceSeedRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/api/public/seed-admin': typeof ApiPublicSeedAdminRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -230,6 +237,7 @@ export interface FileRoutesByTo {
   '/workspace/seed': typeof WorkspaceSeedRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/api/public/seed-admin': typeof ApiPublicSeedAdminRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -260,6 +268,7 @@ export interface FileRoutesById {
   '/workspace/seed': typeof WorkspaceSeedRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/api/public/seed-admin': typeof ApiPublicSeedAdminRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -291,6 +300,7 @@ export interface FileRouteTypes {
     | '/workspace/seed'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/api/public/seed-admin'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -320,6 +330,7 @@ export interface FileRouteTypes {
     | '/workspace/seed'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/api/public/seed-admin'
   id:
     | '__root__'
     | '/'
@@ -349,6 +360,7 @@ export interface FileRouteTypes {
     | '/workspace/seed'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/api/public/seed-admin'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -373,6 +385,7 @@ export interface RootRouteChildren {
   VyselenieArendatoraRoute: typeof VyselenieArendatoraRoute
   VzyskanieZadolzhennostiRoute: typeof VzyskanieZadolzhennostiRoute
   WorkspaceRoute: typeof WorkspaceRouteWithChildren
+  ApiPublicSeedAdminRoute: typeof ApiPublicSeedAdminRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -566,6 +579,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceDashboardRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/api/public/seed-admin': {
+      id: '/api/public/seed-admin'
+      path: '/api/public/seed-admin'
+      fullPath: '/api/public/seed-admin'
+      preLoaderRoute: typeof ApiPublicSeedAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -613,7 +633,18 @@ const rootRouteChildren: RootRouteChildren = {
   VyselenieArendatoraRoute: VyselenieArendatoraRoute,
   VzyskanieZadolzhennostiRoute: VzyskanieZadolzhennostiRoute,
   WorkspaceRoute: WorkspaceRouteWithChildren,
+  ApiPublicSeedAdminRoute: ApiPublicSeedAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
