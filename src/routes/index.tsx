@@ -8,6 +8,7 @@ import heroImg from "@/assets/hero-advisor.jpg";
 import aboutImg from "@/assets/about-portrait.jpg";
 import moscowImg from "@/assets/moscow-architecture.jpg";
 import { useSiteSettings, heroSrc, heroSrcSet } from "@/hooks/use-site-settings";
+import { ContactCta } from "@/components/contact-cta";
 
 export const Route = createFileRoute("/")({
   head: () => ({
