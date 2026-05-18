@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { listLeadsFn } from "@/lib/admin-leads.functions";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/workspace/statistics")({
   component: Statistics,
