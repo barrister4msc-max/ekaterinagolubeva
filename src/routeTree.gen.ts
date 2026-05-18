@@ -15,6 +15,7 @@ import { Route as VyselenieArendatoraRouteImport } from './routes/vyselenie-aren
 import { Route as VozvratZalogaArendaRouteImport } from './routes/vozvrat-zaloga-arenda'
 import { Route as SporSArendatoromRouteImport } from './routes/spor-s-arendatorom'
 import { Route as SoprovozhdenieSdelkiRouteImport } from './routes/soprovozhdenie-sdelki'
+import { Route as SeedAdminRouteImport } from './routes/seed-admin'
 import { Route as RepresentationAbroadRouteImport } from './routes/representation-abroad'
 import { Route as RepresentationRouteImport } from './routes/representation'
 import { Route as RentalDisputesRouteImport } from './routes/rental-disputes'
@@ -66,6 +67,11 @@ const SporSArendatoromRoute = SporSArendatoromRouteImport.update({
 const SoprovozhdenieSdelkiRoute = SoprovozhdenieSdelkiRouteImport.update({
   id: '/soprovozhdenie-sdelki',
   path: '/soprovozhdenie-sdelki',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SeedAdminRoute = SeedAdminRouteImport.update({
+  id: '/seed-admin',
+  path: '/seed-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RepresentationAbroadRoute = RepresentationAbroadRouteImport.update({
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/rental-disputes': typeof RentalDisputesRoute
   '/representation': typeof RepresentationRoute
   '/representation-abroad': typeof RepresentationAbroadRoute
+  '/seed-admin': typeof SeedAdminRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
@@ -225,6 +232,7 @@ export interface FileRoutesByTo {
   '/rental-disputes': typeof RentalDisputesRoute
   '/representation': typeof RepresentationRoute
   '/representation-abroad': typeof RepresentationAbroadRoute
+  '/seed-admin': typeof SeedAdminRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
@@ -256,6 +264,7 @@ export interface FileRoutesById {
   '/rental-disputes': typeof RentalDisputesRoute
   '/representation': typeof RepresentationRoute
   '/representation-abroad': typeof RepresentationAbroadRoute
+  '/seed-admin': typeof SeedAdminRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
@@ -288,6 +297,7 @@ export interface FileRouteTypes {
     | '/rental-disputes'
     | '/representation'
     | '/representation-abroad'
+    | '/seed-admin'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
     | '/vozvrat-zaloga-arenda'
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/rental-disputes'
     | '/representation'
     | '/representation-abroad'
+    | '/seed-admin'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
     | '/vozvrat-zaloga-arenda'
@@ -348,6 +359,7 @@ export interface FileRouteTypes {
     | '/rental-disputes'
     | '/representation'
     | '/representation-abroad'
+    | '/seed-admin'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
     | '/vozvrat-zaloga-arenda'
@@ -379,6 +391,7 @@ export interface RootRouteChildren {
   RentalDisputesRoute: typeof RentalDisputesRoute
   RepresentationRoute: typeof RepresentationRoute
   RepresentationAbroadRoute: typeof RepresentationAbroadRoute
+  SeedAdminRoute: typeof SeedAdminRoute
   SoprovozhdenieSdelkiRoute: typeof SoprovozhdenieSdelkiRoute
   SporSArendatoromRoute: typeof SporSArendatoromRoute
   VozvratZalogaArendaRoute: typeof VozvratZalogaArendaRoute
@@ -430,6 +443,13 @@ declare module '@tanstack/react-router' {
       path: '/soprovozhdenie-sdelki'
       fullPath: '/soprovozhdenie-sdelki'
       preLoaderRoute: typeof SoprovozhdenieSdelkiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/seed-admin': {
+      id: '/seed-admin'
+      path: '/seed-admin'
+      fullPath: '/seed-admin'
+      preLoaderRoute: typeof SeedAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/representation-abroad': {
@@ -627,6 +647,7 @@ const rootRouteChildren: RootRouteChildren = {
   RentalDisputesRoute: RentalDisputesRoute,
   RepresentationRoute: RepresentationRoute,
   RepresentationAbroadRoute: RepresentationAbroadRoute,
+  SeedAdminRoute: SeedAdminRoute,
   SoprovozhdenieSdelkiRoute: SoprovozhdenieSdelkiRoute,
   SporSArendatoromRoute: SporSArendatoromRoute,
   VozvratZalogaArendaRoute: VozvratZalogaArendaRoute,
@@ -638,3 +659,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
