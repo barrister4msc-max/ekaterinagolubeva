@@ -80,10 +80,10 @@ function HomePage() {
           <div className="relative z-10 order-2 md:order-1 md:col-span-7">
             <div className="eyebrow mb-8 mt-10 md:mt-16">Real Estate · Contracts · Disputes</div>
             <h1 className="max-w-[640px] text-[2.2rem] leading-[1.12] md:text-[3.7rem] md:leading-[1.08]">
-              Защита недвижимости,<br/>
-              договоров<br/>
+              Сделки с недвижимостью,<br/>
+              договоры<br/>
               <span className="italic" style={{ color: "#A8895F", fontWeight: 300 }}>
-                и судебных интересов
+                и защита интересов
               </span>
             </h1>
             <p className="mt-10 max-w-[600px] text-base leading-[1.75] text-foreground/75 md:text-[1.05rem]">
