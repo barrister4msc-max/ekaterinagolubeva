@@ -35,6 +35,7 @@ import { Route as WorkspaceSettingsRouteImport } from './routes/workspace.settin
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -166,6 +167,11 @@ const WorkspaceDashboardRoute = WorkspaceDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -189,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/api/chat': typeof ApiChatRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -217,6 +224,7 @@ export interface FileRoutesByTo {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/api/chat': typeof ApiChatRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -246,6 +254,7 @@ export interface FileRoutesById {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/api/chat': typeof ApiChatRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -276,6 +285,7 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/api/chat'
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
@@ -304,6 +314,7 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/api/chat'
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
@@ -332,6 +343,7 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/api/chat'
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
@@ -361,6 +373,7 @@ export interface RootRouteChildren {
   VyselenieArendatoraRoute: typeof VyselenieArendatoraRoute
   VzyskanieZadolzhennostiRoute: typeof VzyskanieZadolzhennostiRoute
   WorkspaceRoute: typeof WorkspaceRouteWithChildren
+  ApiChatRoute: typeof ApiChatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -547,6 +560,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceDashboardRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -592,7 +612,18 @@ const rootRouteChildren: RootRouteChildren = {
   VyselenieArendatoraRoute: VyselenieArendatoraRoute,
   VzyskanieZadolzhennostiRoute: VzyskanieZadolzhennostiRoute,
   WorkspaceRoute: WorkspaceRouteWithChildren,
+  ApiChatRoute: ApiChatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
