@@ -38,7 +38,7 @@ function WorkspaceLogin() {
         email,
         options: {
           emailRedirectTo: `${window.location.origin}/workspace/login?next=/workspace/dashboard`,
-          shouldCreateUser: false,
+          shouldCreateUser: true,
         },
       });
       if (error) throw error;
