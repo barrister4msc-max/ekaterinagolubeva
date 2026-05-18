@@ -55,7 +55,7 @@ function WorkspaceLayout() {
         <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10 text-center shadow-[0_4px_30px_rgba(0,0,0,0.04)]">
           <h1 className="font-display text-2xl">Доступ ограничен</h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Этот аккаунт не имеет роли administrator.
+            Этот аккаунт не имеет роли admin.
           </p>
           <button
             onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/workspace/login" }))}
