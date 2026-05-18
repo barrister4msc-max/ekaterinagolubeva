@@ -59,8 +59,9 @@ export function LeadsAdmin() {
   }
 
   useEffect(() => {
+    if (!session) return;
     load();
-  }, [filter.status, filter.category]);
+  }, [filter.status, filter.category, session]);
 
   async function patch(id: string, patch: { status?: Lead["status"]; admin_notes?: string | null }) {
     try {
