@@ -2,6 +2,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Download, Loader2, Save, AlertTriangle } from "lucide-react";
 import { listLeadsFn, updateLeadFn } from "@/lib/admin-leads.functions";
+import { useAuth } from "@/hooks/use-auth";
 
 type Lead = {
   id: string;
