@@ -255,9 +255,8 @@ function HomePage() {
               <span className="italic text-primary">сложных ситуаций</span>
             </h2>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-              Моя задача — снять с вас тревогу за результат. Я веду переговоры,
-              готовлю документы и защищаю интересы так, чтобы у вас оставался
-              контроль над ситуацией, а не паника от неизвестности.
+              Я сопровождаю ситуацию от переговоров и документов до защиты
+              интересов, помогая сохранить ясность и контроль на каждом этапе.
             </p>
             <div className="mt-10 grid grid-cols-2 gap-x-8 gap-y-6">
               {[
