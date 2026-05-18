@@ -23,15 +23,17 @@ const URGENCY_LABEL = { low: "Низкая", medium: "Средняя", high: "В
 
 function Statistics() {
   const listLeads = useServerFn(listLeadsFn);
+  const { session } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!session) return;
     listLeads({ data: {} }).then((r) => {
       setLeads((r.leads as unknown as Lead[]) ?? []);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+  }, [session]);
 
   const byCategory = useMemo(() => groupCount(leads, (l) => l.category ?? "—"), [leads]);
   const byStatus = useMemo(() => groupCount(leads, (l) => STATUS_LABEL[l.status]), [leads]);
