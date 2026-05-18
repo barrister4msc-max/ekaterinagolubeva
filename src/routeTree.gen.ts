@@ -32,6 +32,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceStatisticsRouteImport } from './routes/workspace.statistics'
 import { Route as WorkspaceSettingsRouteImport } from './routes/workspace.settings'
+import { Route as WorkspaceSeedRouteImport } from './routes/workspace.seed'
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
@@ -151,6 +152,11 @@ const WorkspaceSettingsRoute = WorkspaceSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceSeedRoute = WorkspaceSeedRouteImport.update({
+  id: '/seed',
+  path: '/seed',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 const WorkspaceLoginRoute = WorkspaceLoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -192,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/seed': typeof WorkspaceSeedRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
@@ -220,6 +227,7 @@ export interface FileRoutesByTo {
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/seed': typeof WorkspaceSeedRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/seed': typeof WorkspaceSeedRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
@@ -279,6 +288,7 @@ export interface FileRouteTypes {
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/seed'
     | '/workspace/settings'
     | '/workspace/statistics'
   fileRoutesByTo: FileRoutesByTo
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/seed'
     | '/workspace/settings'
     | '/workspace/statistics'
   id:
@@ -335,6 +346,7 @@ export interface FileRouteTypes {
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/seed'
     | '/workspace/settings'
     | '/workspace/statistics'
   fileRoutesById: FileRoutesById
@@ -526,6 +538,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceSettingsRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/seed': {
+      id: '/workspace/seed'
+      path: '/seed'
+      fullPath: '/workspace/seed'
+      preLoaderRoute: typeof WorkspaceSeedRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/workspace/login': {
       id: '/workspace/login'
       path: '/login'
@@ -554,6 +573,7 @@ interface WorkspaceRouteChildren {
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
   WorkspaceLoginRoute: typeof WorkspaceLoginRoute
+  WorkspaceSeedRoute: typeof WorkspaceSeedRoute
   WorkspaceSettingsRoute: typeof WorkspaceSettingsRoute
   WorkspaceStatisticsRoute: typeof WorkspaceStatisticsRoute
 }
@@ -562,6 +582,7 @@ const WorkspaceRouteChildren: WorkspaceRouteChildren = {
   WorkspaceDashboardRoute: WorkspaceDashboardRoute,
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
   WorkspaceLoginRoute: WorkspaceLoginRoute,
+  WorkspaceSeedRoute: WorkspaceSeedRoute,
   WorkspaceSettingsRoute: WorkspaceSettingsRoute,
   WorkspaceStatisticsRoute: WorkspaceStatisticsRoute,
 }
