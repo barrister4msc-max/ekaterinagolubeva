@@ -172,24 +172,68 @@
     font-size: 14px;
   }
   .btn-header {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.45rem;
-    height: 42px;
-    padding-inline: 22px;
-    font-size: 13.5px;
+    gap: 0.5rem;
+    height: 44px;
+    padding-inline: 26px;
+    font-family: inherit;
+    font-size: 13px;
     font-weight: 500;
-    letter-spacing: 0.02em;
-    border-radius: 999px;
-    background-color: #B89B72;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: #ffffff;
-    box-shadow: 0 6px 18px rgba(184,155,114,0.18);
-    transition: all 0.3s ease;
+    border-radius: 999px;
+    background-image: linear-gradient(135deg, #C5A47A 0%, #A8895F 55%, #8E7048 100%);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.25) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+      0 8px 22px rgba(142, 112, 72, 0.22),
+      0 1px 2px rgba(47, 41, 37, 0.08);
+    transition:
+      transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+      box-shadow 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+      background-image 0.35s ease;
+    will-change: transform, box-shadow;
+  }
+  .btn-header::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(255, 240, 215, 0.55), rgba(255, 255, 255, 0) 45%, rgba(120, 90, 55, 0.35));
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
   }
   .btn-header:hover {
-    background-color: #9F7444;
+    background-image: linear-gradient(135deg, #B8946A 0%, #9C7C52 55%, #7A5F3C 100%);
     transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.3) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.1) inset,
+      0 12px 28px rgba(122, 95, 60, 0.28),
+      0 2px 4px rgba(47, 41, 37, 0.1);
+  }
+  .btn-header:active {
+    transform: translateY(0);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.2) inset,
+      0 0 0 1px rgba(0, 0, 0, 0.06) inset,
+      0 4px 12px rgba(122, 95, 60, 0.22);
+  }
+  .btn-header:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px #ffffff,
+      0 0 0 4px rgba(184, 155, 114, 0.6),
+      0 8px 22px rgba(142, 112, 72, 0.22);
   }
 
   .hero-gradient {

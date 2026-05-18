@@ -461,9 +461,8 @@ function HomePage() {
                 2–3 уточняющих вопроса и подготовит сводку для разбора.
               </p>
             </div>
-            <Link to="/contact" className="btn-primary w-full justify-center">
-              Открыть форму обращения <ArrowUpRight size={16}/>
-            </Link>
+            <ContactCta className="btn-primary w-full justify-center" label="Открыть обращение" />
+
             <p className="text-xs text-muted-foreground">
               Информация конфиденциальна. Свяжусь с вами в течение рабочего дня.
             </p>
