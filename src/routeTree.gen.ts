@@ -15,6 +15,7 @@ import { Route as VyselenieArendatoraRouteImport } from './routes/vyselenie-aren
 import { Route as VozvratZalogaArendaRouteImport } from './routes/vozvrat-zaloga-arenda'
 import { Route as SporSArendatoromRouteImport } from './routes/spor-s-arendatorom'
 import { Route as SoprovozhdenieSdelkiRouteImport } from './routes/soprovozhdenie-sdelki'
+import { Route as SeedAdminRouteImport } from './routes/seed-admin'
 import { Route as RepresentationAbroadRouteImport } from './routes/representation-abroad'
 import { Route as RepresentationRouteImport } from './routes/representation'
 import { Route as RentalDisputesRouteImport } from './routes/rental-disputes'
@@ -36,6 +37,7 @@ import { Route as WorkspaceSeedRouteImport } from './routes/workspace.seed'
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
+import { Route as ApiPublicSeedAdminRouteImport } from './routes/api/public/seed-admin'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -65,6 +67,11 @@ const SporSArendatoromRoute = SporSArendatoromRouteImport.update({
 const SoprovozhdenieSdelkiRoute = SoprovozhdenieSdelkiRouteImport.update({
   id: '/soprovozhdenie-sdelki',
   path: '/soprovozhdenie-sdelki',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SeedAdminRoute = SeedAdminRouteImport.update({
+  id: '/seed-admin',
+  path: '/seed-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RepresentationAbroadRoute = RepresentationAbroadRouteImport.update({
@@ -172,6 +179,11 @@ const WorkspaceDashboardRoute = WorkspaceDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const ApiPublicSeedAdminRoute = ApiPublicSeedAdminRouteImport.update({
+  id: '/api/public/seed-admin',
+  path: '/api/public/seed-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -189,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/rental-disputes': typeof RentalDisputesRoute
   '/representation': typeof RepresentationRoute
   '/representation-abroad': typeof RepresentationAbroadRoute
+  '/seed-admin': typeof SeedAdminRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
@@ -201,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/workspace/seed': typeof WorkspaceSeedRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/api/public/seed-admin': typeof ApiPublicSeedAdminRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -218,6 +232,7 @@ export interface FileRoutesByTo {
   '/rental-disputes': typeof RentalDisputesRoute
   '/representation': typeof RepresentationRoute
   '/representation-abroad': typeof RepresentationAbroadRoute
+  '/seed-admin': typeof SeedAdminRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
@@ -230,6 +245,7 @@ export interface FileRoutesByTo {
   '/workspace/seed': typeof WorkspaceSeedRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/api/public/seed-admin': typeof ApiPublicSeedAdminRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -248,6 +264,7 @@ export interface FileRoutesById {
   '/rental-disputes': typeof RentalDisputesRoute
   '/representation': typeof RepresentationRoute
   '/representation-abroad': typeof RepresentationAbroadRoute
+  '/seed-admin': typeof SeedAdminRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
@@ -260,6 +277,7 @@ export interface FileRoutesById {
   '/workspace/seed': typeof WorkspaceSeedRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/api/public/seed-admin': typeof ApiPublicSeedAdminRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -279,6 +297,7 @@ export interface FileRouteTypes {
     | '/rental-disputes'
     | '/representation'
     | '/representation-abroad'
+    | '/seed-admin'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
     | '/vozvrat-zaloga-arenda'
@@ -291,6 +310,7 @@ export interface FileRouteTypes {
     | '/workspace/seed'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/api/public/seed-admin'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -308,6 +328,7 @@ export interface FileRouteTypes {
     | '/rental-disputes'
     | '/representation'
     | '/representation-abroad'
+    | '/seed-admin'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
     | '/vozvrat-zaloga-arenda'
@@ -320,6 +341,7 @@ export interface FileRouteTypes {
     | '/workspace/seed'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/api/public/seed-admin'
   id:
     | '__root__'
     | '/'
@@ -337,6 +359,7 @@ export interface FileRouteTypes {
     | '/rental-disputes'
     | '/representation'
     | '/representation-abroad'
+    | '/seed-admin'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
     | '/vozvrat-zaloga-arenda'
@@ -349,6 +372,7 @@ export interface FileRouteTypes {
     | '/workspace/seed'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/api/public/seed-admin'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -367,12 +391,14 @@ export interface RootRouteChildren {
   RentalDisputesRoute: typeof RentalDisputesRoute
   RepresentationRoute: typeof RepresentationRoute
   RepresentationAbroadRoute: typeof RepresentationAbroadRoute
+  SeedAdminRoute: typeof SeedAdminRoute
   SoprovozhdenieSdelkiRoute: typeof SoprovozhdenieSdelkiRoute
   SporSArendatoromRoute: typeof SporSArendatoromRoute
   VozvratZalogaArendaRoute: typeof VozvratZalogaArendaRoute
   VyselenieArendatoraRoute: typeof VyselenieArendatoraRoute
   VzyskanieZadolzhennostiRoute: typeof VzyskanieZadolzhennostiRoute
   WorkspaceRoute: typeof WorkspaceRouteWithChildren
+  ApiPublicSeedAdminRoute: typeof ApiPublicSeedAdminRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -417,6 +443,13 @@ declare module '@tanstack/react-router' {
       path: '/soprovozhdenie-sdelki'
       fullPath: '/soprovozhdenie-sdelki'
       preLoaderRoute: typeof SoprovozhdenieSdelkiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/seed-admin': {
+      id: '/seed-admin'
+      path: '/seed-admin'
+      fullPath: '/seed-admin'
+      preLoaderRoute: typeof SeedAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/representation-abroad': {
@@ -566,6 +599,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceDashboardRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/api/public/seed-admin': {
+      id: '/api/public/seed-admin'
+      path: '/api/public/seed-admin'
+      fullPath: '/api/public/seed-admin'
+      preLoaderRoute: typeof ApiPublicSeedAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -607,12 +647,14 @@ const rootRouteChildren: RootRouteChildren = {
   RentalDisputesRoute: RentalDisputesRoute,
   RepresentationRoute: RepresentationRoute,
   RepresentationAbroadRoute: RepresentationAbroadRoute,
+  SeedAdminRoute: SeedAdminRoute,
   SoprovozhdenieSdelkiRoute: SoprovozhdenieSdelkiRoute,
   SporSArendatoromRoute: SporSArendatoromRoute,
   VozvratZalogaArendaRoute: VozvratZalogaArendaRoute,
   VyselenieArendatoraRoute: VyselenieArendatoraRoute,
   VzyskanieZadolzhennostiRoute: VzyskanieZadolzhennostiRoute,
   WorkspaceRoute: WorkspaceRouteWithChildren,
+  ApiPublicSeedAdminRoute: ApiPublicSeedAdminRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
