@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -16,6 +16,7 @@ export const Route = createFileRoute("/workspace/login")({
 
 function WorkspaceLogin() {
   const navigate = useNavigate();
+  const search = useSearch({ strict: false }) as { next?: string };
   const { user, loading } = useAuth();
   const [mode, setMode] = useState<"magic" | "password">("magic");
   const [email, setEmail] = useState("");
@@ -25,8 +26,9 @@ function WorkspaceLogin() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/workspace/dashboard" });
-  }, [loading, user, navigate]);
+    const next = search.next?.startsWith("/workspace/") ? search.next : "/workspace/dashboard";
+    if (!loading && user) navigate({ to: next });
+  }, [loading, user, search.next, navigate]);
 
   async function sendMagic(e: FormEvent) {
     e.preventDefault();
@@ -34,7 +36,10 @@ function WorkspaceLogin() {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: `${window.location.origin}/workspace/dashboard` },
+        options: {
+          emailRedirectTo: `${window.location.origin}/workspace/login?next=/workspace/dashboard`,
+          shouldCreateUser: false,
+        },
       });
       if (error) throw error;
       setMsg("Письмо отправлено. Откройте его на этом устройстве, чтобы войти.");
