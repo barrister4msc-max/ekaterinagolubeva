@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { listLeadsFn } from "@/lib/admin-leads.functions";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/workspace/statistics")({
   component: Statistics,
@@ -22,15 +23,17 @@ const URGENCY_LABEL = { low: "Низкая", medium: "Средняя", high: "В
 
 function Statistics() {
   const listLeads = useServerFn(listLeadsFn);
+  const { session } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!session) return;
     listLeads({ data: {} }).then((r) => {
       setLeads((r.leads as unknown as Lead[]) ?? []);
       setLoading(false);
     }).catch(() => setLoading(false));
-  }, []);
+  }, [session]);
 
   const byCategory = useMemo(() => groupCount(leads, (l) => l.category ?? "—"), [leads]);
   const byStatus = useMemo(() => groupCount(leads, (l) => STATUS_LABEL[l.status]), [leads]);

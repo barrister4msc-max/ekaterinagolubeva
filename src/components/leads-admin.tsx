@@ -2,6 +2,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, Download, Loader2, Save, AlertTriangle } from "lucide-react";
 import { listLeadsFn, updateLeadFn } from "@/lib/admin-leads.functions";
+import { useAuth } from "@/hooks/use-auth";
 
 type Lead = {
   id: string;
@@ -37,6 +38,7 @@ const URGENCY_LABEL: Record<NonNullable<Lead["urgency"]>, { label: string; cls: 
 export function LeadsAdmin() {
   const listLeads = useServerFn(listLeadsFn);
   const updateLead = useServerFn(updateLeadFn);
+  const { session } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -57,8 +59,9 @@ export function LeadsAdmin() {
   }
 
   useEffect(() => {
+    if (!session) return;
     load();
-  }, [filter.status, filter.category]);
+  }, [filter.status, filter.category, session]);
 
   async function patch(id: string, patch: { status?: Lead["status"]; admin_notes?: string | null }) {
     try {
