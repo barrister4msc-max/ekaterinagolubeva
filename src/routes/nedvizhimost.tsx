@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowUpRight, MessageCircle, Send } from "lucide-react";
+import { MessageCircle, Send } from "lucide-react";
 import interiorImg from "@/assets/real-estate-interior.jpg";
 import { ContactCta } from "@/components/contact-cta";
 
