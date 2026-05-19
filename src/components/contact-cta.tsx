@@ -42,7 +42,9 @@ export function ContactCta({ className = "btn-header", label = "Связатьс
           aria-haspopup="menu"
         >
           {label}
-          <ChevronDown size={14} className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+          {showArrow && (
+            <ChevronDown size={14} className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+          )}
         </button>
 
         {open && (
