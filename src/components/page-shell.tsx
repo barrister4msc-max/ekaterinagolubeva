@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { ContactCta } from "./contact-cta";
 
 interface PageShellProps {
   eyebrow: string;
@@ -19,8 +20,8 @@ export function PageShell({ eyebrow, title, intro, children }: PageShellProps) {
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
               {intro}
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/contact" className="btn-primary">Разобрать ситуацию</Link>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <ContactCta className="btn-primary" label="Разобрать ситуацию" />
               <a href="https://wa.me/79000000000" className="btn-ghost">Написать в WhatsApp</a>
             </div>
           </div>
