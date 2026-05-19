@@ -124,24 +124,49 @@
   }
 
   .btn-primary {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    gap: 0.55rem;
-    padding: 14px 28px;
-    background-color: #B89B72;
-    color: #ffffff;
-    font-size: 0.92rem;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 16px 32px;
+    background-color: #B6845B;
+    color: #FFF9F2;
+    font-size: 0.95rem;
     font-weight: 500;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.02em;
     border-radius: 999px;
-    box-shadow: 0 10px 30px rgba(184,155,114,0.22);
-    transition: all 0.3s ease;
+    box-shadow:
+      0 1px 0 rgba(255, 248, 235, 0.22) inset,
+      0 0 0 1px rgba(120, 75, 40, 0.08) inset,
+      0 14px 32px rgba(159, 100, 61, 0.28),
+      0 2px 4px rgba(75, 45, 25, 0.08);
+    transition:
+      background-color 0.35s ease,
+      transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
+      box-shadow 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+    will-change: transform, box-shadow;
   }
   .btn-primary:hover {
-    background-color: #9F7444;
-    color: #ffffff;
+    background-color: #9F643D;
+    color: #FFF9F2;
     transform: translateY(-2px);
-    box-shadow: 0 14px 36px rgba(159,116,68,0.28);
+    box-shadow:
+      0 1px 0 rgba(255, 248, 235, 0.28) inset,
+      0 0 0 1px rgba(120, 75, 40, 0.12) inset,
+      0 18px 40px rgba(120, 75, 40, 0.32),
+      0 3px 6px rgba(75, 45, 25, 0.1);
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+    background-color: #8B5530;
+  }
+  .btn-primary:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px #FFF9F2,
+      0 0 0 4px rgba(182, 132, 91, 0.6),
+      0 12px 28px rgba(159, 100, 61, 0.28);
   }
 
   .btn-ghost {
@@ -176,26 +201,27 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    height: 44px;
-    padding-inline: 26px;
+    gap: 0.45rem;
+    height: 38px;
+    padding-inline: 20px;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #ffffff;
+    color: #FFF9F2;
     border-radius: 999px;
-    background-image: linear-gradient(135deg, #C5A47A 0%, #A8895F 55%, #8E7048 100%);
+    background-color: #C7A27E;
+    background-image: none;
     box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.25) inset,
-      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-      0 8px 22px rgba(142, 112, 72, 0.22),
-      0 1px 2px rgba(47, 41, 37, 0.08);
+      0 1px 0 rgba(255, 248, 235, 0.22) inset,
+      0 0 0 1px rgba(120, 75, 40, 0.06) inset,
+      0 6px 16px rgba(199, 162, 126, 0.22),
+      0 1px 2px rgba(75, 45, 25, 0.06);
     transition:
+      background-color 0.35s ease,
       transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
-      box-shadow 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
-      background-image 0.35s ease;
+      box-shadow 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
     will-change: transform, box-shadow;
   }
 
@@ -300,27 +326,25 @@
     pointer-events: none;
   }
   .btn-header:hover {
-    background-image: linear-gradient(135deg, #B8946A 0%, #9C7C52 55%, #7A5F3C 100%);
+    background-color: #B6845B;
+    background-image: none;
     transform: translateY(-1px);
     box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.3) inset,
-      0 0 0 1px rgba(255, 255, 255, 0.1) inset,
-      0 12px 28px rgba(122, 95, 60, 0.28),
-      0 2px 4px rgba(47, 41, 37, 0.1);
+      0 1px 0 rgba(255, 248, 235, 0.28) inset,
+      0 0 0 1px rgba(120, 75, 40, 0.1) inset,
+      0 10px 22px rgba(182, 132, 91, 0.28),
+      0 2px 4px rgba(75, 45, 25, 0.08);
   }
   .btn-header:active {
     transform: translateY(0);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.2) inset,
-      0 0 0 1px rgba(0, 0, 0, 0.06) inset,
-      0 4px 12px rgba(122, 95, 60, 0.22);
+    background-color: #A87248;
   }
   .btn-header:focus-visible {
     outline: none;
     box-shadow:
-      0 0 0 2px #ffffff,
-      0 0 0 4px rgba(184, 155, 114, 0.6),
-      0 8px 22px rgba(142, 112, 72, 0.22);
+      0 0 0 2px #FFF9F2,
+      0 0 0 3px rgba(199, 162, 126, 0.6),
+      0 6px 16px rgba(199, 162, 126, 0.22);
   }
 
   .hero-gradient {
