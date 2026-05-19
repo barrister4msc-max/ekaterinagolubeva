@@ -300,57 +300,6 @@
     transform: translate(0, 0);
     color: #8E7048;
   }
-  .cta-option:active {
-    transform: translateX(2px) scale(0.99);
-    background-color: rgba(184, 155, 114, 0.14);
-  }
-  .cta-option:focus-visible {
-    background-color: rgba(184, 155, 114, 0.10);
-    box-shadow: 0 0 0 2px rgba(184, 155, 114, 0.45);
-  }
-  .cta-option__icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    flex-shrink: 0;
-    border-radius: 999px;
-    background-image: linear-gradient(135deg, rgba(197,164,122,0.18), rgba(142,112,72,0.10));
-    color: #8E7048;
-    transition: background-image 0.25s ease, color 0.25s ease, transform 0.3s ease;
-  }
-  .cta-option:hover .cta-option__icon {
-    background-image: linear-gradient(135deg, #C5A47A, #8E7048);
-    color: #ffffff;
-    transform: rotate(-4deg);
-  }
-  .cta-option__title {
-    display: block;
-    font-size: 13px;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    color: var(--color-foreground);
-  }
-  .cta-option__sub {
-    display: block;
-    margin-top: 2px;
-    font-size: 11px;
-    line-height: 1.45;
-    color: var(--color-muted-foreground);
-  }
-  .cta-option__arrow {
-    align-self: center;
-    color: var(--color-muted-foreground);
-    opacity: 0;
-    transform: translate(-4px, 2px);
-    transition: opacity 0.25s ease, transform 0.25s ease, color 0.25s ease;
-  }
-  .cta-option:hover .cta-option__arrow {
-    opacity: 1;
-    transform: translate(0, 0);
-    color: #8E7048;
-  }
   .btn-header::before {
     content: "";
     position: absolute;
