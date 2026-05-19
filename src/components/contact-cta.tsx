@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Mail, Sparkles, ChevronDown, ArrowUpRight } from "lucide-react";
+import { FileText, PenLine, ChevronDown, ArrowUpRight } from "lucide-react";
 import { AiChatDialog } from "./ai-chat-dialog";
 
 type Props = {
@@ -59,13 +59,13 @@ export function ContactCta({ className = "btn-header", label = "Связатьс
               className="cta-option group"
             >
               <span className="cta-option__icon">
-                <Mail size={15} />
+                <FileText size={15} strokeWidth={1.25} />
               </span>
               <span className="flex-1 text-left">
                 <span className="cta-option__title">Оставить заявку</span>
-                <span className="cta-option__sub">Форма — отвечу лично в течение дня</span>
+                <span className="cta-option__sub">Екатерина лично ознакомится с ситуацией и предложит следующий шаг</span>
               </span>
-              <ArrowUpRight size={14} className="cta-option__arrow" />
+              <ArrowUpRight size={14} strokeWidth={1.25} className="cta-option__arrow" />
             </button>
 
             <button
@@ -75,13 +75,13 @@ export function ContactCta({ className = "btn-header", label = "Связатьс
               className="cta-option group"
             >
               <span className="cta-option__icon">
-                <Sparkles size={15} />
+                <PenLine size={15} strokeWidth={1.25} />
               </span>
               <span className="flex-1 text-left">
-                <span className="cta-option__title">Спросить ИИ</span>
-                <span className="cta-option__sub">Быстрый ответ по общему вопросу</span>
+                <span className="cta-option__title">Подготовить обращение</span>
+                <span className="cta-option__sub">Поможем структурировать и сформулировать ситуацию, чтобы сэкономить ваше время</span>
               </span>
-              <ArrowUpRight size={14} className="cta-option__arrow" />
+              <ArrowUpRight size={14} strokeWidth={1.25} className="cta-option__arrow" />
             </button>
           </div>
         )}
