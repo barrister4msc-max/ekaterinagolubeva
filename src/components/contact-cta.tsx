@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { FileText, PenLine, ChevronDown, ArrowUpRight } from "lucide-react";
+import { Mail, Sparkles, ChevronDown, ArrowUpRight } from "lucide-react";
 import { AiChatDialog } from "./ai-chat-dialog";
 
 type Props = {
@@ -50,7 +50,7 @@ export function ContactCta({ className = "btn-header", label = "Связатьс
         {open && (
           <div
             role="menu"
-            className="absolute right-0 top-[calc(100%+12px)] z-50 w-[320px] overflow-hidden rounded-[14px] border border-[rgba(184,155,114,0.22)] bg-[#FBF7F0] p-2 shadow-[0_30px_80px_-30px_rgba(75,45,25,0.28),0_10px_28px_-14px_rgba(184,155,114,0.22)] backdrop-blur-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
+            className="absolute right-0 top-[calc(100%+10px)] z-50 w-[280px] overflow-hidden rounded-2xl border border-[rgba(184,155,114,0.25)] bg-card/95 p-1.5 shadow-[0_20px_60px_-20px_rgba(47,41,37,0.25),0_8px_24px_-12px_rgba(184,155,114,0.18)] backdrop-blur-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
           >
             <button
               type="button"
@@ -59,13 +59,13 @@ export function ContactCta({ className = "btn-header", label = "Связатьс
               className="cta-option group"
             >
               <span className="cta-option__icon">
-                <FileText size={15} strokeWidth={1.25} />
+                <Mail size={15} />
               </span>
               <span className="flex-1 text-left">
                 <span className="cta-option__title">Оставить заявку</span>
-                <span className="cta-option__sub">Екатерина лично ознакомится с ситуацией и предложит следующий шаг</span>
+                <span className="cta-option__sub">Форма — отвечу лично в течение дня</span>
               </span>
-              <ArrowUpRight size={14} strokeWidth={1.25} className="cta-option__arrow" />
+              <ArrowUpRight size={14} className="cta-option__arrow" />
             </button>
 
             <button
@@ -75,13 +75,13 @@ export function ContactCta({ className = "btn-header", label = "Связатьс
               className="cta-option group"
             >
               <span className="cta-option__icon">
-                <PenLine size={15} strokeWidth={1.25} />
+                <Sparkles size={15} />
               </span>
               <span className="flex-1 text-left">
-                <span className="cta-option__title">Подготовить обращение</span>
-                <span className="cta-option__sub">Поможем структурировать и сформулировать ситуацию, чтобы сэкономить ваше время</span>
+                <span className="cta-option__title">Спросить ИИ</span>
+                <span className="cta-option__sub">Быстрый ответ по общему вопросу</span>
               </span>
-              <ArrowUpRight size={14} strokeWidth={1.25} className="cta-option__arrow" />
+              <ArrowUpRight size={14} className="cta-option__arrow" />
             </button>
           </div>
         )}
