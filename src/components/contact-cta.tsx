@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { Mail, Sparkles, ChevronDown } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { Mail, Sparkles, ChevronDown, ArrowUpRight } from "lucide-react";
 import { AiChatDialog } from "./ai-chat-dialog";
 
 type Props = {
@@ -12,14 +12,22 @@ export function ContactCta({ className = "btn-header", label = "Связатьс
   const [open, setOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     window.addEventListener("mousedown", onClick);
-    return () => window.removeEventListener("mousedown", onClick);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onClick);
+      window.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   return (
@@ -29,38 +37,48 @@ export function ContactCta({ className = "btn-header", label = "Связатьс
           type="button"
           onClick={() => setOpen((v) => !v)}
           className={`${className} inline-flex items-center gap-1.5`}
+          aria-expanded={open}
+          aria-haspopup="menu"
         >
           {label}
-          <ChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+          <ChevronDown size={14} className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
         </button>
 
         {open && (
-          <div className="absolute right-0 top-[calc(100%+8px)] z-50 w-64 overflow-hidden rounded-xl border border-border bg-card shadow-[0_12px_40px_rgba(0,0,0,0.12)]">
-            <Link
-              to="/contact"
-              onClick={() => setOpen(false)}
-              className="flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
-            >
-              <Mail size={16} className="mt-0.5 text-primary" />
-              <div>
-                <div className="text-sm font-medium">Оставить заявку</div>
-                <div className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                  Форма — отвечу лично в течение дня
-                </div>
-              </div>
-            </Link>
+          <div
+            role="menu"
+            className="absolute right-0 top-[calc(100%+10px)] z-50 w-[280px] overflow-hidden rounded-2xl border border-[rgba(184,155,114,0.25)] bg-card/95 p-1.5 shadow-[0_20px_60px_-20px_rgba(47,41,37,0.25),0_8px_24px_-12px_rgba(184,155,114,0.18)] backdrop-blur-xl animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
+          >
             <button
               type="button"
-              onClick={() => { setOpen(false); setChatOpen(true); }}
-              className="flex w-full items-start gap-3 border-t border-border/60 px-4 py-3 text-left transition-colors hover:bg-secondary/50"
+              role="menuitem"
+              onClick={() => { setOpen(false); navigate({ to: "/contact" }); }}
+              className="cta-option group"
             >
-              <Sparkles size={16} className="mt-0.5 text-primary" />
-              <div>
-                <div className="text-sm font-medium">Спросить ИИ</div>
-                <div className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                  Быстрый ответ по общему вопросу
-                </div>
-              </div>
+              <span className="cta-option__icon">
+                <Mail size={15} />
+              </span>
+              <span className="flex-1 text-left">
+                <span className="cta-option__title">Оставить заявку</span>
+                <span className="cta-option__sub">Форма — отвечу лично в течение дня</span>
+              </span>
+              <ArrowUpRight size={14} className="cta-option__arrow" />
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => { setOpen(false); setChatOpen(true); }}
+              className="cta-option group"
+            >
+              <span className="cta-option__icon">
+                <Sparkles size={15} />
+              </span>
+              <span className="flex-1 text-left">
+                <span className="cta-option__title">Спросить ИИ</span>
+                <span className="cta-option__sub">Быстрый ответ по общему вопросу</span>
+              </span>
+              <ArrowUpRight size={14} className="cta-option__arrow" />
             </button>
           </div>
         )}
