@@ -201,26 +201,27 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    height: 44px;
-    padding-inline: 26px;
+    gap: 0.45rem;
+    height: 38px;
+    padding-inline: 20px;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #ffffff;
+    color: #FFF9F2;
     border-radius: 999px;
-    background-image: linear-gradient(135deg, #C5A47A 0%, #A8895F 55%, #8E7048 100%);
+    background-color: #C7A27E;
+    background-image: none;
     box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.25) inset,
-      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-      0 8px 22px rgba(142, 112, 72, 0.22),
-      0 1px 2px rgba(47, 41, 37, 0.08);
+      0 1px 0 rgba(255, 248, 235, 0.22) inset,
+      0 0 0 1px rgba(120, 75, 40, 0.06) inset,
+      0 6px 16px rgba(199, 162, 126, 0.22),
+      0 1px 2px rgba(75, 45, 25, 0.06);
     transition:
+      background-color 0.35s ease,
       transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
-      box-shadow 0.35s cubic-bezier(0.2, 0.7, 0.2, 1),
-      background-image 0.35s ease;
+      box-shadow 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
     will-change: transform, box-shadow;
   }
 
