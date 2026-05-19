@@ -9,7 +9,7 @@ type Props = {
   showArrow?: boolean;
 };
 
-export function ContactCta({ className = "btn-header", label = "Связаться" }: Props) {
+export function ContactCta({ className = "btn-header", label = "Связаться", showArrow = true }: Props) {
   const [open, setOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
