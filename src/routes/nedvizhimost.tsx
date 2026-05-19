@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowUpRight, MessageCircle, Send } from "lucide-react";
 import interiorImg from "@/assets/real-estate-interior.jpg";
+import { ContactCta } from "@/components/contact-cta";
 
 export const Route = createFileRoute("/nedvizhimost")({
   head: () => ({
@@ -60,9 +61,7 @@ function NedvizhimostPage() {
             </p>
 
             <div className="mt-10 grid gap-3 sm:grid-cols-2">
-              <Link to="/contact" className="btn-primary justify-center">
-                Разобрать ситуацию <ArrowUpRight size={16} />
-              </Link>
+              <ContactCta className="btn-primary justify-center" label="Разобрать ситуацию" />
               <a href="https://wa.me/79000000000" className="btn-ghost justify-center">
                 Написать в WhatsApp <MessageCircle size={16} />
               </a>
@@ -157,9 +156,7 @@ function NedvizhimostPage() {
             Бесплатный первичный разбор ситуации
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link to="/contact" className="btn-primary">
-              Разобрать ситуацию <ArrowUpRight size={14} />
-            </Link>
+            <ContactCta className="btn-primary" label="Разобрать ситуацию" />
             <a href="https://wa.me/79000000000" className="btn-ghost">
               WhatsApp <MessageCircle size={14} />
             </a>
