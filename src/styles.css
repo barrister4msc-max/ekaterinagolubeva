@@ -326,27 +326,25 @@
     pointer-events: none;
   }
   .btn-header:hover {
-    background-image: linear-gradient(135deg, #B8946A 0%, #9C7C52 55%, #7A5F3C 100%);
+    background-color: #B6845B;
+    background-image: none;
     transform: translateY(-1px);
     box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.3) inset,
-      0 0 0 1px rgba(255, 255, 255, 0.1) inset,
-      0 12px 28px rgba(122, 95, 60, 0.28),
-      0 2px 4px rgba(47, 41, 37, 0.1);
+      0 1px 0 rgba(255, 248, 235, 0.28) inset,
+      0 0 0 1px rgba(120, 75, 40, 0.1) inset,
+      0 10px 22px rgba(182, 132, 91, 0.28),
+      0 2px 4px rgba(75, 45, 25, 0.08);
   }
   .btn-header:active {
     transform: translateY(0);
-    box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.2) inset,
-      0 0 0 1px rgba(0, 0, 0, 0.06) inset,
-      0 4px 12px rgba(122, 95, 60, 0.22);
+    background-color: #A87248;
   }
   .btn-header:focus-visible {
     outline: none;
     box-shadow:
-      0 0 0 2px #ffffff,
-      0 0 0 4px rgba(184, 155, 114, 0.6),
-      0 8px 22px rgba(142, 112, 72, 0.22);
+      0 0 0 2px #FFF9F2,
+      0 0 0 3px rgba(199, 162, 126, 0.6),
+      0 6px 16px rgba(199, 162, 126, 0.22);
   }
 
   .hero-gradient {
