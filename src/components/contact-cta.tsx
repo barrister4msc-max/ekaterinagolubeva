@@ -6,6 +6,7 @@ import { AiChatDialog } from "./ai-chat-dialog";
 type Props = {
   className?: string;
   label?: string;
+  showArrow?: boolean;
 };
 
 export function ContactCta({ className = "btn-header", label = "Связаться" }: Props) {
