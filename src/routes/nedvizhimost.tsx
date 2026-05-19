@@ -61,7 +61,7 @@ function NedvizhimostPage() {
             </p>
 
             <div className="mt-10 grid gap-3 sm:grid-cols-2">
-              <ContactCta className="btn-primary justify-center" label="Разобрать ситуацию" />
+              <ContactCta className="btn-primary justify-center" label="Разобрать ситуацию" showArrow={false} />
               <a href="https://wa.me/79000000000" className="btn-ghost justify-center">
                 Написать в WhatsApp <MessageCircle size={16} />
               </a>
@@ -156,7 +156,7 @@ function NedvizhimostPage() {
             Бесплатный первичный разбор ситуации
           </p>
           <div className="flex flex-wrap gap-3">
-            <ContactCta className="btn-primary" label="Разобрать ситуацию" />
+            <ContactCta className="btn-primary" label="Разобрать ситуацию" showArrow={false} />
             <a href="https://wa.me/79000000000" className="btn-ghost">
               WhatsApp <MessageCircle size={14} />
             </a>

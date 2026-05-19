@@ -6,9 +6,10 @@ import { AiChatDialog } from "./ai-chat-dialog";
 type Props = {
   className?: string;
   label?: string;
+  showArrow?: boolean;
 };
 
-export function ContactCta({ className = "btn-header", label = "Связаться" }: Props) {
+export function ContactCta({ className = "btn-header", label = "Связаться", showArrow = true }: Props) {
   const [open, setOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -41,7 +42,9 @@ export function ContactCta({ className = "btn-header", label = "Связатьс
           aria-haspopup="menu"
         >
           {label}
-          <ChevronDown size={14} className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+          {showArrow && (
+            <ChevronDown size={14} className={`transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+          )}
         </button>
 
         {open && (
