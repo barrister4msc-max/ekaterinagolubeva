@@ -66,7 +66,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden md:block">
-          <ContactCta />
+          <ContactCta showArrow={false} />
         </div>
 
         <button
