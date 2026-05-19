@@ -92,9 +92,7 @@ function HomePage() {
               договоров и судебных споров в Москве, МО и дистанционно по России.
             </p>
             <div className="mt-12 flex flex-wrap items-center gap-3">
-              <Link to="/contact" className="btn-primary">
-                Разобрать ситуацию <ArrowUpRight size={16} />
-              </Link>
+              <ContactCta className="btn-primary" label="Разобрать ситуацию" />
               <a href="https://t.me/" target="_blank" rel="noreferrer" className="btn-ghost btn-ghost--equal">
                 <Send size={14}/> Telegram
               </a>
