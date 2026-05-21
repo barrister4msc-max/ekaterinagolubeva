@@ -119,9 +119,18 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
         original_text: z.string().min(1).max(5000),
         category: z.enum(CATEGORIES).nullable().optional(),
         qa: QASchema.max(MAX_ROUNDS),
+        source: z.string().trim().max(100).optional(),
+        utm_source: z.string().trim().max(200).optional().nullable(),
+        utm_medium: z.string().trim().max(200).optional().nullable(),
+        utm_campaign: z.string().trim().max(200).optional().nullable(),
+        utm_content: z.string().trim().max(200).optional().nullable(),
+        utm_term: z.string().trim().max(200).optional().nullable(),
+        landing_url: z.string().trim().max(2000).optional().nullable(),
+        referrer: z.string().trim().max(2000).optional().nullable(),
       })
       .parse(input),
   )
+
   .handler(async ({ data }) => {
     let summary: string | null = null;
     let urgency: "low" | "medium" | "high" | null = null;
@@ -184,7 +193,8 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
         utm_term: data.utm_term ?? null,
         landing_url: data.landing_url ?? null,
         referrer: data.referrer ?? null,
-      })
+      } as never)
+
       .select("id")
       .single();
 
