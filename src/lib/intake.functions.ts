@@ -176,6 +176,14 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
         risks,
         next_step,
         documents_checklist,
+        source: data.source ?? "website",
+        utm_source: data.utm_source ?? null,
+        utm_medium: data.utm_medium ?? null,
+        utm_campaign: data.utm_campaign ?? null,
+        utm_content: data.utm_content ?? null,
+        utm_term: data.utm_term ?? null,
+        landing_url: data.landing_url ?? null,
+        referrer: data.referrer ?? null,
       })
       .select("id")
       .single();
