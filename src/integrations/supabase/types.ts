@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      lead_documents: {
+        Row: {
+          created_at: string | null
+          file_url: string | null
+          id: string
+          lead_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          lead_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          file_url?: string | null
+          id?: string
+          lead_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_documents_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           admin_notes: string | null
@@ -23,15 +52,23 @@ export type Database = {
           created_at: string
           documents_checklist: string[]
           id: string
+          landing_url: string | null
           name: string
           next_step: string | null
           original_text: string
           phone: string
           qa: Json
+          referrer: string | null
           risks: string[]
+          source: string | null
           status: Database["public"]["Enums"]["lead_status"]
           updated_at: string
           urgency: Database["public"]["Enums"]["lead_urgency"] | null
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          utm_term: string | null
         }
         Insert: {
           admin_notes?: string | null
@@ -41,15 +78,23 @@ export type Database = {
           created_at?: string
           documents_checklist?: string[]
           id?: string
+          landing_url?: string | null
           name: string
           next_step?: string | null
           original_text: string
           phone: string
           qa?: Json
+          referrer?: string | null
           risks?: string[]
+          source?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string
           urgency?: Database["public"]["Enums"]["lead_urgency"] | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Update: {
           admin_notes?: string | null
@@ -59,15 +104,23 @@ export type Database = {
           created_at?: string
           documents_checklist?: string[]
           id?: string
+          landing_url?: string | null
           name?: string
           next_step?: string | null
           original_text?: string
           phone?: string
           qa?: Json
+          referrer?: string | null
           risks?: string[]
+          source?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string
           urgency?: Database["public"]["Enums"]["lead_urgency"] | null
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          utm_term?: string | null
         }
         Relationships: []
       }
