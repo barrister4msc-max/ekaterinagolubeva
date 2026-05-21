@@ -193,7 +193,8 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
         utm_term: data.utm_term ?? null,
         landing_url: data.landing_url ?? null,
         referrer: data.referrer ?? null,
-      })
+      } as never)
+
       .select("id")
       .single();
 
