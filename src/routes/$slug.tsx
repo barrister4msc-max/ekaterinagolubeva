@@ -80,7 +80,8 @@ function renderContent(content: string) {
 }
 
 function SeoPageComponent() {
-  const { page } = Route.useLoaderData();
+  const { page } = Route.useLoaderData() as { page: SeoPageRecord };
+
   const fetchLinks = useServerFn(listSeoPageLinks);
   const { data: links } = useQuery({
     queryKey: ["seo-page-links"],
