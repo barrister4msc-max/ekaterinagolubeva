@@ -29,6 +29,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
 import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spory'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceStatisticsRouteImport } from './routes/workspace.statistics'
 import { Route as WorkspaceSettingsRouteImport } from './routes/workspace.settings'
@@ -137,6 +138,11 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SlugRoute = SlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -175,6 +181,7 @@ const ApiChatRoute = ApiChatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/$slug': typeof SlugRoute
   '/admin': typeof AdminRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
@@ -204,6 +211,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/$slug': typeof SlugRoute
   '/admin': typeof AdminRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
@@ -234,6 +242,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/$slug': typeof SlugRoute
   '/admin': typeof AdminRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/$slug'
     | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
@@ -294,6 +304,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/$slug'
     | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
@@ -323,6 +334,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/$slug'
     | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
@@ -353,6 +365,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SlugRoute: typeof SlugRoute
   AdminRoute: typeof AdminRoute
   ArbitrazhnyeSporyRoute: typeof ArbitrazhnyeSporyRoute
   CommercialRentRoute: typeof CommercialRentRoute
@@ -518,6 +531,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/$slug': {
+      id: '/$slug'
+      path: '/$slug'
+      fullPath: '/$slug'
+      preLoaderRoute: typeof SlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -592,6 +612,7 @@ const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SlugRoute: SlugRoute,
   AdminRoute: AdminRoute,
   ArbitrazhnyeSporyRoute: ArbitrazhnyeSporyRoute,
   CommercialRentRoute: CommercialRentRoute,
