@@ -1,13 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import type { Json } from "@/integrations/supabase/types";
+
 
 export interface SeoPageFaqItem {
   question: string;
   answer: string;
 }
 
-export type SeoSchemaJson = unknown;
+export type SeoSchemaJson = Json;
 
 export interface SeoPageRecord {
   slug: string;
