@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://4upro.ai/sitemap.xml
