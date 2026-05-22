@@ -151,6 +151,108 @@ export type Database = {
         }
         Relationships: []
       }
+      seo_pages: {
+        Row: {
+          canonical_path: string | null
+          changefreq: string | null
+          content_en: string | null
+          content_he: string | null
+          content_ru: string
+          created_at: string
+          faq_json: Json
+          h1_en: string | null
+          h1_he: string | null
+          h1_ru: string
+          id: string
+          is_published: boolean
+          meta_description_en: string | null
+          meta_description_he: string | null
+          meta_description_ru: string | null
+          nofollow: boolean
+          noindex: boolean
+          og_description: string | null
+          og_image: string | null
+          og_title: string | null
+          page_type: string
+          priority: number | null
+          published_at: string | null
+          schema_json: Json
+          seo_keywords: string[] | null
+          slug: string
+          sort_order: number | null
+          title_en: string | null
+          title_he: string | null
+          title_ru: string
+          updated_at: string
+        }
+        Insert: {
+          canonical_path?: string | null
+          changefreq?: string | null
+          content_en?: string | null
+          content_he?: string | null
+          content_ru: string
+          created_at?: string
+          faq_json?: Json
+          h1_en?: string | null
+          h1_he?: string | null
+          h1_ru: string
+          id?: string
+          is_published?: boolean
+          meta_description_en?: string | null
+          meta_description_he?: string | null
+          meta_description_ru?: string | null
+          nofollow?: boolean
+          noindex?: boolean
+          og_description?: string | null
+          og_image?: string | null
+          og_title?: string | null
+          page_type?: string
+          priority?: number | null
+          published_at?: string | null
+          schema_json?: Json
+          seo_keywords?: string[] | null
+          slug: string
+          sort_order?: number | null
+          title_en?: string | null
+          title_he?: string | null
+          title_ru: string
+          updated_at?: string
+        }
+        Update: {
+          canonical_path?: string | null
+          changefreq?: string | null
+          content_en?: string | null
+          content_he?: string | null
+          content_ru?: string
+          created_at?: string
+          faq_json?: Json
+          h1_en?: string | null
+          h1_he?: string | null
+          h1_ru?: string
+          id?: string
+          is_published?: boolean
+          meta_description_en?: string | null
+          meta_description_he?: string | null
+          meta_description_ru?: string | null
+          nofollow?: boolean
+          noindex?: boolean
+          og_description?: string | null
+          og_image?: string | null
+          og_title?: string | null
+          page_type?: string
+          priority?: number | null
+          published_at?: string | null
+          schema_json?: Json
+          seo_keywords?: string[] | null
+          slug?: string
+          sort_order?: number | null
+          title_en?: string | null
+          title_he?: string | null
+          title_ru?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       site_settings: {
         Row: {
           hero_image_url: string | null
