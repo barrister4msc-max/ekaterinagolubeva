@@ -21,7 +21,6 @@ import { Route as RepresentationRouteImport } from './routes/representation'
 import { Route as RentalDisputesRouteImport } from './routes/rental-disputes'
 import { Route as RealEstateRouteImport } from './routes/real-estate'
 import { Route as ProverkaKvartiryMoskvaRouteImport } from './routes/proverka-kvartiry-moskva'
-import { Route as ProverkaDogovoraRouteImport } from './routes/proverka-dogovora'
 import { Route as NedvizhimostRouteImport } from './routes/nedvizhimost'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LitigationRouteImport } from './routes/litigation'
@@ -97,11 +96,6 @@ const RealEstateRoute = RealEstateRouteImport.update({
 const ProverkaKvartiryMoskvaRoute = ProverkaKvartiryMoskvaRouteImport.update({
   id: '/proverka-kvartiry-moskva',
   path: '/proverka-kvartiry-moskva',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProverkaDogovoraRoute = ProverkaDogovoraRouteImport.update({
-  id: '/proverka-dogovora',
-  path: '/proverka-dogovora',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NedvizhimostRoute = NedvizhimostRouteImport.update({
@@ -196,7 +190,6 @@ export interface FileRoutesByFullPath {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
-  '/proverka-dogovora': typeof ProverkaDogovoraRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
   '/rental-disputes': typeof RentalDisputesRoute
@@ -227,7 +220,6 @@ export interface FileRoutesByTo {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
-  '/proverka-dogovora': typeof ProverkaDogovoraRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
   '/rental-disputes': typeof RentalDisputesRoute
@@ -259,7 +251,6 @@ export interface FileRoutesById {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
-  '/proverka-dogovora': typeof ProverkaDogovoraRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
   '/rental-disputes': typeof RentalDisputesRoute
@@ -292,7 +283,6 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
-    | '/proverka-dogovora'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
     | '/rental-disputes'
@@ -323,7 +313,6 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
-    | '/proverka-dogovora'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
     | '/rental-disputes'
@@ -354,7 +343,6 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
-    | '/proverka-dogovora'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
     | '/rental-disputes'
@@ -386,7 +374,6 @@ export interface RootRouteChildren {
   LitigationRoute: typeof LitigationRoute
   LoginRoute: typeof LoginRoute
   NedvizhimostRoute: typeof NedvizhimostRoute
-  ProverkaDogovoraRoute: typeof ProverkaDogovoraRoute
   ProverkaKvartiryMoskvaRoute: typeof ProverkaKvartiryMoskvaRoute
   RealEstateRoute: typeof RealEstateRoute
   RentalDisputesRoute: typeof RentalDisputesRoute
@@ -486,13 +473,6 @@ declare module '@tanstack/react-router' {
       path: '/proverka-kvartiry-moskva'
       fullPath: '/proverka-kvartiry-moskva'
       preLoaderRoute: typeof ProverkaKvartiryMoskvaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/proverka-dogovora': {
-      id: '/proverka-dogovora'
-      path: '/proverka-dogovora'
-      fullPath: '/proverka-dogovora'
-      preLoaderRoute: typeof ProverkaDogovoraRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/nedvizhimost': {
@@ -641,7 +621,6 @@ const rootRouteChildren: RootRouteChildren = {
   LitigationRoute: LitigationRoute,
   LoginRoute: LoginRoute,
   NedvizhimostRoute: NedvizhimostRoute,
-  ProverkaDogovoraRoute: ProverkaDogovoraRoute,
   ProverkaKvartiryMoskvaRoute: ProverkaKvartiryMoskvaRoute,
   RealEstateRoute: RealEstateRoute,
   RentalDisputesRoute: RentalDisputesRoute,
@@ -659,3 +638,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

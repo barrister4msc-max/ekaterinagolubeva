@@ -9,7 +9,7 @@ import {
 } from "@/lib/seo-pages.functions";
 import { ContactCta } from "@/components/contact-cta";
 
-const SITE_URL = "https://ekaterinagolubeva.lovable.app";
+const SITE_URL = "https://4upro.ai";
 
 function canonicalHref(page: Pick<SeoPageRecord, "slug" | "canonical_path">) {
   const path = page.canonical_path?.trim() || `/${page.slug}`;
