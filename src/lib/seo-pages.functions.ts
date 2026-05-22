@@ -7,6 +7,8 @@ export interface SeoPageFaqItem {
   answer: string;
 }
 
+export type SeoSchemaJson = unknown;
+
 export interface SeoPageRecord {
   slug: string;
   canonical_path: string | null;
@@ -15,13 +17,14 @@ export interface SeoPageRecord {
   h1_ru: string;
   content_ru: string;
   faq_json: SeoPageFaqItem[];
-  schema_json: Record<string, unknown> | null;
+  schema_json: SeoSchemaJson;
   og_title: string | null;
   og_description: string | null;
   og_image: string | null;
   noindex: boolean;
   nofollow: boolean;
 }
+
 
 export interface SeoPageLink {
   slug: string;
