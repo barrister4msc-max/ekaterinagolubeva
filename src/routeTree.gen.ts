@@ -34,6 +34,7 @@ import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceStatisticsRouteImport } from './routes/workspace.statistics'
 import { Route as WorkspaceSettingsRouteImport } from './routes/workspace.settings'
+import { Route as WorkspaceReviewsRouteImport } from './routes/workspace.reviews'
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
@@ -165,6 +166,11 @@ const WorkspaceSettingsRoute = WorkspaceSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceReviewsRoute = WorkspaceReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 const WorkspaceLoginRoute = WorkspaceLoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -220,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
@@ -252,6 +259,7 @@ export interface FileRoutesByTo {
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
@@ -285,6 +293,7 @@ export interface FileRoutesById {
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
@@ -319,6 +328,7 @@ export interface FileRouteTypes {
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
   fileRoutesByTo: FileRoutesByTo
@@ -351,6 +361,7 @@ export interface FileRouteTypes {
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
   id:
@@ -383,6 +394,7 @@ export interface FileRouteTypes {
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
   fileRoutesById: FileRoutesById
@@ -591,6 +603,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceSettingsRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/reviews': {
+      id: '/workspace/reviews'
+      path: '/reviews'
+      fullPath: '/workspace/reviews'
+      preLoaderRoute: typeof WorkspaceReviewsRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/workspace/login': {
       id: '/workspace/login'
       path: '/login'
@@ -643,6 +662,7 @@ interface WorkspaceRouteChildren {
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
   WorkspaceLoginRoute: typeof WorkspaceLoginRoute
+  WorkspaceReviewsRoute: typeof WorkspaceReviewsRoute
   WorkspaceSettingsRoute: typeof WorkspaceSettingsRoute
   WorkspaceStatisticsRoute: typeof WorkspaceStatisticsRoute
 }
@@ -651,6 +671,7 @@ const WorkspaceRouteChildren: WorkspaceRouteChildren = {
   WorkspaceDashboardRoute: WorkspaceDashboardRoute,
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
   WorkspaceLoginRoute: WorkspaceLoginRoute,
+  WorkspaceReviewsRoute: WorkspaceReviewsRoute,
   WorkspaceSettingsRoute: WorkspaceSettingsRoute,
   WorkspaceStatisticsRoute: WorkspaceStatisticsRoute,
 }
