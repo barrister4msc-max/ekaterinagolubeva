@@ -2,13 +2,15 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ShieldCheck, FileCheck2, Scale, Building2, Handshake, Globe2,
   KeyRound, ArrowUpRight, MapPin, Send, MessageCircle, Mail,
-  Sparkles, Clock, Eye, ShieldHalf, FileText, UserCheck, Lock, User, BookOpen,
+  Sparkles, Clock, Eye, ShieldHalf, FileText, UserCheck, Lock, User, BookOpen, Star,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import heroImg from "@/assets/hero-advisor.jpg";
 import aboutImg from "@/assets/about-portrait.jpg";
 import moscowImg from "@/assets/moscow-architecture.jpg";
 import { useSiteSettings, heroSrc, heroSrcSet } from "@/hooks/use-site-settings";
 import { ContactCta } from "@/components/contact-cta";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
