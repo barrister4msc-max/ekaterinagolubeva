@@ -364,7 +364,7 @@ function HomePage() {
       </section>
 
       {/* REVIEWS */}
-      <ReviewsSection />
+      <ReviewsSection limit={6} showStats showAllLink />
 
 
       {/* GEO */}
