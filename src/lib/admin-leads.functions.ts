@@ -8,7 +8,7 @@ async function assertAdmin(userId: string) {
     .from("user_roles")
     .select("role")
     .eq("user_id", userId)
-    ..in("role", ["admin", "super_admin"])
+    .in("role", ["admin", "super_admin"])
     .maybeSingle();
   if (error) throw new Error("Не удалось проверить роль");
   if (!data) throw new Error("Доступ только для администратора");

@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      consultations: {
+        Row: {
+          created_at: string
+          ends_at: string | null
+          id: string
+          lead_id: string | null
+          meeting_url: string | null
+          notes: string | null
+          payment_status: string | null
+          price: number | null
+          starts_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          lead_id?: string | null
+          meeting_url?: string | null
+          notes?: string | null
+          payment_status?: string | null
+          price?: number | null
+          starts_at: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string | null
+          id?: string
+          lead_id?: string | null
+          meeting_url?: string | null
+          notes?: string | null
+          payment_status?: string | null
+          price?: number | null
+          starts_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_reviews: {
         Row: {
           author_name: string | null
@@ -85,20 +132,138 @@ export type Database = {
           },
         ]
       }
+      lead_events: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          lead_id: string
+          message: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id: string
+          message: string
+          type?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string
+          message?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_events_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_notes: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          lead_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lead_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_notes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          due_at: string | null
+          id: string
+          lead_id: string
+          status: string
+          title: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          lead_id: string
+          status?: string
+          title: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          lead_id?: string
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           admin_notes: string | null
           ai_summary: string | null
+          assigned_to: string | null
           category: string | null
+          closed_at: string | null
           contact: string | null
           created_at: string
           documents_checklist: string[]
+          estimated_budget: number | null
           id: string
           landing_url: string | null
+          last_contact_at: string | null
           name: string
+          next_followup_at: string | null
           next_step: string | null
           original_text: string
           phone: string
+          pipeline_stage: string | null
+          priority: string | null
           qa: Json
           referrer: string | null
           risks: string[]
@@ -115,16 +280,23 @@ export type Database = {
         Insert: {
           admin_notes?: string | null
           ai_summary?: string | null
+          assigned_to?: string | null
           category?: string | null
+          closed_at?: string | null
           contact?: string | null
           created_at?: string
           documents_checklist?: string[]
+          estimated_budget?: number | null
           id?: string
           landing_url?: string | null
+          last_contact_at?: string | null
           name: string
+          next_followup_at?: string | null
           next_step?: string | null
           original_text: string
           phone: string
+          pipeline_stage?: string | null
+          priority?: string | null
           qa?: Json
           referrer?: string | null
           risks?: string[]
@@ -141,16 +313,23 @@ export type Database = {
         Update: {
           admin_notes?: string | null
           ai_summary?: string | null
+          assigned_to?: string | null
           category?: string | null
+          closed_at?: string | null
           contact?: string | null
           created_at?: string
           documents_checklist?: string[]
+          estimated_budget?: number | null
           id?: string
           landing_url?: string | null
+          last_contact_at?: string | null
           name?: string
+          next_followup_at?: string | null
           next_step?: string | null
           original_text?: string
           phone?: string
+          pipeline_stage?: string | null
+          priority?: string | null
           qa?: Json
           referrer?: string | null
           risks?: string[]
@@ -358,7 +537,7 @@ export type Database = {
       is_admin_or_superadmin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "super_admin"
       lead_status: "new" | "in_progress" | "waiting" | "closed"
       lead_urgency: "low" | "medium" | "high"
     }
@@ -488,7 +667,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "super_admin"],
       lead_status: ["new", "in_progress", "waiting", "closed"],
       lead_urgency: ["low", "medium", "high"],
     },
