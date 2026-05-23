@@ -34,10 +34,12 @@ import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceStatisticsRouteImport } from './routes/workspace.statistics'
 import { Route as WorkspaceSettingsRouteImport } from './routes/workspace.settings'
+import { Route as WorkspaceReviewsRouteImport } from './routes/workspace.reviews'
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -164,6 +166,11 @@ const WorkspaceSettingsRoute = WorkspaceSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceReviewsRoute = WorkspaceReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 const WorkspaceLoginRoute = WorkspaceLoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -184,11 +191,16 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
@@ -209,17 +221,19 @@ export interface FileRoutesByFullPath {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
@@ -240,10 +254,12 @@ export interface FileRoutesByTo {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
@@ -251,7 +267,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
@@ -272,10 +288,12 @@ export interface FileRoutesById {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
 }
@@ -305,10 +323,12 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/admin/reviews'
     | '/api/chat'
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
   fileRoutesByTo: FileRoutesByTo
@@ -336,10 +356,12 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/admin/reviews'
     | '/api/chat'
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
   id:
@@ -367,10 +389,12 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/admin/reviews'
     | '/api/chat'
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
+    | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
   fileRoutesById: FileRoutesById
@@ -378,7 +402,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SlugRoute: typeof SlugRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   ArbitrazhnyeSporyRoute: typeof ArbitrazhnyeSporyRoute
   CommercialRentRoute: typeof CommercialRentRoute
   ContactRoute: typeof ContactRoute
@@ -579,6 +603,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceSettingsRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/reviews': {
+      id: '/workspace/reviews'
+      path: '/reviews'
+      fullPath: '/workspace/reviews'
+      preLoaderRoute: typeof WorkspaceReviewsRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/workspace/login': {
       id: '/workspace/login'
       path: '/login'
@@ -607,13 +638,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/reviews': {
+      id: '/admin/reviews'
+      path: '/reviews'
+      fullPath: '/admin/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
+
+interface AdminRouteChildren {
+  AdminReviewsRoute: typeof AdminReviewsRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminReviewsRoute: AdminReviewsRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface WorkspaceRouteChildren {
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
   WorkspaceLoginRoute: typeof WorkspaceLoginRoute
+  WorkspaceReviewsRoute: typeof WorkspaceReviewsRoute
   WorkspaceSettingsRoute: typeof WorkspaceSettingsRoute
   WorkspaceStatisticsRoute: typeof WorkspaceStatisticsRoute
 }
@@ -622,6 +671,7 @@ const WorkspaceRouteChildren: WorkspaceRouteChildren = {
   WorkspaceDashboardRoute: WorkspaceDashboardRoute,
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
   WorkspaceLoginRoute: WorkspaceLoginRoute,
+  WorkspaceReviewsRoute: WorkspaceReviewsRoute,
   WorkspaceSettingsRoute: WorkspaceSettingsRoute,
   WorkspaceStatisticsRoute: WorkspaceStatisticsRoute,
 }
@@ -633,7 +683,7 @@ const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SlugRoute: SlugRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   ArbitrazhnyeSporyRoute: ArbitrazhnyeSporyRoute,
   CommercialRentRoute: CommercialRentRoute,
   ContactRoute: ContactRoute,
