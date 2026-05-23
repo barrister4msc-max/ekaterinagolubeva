@@ -457,3 +457,102 @@ function HomePage() {
     </main>
   );
 }
+
+type ExternalReview = {
+  id: string;
+  review_text: string;
+  author_name: string | null;
+  service_category: string | null;
+  review_date: string | null;
+  rating: number | null;
+  external_url: string | null;
+};
+
+function formatReviewDate(value: string | null): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("ru-RU", { year: "numeric", month: "long" });
+}
+
+function ReviewsSection() {
+  const { data } = useQuery({
+    queryKey: ["external-reviews", "published"],
+    queryFn: async (): Promise<ExternalReview[]> => {
+      const { data, error } = await supabase
+        .from("external_reviews")
+        .select("id, review_text, author_name, service_category, review_date, rating, external_url")
+        .eq("is_published", true)
+        .order("review_date", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ExternalReview[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const dynamic = data ?? [];
+  const useFallback = dynamic.length === 0;
+
+  return (
+    <section className="container-wide py-24 md:py-32">
+      <div className="eyebrow mb-5">Отзывы</div>
+      <h2 className="max-w-xl text-3xl md:text-5xl">Говорят клиенты</h2>
+
+      <div className="mt-14 grid gap-8 md:grid-cols-3">
+        {useFallback
+          ? reviews.map((r) => (
+              <figure key={r.author} className="border-t border-border pt-8">
+                <blockquote className="font-display text-xl leading-snug text-foreground/90 md:text-2xl">
+                  «{r.text}»
+                </blockquote>
+                <figcaption className="mt-6 text-sm">
+                  <div className="font-medium">{r.author}</div>
+                  <div className="text-muted-foreground">{r.role}</div>
+                </figcaption>
+              </figure>
+            ))
+          : dynamic.map((r) => {
+              const dateLabel = formatReviewDate(r.review_date);
+              const rating = typeof r.rating === "number" ? Math.round(r.rating) : 0;
+              return (
+                <figure key={r.id} className="flex flex-col border-t border-border pt-8">
+                  {rating > 0 && (
+                    <div className="mb-4 flex items-center gap-1 text-primary" aria-label={`Оценка ${rating} из 5`}>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          size={14}
+                          className={i < rating ? "fill-current" : "text-border"}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <blockquote className="font-display text-xl leading-snug text-foreground/90 md:text-2xl">
+                    «{r.review_text}»
+                  </blockquote>
+                  <figcaption className="mt-6 text-sm">
+                    {r.author_name && <div className="font-medium">{r.author_name}</div>}
+                    {(r.service_category || dateLabel) && (
+                      <div className="text-muted-foreground">
+                        {[r.service_category, dateLabel].filter(Boolean).join(" · ")}
+                      </div>
+                    )}
+                  </figcaption>
+                  {r.external_url && (
+                    <a
+                      href={r.external_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-6 inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-primary hover:opacity-80"
+                    >
+                      Смотреть источник <ArrowUpRight size={14} />
+                    </a>
+                  )}
+                </figure>
+              );
+            })}
+      </div>
+    </section>
+  );
+}
