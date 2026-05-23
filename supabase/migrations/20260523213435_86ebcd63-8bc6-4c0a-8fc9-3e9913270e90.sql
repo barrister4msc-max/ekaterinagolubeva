@@ -1,0 +1,1 @@
+alter table public.external_reviews enable row level security;
