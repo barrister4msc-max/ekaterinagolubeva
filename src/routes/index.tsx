@@ -370,24 +370,8 @@ function HomePage() {
       </section>
 
       {/* REVIEWS */}
-      <section className="container-wide py-24 md:py-32">
-        <div className="eyebrow mb-5">Отзывы</div>
-        <h2 className="max-w-xl text-3xl md:text-5xl">Говорят клиенты</h2>
+      <ReviewsSection />
 
-        <div className="mt-14 grid gap-8 md:grid-cols-3">
-          {reviews.map((r) => (
-            <figure key={r.author} className="border-t border-border pt-8">
-              <blockquote className="font-display text-xl leading-snug text-foreground/90 md:text-2xl">
-                «{r.text}»
-              </blockquote>
-              <figcaption className="mt-6 text-sm">
-                <div className="font-medium">{r.author}</div>
-                <div className="text-muted-foreground">{r.role}</div>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
 
       {/* GEO */}
       <section className="border-y border-border">
