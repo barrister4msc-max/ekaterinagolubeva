@@ -108,9 +108,13 @@ function WorkspaceLogin() {
               </label>
               <label className="block">
                 <span className="text-[11px] uppercase tracking-[0.18em] text-foreground/60">Пароль</span>
-                <input required type="password" minLength={6} value={password}
+                <input required type="password" minLength={8} value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   className="mt-2 w-full border-b border-border bg-transparent py-3 text-base outline-none focus:border-primary" />
+                <span className="mt-2 block text-[11px] text-muted-foreground">
+                  Минимум 8 символов, заглавная и строчная буквы, цифра.
+                </span>
               </label>
               {err && <div className="text-sm text-destructive">{err}</div>}
               <button type="submit" disabled={sending} className="btn-primary w-full justify-center">
