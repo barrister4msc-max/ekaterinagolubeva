@@ -16,6 +16,7 @@ import { Route as VozvratZalogaArendaRouteImport } from './routes/vozvrat-zaloga
 import { Route as SporSArendatoromRouteImport } from './routes/spor-s-arendatorom'
 import { Route as SoprovozhdenieSdelkiRouteImport } from './routes/soprovozhdenie-sdelki'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ReviewsRouteImport } from './routes/reviews'
 import { Route as RepresentationAbroadRouteImport } from './routes/representation-abroad'
 import { Route as RepresentationRouteImport } from './routes/representation'
 import { Route as RentalDisputesRouteImport } from './routes/rental-disputes'
@@ -71,6 +72,11 @@ const SoprovozhdenieSdelkiRoute = SoprovozhdenieSdelkiRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewsRoute = ReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RepresentationAbroadRoute = RepresentationAbroadRouteImport.update({
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/rental-disputes': typeof RentalDisputesRoute
   '/representation': typeof RepresentationRoute
   '/representation-abroad': typeof RepresentationAbroadRoute
+  '/reviews': typeof ReviewsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
@@ -225,6 +232,7 @@ export interface FileRoutesByTo {
   '/rental-disputes': typeof RentalDisputesRoute
   '/representation': typeof RepresentationRoute
   '/representation-abroad': typeof RepresentationAbroadRoute
+  '/reviews': typeof ReviewsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
@@ -256,6 +264,7 @@ export interface FileRoutesById {
   '/rental-disputes': typeof RentalDisputesRoute
   '/representation': typeof RepresentationRoute
   '/representation-abroad': typeof RepresentationAbroadRoute
+  '/reviews': typeof ReviewsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
@@ -288,6 +297,7 @@ export interface FileRouteTypes {
     | '/rental-disputes'
     | '/representation'
     | '/representation-abroad'
+    | '/reviews'
     | '/sitemap.xml'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/rental-disputes'
     | '/representation'
     | '/representation-abroad'
+    | '/reviews'
     | '/sitemap.xml'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
@@ -348,6 +359,7 @@ export interface FileRouteTypes {
     | '/rental-disputes'
     | '/representation'
     | '/representation-abroad'
+    | '/reviews'
     | '/sitemap.xml'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
@@ -379,6 +391,7 @@ export interface RootRouteChildren {
   RentalDisputesRoute: typeof RentalDisputesRoute
   RepresentationRoute: typeof RepresentationRoute
   RepresentationAbroadRoute: typeof RepresentationAbroadRoute
+  ReviewsRoute: typeof ReviewsRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SoprovozhdenieSdelkiRoute: typeof SoprovozhdenieSdelkiRoute
   SporSArendatoromRoute: typeof SporSArendatoromRoute
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reviews': {
+      id: '/reviews'
+      path: '/reviews'
+      fullPath: '/reviews'
+      preLoaderRoute: typeof ReviewsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/representation-abroad': {
@@ -626,6 +646,7 @@ const rootRouteChildren: RootRouteChildren = {
   RentalDisputesRoute: RentalDisputesRoute,
   RepresentationRoute: RepresentationRoute,
   RepresentationAbroadRoute: RepresentationAbroadRoute,
+  ReviewsRoute: ReviewsRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SoprovozhdenieSdelkiRoute: SoprovozhdenieSdelkiRoute,
   SporSArendatoromRoute: SporSArendatoromRoute,
