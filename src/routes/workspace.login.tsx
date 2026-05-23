@@ -53,7 +53,13 @@ function WorkspaceLogin() {
 
   async function signInPassword(e: FormEvent) {
     e.preventDefault();
-    setErr(null); setMsg(null); setSending(true);
+    setErr(null); setMsg(null);
+    const check = validatePassword(password);
+    if (!check.valid) {
+      setErr(check.message ?? "Пароль не соответствует требованиям.");
+      return;
+    }
+    setSending(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
