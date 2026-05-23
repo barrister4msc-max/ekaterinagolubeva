@@ -1,0 +1,1 @@
+create policy "Public can read published reviews" on public.external_reviews for select to anon, authenticated using (is_published = true);
