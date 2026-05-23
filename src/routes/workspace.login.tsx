@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Mail, KeyRound, ArrowLeft } from "lucide-react";
+import { validatePassword } from "@/lib/password-validation";
 
 export const Route = createFileRoute("/workspace/login")({
   head: () => ({
