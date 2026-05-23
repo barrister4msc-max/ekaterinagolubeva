@@ -38,6 +38,7 @@ import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
   id: '/workspace',
@@ -184,11 +185,16 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
@@ -209,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
@@ -219,7 +226,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
@@ -240,6 +247,7 @@ export interface FileRoutesByTo {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
@@ -251,7 +259,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
-  '/admin': typeof AdminRoute
+  '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
@@ -272,6 +280,7 @@ export interface FileRoutesById {
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
   '/workspace': typeof WorkspaceRouteWithChildren
+  '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
@@ -305,6 +314,7 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/admin/reviews'
     | '/api/chat'
     | '/workspace/dashboard'
     | '/workspace/leads'
@@ -336,6 +346,7 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/admin/reviews'
     | '/api/chat'
     | '/workspace/dashboard'
     | '/workspace/leads'
@@ -367,6 +378,7 @@ export interface FileRouteTypes {
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
     | '/workspace'
+    | '/admin/reviews'
     | '/api/chat'
     | '/workspace/dashboard'
     | '/workspace/leads'
@@ -378,7 +390,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SlugRoute: typeof SlugRoute
-  AdminRoute: typeof AdminRoute
+  AdminRoute: typeof AdminRouteWithChildren
   ArbitrazhnyeSporyRoute: typeof ArbitrazhnyeSporyRoute
   CommercialRentRoute: typeof CommercialRentRoute
   ContactRoute: typeof ContactRoute
@@ -607,8 +619,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/reviews': {
+      id: '/admin/reviews'
+      path: '/reviews'
+      fullPath: '/admin/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
+
+interface AdminRouteChildren {
+  AdminReviewsRoute: typeof AdminReviewsRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminReviewsRoute: AdminReviewsRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface WorkspaceRouteChildren {
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
@@ -633,7 +662,7 @@ const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SlugRoute: SlugRoute,
-  AdminRoute: AdminRoute,
+  AdminRoute: AdminRouteWithChildren,
   ArbitrazhnyeSporyRoute: ArbitrazhnyeSporyRoute,
   CommercialRentRoute: CommercialRentRoute,
   ContactRoute: ContactRoute,
