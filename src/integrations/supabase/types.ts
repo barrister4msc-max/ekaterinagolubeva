@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      external_reviews: {
+        Row: {
+          author_name: string | null
+          created_at: string | null
+          external_url: string | null
+          id: string
+          is_published: boolean | null
+          rating: number | null
+          review_date: string | null
+          review_text: string
+          service_category: string | null
+          source: string
+          source_review_id: string | null
+        }
+        Insert: {
+          author_name?: string | null
+          created_at?: string | null
+          external_url?: string | null
+          id?: string
+          is_published?: boolean | null
+          rating?: number | null
+          review_date?: string | null
+          review_text: string
+          service_category?: string | null
+          source: string
+          source_review_id?: string | null
+        }
+        Update: {
+          author_name?: string | null
+          created_at?: string | null
+          external_url?: string | null
+          id?: string
+          is_published?: boolean | null
+          rating?: number | null
+          review_date?: string | null
+          review_text?: string
+          service_category?: string | null
+          source?: string
+          source_review_id?: string | null
+        }
+        Relationships: []
+      }
       lead_documents: {
         Row: {
           created_at: string | null
@@ -313,6 +355,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin_or_superadmin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"
