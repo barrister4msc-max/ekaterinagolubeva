@@ -144,6 +144,9 @@ export function ReviewsSection({
           const rating = typeof r.rating === "number" ? Math.round(r.rating) : 0;
           return (
             <figure key={r.id} className="flex flex-col border-t border-border pt-8">
+              <div className="mb-4 inline-flex w-fit items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-primary">
+                <ShieldCheck size={12} /> Проверенный отзыв Avito
+              </div>
               {rating > 0 && (
                 <div className="mb-4 flex items-center gap-1 text-primary" aria-label={`Оценка ${rating} из 5`}>
                   {Array.from({ length: 5 }).map((_, i) => (
@@ -173,7 +176,7 @@ export function ReviewsSection({
                   rel="noopener noreferrer"
                   className="mt-6 inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-primary hover:opacity-80"
                 >
-                  Смотреть источник <ArrowUpRight size={14} />
+                  Смотреть на Avito <ArrowUpRight size={14} />
                 </a>
               )}
             </figure>
