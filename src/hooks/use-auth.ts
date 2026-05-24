@@ -64,12 +64,11 @@ export function useAuth(): AuthState {
 
     async function checkAdmin(uid: string) {
       // Use security-definer RPC to bypass RLS on user_roles
-      const { data, error } = await supabase.rpc("has_role", {
+      const { data, error } = await supabase.rpc("is_admin_or_superadmin", {
         _user_id: uid,
-        _role: "admin",
       });
       if (error) {
-        console.error("has_role check failed", error);
+        console.error("admin role check failed", error);
         setIsAdmin(false);
         return;
       }
