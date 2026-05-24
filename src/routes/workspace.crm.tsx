@@ -178,92 +178,124 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
         </div>
       </div>
 {selectedLead && (
-  <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm">
-    <div className="h-full w-full max-w-xl overflow-y-auto border-l border-border bg-white p-8 shadow-2xl">
-
-      <div className="flex items-start justify-between">
+  <div
+    className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-sm"
+    onClick={() => setSelectedLead(null)}
+  >
+    <aside
+      onClick={(e) => e.stopPropagation()}
+      className="h-full w-full max-w-2xl overflow-y-auto border-l border-border bg-[oklch(0.98_0.01_75)] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.18)]"
+    >
+      <div className="flex items-start justify-between gap-6">
         <div>
-          <h2 className="font-display text-3xl">
+          <div className="mb-4 inline-flex rounded-full border border-border bg-white px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            Legal dossier
+          </div>
+
+          <h2 className="font-display text-4xl leading-tight">
             {selectedLead.name}
           </h2>
 
-          <p className="mt-2 text-sm text-muted-foreground">
+          <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
             {selectedLead.case}
           </p>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <span className={`rounded-full px-3 py-1 text-xs ${priorityClass(selectedLead.priority)}`}>
+              {selectedLead.priority}
+            </span>
+
+            <span className="rounded-full bg-white px-3 py-1 text-xs text-muted-foreground">
+              {selectedLead.date}
+            </span>
+          </div>
         </div>
 
         <button
           onClick={() => setSelectedLead(null)}
-          className="rounded-xl border border-border p-2 hover:bg-secondary"
+          className="rounded-2xl border border-border bg-white p-3 shadow-sm transition hover:bg-secondary"
         >
           <X size={18} />
         </button>
       </div>
 
-      <div className="mt-8 space-y-6">
+      <div className="mt-8 grid grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-border bg-white p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            Stage
+          </div>
+          <div className="mt-2 text-sm font-medium">
+            {selectedLead.stage.replaceAll("_", " ")}
+          </div>
+        </div>
 
-        <section className="rounded-2xl border border-border p-5">
+        <div className="rounded-2xl border border-border bg-white p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            Next step
+          </div>
+          <div className="mt-2 text-sm font-medium">
+            Проверка документов
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-border bg-white p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            Value
+          </div>
+          <div className="mt-2 text-sm font-medium">
+            75 000 ₽
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-8 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center gap-2">
+          <AlertTriangle size={17} />
+          <h3 className="font-medium">AI Risk Analysis</h3>
+        </div>
+
+        <div className="mt-5 space-y-3 text-sm leading-6 text-muted-foreground">
+          <p>Рекомендуется проверить документы, ограничения, собственника и историю объекта.</p>
+          <p>Следующий шаг — запросить выписку ЕГРН и документы-основания права.</p>
+        </div>
+      </div>
+
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <section className="rounded-3xl border border-border bg-white p-6">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={16} />
-            <h3 className="font-medium">
-              AI Risk Analysis
-            </h3>
+            <FileText size={17} />
+            <h3 className="font-medium">Documents</h3>
           </div>
 
-          <div className="mt-4 space-y-3 text-sm text-muted-foreground">
-            <p>
-              Возможны риски при проверке объекта недвижимости.
-            </p>
-
-            <p>
-              Рекомендуется запросить выписку ЕГРН и проверить ограничения.
-            </p>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-border p-5">
-          <div className="flex items-center gap-2">
-            <FileText size={16} />
-            <h3 className="font-medium">
-              Documents
-            </h3>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            <div className="rounded-xl bg-secondary p-3 text-sm">
-              Договор купли-продажи.pdf
+          <div className="mt-5 space-y-3">
+            <div className="rounded-2xl bg-secondary/70 p-4 text-sm">
+              Договор.pdf
             </div>
-
-            <div className="rounded-xl bg-secondary p-3 text-sm">
+            <div className="rounded-2xl bg-secondary/70 p-4 text-sm">
               Выписка ЕГРН.pdf
             </div>
           </div>
         </section>
 
-        <section className="rounded-2xl border border-border p-5">
+        <section className="rounded-3xl border border-border bg-white p-6">
           <div className="flex items-center gap-2">
-            <CheckSquare size={16} />
-            <h3 className="font-medium">
-              Tasks
-            </h3>
+            <CheckSquare size={17} />
+            <h3 className="font-medium">Tasks</h3>
           </div>
 
-          <div className="mt-4 space-y-3">
-            <div className="rounded-xl border border-border p-3 text-sm">
+          <div className="mt-5 space-y-3">
+            <div className="rounded-2xl border border-border p-4 text-sm">
               Проверить собственника
             </div>
-
-            <div className="rounded-xl border border-border p-3 text-sm">
+            <div className="rounded-2xl border border-border p-4 text-sm">
               Подготовить заключение
             </div>
           </div>
         </section>
-
       </div>
-    </div>
+    </aside>
   </div>
 )}
-      <div className="grid gap-4 md:grid-cols-4">
         <Kpi icon={Users} value="15" label="Всего лидов" sub="+12% за неделю" />
         <Kpi icon={Clock} value="4" label="В работе" sub="+2 за неделю" />
         <Kpi icon={CheckCircle2} value="8" label="Завершено" sub="+25% за неделю" />
