@@ -122,16 +122,36 @@ function CRMPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "inbox" | "documents" | "tasks" | "timeline">("overview");
 
-  useEffect(() => {
-    if (!session) return;
-    setLoading(true);
-    Promise.all([listLeads({ data: {} }), listInbox({ data: {} })])
+  const reload = useCallback(() => {
+    return Promise.all([listLeads({ data: {} }), listInbox({ data: {} })])
       .then(([l, c]) => {
         setLeads((l.leads as unknown as Lead[]) ?? []);
         setInbox((c.conversations as unknown as Conversation[]) ?? []);
+      });
+  }, [listLeads, listInbox]);
+
+  useEffect(() => {
+    if (!session) return;
+    setLoading(true);
+    reload().finally(() => setLoading(false));
+  }, [session, reload]);
+
+  useEffect(() => {
+    if (!session) return;
+    const channel = supabase
+      .channel("inbox-rt")
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => {
+        reload();
       })
-      .finally(() => setLoading(false));
-  }, [session]);
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "conversation_messages" }, () => {
+        reload();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session, reload]);
+
 
   const kpi = useMemo(() => {
     const inWork = leads.filter((l) => ["contacted", "analysis", "in_work", "offer_sent", "court"].includes(l.pipeline_stage ?? "")).length;
