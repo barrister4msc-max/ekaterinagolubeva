@@ -42,7 +42,7 @@ function priorityClass(priority: string) {
 
 function CRMPage() {
   return (
-    <div className="space-y-8 pb-10">
+    <div className="origin-top-left scale-[0.82] space-y-8 pb-10 xl:w-[122%]">
      <div className="
 sticky
 top-0
