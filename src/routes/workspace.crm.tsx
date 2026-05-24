@@ -140,7 +140,9 @@ const [newLeadCase, setNewLeadCase] = useState("");
                 <div className="space-y-3">
                   {leads.map((lead) => (
                     <article
-                      key={lead.name}
+  key={lead.name}
+  draggable
+  onDragStart={() => setDraggedLeadName(lead.name)}
                       onClick={() => {
                         setSelectedLead(lead);
                         setActiveTab("overview");
