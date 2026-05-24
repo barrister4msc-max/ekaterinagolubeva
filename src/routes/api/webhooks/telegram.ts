@@ -53,7 +53,7 @@ export const Route = createFileRoute("/api/webhooks/telegram")({
           .insert({
             source: "telegram",
             external_event_id: String(updateId),
-            payload: payload as unknown as any,
+            payload: JSON.parse(JSON.stringify(payload)),
             processed: false,
           })
           .select("id")
@@ -162,7 +162,7 @@ export const Route = createFileRoute("/api/webhooks/telegram")({
               direction: "inbound",
               message_text: messageText,
               external_message_id: externalMessageId,
-              raw_payload: payload as unknown as any,
+              raw_payload: JSON.parse(JSON.stringify(payload)),
             });
 
           if (msgErr) {
