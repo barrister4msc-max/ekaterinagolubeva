@@ -325,9 +325,31 @@ const [newLeadCase, setNewLeadCase] = useState("");
   placeholder="Описание обращения"
 />
 
-              <button className="h-12 w-full rounded-2xl bg-neutral-950 text-sm text-white">
-                Создать лид
-              </button>
+              <button
+  type="button"
+  onClick={() => {
+    if (!newLeadName.trim() || !newLeadCase.trim()) return;
+
+    setLeadsData([
+      {
+        name: newLeadName.trim(),
+        case: newLeadCase.trim(),
+        stage: "new",
+        priority: "medium",
+        date: "Сегодня",
+      },
+      ...leadsData,
+    ]);
+
+    setNewLeadName("");
+    setNewLeadPhone("");
+    setNewLeadCase("");
+    setShowCreateLead(false);
+  }}
+  className="h-12 w-full rounded-2xl bg-neutral-950 text-sm text-white"
+>
+  Создать лид
+</button>
             </div>
           </div>
         </div>
