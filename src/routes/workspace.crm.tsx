@@ -134,7 +134,7 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
                     >
                       <h3 className="text-sm font-semibold">{lead.name}</h3>
 
-                      <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                      <p className="mt-3 line-clamp-3 text-[13px] leading-5 text-muted-foreground">
                         {lead.case}
                       </p>
 
