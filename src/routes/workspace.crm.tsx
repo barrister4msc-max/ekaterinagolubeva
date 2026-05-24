@@ -109,7 +109,10 @@ const [draggedLeadName, setDraggedLeadName] = useState<string | null>(null);
             return (
               <section
   key={column.id}
-  onDragOver={(e) => e.preventDefault()}
+  onDragOver={(e) => {
+    e.preventDefault();
+    setDragOverColumn(column.id);
+  }}
   onDrop={() => {
     if (!draggedLeadName) return;
 
