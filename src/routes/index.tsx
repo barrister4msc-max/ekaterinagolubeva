@@ -426,7 +426,10 @@ function HomePage() {
                 <ArrowUpRight size={14}/>
               </a>
               <a href="mailto:hello@example.com" className="flex items-center justify-between border-y border-border py-4 text-sm hover:text-primary">
-                <span className="inline-flex items-center gap-3"><Mail size={16}/> hello@example.com</span>
+                <span className="inline-flex items-center gap-3">
+                  <Mail size={16} />
+                  <span>hello@example.com</span>
+                </span>
                 <ArrowUpRight size={14}/>
               </a>
             </div>
