@@ -270,7 +270,7 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
           </div>
         </div>
       </div>
-
+{activeTab === "overview" && (
       <div className="mt-8 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-2">
           <AlertTriangle size={17} />
