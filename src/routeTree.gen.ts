@@ -25,6 +25,7 @@ import { Route as ProverkaKvartiryMoskvaRouteImport } from './routes/proverka-kv
 import { Route as NedvizhimostRouteImport } from './routes/nedvizhimost'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LitigationRouteImport } from './routes/litigation'
+import { Route as CrmRouteImport } from './routes/crm'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
@@ -121,6 +122,11 @@ const LitigationRoute = LitigationRouteImport.update({
   path: '/litigation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CrmRoute = CrmRouteImport.update({
+  id: '/crm',
+  path: '/crm',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContractsRoute = ContractsRouteImport.update({
   id: '/contracts',
   path: '/contracts',
@@ -205,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
+  '/crm': typeof CrmRoute
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
@@ -238,6 +245,7 @@ export interface FileRoutesByTo {
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
+  '/crm': typeof CrmRoute
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
@@ -272,6 +280,7 @@ export interface FileRoutesById {
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
+  '/crm': typeof CrmRoute
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
@@ -307,6 +316,7 @@ export interface FileRouteTypes {
     | '/commercial-rent'
     | '/contact'
     | '/contracts'
+    | '/crm'
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
@@ -340,6 +350,7 @@ export interface FileRouteTypes {
     | '/commercial-rent'
     | '/contact'
     | '/contracts'
+    | '/crm'
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
@@ -373,6 +384,7 @@ export interface FileRouteTypes {
     | '/commercial-rent'
     | '/contact'
     | '/contracts'
+    | '/crm'
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
@@ -407,6 +419,7 @@ export interface RootRouteChildren {
   CommercialRentRoute: typeof CommercialRentRoute
   ContactRoute: typeof ContactRoute
   ContractsRoute: typeof ContractsRoute
+  CrmRoute: typeof CrmRoute
   LitigationRoute: typeof LitigationRoute
   LoginRoute: typeof LoginRoute
   NedvizhimostRoute: typeof NedvizhimostRoute
@@ -538,6 +551,13 @@ declare module '@tanstack/react-router' {
       path: '/litigation'
       fullPath: '/litigation'
       preLoaderRoute: typeof LitigationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crm': {
+      id: '/crm'
+      path: '/crm'
+      fullPath: '/crm'
+      preLoaderRoute: typeof CrmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contracts': {
@@ -688,6 +708,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommercialRentRoute: CommercialRentRoute,
   ContactRoute: ContactRoute,
   ContractsRoute: ContractsRoute,
+  CrmRoute: CrmRoute,
   LitigationRoute: LitigationRoute,
   LoginRoute: LoginRoute,
   NedvizhimostRoute: NedvizhimostRoute,
