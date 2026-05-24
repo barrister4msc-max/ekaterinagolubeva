@@ -28,11 +28,11 @@ function CRMPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-8 gap-4 overflow-x-auto">
+      <div className="grid grid-cols-4 xl:grid-cols-8 gap-4">
         {columns.map((column) => (
           <div
             key={column}
-            className="rounded-2xl border bg-card p-4 min-h-[600px]"
+            className="rounded-2xl border bg-card p-4 min-h-[500px]"
           >
             <div className="mb-4">
               <h2 className="text-sm uppercase tracking-wide text-muted-foreground">
