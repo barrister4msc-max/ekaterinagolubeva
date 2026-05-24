@@ -25,7 +25,6 @@ import { Route as ProverkaKvartiryMoskvaRouteImport } from './routes/proverka-kv
 import { Route as NedvizhimostRouteImport } from './routes/nedvizhimost'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LitigationRouteImport } from './routes/litigation'
-import { Route as CrmRouteImport } from './routes/crm'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
@@ -39,6 +38,7 @@ import { Route as WorkspaceReviewsRouteImport } from './routes/workspace.reviews
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
+import { Route as WorkspaceCrmRouteImport } from './routes/workspace.crm'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 
@@ -122,11 +122,6 @@ const LitigationRoute = LitigationRouteImport.update({
   path: '/litigation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CrmRoute = CrmRouteImport.update({
-  id: '/crm',
-  path: '/crm',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ContractsRoute = ContractsRouteImport.update({
   id: '/contracts',
   path: '/contracts',
@@ -192,6 +187,11 @@ const WorkspaceDashboardRoute = WorkspaceDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceCrmRoute = WorkspaceCrmRouteImport.update({
+  id: '/crm',
+  path: '/crm',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -211,7 +211,6 @@ export interface FileRoutesByFullPath {
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
-  '/crm': typeof CrmRoute
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
@@ -230,6 +229,7 @@ export interface FileRoutesByFullPath {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -245,7 +245,6 @@ export interface FileRoutesByTo {
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
-  '/crm': typeof CrmRoute
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
@@ -264,6 +263,7 @@ export interface FileRoutesByTo {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -280,7 +280,6 @@ export interface FileRoutesById {
   '/commercial-rent': typeof CommercialRentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
-  '/crm': typeof CrmRoute
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
@@ -299,6 +298,7 @@ export interface FileRoutesById {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -316,7 +316,6 @@ export interface FileRouteTypes {
     | '/commercial-rent'
     | '/contact'
     | '/contracts'
-    | '/crm'
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
@@ -335,6 +334,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
@@ -350,7 +350,6 @@ export interface FileRouteTypes {
     | '/commercial-rent'
     | '/contact'
     | '/contracts'
-    | '/crm'
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
@@ -369,6 +368,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
@@ -384,7 +384,6 @@ export interface FileRouteTypes {
     | '/commercial-rent'
     | '/contact'
     | '/contracts'
-    | '/crm'
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
@@ -403,6 +402,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/leads'
     | '/workspace/login'
@@ -419,7 +419,6 @@ export interface RootRouteChildren {
   CommercialRentRoute: typeof CommercialRentRoute
   ContactRoute: typeof ContactRoute
   ContractsRoute: typeof ContractsRoute
-  CrmRoute: typeof CrmRoute
   LitigationRoute: typeof LitigationRoute
   LoginRoute: typeof LoginRoute
   NedvizhimostRoute: typeof NedvizhimostRoute
@@ -553,13 +552,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LitigationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/crm': {
-      id: '/crm'
-      path: '/crm'
-      fullPath: '/crm'
-      preLoaderRoute: typeof CrmRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/contracts': {
       id: '/contracts'
       path: '/contracts'
@@ -651,6 +643,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceDashboardRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/crm': {
+      id: '/workspace/crm'
+      path: '/crm'
+      fullPath: '/workspace/crm'
+      preLoaderRoute: typeof WorkspaceCrmRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -679,6 +678,7 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface WorkspaceRouteChildren {
+  WorkspaceCrmRoute: typeof WorkspaceCrmRoute
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
   WorkspaceLoginRoute: typeof WorkspaceLoginRoute
@@ -688,6 +688,7 @@ interface WorkspaceRouteChildren {
 }
 
 const WorkspaceRouteChildren: WorkspaceRouteChildren = {
+  WorkspaceCrmRoute: WorkspaceCrmRoute,
   WorkspaceDashboardRoute: WorkspaceDashboardRoute,
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
   WorkspaceLoginRoute: WorkspaceLoginRoute,
@@ -708,7 +709,6 @@ const rootRouteChildren: RootRouteChildren = {
   CommercialRentRoute: CommercialRentRoute,
   ContactRoute: ContactRoute,
   ContractsRoute: ContractsRoute,
-  CrmRoute: CrmRoute,
   LitigationRoute: LitigationRoute,
   LoginRoute: LoginRoute,
   NedvizhimostRoute: NedvizhimostRoute,
@@ -730,3 +730,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
