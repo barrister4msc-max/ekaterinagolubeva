@@ -486,16 +486,34 @@ function LeadInbox({ leadId }: { leadId: string }) {
       .finally(() => setLoading(false));
   }, [leadId]);
 
+  const reloadMsgs = useCallback(() => {
+    if (!selected) return Promise.resolve();
+    return listMsgs({ data: { conversationId: selected } })
+      .then((r) => setMessages((r.messages as unknown as Message[]) ?? []));
+  }, [selected, listMsgs]);
+
   useEffect(() => {
     if (!selected) {
       setMessages([]);
       return;
     }
     setLoadingMsg(true);
-    listMsgs({ data: { conversationId: selected } })
-      .then((r) => setMessages((r.messages as unknown as Message[]) ?? []))
-      .finally(() => setLoadingMsg(false));
-  }, [selected]);
+    reloadMsgs().finally(() => setLoadingMsg(false));
+  }, [selected, reloadMsgs]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const ch = supabase
+      .channel(`conv-${selected}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "conversation_messages", filter: `conversation_id=eq.${selected}` },
+        () => { reloadMsgs(); },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [selected, reloadMsgs]);
+
 
   if (loading) {
     return <div className="mt-8 text-sm text-muted-foreground">Загрузка переписок…</div>;
