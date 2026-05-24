@@ -65,7 +65,9 @@ type Conversation = {
   last_message_at: string | null;
   external_user_id: string | null;
   leads?: { id: string; name: string; phone: string } | null;
+  last_message?: { message_text: string | null; direction: string; created_at: string } | null;
 };
+
 
 type Message = {
   id: string;
