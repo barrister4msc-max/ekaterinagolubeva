@@ -149,11 +149,11 @@ function CRMPage() {
       </div>
 
       {selectedLead ? (
-        <div
-          className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-md"
-          onClick={() => setSelectedLead(null)}
-       
-          <aside
+       <div
+  className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-md"
+  onClick={() => setSelectedLead(null)}
+>
+  <aside
             onClick={(event) => event.stopPropagation()}
             className="h-full w-full max-w-2xl overflow-y-auto border-l border-border bg-[oklch(0.98_0.01_75)] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.18)]"
           >
