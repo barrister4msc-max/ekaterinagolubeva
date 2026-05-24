@@ -303,7 +303,7 @@ function InboxView({ conversations, onSelect }: { conversations: Conversation[];
         <Inbox className="mx-auto mb-3 text-muted-foreground" size={28} />
         <h3 className="font-medium">Inbox пуст</h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          Здесь появятся переписки из Telegram, WhatsApp, сайта и Avito, когда подключим вебхуки.
+          Здесь появятся переписки из Telegram, WhatsApp, сайта и Avito.
         </p>
       </div>
     );
@@ -315,7 +315,7 @@ function InboxView({ conversations, onSelect }: { conversations: Conversation[];
           <button
             key={c.id}
             onClick={() => onSelect(c)}
-            className="flex w-full items-center gap-4 p-4 text-left hover:bg-secondary/40"
+            className="flex w-full items-start gap-4 p-4 text-left hover:bg-secondary/40"
           >
             <ChannelBadge channel={c.channel} />
             <div className="min-w-0 flex-1">
@@ -323,10 +323,15 @@ function InboxView({ conversations, onSelect }: { conversations: Conversation[];
                 <div className="truncate text-sm font-medium">
                   {c.leads?.name ?? "Без лида"}
                 </div>
-                <div className="text-[11px] text-muted-foreground">{fmtDate(c.last_message_at)}</div>
+                <div className="shrink-0 text-[11px] text-muted-foreground">{fmtDate(c.last_message_at)}</div>
               </div>
               <div className="mt-1 truncate text-xs text-muted-foreground">
-                {c.external_user_id ?? c.leads?.phone ?? "—"} · статус: {c.status}
+                {c.last_message?.message_text
+                  ? `${c.last_message.direction === "outbound" ? "Вы: " : ""}${c.last_message.message_text}`
+                  : (c.external_user_id ?? c.leads?.phone ?? "—")}
+              </div>
+              <div className="mt-0.5 truncate text-[11px] text-muted-foreground/70">
+                статус: {c.status}
               </div>
             </div>
           </button>
@@ -335,6 +340,7 @@ function InboxView({ conversations, onSelect }: { conversations: Conversation[];
     </div>
   );
 }
+
 
 function LeadDrawer({
   lead,
