@@ -77,7 +77,11 @@ const [showCreateLead, setShowCreateLead] = useState(false);
             <SlidersHorizontal size={16} />
             Фильтры
           </button>
-<button className="flex h-11 items-center gap-2 rounded-xl bg-neutral-950 px-5 text-sm text-white shadow-sm">
+<button
+  type="button"
+  onClick={() => setShowCreateLead(true)}
+  className="flex h-11 items-center gap-2 rounded-xl bg-neutral-950 px-5 text-sm text-white shadow-sm"
+>
   <Plus size={16} />
   Добавить лид
 </button>
