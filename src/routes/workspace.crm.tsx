@@ -120,15 +120,31 @@ function CRMPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [inbox, setInbox] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [inboxError, setInboxError] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "inbox" | "documents" | "tasks" | "timeline">("overview");
 
-  const reload = useCallback(() => {
-    return Promise.all([listLeads({ data: {} }), listInbox({ data: {} })])
-      .then(([l, c]) => {
-        setLeads((l.leads as unknown as Lead[]) ?? []);
-        setInbox((c.conversations as unknown as Conversation[]) ?? []);
-      });
+  const reload = useCallback(async () => {
+    const [leadsResult, inboxResult] = await Promise.allSettled([
+      listLeads({ data: {} }),
+      listInbox({ data: {} }),
+    ]);
+
+    if (leadsResult.status === "fulfilled") {
+      setLeads((leadsResult.value.leads as unknown as Lead[]) ?? []);
+    } else {
+      console.error("[CRM] listLeads failed", leadsResult.reason);
+    }
+
+    if (inboxResult.status === "fulfilled") {
+      const conversationsData = (inboxResult.value.conversations as unknown as Conversation[]) ?? [];
+      console.log("[Inbox] conversationsData", conversationsData, "length", conversationsData.length);
+      setInbox(conversationsData);
+      setInboxError(null);
+    } else {
+      console.error("[Inbox] listInbox failed", inboxResult.reason);
+      setInboxError(inboxResult.reason instanceof Error ? inboxResult.reason.message : "Не удалось загрузить Inbox");
+    }
   }, [listLeads, listInbox]);
 
   useEffect(() => {
@@ -220,6 +236,7 @@ function CRMPage() {
       ) : (
         <InboxView
           conversations={inbox}
+          error={inboxError}
           onSelect={(c) => {
             const lead = leads.find((l) => l.id === c.lead_id);
             if (lead) {
