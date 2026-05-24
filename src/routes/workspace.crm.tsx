@@ -318,10 +318,12 @@ const [newLeadCase, setNewLeadCase] = useState("");
   placeholder="Телефон"
 />
 
-              <textarea
-                className="min-h-[120px] w-full rounded-2xl border border-border p-4"
-                placeholder="Описание обращения"
-              />
+             <textarea
+  value={newLeadCase}
+  onChange={(e) => setNewLeadCase(e.target.value)}
+  className="min-h-[120px] w-full rounded-2xl border border-border p-4"
+  placeholder="Описание обращения"
+/>
 
               <button className="h-12 w-full rounded-2xl bg-neutral-950 text-sm text-white">
                 Создать лид
