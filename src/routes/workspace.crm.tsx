@@ -25,6 +25,7 @@ import {
   listConversationsByLeadFn,
   listMessagesFn,
   listInboxFn,
+  sendTelegramMessageFn,
 } from "@/lib/admin-inbox.functions";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -469,11 +470,15 @@ function LeadDrawer({
 function LeadInbox({ leadId }: { leadId: string }) {
   const listConvs = useServerFn(listConversationsByLeadFn);
   const listMsgs = useServerFn(listMessagesFn);
+  const sendTg = useServerFn(sendTelegramMessageFn);
   const [convs, setConvs] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -578,16 +583,54 @@ function LeadInbox({ leadId }: { leadId: string }) {
           </div>
         )}
 
-        <div className="mt-4 flex items-center gap-2 border-t pt-4">
-          <input
-            disabled
-            placeholder="Ответ (отправка появится после подключения вебхуков)"
-            className="h-10 flex-1 rounded-xl border border-border bg-secondary/40 px-3 text-sm text-muted-foreground"
-          />
-          <button disabled className="flex h-10 items-center gap-2 rounded-xl bg-neutral-300 px-4 text-sm text-white">
-            <Send size={14} /> Отправить
-          </button>
-        </div>
+        {(() => {
+          const activeConv = convs.find((c) => c.id === selected);
+          const isTelegram = activeConv?.channel === "telegram";
+          const canSend = !!selected && isTelegram && draft.trim().length > 0 && !sending;
+          const submit = async () => {
+            if (!selected || !canSend) return;
+            setSending(true);
+            setSendError(null);
+            try {
+              await sendTg({ data: { conversationId: selected, text: draft.trim() } });
+              setDraft("");
+              await reloadMsgs();
+            } catch (e) {
+              setSendError(e instanceof Error ? e.message : "Не удалось отправить");
+            } finally {
+              setSending(false);
+            }
+          };
+          return (
+            <div className="mt-4 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <input
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      submit();
+                    }
+                  }}
+                  disabled={!selected || !isTelegram || sending}
+                  placeholder={isTelegram ? "Ваш ответ…" : "Отправка доступна только для Telegram"}
+                  className="h-10 flex-1 rounded-xl border border-border bg-white px-3 text-sm disabled:bg-secondary/40 disabled:text-muted-foreground"
+                />
+                <button
+                  onClick={submit}
+                  disabled={!canSend}
+                  className="flex h-10 items-center gap-2 rounded-xl bg-neutral-950 px-4 text-sm text-white disabled:bg-neutral-300"
+                >
+                  <Send size={14} /> {sending ? "Отправка…" : "Отправить"}
+                </button>
+              </div>
+              {sendError && (
+                <div className="mt-2 text-xs text-red-600">{sendError}</div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

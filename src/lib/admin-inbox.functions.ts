@@ -96,3 +96,68 @@ export const listInboxFn = createServerFn({ method: "POST" })
 
     return { conversations: enriched };
   });
+
+export const sendTelegramMessageFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      conversationId: z.string().uuid(),
+      text: z.string().trim().min(1).max(4096),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    if (!token) throw new Error("TELEGRAM_BOT_TOKEN не настроен");
+
+    const { data: convo, error: convErr } = await supabaseAdmin
+      .from("conversations")
+      .select("id, lead_id, channel, external_chat_id")
+      .eq("id", data.conversationId)
+      .maybeSingle();
+    if (convErr) throw new Error(convErr.message);
+    if (!convo) throw new Error("Диалог не найден");
+    if (convo.channel !== "telegram") throw new Error("Канал не Telegram");
+    if (!convo.external_chat_id) throw new Error("Нет external_chat_id");
+
+    const tgRes = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: convo.external_chat_id, text: data.text }),
+    });
+    const tgJson = (await tgRes.json()) as { ok?: boolean; description?: string; result?: { message_id?: number } };
+    if (!tgRes.ok || !tgJson.ok) {
+      throw new Error(`Telegram API: ${tgJson.description ?? tgRes.statusText}`);
+    }
+
+    const nowIso = new Date().toISOString();
+    const externalMessageId = tgJson.result?.message_id != null ? String(tgJson.result.message_id) : null;
+
+    const { error: msgErr } = await supabaseAdmin.from("conversation_messages").insert({
+      conversation_id: convo.id,
+      lead_id: convo.lead_id,
+      channel: "telegram",
+      direction: "outbound",
+      message_text: data.text,
+      external_message_id: externalMessageId,
+      raw_payload: JSON.parse(JSON.stringify(tgJson)),
+      ai_generated: false,
+      sent_by: context.userId,
+    });
+    if (msgErr) throw new Error(msgErr.message);
+
+    await supabaseAdmin
+      .from("conversations")
+      .update({ last_message_at: nowIso, updated_at: nowIso })
+      .eq("id", convo.id);
+
+    if (convo.lead_id) {
+      await supabaseAdmin
+        .from("leads")
+        .update({ last_contact_at: nowIso })
+        .eq("id", convo.lead_id);
+    }
+
+    return { ok: true };
+  });
