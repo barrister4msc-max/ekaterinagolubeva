@@ -9,6 +9,7 @@ async function assertAdmin(userId: string) {
     .select("role")
     .eq("user_id", userId)
     .in("role", ["admin", "super_admin"])
+    .limit(1)
     .maybeSingle();
   if (error) throw new Error("Не удалось проверить роль");
   if (!data) throw new Error("Доступ только для администратора");
