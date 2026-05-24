@@ -132,7 +132,8 @@ shadow-[0_4px_24px_rgba(0,0,0,0.03)]
                 <div className="space-y-3">
                   {leads.map((lead) => (
                     <article
-                      key={lead.name}
+  key={lead.name}
+  onClick={() => setSelectedLead(lead)}
                       className="
 group
 rounded-2xl
