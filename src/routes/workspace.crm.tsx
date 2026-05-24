@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/crm")({
+export const Route = createFileRoute("/workspace/crm")({
   component: CRMPage,
 });
 
