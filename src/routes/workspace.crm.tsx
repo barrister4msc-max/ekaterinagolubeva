@@ -304,10 +304,12 @@ const [newLeadCase, setNewLeadCase] = useState("");
             </div>
 
             <div className="mt-8 space-y-5">
-              <input
-                className="h-12 w-full rounded-2xl border border-border px-4"
-                placeholder="Имя клиента"
-              />
+             <input
+  value={newLeadName}
+  onChange={(e) => setNewLeadName(e.target.value)}
+  className="h-12 w-full rounded-2xl border border-border px-4"
+  placeholder="Имя клиента"
+/>
 
               <input
                 className="h-12 w-full rounded-2xl border border-border px-4"
