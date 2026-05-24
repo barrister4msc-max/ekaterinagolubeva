@@ -305,54 +305,7 @@ function Kpi({
       </div>
 
       <div className="mt-4 text-xs text-green-600">{sub}</div>
-      {showCreateLead ? (
-  <div
-    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm"
-    onClick={() => setShowCreateLead(false)}
-  >
-    <div
-      onClick={(e) => e.stopPropagation()}
-      className="w-full max-w-xl rounded-3xl border border-border bg-white p-8 shadow-[0_20px_80px_rgba(0,0,0,0.18)]"
-    >
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            New lead
-          </div>
-          <h2 className="mt-2 font-display text-3xl">Создать лид</h2>
-        </div>
-
-        <button
-          onClick={() => setShowCreateLead(false)}
-          className="rounded-2xl border border-border p-3 hover:bg-secondary"
-        >
-          <X size={18} />
-        </button>
-      </div>
-
-      <div className="mt-8 space-y-5">
-        <input
-          className="h-12 w-full rounded-2xl border border-border px-4"
-          placeholder="Имя клиента"
-        />
-
-        <input
-          className="h-12 w-full rounded-2xl border border-border px-4"
-          placeholder="Телефон"
-        />
-
-        <textarea
-          className="min-h-[120px] w-full rounded-2xl border border-border p-4"
-          placeholder="Описание обращения"
-        />
-
-        <button className="h-12 w-full rounded-2xl bg-neutral-950 text-sm text-white">
-          Создать лид
-        </button>
-      </div>
-    </div>
-  </div>
-) : null}
+     
     </div>
   );
 }
