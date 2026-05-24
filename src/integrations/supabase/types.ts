@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_drafts: {
+        Row: {
+          approved_by: string | null
+          confidence: number | null
+          conversation_id: string | null
+          created_at: string
+          draft_text: string
+          id: string
+          lead_id: string
+          needs_human_review: boolean
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_by?: string | null
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          draft_text: string
+          id?: string
+          lead_id: string
+          needs_human_review?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_by?: string | null
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          draft_text?: string
+          id?: string
+          lead_id?: string
+          needs_human_review?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_drafts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_drafts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultations: {
         Row: {
           created_at: string
@@ -54,6 +108,110 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "consultations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_messages: {
+        Row: {
+          ai_generated: boolean
+          channel: string
+          conversation_id: string
+          created_at: string
+          direction: string
+          external_message_id: string | null
+          id: string
+          lead_id: string
+          message_text: string | null
+          raw_payload: Json
+          sent_by: string | null
+        }
+        Insert: {
+          ai_generated?: boolean
+          channel: string
+          conversation_id: string
+          created_at?: string
+          direction: string
+          external_message_id?: string | null
+          id?: string
+          lead_id: string
+          message_text?: string | null
+          raw_payload?: Json
+          sent_by?: string | null
+        }
+        Update: {
+          ai_generated?: boolean
+          channel?: string
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          external_message_id?: string | null
+          id?: string
+          lead_id?: string
+          message_text?: string | null
+          raw_payload?: Json
+          sent_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          assigned_to: string | null
+          channel: string
+          created_at: string
+          external_chat_id: string | null
+          external_user_id: string | null
+          id: string
+          last_message_at: string | null
+          lead_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          channel: string
+          created_at?: string
+          external_chat_id?: string | null
+          external_user_id?: string | null
+          id?: string
+          last_message_at?: string | null
+          lead_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          channel?: string
+          created_at?: string
+          external_chat_id?: string | null
+          external_user_id?: string | null
+          id?: string
+          last_message_at?: string | null
+          lead_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
@@ -519,6 +677,36 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      webhook_events: {
+        Row: {
+          created_at: string
+          error: string | null
+          external_event_id: string | null
+          id: string
+          payload: Json
+          processed: boolean
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          external_event_id?: string | null
+          id?: string
+          payload: Json
+          processed?: boolean
+          source: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          external_event_id?: string | null
+          id?: string
+          payload?: Json
+          processed?: boolean
+          source?: string
         }
         Relationships: []
       }
