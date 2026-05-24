@@ -53,11 +53,46 @@ export const listInboxFn = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({}).parse(input ?? {}))
   .handler(async ({ context }) => {
     await assertAdmin(context.userId);
-    const { data: rows, error } = await supabaseAdmin
+
+    const { data: convs, error } = await supabaseAdmin
       .from("conversations")
-      .select("*, leads:lead_id(id,name,phone)")
+      .select("*")
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(200);
     if (error) throw new Error(error.message);
-    return { conversations: rows ?? [] };
+
+    const conversations = convs ?? [];
+    const leadIds = Array.from(new Set(conversations.map((c) => c.lead_id).filter(Boolean))) as string[];
+    const convIds = conversations.map((c) => c.id);
+
+    const [leadsRes, msgsRes] = await Promise.all([
+      leadIds.length
+        ? supabaseAdmin.from("leads").select("id,name,phone").in("id", leadIds)
+        : Promise.resolve({ data: [], error: null }),
+      convIds.length
+        ? supabaseAdmin
+            .from("conversation_messages")
+            .select("conversation_id,message_text,direction,created_at")
+            .in("conversation_id", convIds)
+            .order("created_at", { ascending: false })
+            .limit(1000)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (leadsRes.error) throw new Error(leadsRes.error.message);
+    if (msgsRes.error) throw new Error(msgsRes.error.message);
+
+    const leadsMap = new Map((leadsRes.data ?? []).map((l) => [l.id, l]));
+    const lastMsgMap = new Map<string, { message_text: string | null; direction: string; created_at: string }>();
+    for (const m of msgsRes.data ?? []) {
+      if (!lastMsgMap.has(m.conversation_id)) lastMsgMap.set(m.conversation_id, m);
+    }
+
+    const enriched = conversations.map((c) => ({
+      ...c,
+      leads: leadsMap.get(c.lead_id) ?? null,
+      last_message: lastMsgMap.get(c.id) ?? null,
+    }));
+
+    return { conversations: enriched };
   });
