@@ -112,13 +112,18 @@ const [draggedLeadName, setDraggedLeadName] = useState<string | null>(null);
   onDrop={() => {
     if (!draggedLeadName) return;
 
-    setLeadsData(
-      leadsData.map((lead) =>
-        lead.name === draggedLeadName
-          ? { ...lead, stage: column.id }
-          : lead
-      )
-    );
+const updatedLeads = leadsData.map((lead) =>
+  lead.name === draggedLeadName
+    ? { ...lead, stage: column.id }
+    : lead
+);
+
+setLeadsData(updatedLeads);
+
+if (selectedLead?.name === draggedLeadName) {
+  const updatedLead = updatedLeads.find((lead) => lead.name === draggedLeadName);
+  if (updatedLead) setSelectedLead(updatedLead);
+}
 
     setDraggedLeadName(null);
   }}
