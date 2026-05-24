@@ -317,6 +317,41 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
           </div>
         </section>
       </div>
+  )}
+
+{activeTab === "timeline" && (
+  <div className="mt-6 space-y-4">
+    <div className="rounded-2xl border border-border bg-white p-5">
+      <div className="text-sm font-medium">
+        Лид создан
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        Сегодня, 12:40
+      </div>
+    </div>
+
+    <div className="rounded-2xl border border-border bg-white p-5">
+      <div className="text-sm font-medium">
+        Загружены документы
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        Сегодня, 13:05
+      </div>
+    </div>
+  </div>
+)}
+
+{activeTab === "tasks" && (
+  <div className="mt-6 space-y-4">
+    <div className="rounded-2xl border border-border bg-white p-5 text-sm">
+      Проверить собственника
+    </div>
+
+    <div className="rounded-2xl border border-border bg-white p-5 text-sm">
+      Подготовить заключение
+    </div>
+  </div>
+)}
     </aside>
   </div>
 )}
