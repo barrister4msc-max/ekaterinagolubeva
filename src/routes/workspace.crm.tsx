@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Search, SlidersHorizontal, Plus, Users, Clock, CheckCircle2, TrendingUp } from "lucide-react";
 
 export const Route = createFileRoute("/workspace/crm")({
