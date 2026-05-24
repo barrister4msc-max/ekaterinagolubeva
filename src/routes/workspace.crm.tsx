@@ -107,7 +107,21 @@ const [newLeadCase, setNewLeadCase] = useState("");
 
             return (
               <section
-                key={column.id}
+  key={column.id}
+  onDragOver={(e) => e.preventDefault()}
+  onDrop={() => {
+    if (!draggedLeadName) return;
+
+    setLeadsData(
+      leadsData.map((lead) =>
+        lead.name === draggedLeadName
+          ? { ...lead, stage: column.id }
+          : lead
+      )
+    );
+
+    setDraggedLeadName(null);
+  }}
                 className="min-h-[420px] rounded-2xl border border-border/60 bg-white/70 p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur"
               >
                 <div className="mb-4 flex items-center justify-between">
