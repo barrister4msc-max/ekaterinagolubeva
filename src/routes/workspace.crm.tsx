@@ -219,7 +219,29 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
           <X size={18} />
         </button>
       </div>
-
+<div className="mt-8 flex gap-2 rounded-2xl border border-border bg-white p-2">
+  {[
+    { id: "overview", label: "Overview" },
+    { id: "documents", label: "Documents" },
+    { id: "tasks", label: "Tasks" },
+    { id: "timeline", label: "Timeline" },
+  ].map((tab) => (
+    <button
+      key={tab.id}
+      onClick={() => setActiveTab(tab.id)}
+      className={`
+        rounded-xl px-4 py-2 text-sm transition-all
+        ${
+          activeTab === tab.id
+            ? "bg-neutral-950 text-white shadow-sm"
+            : "text-muted-foreground hover:bg-secondary"
+        }
+      `}
+    >
+      {tab.label}
+    </button>
+  ))}
+</div>
       <div className="mt-8 grid grid-cols-3 gap-3">
         <div className="rounded-2xl border border-border bg-white p-4">
           <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
