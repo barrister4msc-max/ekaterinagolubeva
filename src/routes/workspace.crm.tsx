@@ -177,7 +177,92 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
           })}
         </div>
       </div>
+{selectedLead && (
+  <div className="fixed inset-0 z-50 flex justify-end bg-black/20 backdrop-blur-sm">
+    <div className="h-full w-full max-w-xl overflow-y-auto border-l border-border bg-white p-8 shadow-2xl">
 
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="font-display text-3xl">
+            {selectedLead.name}
+          </h2>
+
+          <p className="mt-2 text-sm text-muted-foreground">
+            {selectedLead.case}
+          </p>
+        </div>
+
+        <button
+          onClick={() => setSelectedLead(null)}
+          className="rounded-xl border border-border p-2 hover:bg-secondary"
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      <div className="mt-8 space-y-6">
+
+        <section className="rounded-2xl border border-border p-5">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} />
+            <h3 className="font-medium">
+              AI Risk Analysis
+            </h3>
+          </div>
+
+          <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+            <p>
+              Возможны риски при проверке объекта недвижимости.
+            </p>
+
+            <p>
+              Рекомендуется запросить выписку ЕГРН и проверить ограничения.
+            </p>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-border p-5">
+          <div className="flex items-center gap-2">
+            <FileText size={16} />
+            <h3 className="font-medium">
+              Documents
+            </h3>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <div className="rounded-xl bg-secondary p-3 text-sm">
+              Договор купли-продажи.pdf
+            </div>
+
+            <div className="rounded-xl bg-secondary p-3 text-sm">
+              Выписка ЕГРН.pdf
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-border p-5">
+          <div className="flex items-center gap-2">
+            <CheckSquare size={16} />
+            <h3 className="font-medium">
+              Tasks
+            </h3>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <div className="rounded-xl border border-border p-3 text-sm">
+              Проверить собственника
+            </div>
+
+            <div className="rounded-xl border border-border p-3 text-sm">
+              Подготовить заключение
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+)}
       <div className="grid gap-4 md:grid-cols-4">
         <Kpi icon={Users} value="15" label="Всего лидов" sub="+12% за неделю" />
         <Kpi icon={Clock} value="4" label="В работе" sub="+2 за неделю" />
