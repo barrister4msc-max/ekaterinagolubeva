@@ -282,7 +282,7 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
           <p>Следующий шаг — запросить выписку ЕГРН и документы-основания права.</p>
         </div>
       </div>
-
+)}
       <div className="mt-6 grid gap-6 md:grid-cols-2">
         <section className="rounded-3xl border border-border bg-white p-6">
           <div className="flex items-center gap-2">
