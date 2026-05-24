@@ -470,11 +470,15 @@ function LeadDrawer({
 function LeadInbox({ leadId }: { leadId: string }) {
   const listConvs = useServerFn(listConversationsByLeadFn);
   const listMsgs = useServerFn(listMessagesFn);
+  const sendTg = useServerFn(sendTelegramMessageFn);
   const [convs, setConvs] = useState<Conversation[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
