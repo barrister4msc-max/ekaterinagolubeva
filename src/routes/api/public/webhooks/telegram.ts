@@ -10,7 +10,7 @@ type TgUpdate = {
   edited_message?: TgMessage;
 };
 
-export const Route = createFileRoute("/api/webhooks/telegram")({
+export const Route = createFileRoute("/api/public/webhooks/telegram")({
   server: {
     handlers: {
       POST: async ({ request }: { request: Request }) => {
