@@ -10,9 +10,10 @@ type TgUpdate = {
   edited_message?: TgMessage;
 };
 
-export const Route = createFileRoute("/api/webhooks/telegram")({
+export const Route = createFileRoute("/api/public/webhooks/telegram")({
   server: {
     handlers: {
+      GET: async () => new Response("Telegram webhook endpoint", { status: 200 }),
       POST: async ({ request }: { request: Request }) => {
         const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
         if (!expected) {
