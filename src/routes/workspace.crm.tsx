@@ -82,7 +82,7 @@ xl:justify-between
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-border bg-white/55 p-3 shadow-[0_10px_40px_rgba(0,0,0,0.03)]">
+      <div className="rounded-2xl border border-border bg-white/55 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.03)]">
         <div className="grid gap-4 xl:grid-cols-4">
           {columns.map((column) => {
             const leads = testLeads.filter((lead) => lead.stage === column.id);
