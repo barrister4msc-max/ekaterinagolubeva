@@ -180,7 +180,7 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
       </div>
 {selectedLead && (
   <div
-    className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-sm"
+    className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-md"
     onClick={() => setSelectedLead(null)}
   >
     <aside
@@ -189,23 +189,17 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
     >
       <div className="flex items-start justify-between gap-6">
         <div>
-          <div className="mb-4 inline-flex rounded-full border border-border bg-white px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          <div className="mb-4 inline-flex rounded-full border bg-white px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
             Legal dossier
           </div>
 
-          <h2 className="font-display text-4xl leading-tight">
-            {selectedLead.name}
-          </h2>
+          <h2 className="font-display text-4xl">{selectedLead.name}</h2>
+          <p className="mt-3 text-sm text-muted-foreground">{selectedLead.case}</p>
 
-          <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
-            {selectedLead.case}
-          </p>
-
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-5 flex gap-2">
             <span className={`rounded-full px-3 py-1 text-xs ${priorityClass(selectedLead.priority)}`}>
               {selectedLead.priority}
             </span>
-
             <span className="rounded-full bg-white px-3 py-1 text-xs text-muted-foreground">
               {selectedLead.date}
             </span>
@@ -214,64 +208,41 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
 
         <button
           onClick={() => setSelectedLead(null)}
-          className="rounded-2xl border border-border bg-white p-3 shadow-sm transition hover:bg-secondary"
+          className="rounded-2xl border bg-white p-3 shadow-sm hover:bg-secondary"
         >
           <X size={18} />
         </button>
       </div>
-<div className="mt-8 flex gap-2 rounded-2xl border border-border bg-white p-2">
-  {[
-    { id: "overview", label: "Overview" },
-    { id: "documents", label: "Documents" },
-    { id: "tasks", label: "Tasks" },
-    { id: "timeline", label: "Timeline" },
-  ].map((tab) => (
-    <button
-      key={tab.id}
-      onClick={() => setActiveTab(tab.id)}
-      className={`
-        rounded-xl px-4 py-2 text-sm transition-all
-        ${
-          activeTab === tab.id
-            ? "bg-neutral-950 text-white shadow-sm"
-            : "text-muted-foreground hover:bg-secondary"
-        }
-      `}
-    >
-      {tab.label}
-    </button>
-  ))}
-</div>
+
+      <div className="mt-8 flex gap-2 rounded-2xl border bg-white p-2">
+        {["Overview", "Documents", "Tasks", "Timeline"].map((tab) => (
+          <button
+            key={tab}
+            className="rounded-xl px-4 py-2 text-sm first:bg-neutral-950 first:text-white text-muted-foreground hover:bg-secondary"
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
       <div className="mt-8 grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-border bg-white p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            Stage
-          </div>
-          <div className="mt-2 text-sm font-medium">
-            {selectedLead.stage.replaceAll("_", " ")}
-          </div>
+        <div className="rounded-2xl border bg-white p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Stage</div>
+          <div className="mt-2 text-sm font-medium">{selectedLead.stage}</div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-white p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            Next step
-          </div>
-          <div className="mt-2 text-sm font-medium">
-            Проверка документов
-          </div>
+        <div className="rounded-2xl border bg-white p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Next step</div>
+          <div className="mt-2 text-sm font-medium">Проверка документов</div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-white p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-            Value
-          </div>
-          <div className="mt-2 text-sm font-medium">
-            75 000 ₽
-          </div>
+        <div className="rounded-2xl border bg-white p-4">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Value</div>
+          <div className="mt-2 text-sm font-medium">75 000 ₽</div>
         </div>
       </div>
-{activeTab === "overview" && (
-      <div className="mt-8 rounded-3xl border border-border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
+
+      <div className="mt-8 rounded-3xl border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
         <div className="flex items-center gap-2">
           <AlertTriangle size={17} />
           <h3 className="font-medium">AI Risk Analysis</h3>
@@ -282,6 +253,34 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
           <p>Следующий шаг — запросить выписку ЕГРН и документы-основания права.</p>
         </div>
       </div>
+
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <section className="rounded-3xl border bg-white p-6">
+          <div className="flex items-center gap-2">
+            <FileText size={17} />
+            <h3 className="font-medium">Documents</h3>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <div className="rounded-2xl bg-secondary/70 p-4 text-sm">Договор.pdf</div>
+            <div className="rounded-2xl bg-secondary/70 p-4 text-sm">Выписка ЕГРН.pdf</div>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border bg-white p-6">
+          <div className="flex items-center gap-2">
+            <CheckSquare size={17} />
+            <h3 className="font-medium">Tasks</h3>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            <div className="rounded-2xl border p-4 text-sm">Проверить собственника</div>
+            <div className="rounded-2xl border p-4 text-sm">Подготовить заключение</div>
+          </div>
+        </section>
+      </div>
+    </aside>
+  </div>
 )}
       {activeTab === "documents" && (
       <div className="mt-6 grid gap-6 md:grid-cols-2">
