@@ -55,6 +55,7 @@ function priorityClass(priority: string) {
 }
 
 function CRMPage() {
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
   return (
     <div className="space-y-6 pb-8">
      <div className="
