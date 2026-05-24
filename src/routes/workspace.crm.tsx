@@ -312,9 +312,11 @@ const [newLeadCase, setNewLeadCase] = useState("");
 />
 
               <input
-                className="h-12 w-full rounded-2xl border border-border px-4"
-                placeholder="Телефон"
-              />
+  value={newLeadPhone}
+  onChange={(e) => setNewLeadPhone(e.target.value)}
+  className="h-12 w-full rounded-2xl border border-border px-4"
+  placeholder="Телефон"
+/>
 
               <textarea
                 className="min-h-[120px] w-full rounded-2xl border border-border p-4"
