@@ -161,10 +161,8 @@ if (selectedLead?.name === draggedLeadName) {
                         setSelectedLead(lead);
                         setActiveTab("overview");
                       }}
-                    className={`min-h-[420px] rounded-2xl border border-border/60 bg-white/70 p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur transition-all ${
-  dragOverColumn === column.id
-    ? "ring-2 ring-black/10 bg-white"
-    : ""
+                    className={`group cursor-pointer rounded-2xl border border-border/60 bg-white p-3 shadow-[0_4px_20px_rgba(0,0,0,0.035)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] ${
+  draggedLeadName === lead.name ? "opacity-50 rotate-1" : ""
 }`}
                     >
                       <h3 className="text-sm font-semibold">{lead.name}</h3>
