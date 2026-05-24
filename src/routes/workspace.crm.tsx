@@ -134,8 +134,9 @@ shadow-[0_4px_24px_rgba(0,0,0,0.03)]
                     <article
   key={lead.name}
   onClick={() => setSelectedLead(lead)}
-                      className="
+                     className="
 group
+cursor-pointer
 rounded-2xl
 border
 border-border/60
