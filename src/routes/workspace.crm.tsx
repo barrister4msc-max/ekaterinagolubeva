@@ -90,9 +90,7 @@ xl:justify-between
             return (
              <section
   key={column.id}
-  className="
-w-[280px]
-shrink-0
+ className="
 min-h-[420px]
 rounded-2xl
 border
