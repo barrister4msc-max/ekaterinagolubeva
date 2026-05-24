@@ -57,6 +57,10 @@ function CRMPage() {
   const [selectedLead, setSelectedLead] = useState<(typeof testLeads)[number] | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
 const [showCreateLead, setShowCreateLead] = useState(false);
+  const [leadsData, setLeadsData] = useState(testLeads);
+const [newLeadName, setNewLeadName] = useState("");
+const [newLeadPhone, setNewLeadPhone] = useState("");
+const [newLeadCase, setNewLeadCase] = useState("");
   return (
     <div className="space-y-6 pb-8">
       <div className="sticky top-0 z-20 flex flex-col gap-6 bg-[oklch(0.97_0.012_75)] pb-4 pt-2 xl:flex-row xl:items-start xl:justify-between">
