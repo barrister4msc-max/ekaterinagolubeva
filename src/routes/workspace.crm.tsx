@@ -88,9 +88,11 @@ xl:justify-between
             const leads = testLeads.filter((lead) => lead.stage === column.id);
 
             return (
-              <section
-                key={column.id}
-                className="
+             <section
+  key={column.id}
+  className="
+w-[280px]
+shrink-0
 min-h-[420px]
 rounded-2xl
 border
