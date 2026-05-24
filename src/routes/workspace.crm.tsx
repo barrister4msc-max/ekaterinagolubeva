@@ -314,7 +314,25 @@ function PipelineView({ leads, onSelect }: { leads: Lead[]; onSelect: (l: Lead) 
   );
 }
 
-function InboxView({ conversations, onSelect }: { conversations: Conversation[]; onSelect: (c: Conversation) => void }) {
+function InboxView({
+  conversations,
+  error,
+  onSelect,
+}: {
+  conversations: Conversation[];
+  error: string | null;
+  onSelect: (c: Conversation) => void;
+}) {
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-border bg-white p-12 text-center">
+        <Inbox className="mx-auto mb-3 text-muted-foreground" size={28} />
+        <h3 className="font-medium">Inbox не загрузился</h3>
+        <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+      </div>
+    );
+  }
+
   if (conversations.length === 0) {
     return (
       <div className="rounded-2xl border border-border bg-white p-12 text-center">
