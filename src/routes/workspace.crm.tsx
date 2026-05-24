@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -55,24 +54,12 @@ function priorityClass(priority: string) {
 }
 
 function CRMPage() {
-  const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  const [selectedLead, setSelectedLead] = useState<(typeof testLeads)[number] | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
+
   return (
     <div className="space-y-6 pb-8">
-     <div className="
-sticky
-top-0
-z-20
-flex
-flex-col
-gap-6
-bg-[oklch(0.97_0.012_75)]
-pb-4
-pt-2
-xl:flex-row
-xl:items-start
-xl:justify-between
-">
+      <div className="sticky top-0 z-20 flex flex-col gap-6 bg-[oklch(0.97_0.012_75)] pb-4 pt-2 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="font-display text-4xl leading-tight">Legal CRM</h1>
           <p className="mt-3 text-sm text-muted-foreground">
@@ -98,24 +85,22 @@ xl:justify-between
         </div>
       </div>
 
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Kpi icon={Users} value="15" label="Всего лидов" sub="+12% за неделю" />
+        <Kpi icon={Clock} value="4" label="В работе" sub="+2 за неделю" />
+        <Kpi icon={CheckCircle2} value="8" label="Завершено" sub="+25% за неделю" />
+        <Kpi icon={TrendingUp} value="73%" label="Конверсия" sub="+8% за неделю" />
+      </div>
+
       <div className="rounded-2xl border border-border bg-white/55 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.03)]">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 3xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {columns.map((column) => {
             const leads = testLeads.filter((lead) => lead.stage === column.id);
 
             return (
-             <section
-  key={column.id}
- className="
-min-h-[420px]
-rounded-2xl
-border
-border-border/60
-bg-white/70
-backdrop-blur
-p-4
-shadow-[0_4px_24px_rgba(0,0,0,0.03)]
-"
+              <section
+                key={column.id}
+                className="min-h-[420px] rounded-2xl border border-border/60 bg-white/70 p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur"
               >
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -133,37 +118,22 @@ shadow-[0_4px_24px_rgba(0,0,0,0.03)]
                 <div className="space-y-3">
                   {leads.map((lead) => (
                     <article
-  key={lead.name}
-  onClick={() => setSelectedLead(lead)}
-                     className="
-group
-cursor-pointer
-rounded-2xl
-border
-border-border/60
-bg-white
-p-4
-shadow-[0_4px_20px_rgba(0,0,0,0.035)]
-transition-all
-duration-200
-hover:-translate-y-1
-hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
-"
+                      key={lead.name}
+                      onClick={() => {
+                        setSelectedLead(lead);
+                        setActiveTab("overview");
+                      }}
+                      className="group cursor-pointer rounded-2xl border border-border/60 bg-white p-4 shadow-[0_4px_20px_rgba(0,0,0,0.035)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
                     >
                       <h3 className="text-sm font-semibold">{lead.name}</h3>
-
                       <p className="mt-3 line-clamp-3 text-[13px] leading-5 text-muted-foreground">
                         {lead.case}
                       </p>
-
                       <div className="mt-4 flex items-center justify-between gap-2">
                         <span className={`rounded-full px-2 py-1 text-[11px] ${priorityClass(lead.priority)}`}>
                           {lead.priority}
                         </span>
-
-                        <span className="text-[11px] text-muted-foreground">
-                          {lead.date}
-                        </span>
+                        <span className="text-[11px] text-muted-foreground">{lead.date}</span>
                       </div>
                     </article>
                   ))}
@@ -178,187 +148,132 @@ hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]
           })}
         </div>
       </div>
-{selectedLead && (
-  <div
-    className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-md"
-    onClick={() => setSelectedLead(null)}
-  >
-    <aside
-      onClick={(e) => e.stopPropagation()}
-      className="h-full w-full max-w-2xl overflow-y-auto border-l border-border bg-[oklch(0.98_0.01_75)] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.18)]"
-    >
-      <div className="flex items-start justify-between gap-6">
-        <div>
-          <div className="mb-4 inline-flex rounded-full border bg-white px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Legal dossier
-          </div>
 
-          <h2 className="font-display text-4xl">{selectedLead.name}</h2>
-          <p className="mt-3 text-sm text-muted-foreground">{selectedLead.case}</p>
-
-          <div className="mt-5 flex gap-2">
-            <span className={`rounded-full px-3 py-1 text-xs ${priorityClass(selectedLead.priority)}`}>
-              {selectedLead.priority}
-            </span>
-            <span className="rounded-full bg-white px-3 py-1 text-xs text-muted-foreground">
-              {selectedLead.date}
-            </span>
-          </div>
-        </div>
-
-        <button
+      {selectedLead ? (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-md"
           onClick={() => setSelectedLead(null)}
-          className="rounded-2xl border bg-white p-3 shadow-sm hover:bg-secondary"
         >
-          <X size={18} />
-        </button>
-      </div>
-
-      <div className="mt-8 flex gap-2 rounded-2xl border bg-white p-2">
-        {["Overview", "Documents", "Tasks", "Timeline"].map((tab) => (
-          <button
-            key={tab}
-            className="rounded-xl px-4 py-2 text-sm first:bg-neutral-950 first:text-white text-muted-foreground hover:bg-secondary"
+          <aside
+            onClick={(event) => event.stopPropagation()}
+            className="h-full w-full max-w-2xl overflow-y-auto border-l border-border bg-[oklch(0.98_0.01_75)] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.18)]"
           >
-            {tab}
-          </button>
-        ))}
-      </div>
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <div className="mb-4 inline-flex rounded-full border bg-white px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  Legal dossier
+                </div>
+                <h2 className="font-display text-4xl">{selectedLead.name}</h2>
+                <p className="mt-3 text-sm text-muted-foreground">{selectedLead.case}</p>
+                <div className="mt-5 flex gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs ${priorityClass(selectedLead.priority)}`}>
+                    {selectedLead.priority}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs text-muted-foreground">
+                    {selectedLead.date}
+                  </span>
+                </div>
+              </div>
 
-      <div className="mt-8 grid grid-cols-3 gap-3">
-        <div className="rounded-2xl border bg-white p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Stage</div>
-          <div className="mt-2 text-sm font-medium">{selectedLead.stage}</div>
-        </div>
-
-        <div className="rounded-2xl border bg-white p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Next step</div>
-          <div className="mt-2 text-sm font-medium">Проверка документов</div>
-        </div>
-
-        <div className="rounded-2xl border bg-white p-4">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Value</div>
-          <div className="mt-2 text-sm font-medium">75 000 ₽</div>
-        </div>
-      </div>
-
-      <div className="mt-8 rounded-3xl border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center gap-2">
-          <AlertTriangle size={17} />
-          <h3 className="font-medium">AI Risk Analysis</h3>
-        </div>
-
-        <div className="mt-5 space-y-3 text-sm leading-6 text-muted-foreground">
-          <p>Рекомендуется проверить документы, ограничения, собственника и историю объекта.</p>
-          <p>Следующий шаг — запросить выписку ЕГРН и документы-основания права.</p>
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <section className="rounded-3xl border bg-white p-6">
-          <div className="flex items-center gap-2">
-            <FileText size={17} />
-            <h3 className="font-medium">Documents</h3>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            <div className="rounded-2xl bg-secondary/70 p-4 text-sm">Договор.pdf</div>
-            <div className="rounded-2xl bg-secondary/70 p-4 text-sm">Выписка ЕГРН.pdf</div>
-          </div>
-        </section>
-
-        <section className="rounded-3xl border bg-white p-6">
-          <div className="flex items-center gap-2">
-            <CheckSquare size={17} />
-            <h3 className="font-medium">Tasks</h3>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            <div className="rounded-2xl border p-4 text-sm">Проверить собственника</div>
-            <div className="rounded-2xl border p-4 text-sm">Подготовить заключение</div>
-          </div>
-        </section>
-      </div>
-    </aside>
-  </div>
-)}
-      {activeTab === "documents" && (
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <section className="rounded-3xl border border-border bg-white p-6">
-          <div className="flex items-center gap-2">
-            <FileText size={17} />
-            <h3 className="font-medium">Documents</h3>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            <div className="rounded-2xl bg-secondary/70 p-4 text-sm">
-              Договор.pdf
+              <button
+                onClick={() => setSelectedLead(null)}
+                className="rounded-2xl border bg-white p-3 shadow-sm hover:bg-secondary"
+                aria-label="Закрыть карточку лида"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <div className="rounded-2xl bg-secondary/70 p-4 text-sm">
-              Выписка ЕГРН.pdf
+
+            <div className="mt-8 flex flex-wrap gap-2 rounded-2xl border bg-white p-2">
+              {[
+                ["overview", "Overview"],
+                ["documents", "Documents"],
+                ["tasks", "Tasks"],
+                ["timeline", "Timeline"],
+              ].map(([tab, label]) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`rounded-xl px-4 py-2 text-sm hover:bg-secondary ${
+                    activeTab === tab ? "bg-neutral-950 text-white" : "text-muted-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-          </div>
-        </section>
 
-        <section className="rounded-3xl border border-border bg-white p-6">
-          <div className="flex items-center gap-2">
-            <CheckSquare size={17} />
-            <h3 className="font-medium">Tasks</h3>
-          </div>
+            {activeTab === "overview" ? (
+              <>
+                <div className="mt-8 grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl border bg-white p-4">
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Stage</div>
+                    <div className="mt-2 text-sm font-medium">{selectedLead.stage}</div>
+                  </div>
+                  <div className="rounded-2xl border bg-white p-4">
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Next step</div>
+                    <div className="mt-2 text-sm font-medium">Проверка документов</div>
+                  </div>
+                  <div className="rounded-2xl border bg-white p-4">
+                    <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Value</div>
+                    <div className="mt-2 text-sm font-medium">75 000 ₽</div>
+                  </div>
+                </div>
 
-          <div className="mt-5 space-y-3">
-            <div className="rounded-2xl border border-border p-4 text-sm">
-              Проверить собственника
-            </div>
-            <div className="rounded-2xl border border-border p-4 text-sm">
-              Подготовить заключение
-            </div>
-          </div>
-        </section>
-      </div>
-  )}
+                <div className="mt-8 rounded-3xl border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={17} />
+                    <h3 className="font-medium">AI Risk Analysis</h3>
+                  </div>
+                  <div className="mt-5 space-y-3 text-sm leading-6 text-muted-foreground">
+                    <p>Рекомендуется проверить документы, ограничения, собственника и историю объекта.</p>
+                    <p>Следующий шаг — запросить выписку ЕГРН и документы-основания права.</p>
+                  </div>
+                </div>
+              </>
+            ) : null}
 
-{activeTab === "timeline" && (
-  <div className="mt-6 space-y-4">
-    <div className="rounded-2xl border border-border bg-white p-5">
-      <div className="text-sm font-medium">
-        Лид создан
-      </div>
-      <div className="mt-1 text-xs text-muted-foreground">
-        Сегодня, 12:40
-      </div>
-    </div>
+            {activeTab === "documents" ? (
+              <section className="mt-8 rounded-3xl border bg-white p-6">
+                <div className="flex items-center gap-2">
+                  <FileText size={17} />
+                  <h3 className="font-medium">Documents</h3>
+                </div>
+                <div className="mt-5 space-y-3">
+                  <div className="rounded-2xl bg-secondary/70 p-4 text-sm">Договор.pdf</div>
+                  <div className="rounded-2xl bg-secondary/70 p-4 text-sm">Выписка ЕГРН.pdf</div>
+                </div>
+              </section>
+            ) : null}
 
-    <div className="rounded-2xl border border-border bg-white p-5">
-      <div className="text-sm font-medium">
-        Загружены документы
-      </div>
-      <div className="mt-1 text-xs text-muted-foreground">
-        Сегодня, 13:05
-      </div>
-    </div>
-  </div>
-)}
+            {activeTab === "tasks" ? (
+              <section className="mt-8 rounded-3xl border bg-white p-6">
+                <div className="flex items-center gap-2">
+                  <CheckSquare size={17} />
+                  <h3 className="font-medium">Tasks</h3>
+                </div>
+                <div className="mt-5 space-y-3">
+                  <div className="rounded-2xl border p-4 text-sm">Проверить собственника</div>
+                  <div className="rounded-2xl border p-4 text-sm">Подготовить заключение</div>
+                </div>
+              </section>
+            ) : null}
 
-{activeTab === "tasks" && (
-  <div className="mt-6 space-y-4">
-    <div className="rounded-2xl border border-border bg-white p-5 text-sm">
-      Проверить собственника
-    </div>
-
-    <div className="rounded-2xl border border-border bg-white p-5 text-sm">
-      Подготовить заключение
-    </div>
-  </div>
-)}
-    </aside>
-  </div>
-)}
-        <Kpi icon={Users} value="15" label="Всего лидов" sub="+12% за неделю" />
-        <Kpi icon={Clock} value="4" label="В работе" sub="+2 за неделю" />
-        <Kpi icon={CheckCircle2} value="8" label="Завершено" sub="+25% за неделю" />
-        <Kpi icon={TrendingUp} value="73%" label="Конверсия" sub="+8% за неделю" />
-      </div>
+            {activeTab === "timeline" ? (
+              <div className="mt-8 space-y-4">
+                <div className="rounded-2xl border bg-white p-5">
+                  <div className="text-sm font-medium">Лид создан</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Сегодня, 12:40</div>
+                </div>
+                <div className="rounded-2xl border bg-white p-5">
+                  <div className="text-sm font-medium">Загружены документы</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Сегодня, 13:05</div>
+                </div>
+              </div>
+            ) : null}
+          </aside>
+        </div>
+      ) : null}
     </div>
   );
 }
