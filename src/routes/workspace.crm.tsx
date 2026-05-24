@@ -132,7 +132,11 @@ if (selectedLead?.name === draggedLeadName) {
     setDraggedLeadName(null);
     setDragOverColumn(null);
   }}
-                className="min-h-[420px] rounded-2xl border border-border/60 bg-white/70 p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur"
+               className={`min-h-[420px] rounded-2xl border border-border/60 bg-white/70 p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur transition-all ${
+  dragOverColumn === column.id
+    ? "ring-2 ring-black/10 bg-white"
+    : ""
+}`}
               >
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
