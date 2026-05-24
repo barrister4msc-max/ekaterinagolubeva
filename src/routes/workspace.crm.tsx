@@ -102,7 +102,7 @@ const [draggedLeadName, setDraggedLeadName] = useState<string | null>(null);
       </div>
 
       <div className="rounded-2xl border border-border bg-white/55 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.03)]">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="flex gap-4 overflow-x-auto pb-2">
           {columns.map((column) => {
             const leads = leadsData.filter((lead) => lead.stage === column.id);
 
