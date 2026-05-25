@@ -8,6 +8,7 @@ import {
   type SeoPageLink,
 } from "@/lib/seo-pages.functions";
 import { ContactCta } from "@/components/contact-cta";
+import { ContactChannels } from "@/components/contact-channels";
 
 const SITE_URL = "https://4upro.ai";
 
