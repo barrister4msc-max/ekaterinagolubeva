@@ -691,7 +691,8 @@ function LeadDrawer({
   onClose: () => void;
 }) {
 const [documents, setDocuments] = useState<any[]>([]);
-
+const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+const [previewName, setPreviewName] = useState<string | null>(null);
 const loadDocuments = useCallback(async () => {
   const { data, error } = await supabase
     .from("lead_documents")
