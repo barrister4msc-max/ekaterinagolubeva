@@ -866,7 +866,7 @@ alert("Документ загружен");
           onClick={async () => {
             const { data } = await supabase.storage
               .from("lead-documents")
-              .createSignedUrl(doc.file_path, 60);
+              .createSignedUrl(doc.file_url, 60);
 
             if (data?.signedUrl) {
               window.open(data.signedUrl, "_blank");
