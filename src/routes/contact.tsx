@@ -53,6 +53,8 @@ function ContactPage() {
   const [currentAnswer, setCurrentAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [consent, setConsent] = useState(false);
+
 
   async function startIntake(e: React.FormEvent) {
     e.preventDefault();
