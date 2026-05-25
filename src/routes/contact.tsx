@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { ArrowUpRight, MessageCircle, Send, Mail, Sparkles, Check, Loader2 } from "lucide-react";
+import { ArrowUpRight, MessageCircle, Sparkles, Check, Loader2 } from "lucide-react";
 import { classifyAndAskFn, finalizeLeadFn } from "@/lib/intake.functions";
+import { ContactChannels } from "@/components/contact-channels";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -145,23 +146,7 @@ function ContactPage() {
           </p>
 
           <div className="mt-10 space-y-0">
-            {[
-              { href: "https://wa.me/79000000000", icon: MessageCircle, label: "WhatsApp" },
-              { href: "https://t.me/", icon: Send, label: "Telegram" },
-              { href: "#", icon: Send, label: "MAX" },
-              { href: "mailto:hello@example.com", icon: Mail, label: "hello@example.com" },
-            ].map((x) => (
-              <a
-                key={x.label}
-                href={x.href}
-                className="flex items-center justify-between border-t border-border py-5 text-sm hover:text-primary"
-              >
-                <span className="inline-flex items-center gap-3">
-                  <x.icon size={16} /> {x.label}
-                </span>
-                <ArrowUpRight size={14} />
-              </a>
-            ))}
+            <ContactChannels variant="minimal" className="space-y-0" />
           </div>
         </div>
 
