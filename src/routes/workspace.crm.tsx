@@ -843,9 +843,43 @@ useEffect(() => {
     </label>
   </div>
 
-  <div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-    Документы лида будут отображаться здесь
-  </div>
+  <div className="mt-6 space-y-3">
+  {documents.length === 0 ? (
+    <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+      Документов пока нет
+    </div>
+  ) : (
+    documents.map((doc) => (
+      <div
+        key={doc.id}
+        className="flex items-center justify-between rounded-2xl border bg-white p-4"
+      >
+        <div>
+          <div className="text-sm font-medium">{doc.file_name}</div>
+
+          <div className="mt-1 text-xs text-muted-foreground">
+            {new Date(doc.created_at).toLocaleDateString("ru-RU")}
+          </div>
+        </div>
+
+        <button
+          onClick={async () => {
+            const { data } = await supabase.storage
+              .from("lead-documents")
+              .createSignedUrl(doc.file_path, 60);
+
+            if (data?.signedUrl) {
+              window.open(data.signedUrl, "_blank");
+            }
+          }}
+          className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
+        >
+          Открыть
+        </button>
+      </div>
+    ))
+  )}
+</div>
 </section>
 )}
         {activeTab === "tasks" && (
