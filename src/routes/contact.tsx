@@ -123,8 +123,20 @@ function ContactPage() {
           original_text: originalText.trim(),
           category: (cat && CATEGORY_LABEL[cat] ? cat : null) as never,
           qa: finalQa,
+          consent: {
+            consent_given: true,
+            ai_processing_consent: true,
+            legal_disclaimer_accepted: true,
+            consent_text: CONSENT_TEXT_FORM,
+            consent_version: CONSENT_VERSION,
+            privacy_policy_version: PRIVACY_POLICY_VERSION,
+            consent_source: "contact_form",
+            page_url: typeof window !== "undefined" ? window.location.href : null,
+            user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+          },
         },
       });
+
       setStep("done");
     } catch (e) {
       console.error(e);
