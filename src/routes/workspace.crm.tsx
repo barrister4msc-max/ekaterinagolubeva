@@ -298,7 +298,7 @@ function CRMPage() {
       setSelectedLead((s) => (s && s.id === leadId ? { ...s, ...optimistic } : s));
 
       try {
-        const res = await updateStage({ data: { id: leadId, pipeline_stage: targetStage as Lead["pipeline_stage"] extends infer T ? T : string } });
+        const res = await updateStage({ data: { id: leadId, pipeline_stage: targetStage as never } });
         const updated = (res as { lead: Lead | null }).lead;
         if (updated) {
           setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, ...updated } : l)));
