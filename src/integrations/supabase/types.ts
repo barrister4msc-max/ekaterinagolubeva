@@ -661,27 +661,63 @@ export type Database = {
       }
       site_settings: {
         Row: {
+          advisor_photo_url: string | null
+          contact_email: string | null
+          contact_max_url: string | null
+          contact_phone: string | null
+          contact_telegram_url: string | null
+          contact_whatsapp_url: string | null
           hero_image_url: string | null
           hero_object_position_x: number
           hero_object_position_y: number
           hero_scale: number
           id: number
+          legal_address: string | null
+          legal_form: string | null
+          legal_full_name: string | null
+          legal_inn: string | null
+          legal_ogrnip: string | null
+          site_domain: string | null
           updated_at: string
         }
         Insert: {
+          advisor_photo_url?: string | null
+          contact_email?: string | null
+          contact_max_url?: string | null
+          contact_phone?: string | null
+          contact_telegram_url?: string | null
+          contact_whatsapp_url?: string | null
           hero_image_url?: string | null
           hero_object_position_x?: number
           hero_object_position_y?: number
           hero_scale?: number
           id?: number
+          legal_address?: string | null
+          legal_form?: string | null
+          legal_full_name?: string | null
+          legal_inn?: string | null
+          legal_ogrnip?: string | null
+          site_domain?: string | null
           updated_at?: string
         }
         Update: {
+          advisor_photo_url?: string | null
+          contact_email?: string | null
+          contact_max_url?: string | null
+          contact_phone?: string | null
+          contact_telegram_url?: string | null
+          contact_whatsapp_url?: string | null
           hero_image_url?: string | null
           hero_object_position_x?: number
           hero_object_position_y?: number
           hero_scale?: number
           id?: number
+          legal_address?: string | null
+          legal_form?: string | null
+          legal_full_name?: string | null
+          legal_inn?: string | null
+          legal_ogrnip?: string | null
+          site_domain?: string | null
           updated_at?: string
         }
         Relationships: []

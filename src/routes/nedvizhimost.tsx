@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { MessageCircle, Send } from "lucide-react";
 import interiorImg from "@/assets/real-estate-interior.jpg";
 import { ContactCta } from "@/components/contact-cta";
+import { ContactChannels } from "@/components/contact-channels";
 
 export const Route = createFileRoute("/nedvizhimost")({
   head: () => ({
@@ -60,17 +60,9 @@ function NedvizhimostPage() {
               и переговоров до регистрации права собственности и сопровождения расчётов.
             </p>
 
-            <div className="mt-10 grid gap-3 sm:grid-cols-2">
-              <ContactCta className="btn-primary justify-center" label="Разобрать ситуацию" showArrow={false} />
-              <a href="https://wa.me/79000000000" className="btn-ghost justify-center">
-                Написать в WhatsApp <MessageCircle size={16} />
-              </a>
-              <a href="https://t.me/" className="btn-ghost justify-center">
-                Написать в Telegram <Send size={16} />
-              </a>
-              <a href="#" className="btn-ghost justify-center">
-                Написать в MAX <Send size={16} />
-              </a>
+            <div className="mt-10 flex flex-wrap gap-3">
+              <ContactCta className="btn-primary" label="Разобрать ситуацию" showArrow={false} />
+              <ContactChannels variant="ghost" showLabels showEmail={false} />
             </div>
           </div>
 
@@ -157,9 +149,7 @@ function NedvizhimostPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <ContactCta className="btn-primary" label="Разобрать ситуацию" showArrow={false} />
-            <a href="https://wa.me/79000000000" className="btn-ghost">
-              WhatsApp <MessageCircle size={14} />
-            </a>
+            <ContactChannels variant="ghost" showLabels showEmail={false} />
           </div>
         </div>
       </section>

@@ -104,6 +104,39 @@ export function ReviewsSection({
     return sum / rated.length;
   }, [all]);
 
+  // JSON-LD only for REAL published reviews — never for fallback content.
+  const reviewSchema =
+    !useFallback && dynamic.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "LegalService",
+          name: "Екатерина Голубева — Premium Legal Real Estate Advisor",
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: avgRating.toFixed(2),
+            reviewCount: dynamic.length,
+            bestRating: 5,
+            worstRating: 1,
+          },
+          review: dynamic.slice(0, 20).map((r) => ({
+            "@type": "Review",
+            reviewBody: r.review_text,
+            ...(r.author_name ? { author: { "@type": "Person", name: r.author_name } } : {}),
+            ...(r.review_date ? { datePublished: r.review_date } : {}),
+            ...(typeof r.rating === "number" && r.rating > 0
+              ? {
+                  reviewRating: {
+                    "@type": "Rating",
+                    ratingValue: r.rating,
+                    bestRating: 5,
+                    worstRating: 1,
+                  },
+                }
+              : {}),
+          })),
+        }
+      : null;
+
   return (
     <section className="container-wide py-24 md:py-32">
       <div className="eyebrow mb-5">Отзывы</div>

@@ -1,45 +1,103 @@
-// Plain anchors used for legal doc links — pages may not yet exist as routes.
+import { useSiteSettings, telHref } from "@/hooks/use-site-settings";
 
 /**
- * Legal/YMYL trust block for the footer.
- * Displays formal business identity (ИП/ИНН), contacts, address and
- * required legal document links. Placeholders are clearly marked so the
- * site owner can replace them with real data without touching layout.
+ * Legal/YMYL trust block for the footer. Reads business identity, contacts
+ * and address from site_settings (editable by admin in /workspace/settings).
+ * Fields that the admin hasn't filled in yet are hidden — no placeholders.
  */
 export function FooterLegalInfo() {
+  const { settings, loaded } = useSiteSettings();
+  if (!loaded) return null;
+
+  const {
+    legal_form,
+    legal_full_name,
+    legal_inn,
+    legal_ogrnip,
+    legal_address,
+    contact_email,
+    contact_phone,
+    site_domain,
+  } = settings;
+
+  const tel = telHref(contact_phone);
+
+  const hasRequisites = legal_form || legal_full_name || legal_inn || legal_ogrnip;
+  const hasContacts = contact_email || contact_phone || legal_address;
+
+  // Schema.org payload only for fields that are filled.
+  const schema: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "LegalService",
+    name: legal_full_name
+      ? `${legal_full_name} — Premium Legal Real Estate Advisor`
+      : "Екатерина Голубева — Premium Legal Real Estate Advisor",
+    description:
+      "Юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и по России.",
+    url: site_domain || "https://ekaterinagolubeva.lovable.app",
+    areaServed: ["Москва", "Московская область", "Российская Федерация"],
+    founder: {
+      "@type": "Person",
+      name: legal_full_name || "Екатерина Голубева",
+      jobTitle: "Юрист по недвижимости и судебным спорам",
+    },
+  };
+  if (contact_email) schema.email = contact_email;
+  if (contact_phone) schema.telephone = contact_phone;
+  if (legal_address) {
+    schema.address = {
+      "@type": "PostalAddress",
+      addressLocality: "Москва",
+      streetAddress: legal_address,
+      addressCountry: "RU",
+    };
+  }
+
   return (
     <section
       aria-label="Юридическая информация"
       className="mt-12 border-t border-border pt-8 text-xs leading-relaxed text-muted-foreground"
     >
       <div className="grid gap-6 md:grid-cols-3">
-        <div>
-          <div className="eyebrow mb-3 text-[10px] text-foreground/70">Реквизиты</div>
-          <ul className="space-y-1">
-            <li>ИП Голубева Екатерина <span className="text-foreground/50">[указать форму]</span></li>
-            <li>ИНН: <span className="text-foreground/50">[указать ИНН]</span></li>
-            <li>ОГРНИП: <span className="text-foreground/50">[указать]</span></li>
-          </ul>
-        </div>
+        {hasRequisites && (
+          <div>
+            <div className="eyebrow mb-3 text-[10px] text-foreground/70">Реквизиты</div>
+            <ul className="space-y-1">
+              {(legal_form || legal_full_name) && (
+                <li>
+                  {[legal_form, legal_full_name].filter(Boolean).join(" · ")}
+                </li>
+              )}
+              {legal_inn && <li>ИНН: {legal_inn}</li>}
+              {legal_ogrnip && <li>ОГРНИП: {legal_ogrnip}</li>}
+            </ul>
+          </div>
+        )}
 
-        <div>
-          <div className="eyebrow mb-3 text-[10px] text-foreground/70">Контакты</div>
-          <ul className="space-y-1">
-            <li>
-              Email:{" "}
-              <a href="mailto:hello@example.com" className="text-foreground/80 hover:text-primary">
-                hello@example.com
-              </a>
-            </li>
-            <li>
-              Телефон:{" "}
-              <a href="tel:+79000000000" className="text-foreground/80 hover:text-primary">
-                +7 (900) 000-00-00
-              </a>
-            </li>
-            <li>Адрес: г. Москва, <span className="text-foreground/50">[указать адрес]</span></li>
-          </ul>
-        </div>
+        {hasContacts && (
+          <div>
+            <div className="eyebrow mb-3 text-[10px] text-foreground/70">Контакты</div>
+            <ul className="space-y-1">
+              {contact_email && (
+                <li>
+                  Email:{" "}
+                  <a href={`mailto:${contact_email}`} className="text-foreground/80 hover:text-primary">
+                    {contact_email}
+                  </a>
+                </li>
+              )}
+              {tel && (
+                <li>
+                  Телефон:{" "}
+                  <a href={tel} className="text-foreground/80 hover:text-primary">
+                    {contact_phone}
+                  </a>
+                </li>
+              )}
+              {legal_address && <li>Адрес: {legal_address}</li>}
+            </ul>
+          </div>
+        )}
 
         <div>
           <div className="eyebrow mb-3 text-[10px] text-foreground/70">Документы</div>
@@ -58,33 +116,10 @@ export function FooterLegalInfo() {
         </div>
       </div>
 
-      {/* Schema.org: LegalService — sitewide org identity */}
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "LegalService",
-            name: "Екатерина Голубева — Premium Legal Real Estate Advisor",
-            description:
-              "Юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и по России.",
-            url: "https://ekaterinagolubeva.lovable.app",
-            telephone: "+7-900-000-00-00",
-            email: "hello@example.com",
-            areaServed: ["Москва", "Московская область", "Российская Федерация"],
-            address: {
-              "@type": "PostalAddress",
-              addressLocality: "Москва",
-              addressCountry: "RU",
-            },
-            founder: {
-              "@type": "Person",
-              name: "Екатерина Голубева",
-              jobTitle: "Юрист по недвижимости и судебным спорам",
-            },
-          }),
-        }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
       />
     </section>
   );

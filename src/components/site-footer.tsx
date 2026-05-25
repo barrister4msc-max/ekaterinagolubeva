@@ -1,7 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { FooterLegalInfo } from "./footer-legal-info";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 export function SiteFooter() {
+  const { settings } = useSiteSettings();
+  const { contact_whatsapp_url, contact_telegram_url, contact_max_url, contact_email } = settings;
+  const hasChannels =
+    contact_whatsapp_url || contact_telegram_url || contact_max_url || contact_email;
+
   return (
     <footer className="mt-32 border-t border-border bg-background">
       <div className="container-wide py-16 md:py-20">
@@ -15,6 +21,11 @@ export function SiteFooter() {
             <p className="mt-6 text-xs uppercase tracking-[0.22em] text-primary">
               Москва · Подольск · МО · По всей России
             </p>
+            <div className="mt-6 text-sm">
+              <Link to="/about" className="text-foreground/80 hover:text-primary">
+                О специалисте
+              </Link>
+            </div>
           </div>
 
           <div>
@@ -32,12 +43,26 @@ export function SiteFooter() {
 
           <div>
             <div className="eyebrow mb-4">Контакты</div>
-            <ul className="space-y-2 text-sm">
-              <li><a href="https://wa.me/79000000000" className="text-foreground/80 hover:text-primary">WhatsApp</a></li>
-              <li><a href="https://t.me/" className="text-foreground/80 hover:text-primary">Telegram</a></li>
-              <li><a href="#" className="text-foreground/80 hover:text-primary">MAX</a></li>
-              <li><a href="mailto:hello@example.com" className="text-foreground/80 hover:text-primary">Email</a></li>
-            </ul>
+            {hasChannels ? (
+              <ul className="space-y-2 text-sm">
+                {contact_whatsapp_url && (
+                  <li><a href={contact_whatsapp_url} target="_blank" rel="noreferrer" className="text-foreground/80 hover:text-primary">WhatsApp</a></li>
+                )}
+                {contact_telegram_url && (
+                  <li><a href={contact_telegram_url} target="_blank" rel="noreferrer" className="text-foreground/80 hover:text-primary">Telegram</a></li>
+                )}
+                {contact_max_url && (
+                  <li><a href={contact_max_url} target="_blank" rel="noreferrer" className="text-foreground/80 hover:text-primary">MAX</a></li>
+                )}
+                {contact_email && (
+                  <li><a href={`mailto:${contact_email}`} className="text-foreground/80 hover:text-primary">Email</a></li>
+                )}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                <Link to="/contact" className="hover:text-primary">Связаться через форму</Link>
+              </p>
+            )}
           </div>
         </div>
         <FooterLegalInfo />

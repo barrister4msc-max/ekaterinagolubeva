@@ -9,6 +9,7 @@ import aboutImg from "@/assets/about-portrait.jpg";
 import moscowImg from "@/assets/moscow-architecture.jpg";
 import { useSiteSettings, heroSrc, heroSrcSet } from "@/hooks/use-site-settings";
 import { ContactCta } from "@/components/contact-cta";
+import { ContactChannels } from "@/components/contact-channels";
 import { ReviewsSection } from "@/components/reviews-section";
 
 export const Route = createFileRoute("/")({
@@ -18,9 +19,9 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров. Москва, МО и дистанционно по России." },
       { property: "og:title", content: "Екатерина Голубева — Premium Legal Real Estate Advisor" },
       { property: "og:description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров. Trusted Representative in Russia." },
-      { property: "og:url", content: "https://example.com/" },
+      { property: "og:url", content: "https://ekaterinagolubeva.lovable.app/" },
     ],
-    links: [{ rel: "canonical", href: "https://example.com/" }],
+    links: [{ rel: "canonical", href: "https://ekaterinagolubeva.lovable.app/" }],
   }),
   component: HomePage,
 });
@@ -89,18 +90,9 @@ function HomePage() {
             </p>
             <div className="mt-12 flex flex-wrap items-center gap-3">
               <ContactCta className="btn-primary" label="Разобрать ситуацию" showArrow={false} />
-              <a href="https://t.me/" target="_blank" rel="noreferrer" className="btn-ghost btn-ghost--equal">
-                <Send size={14}/> Telegram
-              </a>
-              <a href="#" className="btn-ghost btn-ghost--equal">
-                <MessageCircle size={14}/> MAX
-              </a>
+              <ContactChannels variant="ghost" showLabels showEmail={false} />
             </div>
             <div className="mt-10 flex flex-wrap items-center gap-4 text-xs text-foreground/55">
-              <a href="https://wa.me/79000000000" className="inline-flex items-center gap-2 transition hover:text-primary">
-                <MessageCircle size={14}/> WhatsApp
-              </a>
-              <span className="h-3 w-px bg-foreground/15" />
               <span className="inline-flex items-center gap-2"><MapPin size={14}/> Москва · МО · Россия</span>
             </div>
           </div>
@@ -412,26 +404,8 @@ function HomePage() {
               для бесплатного первичного разбора.
             </p>
 
-            <div className="mt-10 space-y-4">
-              <a href="https://wa.me/79000000000" className="flex items-center justify-between border-t border-border py-4 text-sm hover:text-primary">
-                <span className="inline-flex items-center gap-3"><MessageCircle size={16}/> WhatsApp</span>
-                <ArrowUpRight size={14}/>
-              </a>
-              <a href="https://t.me/" className="flex items-center justify-between border-t border-border py-4 text-sm hover:text-primary">
-                <span className="inline-flex items-center gap-3"><Send size={16}/> Telegram</span>
-                <ArrowUpRight size={14}/>
-              </a>
-              <a href="#" className="flex items-center justify-between border-t border-border py-4 text-sm hover:text-primary">
-                <span className="inline-flex items-center gap-3"><Send size={16}/> MAX</span>
-                <ArrowUpRight size={14}/>
-              </a>
-              <a href="mailto:hello@example.com" className="flex items-center justify-between border-y border-border py-4 text-sm hover:text-primary">
-                <span className="inline-flex items-center gap-3">
-                  <Mail size={16} />
-                  <span>hello@example.com</span>
-                </span>
-                <ArrowUpRight size={14}/>
-              </a>
+            <div className="mt-10">
+              <ContactChannels variant="minimal" className="space-y-0" />
             </div>
           </div>
 
