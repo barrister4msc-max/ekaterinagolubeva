@@ -855,7 +855,7 @@ alert("Документ загружен");
         className="flex items-center justify-between rounded-2xl border bg-white p-4"
       >
         <div>
-          <div className="text-sm font-medium">{doc.file_name}</div>
+          <div className="text-sm font-medium">{doc.file_url.split("/").pop()}</div>
 
           <div className="mt-1 text-xs text-muted-foreground">
             {new Date(doc.created_at).toLocaleDateString("ru-RU")}
