@@ -292,15 +292,123 @@ function CRMPage() {
             </button>
           </div>
 
-          <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-4 text-sm text-muted-foreground shadow-sm">
-            <Search size={16} />
-            Поиск...
+          <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-3 text-sm shadow-sm">
+            <Search size={16} className="text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Поиск по имени, телефону, тексту…"
+              className="w-56 bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="rounded-full p-1 text-muted-foreground hover:bg-secondary"
+                aria-label="Очистить поиск"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
-          <button className="flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-4 text-sm shadow-sm">
-            <SlidersHorizontal size={16} />
-            Фильтры
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              className={`flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm shadow-sm ${filtersOpen || activeFiltersCount > 0 ? "bg-neutral-950 text-white" : "bg-white"}`}
+            >
+              <SlidersHorizontal size={16} />
+              Фильтры
+              {activeFiltersCount > 0 && (
+                <span className="rounded-full bg-white/20 px-1.5 text-[11px]">{activeFiltersCount}</span>
+              )}
+            </button>
+            {filtersOpen && (
+              <div className="absolute right-0 top-12 z-30 w-80 space-y-3 rounded-2xl border border-border bg-white p-4 shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
+                <FilterSelect
+                  label="Канал"
+                  value={filters.channel}
+                  onChange={(v) => setFilters((f) => ({ ...f, channel: v }))}
+                  options={[
+                    ["all", "Все"],
+                    ["telegram", "Telegram"],
+                    ["whatsapp", "WhatsApp"],
+                    ["website", "Website"],
+                    ["avito", "Avito"],
+                  ]}
+                />
+                <FilterSelect
+                  label="Статус лида"
+                  value={filters.leadStatus}
+                  onChange={(v) => setFilters((f) => ({ ...f, leadStatus: v }))}
+                  options={[
+                    ["all", "Все"],
+                    ["new", "New"],
+                    ["in_progress", "In progress"],
+                    ["waiting", "Waiting"],
+                    ["closed", "Closed"],
+                  ]}
+                />
+                <FilterSelect
+                  label="Pipeline stage"
+                  value={filters.pipelineStage}
+                  onChange={(v) => setFilters((f) => ({ ...f, pipelineStage: v }))}
+                  options={[["all", "Все"], ...columns.map((c) => [c.id, c.label] as [string, string])]}
+                />
+                <FilterSelect
+                  label="Приоритет"
+                  value={filters.priority}
+                  onChange={(v) => setFilters((f) => ({ ...f, priority: v }))}
+                  options={[
+                    ["all", "Все"],
+                    ["urgent", "Urgent"],
+                    ["high", "High"],
+                    ["normal", "Normal"],
+                    ["low", "Low"],
+                  ]}
+                />
+                <FilterSelect
+                  label="Inbox"
+                  value={filters.unread}
+                  onChange={(v) => setFilters((f) => ({ ...f, unread: v as "all" | "unread" }))}
+                  options={[
+                    ["all", "Все диалоги"],
+                    ["unread", "Только непрочитанные"],
+                  ]}
+                />
+                <FilterSelect
+                  label="Дата"
+                  value={filters.date}
+                  onChange={(v) => setFilters((f) => ({ ...f, date: v as typeof filters.date }))}
+                  options={[
+                    ["all", "Все время"],
+                    ["today", "Сегодня"],
+                    ["7d", "7 дней"],
+                    ["30d", "30 дней"],
+                  ]}
+                />
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Сбросить фильтры
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen(false)}
+                    className="rounded-lg bg-neutral-950 px-3 py-1.5 text-xs text-white"
+                  >
+                    Готово
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 
