@@ -283,6 +283,39 @@ function CRMPage() {
     };
   }, [session, reload]);
 
+  const handleMoveLead = useCallback(
+    async (leadId: string, targetStage: string) => {
+      const prev = leads.find((l) => l.id === leadId);
+      if (!prev) return;
+      if ((prev.pipeline_stage ?? "new") === targetStage) return;
+
+      // optimistic
+      const optimistic: Partial<Lead> = { pipeline_stage: targetStage };
+      if (targetStage === "closed") optimistic.status = "closed";
+      else if (prev.status === "closed") optimistic.status = "in_progress";
+
+      setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, ...optimistic } : l)));
+      setSelectedLead((s) => (s && s.id === leadId ? { ...s, ...optimistic } : s));
+
+      try {
+        const res = await updateStage({ data: { id: leadId, pipeline_stage: targetStage as Lead["pipeline_stage"] extends infer T ? T : string } });
+        const updated = (res as { lead: Lead | null }).lead;
+        if (updated) {
+          setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, ...updated } : l)));
+          setSelectedLead((s) => (s && s.id === leadId ? { ...s, ...updated } : s));
+        }
+        toast.success("Стадия обновлена");
+      } catch (e) {
+        // revert
+        setLeads((ls) => ls.map((l) => (l.id === leadId ? prev : l)));
+        setSelectedLead((s) => (s && s.id === leadId ? prev : s));
+        toast.error(e instanceof Error ? e.message : "Не удалось обновить стадию");
+      }
+    },
+    [leads, updateStage],
+  );
+
+
 
   const kpi = useMemo(() => {
     const inWork = leads.filter((l) => ["contacted", "analysis", "in_work", "offer_sent", "court"].includes(l.pipeline_stage ?? "")).length;
