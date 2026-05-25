@@ -13,6 +13,7 @@ import { Route as WorkspaceRouteImport } from './routes/workspace'
 import { Route as VzyskanieZadolzhennostiRouteImport } from './routes/vzyskanie-zadolzhennosti'
 import { Route as VyselenieArendatoraRouteImport } from './routes/vyselenie-arendatora'
 import { Route as VozvratZalogaArendaRouteImport } from './routes/vozvrat-zaloga-arenda'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SporSArendatoromRouteImport } from './routes/spor-s-arendatorom'
 import { Route as SoprovozhdenieSdelkiRouteImport } from './routes/soprovozhdenie-sdelki'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -22,6 +23,7 @@ import { Route as RepresentationRouteImport } from './routes/representation'
 import { Route as RentalDisputesRouteImport } from './routes/rental-disputes'
 import { Route as RealEstateRouteImport } from './routes/real-estate'
 import { Route as ProverkaKvartiryMoskvaRouteImport } from './routes/proverka-kvartiry-moskva'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as NedvizhimostRouteImport } from './routes/nedvizhimost'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LitigationRouteImport } from './routes/litigation'
@@ -30,6 +32,7 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
 import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spory'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as SlugRouteImport } from './routes/$slug'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceStatisticsRouteImport } from './routes/workspace.statistics'
@@ -61,6 +64,11 @@ const VyselenieArendatoraRoute = VyselenieArendatoraRouteImport.update({
 const VozvratZalogaArendaRoute = VozvratZalogaArendaRouteImport.update({
   id: '/vozvrat-zaloga-arenda',
   path: '/vozvrat-zaloga-arenda',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SporSArendatoromRoute = SporSArendatoromRouteImport.update({
@@ -108,6 +116,11 @@ const ProverkaKvartiryMoskvaRoute = ProverkaKvartiryMoskvaRouteImport.update({
   path: '/proverka-kvartiry-moskva',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NedvizhimostRoute = NedvizhimostRouteImport.update({
   id: '/nedvizhimost',
   path: '/nedvizhimost',
@@ -146,6 +159,11 @@ const ArbitrazhnyeSporyRoute = ArbitrazhnyeSporyRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SlugRoute = SlugRouteImport.update({
@@ -213,6 +231,7 @@ const ApiPublicWebhooksTelegramRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
@@ -221,6 +240,7 @@ export interface FileRoutesByFullPath {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
+  '/privacy': typeof PrivacyRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
   '/rental-disputes': typeof RentalDisputesRoute
@@ -230,6 +250,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
+  '/terms': typeof TermsRoute
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
@@ -248,6 +269,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
@@ -256,6 +278,7 @@ export interface FileRoutesByTo {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
+  '/privacy': typeof PrivacyRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
   '/rental-disputes': typeof RentalDisputesRoute
@@ -265,6 +288,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
+  '/terms': typeof TermsRoute
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
@@ -284,6 +308,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$slug': typeof SlugRoute
+  '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
@@ -292,6 +317,7 @@ export interface FileRoutesById {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
+  '/privacy': typeof PrivacyRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
   '/rental-disputes': typeof RentalDisputesRoute
@@ -301,6 +327,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/soprovozhdenie-sdelki': typeof SoprovozhdenieSdelkiRoute
   '/spor-s-arendatorom': typeof SporSArendatoromRoute
+  '/terms': typeof TermsRoute
   '/vozvrat-zaloga-arenda': typeof VozvratZalogaArendaRoute
   '/vyselenie-arendatora': typeof VyselenieArendatoraRoute
   '/vzyskanie-zadolzhennosti': typeof VzyskanieZadolzhennostiRoute
@@ -321,6 +348,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/$slug'
+    | '/about'
     | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
@@ -329,6 +357,7 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
+    | '/privacy'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
     | '/rental-disputes'
@@ -338,6 +367,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
+    | '/terms'
     | '/vozvrat-zaloga-arenda'
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
@@ -356,6 +386,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/$slug'
+    | '/about'
     | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
@@ -364,6 +395,7 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
+    | '/privacy'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
     | '/rental-disputes'
@@ -373,6 +405,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
+    | '/terms'
     | '/vozvrat-zaloga-arenda'
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
@@ -391,6 +424,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/$slug'
+    | '/about'
     | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
@@ -399,6 +433,7 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
+    | '/privacy'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
     | '/rental-disputes'
@@ -408,6 +443,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/soprovozhdenie-sdelki'
     | '/spor-s-arendatorom'
+    | '/terms'
     | '/vozvrat-zaloga-arenda'
     | '/vyselenie-arendatora'
     | '/vzyskanie-zadolzhennosti'
@@ -427,6 +463,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SlugRoute: typeof SlugRoute
+  AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRouteWithChildren
   ArbitrazhnyeSporyRoute: typeof ArbitrazhnyeSporyRoute
   CommercialRentRoute: typeof CommercialRentRoute
@@ -435,6 +472,7 @@ export interface RootRouteChildren {
   LitigationRoute: typeof LitigationRoute
   LoginRoute: typeof LoginRoute
   NedvizhimostRoute: typeof NedvizhimostRoute
+  PrivacyRoute: typeof PrivacyRoute
   ProverkaKvartiryMoskvaRoute: typeof ProverkaKvartiryMoskvaRoute
   RealEstateRoute: typeof RealEstateRoute
   RentalDisputesRoute: typeof RentalDisputesRoute
@@ -444,6 +482,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SoprovozhdenieSdelkiRoute: typeof SoprovozhdenieSdelkiRoute
   SporSArendatoromRoute: typeof SporSArendatoromRoute
+  TermsRoute: typeof TermsRoute
   VozvratZalogaArendaRoute: typeof VozvratZalogaArendaRoute
   VyselenieArendatoraRoute: typeof VyselenieArendatoraRoute
   VzyskanieZadolzhennostiRoute: typeof VzyskanieZadolzhennostiRoute
@@ -480,6 +519,13 @@ declare module '@tanstack/react-router' {
       path: '/vozvrat-zaloga-arenda'
       fullPath: '/vozvrat-zaloga-arenda'
       preLoaderRoute: typeof VozvratZalogaArendaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/spor-s-arendatorom': {
@@ -545,6 +591,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProverkaKvartiryMoskvaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/nedvizhimost': {
       id: '/nedvizhimost'
       path: '/nedvizhimost'
@@ -599,6 +652,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/$slug': {
@@ -725,6 +785,7 @@ const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SlugRoute: SlugRoute,
+  AboutRoute: AboutRoute,
   AdminRoute: AdminRouteWithChildren,
   ArbitrazhnyeSporyRoute: ArbitrazhnyeSporyRoute,
   CommercialRentRoute: CommercialRentRoute,
@@ -733,6 +794,7 @@ const rootRouteChildren: RootRouteChildren = {
   LitigationRoute: LitigationRoute,
   LoginRoute: LoginRoute,
   NedvizhimostRoute: NedvizhimostRoute,
+  PrivacyRoute: PrivacyRoute,
   ProverkaKvartiryMoskvaRoute: ProverkaKvartiryMoskvaRoute,
   RealEstateRoute: RealEstateRoute,
   RentalDisputesRoute: RentalDisputesRoute,
@@ -742,6 +804,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SoprovozhdenieSdelkiRoute: SoprovozhdenieSdelkiRoute,
   SporSArendatoromRoute: SporSArendatoromRoute,
+  TermsRoute: TermsRoute,
   VozvratZalogaArendaRoute: VozvratZalogaArendaRoute,
   VyselenieArendatoraRoute: VyselenieArendatoraRoute,
   VzyskanieZadolzhennostiRoute: VzyskanieZadolzhennostiRoute,
