@@ -149,9 +149,7 @@ function NedvizhimostPage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <ContactCta className="btn-primary" label="Разобрать ситуацию" showArrow={false} />
-            <a href="https://wa.me/79000000000" className="btn-ghost">
-              WhatsApp <MessageCircle size={14} />
-            </a>
+            <ContactChannels variant="ghost" showLabels showEmail={false} />
           </div>
         </div>
       </section>

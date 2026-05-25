@@ -130,7 +130,7 @@ function SeoPageComponent() {
             )}
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <ContactCta className="btn-primary" label="Разобрать ситуацию" showArrow={false} />
-              <a href="https://wa.me/79000000000" className="btn-ghost">Написать в WhatsApp</a>
+              <ContactChannels variant="ghost" showLabels showEmail={false} />
             </div>
           </div>
         </div>
