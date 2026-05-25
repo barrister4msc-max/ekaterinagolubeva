@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { FooterLegalInfo } from "./footer-legal-info";
 
 export function SiteFooter() {
   return (
