@@ -56,7 +56,10 @@ type Lead = {
   ai_summary: string | null;
   next_step: string | null;
   risks: string[] | null;
+  category: string | null;
+  source: string | null;
 };
+
 
 type Conversation = {
   id: string;
@@ -124,11 +127,92 @@ function CRMPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "inbox" | "documents" | "tasks" | "timeline">("overview");
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState<{
+    channel: string;
+    leadStatus: string;
+    pipelineStage: string;
+    priority: string;
+    unread: "all" | "unread";
+    date: "all" | "today" | "7d" | "30d";
+  }>({
+    channel: "all",
+    leadStatus: "all",
+    pipelineStage: "all",
+    priority: "all",
+    unread: "all",
+    date: "all",
+  });
+
+  const resetFilters = () =>
+    setFilters({ channel: "all", leadStatus: "all", pipelineStage: "all", priority: "all", unread: "all", date: "all" });
+
+  const activeFiltersCount = useMemo(
+    () => Object.values(filters).filter((v) => v !== "all").length,
+    [filters],
+  );
+
+  const dateThreshold = useMemo(() => {
+    if (filters.date === "all") return null;
+    const now = Date.now();
+    if (filters.date === "today") {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+    if (filters.date === "7d") return now - 7 * 24 * 60 * 60 * 1000;
+    if (filters.date === "30d") return now - 30 * 24 * 60 * 60 * 1000;
+    return null;
+  }, [filters.date]);
+
+  const q = searchQuery.trim().toLowerCase();
+
+  const filteredLeads = useMemo(() => {
+    return leads.filter((l) => {
+      if (filters.leadStatus !== "all" && l.status !== filters.leadStatus) return false;
+      if (filters.pipelineStage !== "all" && (l.pipeline_stage ?? "new") !== filters.pipelineStage) return false;
+      if (filters.priority !== "all" && (l.priority ?? "normal") !== filters.priority) return false;
+      if (dateThreshold && new Date(l.created_at).getTime() < dateThreshold) return false;
+      if (q) {
+        const hay = [l.name, l.phone, l.original_text, l.category ?? "", l.source ?? ""].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [leads, filters, dateThreshold, q]);
+
+  const filteredInbox = useMemo(() => {
+    return inbox.filter((c) => {
+      if (filters.channel !== "all" && c.channel !== filters.channel) return false;
+      if (filters.unread === "unread") {
+        const last = c.last_message;
+        if (!last || last.direction !== "inbound") return false;
+      }
+      if (dateThreshold) {
+        const t = c.last_message_at ? new Date(c.last_message_at).getTime() : 0;
+        if (t < dateThreshold) return false;
+      }
+      if (q) {
+        const hay = [
+          c.leads?.name ?? "",
+          c.leads?.phone ?? "",
+          c.channel,
+          c.last_message?.message_text ?? "",
+          c.external_user_id ?? "",
+        ].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [inbox, filters, dateThreshold, q]);
+
   const reload = useCallback(async () => {
     const [leadsResult, inboxResult] = await Promise.allSettled([
       listLeads({ data: {} }),
       listInbox({ data: {} }),
     ]);
+
 
     if (leadsResult.status === "fulfilled") {
       setLeads((leadsResult.value.leads as unknown as Lead[]) ?? []);
@@ -208,15 +292,123 @@ function CRMPage() {
             </button>
           </div>
 
-          <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-4 text-sm text-muted-foreground shadow-sm">
-            <Search size={16} />
-            Поиск...
+          <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-3 text-sm shadow-sm">
+            <Search size={16} className="text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Поиск по имени, телефону, тексту…"
+              className="w-56 bg-transparent outline-none placeholder:text-muted-foreground"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="rounded-full p-1 text-muted-foreground hover:bg-secondary"
+                aria-label="Очистить поиск"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
-          <button className="flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-4 text-sm shadow-sm">
-            <SlidersHorizontal size={16} />
-            Фильтры
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              className={`flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm shadow-sm ${filtersOpen || activeFiltersCount > 0 ? "bg-neutral-950 text-white" : "bg-white"}`}
+            >
+              <SlidersHorizontal size={16} />
+              Фильтры
+              {activeFiltersCount > 0 && (
+                <span className="rounded-full bg-white/20 px-1.5 text-[11px]">{activeFiltersCount}</span>
+              )}
+            </button>
+            {filtersOpen && (
+              <div className="absolute right-0 top-12 z-30 w-80 space-y-3 rounded-2xl border border-border bg-white p-4 shadow-[0_20px_60px_rgba(0,0,0,0.12)]">
+                <FilterSelect
+                  label="Канал"
+                  value={filters.channel}
+                  onChange={(v) => setFilters((f) => ({ ...f, channel: v }))}
+                  options={[
+                    ["all", "Все"],
+                    ["telegram", "Telegram"],
+                    ["whatsapp", "WhatsApp"],
+                    ["website", "Website"],
+                    ["avito", "Avito"],
+                  ]}
+                />
+                <FilterSelect
+                  label="Статус лида"
+                  value={filters.leadStatus}
+                  onChange={(v) => setFilters((f) => ({ ...f, leadStatus: v }))}
+                  options={[
+                    ["all", "Все"],
+                    ["new", "New"],
+                    ["in_progress", "In progress"],
+                    ["waiting", "Waiting"],
+                    ["closed", "Closed"],
+                  ]}
+                />
+                <FilterSelect
+                  label="Pipeline stage"
+                  value={filters.pipelineStage}
+                  onChange={(v) => setFilters((f) => ({ ...f, pipelineStage: v }))}
+                  options={[["all", "Все"], ...columns.map((c) => [c.id, c.label] as [string, string])]}
+                />
+                <FilterSelect
+                  label="Приоритет"
+                  value={filters.priority}
+                  onChange={(v) => setFilters((f) => ({ ...f, priority: v }))}
+                  options={[
+                    ["all", "Все"],
+                    ["urgent", "Urgent"],
+                    ["high", "High"],
+                    ["normal", "Normal"],
+                    ["low", "Low"],
+                  ]}
+                />
+                <FilterSelect
+                  label="Inbox"
+                  value={filters.unread}
+                  onChange={(v) => setFilters((f) => ({ ...f, unread: v as "all" | "unread" }))}
+                  options={[
+                    ["all", "Все диалоги"],
+                    ["unread", "Только непрочитанные"],
+                  ]}
+                />
+                <FilterSelect
+                  label="Дата"
+                  value={filters.date}
+                  onChange={(v) => setFilters((f) => ({ ...f, date: v as typeof filters.date }))}
+                  options={[
+                    ["all", "Все время"],
+                    ["today", "Сегодня"],
+                    ["7d", "7 дней"],
+                    ["30d", "30 дней"],
+                  ]}
+                />
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Сбросить фильтры
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFiltersOpen(false)}
+                    className="rounded-lg bg-neutral-950 px-3 py-1.5 text-xs text-white"
+                  >
+                    Готово
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 
@@ -232,10 +424,10 @@ function CRMPage() {
           Загрузка…
         </div>
       ) : view === "pipeline" ? (
-        <PipelineView leads={leads} onSelect={(l) => { setSelectedLead(l); setActiveTab("overview"); }} />
+        <PipelineView leads={filteredLeads} onSelect={(l) => { setSelectedLead(l); setActiveTab("overview"); }} />
       ) : (
         <InboxView
-          conversations={inbox}
+          conversations={filteredInbox}
           error={inboxError}
           onSelect={(c) => {
             const lead = leads.find((l) => l.id === c.lead_id);
@@ -246,6 +438,7 @@ function CRMPage() {
           }}
         />
       )}
+
 
       {selectedLead ? (
         <LeadDrawer
@@ -691,5 +884,32 @@ function Kpi({
       <div className="mt-1 text-xs text-muted-foreground">{label}</div>
       <div className="mt-2 text-[11px] text-muted-foreground/80">{sub}</div>
     </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: Array<[string, string]>;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary/50"
+      >
+        {options.map(([val, lbl]) => (
+          <option key={val} value={val}>{lbl}</option>
+        ))}
+      </select>
+    </label>
   );
 }
