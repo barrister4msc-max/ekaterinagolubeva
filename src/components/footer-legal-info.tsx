@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+// Plain anchors used for legal doc links — pages may not yet exist as routes.
 
 /**
  * Legal/YMYL trust block for the footer.
@@ -45,14 +45,14 @@ export function FooterLegalInfo() {
           <div className="eyebrow mb-3 text-[10px] text-foreground/70">Документы</div>
           <ul className="space-y-1">
             <li>
-              <Link to="/privacy" className="text-foreground/80 hover:text-primary">
+              <a href="/privacy" className="text-foreground/80 hover:text-primary">
                 Политика конфиденциальности
-              </Link>
+              </a>
             </li>
             <li>
-              <Link to="/terms" className="text-foreground/80 hover:text-primary">
+              <a href="/terms" className="text-foreground/80 hover:text-primary">
                 Оферта / Пользовательское соглашение
-              </Link>
+              </a>
             </li>
           </ul>
         </div>

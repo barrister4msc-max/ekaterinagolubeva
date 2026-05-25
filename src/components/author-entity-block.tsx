@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+// Plain anchor used — target page may not exist yet as a typed route.
 
 interface AuthorEntityBlockProps {
   /** Title of the article for BlogPosting schema. Optional. */
@@ -38,9 +38,9 @@ export function AuthorEntityBlock({ articleTitle, articleDescription }: AuthorEn
               спокойно, по существу и с полной ответственностью за результат.
             </p>
             <div className="mt-4">
-              <Link to="/" hash="advisor" className="text-sm text-primary hover:underline">
+              <a href="/#advisor" className="text-sm text-primary hover:underline">
                 О специалисте →
-              </Link>
+              </a>
             </div>
           </div>
         </div>
