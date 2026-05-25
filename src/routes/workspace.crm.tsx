@@ -876,7 +876,8 @@ useEffect(() => {
         .createSignedUrl(doc.file_url, 60);
 
       if (data?.signedUrl) {
-        window.open(data.signedUrl, "_blank");
+        setPreviewUrl(data.signedUrl);
+setPreviewName(doc.file_url.split("/").pop() ?? "Документ");
       }
     }}
     className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
