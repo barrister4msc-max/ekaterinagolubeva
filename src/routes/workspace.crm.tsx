@@ -424,10 +424,10 @@ function CRMPage() {
           Загрузка…
         </div>
       ) : view === "pipeline" ? (
-        <PipelineView leads={leads} onSelect={(l) => { setSelectedLead(l); setActiveTab("overview"); }} />
+        <PipelineView leads={filteredLeads} onSelect={(l) => { setSelectedLead(l); setActiveTab("overview"); }} />
       ) : (
         <InboxView
-          conversations={inbox}
+          conversations={filteredInbox}
           error={inboxError}
           onSelect={(c) => {
             const lead = leads.find((l) => l.id === c.lead_id);
@@ -438,6 +438,7 @@ function CRMPage() {
           }}
         />
       )}
+
 
       {selectedLead ? (
         <LeadDrawer
