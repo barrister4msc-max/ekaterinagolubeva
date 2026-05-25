@@ -818,9 +818,10 @@ useEffect(() => {
             .upload(filePath, file);
 
           if (uploadError) {
-            console.error(uploadError);
-            return;
-          }
+  console.error(uploadError);
+  alert(uploadError.message);
+  return;
+}
 
           const { error: dbError } = await supabase
             .from("lead_documents")
