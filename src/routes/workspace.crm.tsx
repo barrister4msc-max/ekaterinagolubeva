@@ -835,7 +835,8 @@ useEffect(() => {
             return;
           }
 
-          alert("Документ загружен");
+          await loadDocuments();
+alert("Документ загружен");
         }}
       />
     </label>
