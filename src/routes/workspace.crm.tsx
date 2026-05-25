@@ -913,30 +913,3 @@ function Kpi({
     </div>
   );
 }
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: Array<[string, string]>;
-}) {
-  return (
-    <label className="block">
-      <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary/50"
-      >
-        {options.map(([val, lbl]) => (
-          <option key={val} value={val}>{lbl}</option>
-        ))}
-      </select>
-    </label>
-  );
-}
