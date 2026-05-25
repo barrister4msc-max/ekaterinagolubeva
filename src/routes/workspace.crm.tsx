@@ -861,7 +861,7 @@ alert("Документ загружен");
             {new Date(doc.created_at).toLocaleDateString("ru-RU")}
           </div>
         </div>
-
+<div className="flex items-center gap-2">
         <button
           onClick={async () => {
             <button
