@@ -1,15 +1,18 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { ContactCta } from "./contact-cta";
+import { AuthorEntityBlock } from "./author-entity-block";
 
 interface PageShellProps {
   eyebrow: string;
   title: string;
   intro: string;
   children?: ReactNode;
+  /** Hide the author/E-E-A-T trust block (default: shown). */
+  hideAuthor?: boolean;
 }
 
-export function PageShell({ eyebrow, title, intro, children }: PageShellProps) {
+export function PageShell({ eyebrow, title, intro, children, hideAuthor }: PageShellProps) {
   return (
     <main>
       <section className="border-b border-border bg-secondary/30">
@@ -28,6 +31,9 @@ export function PageShell({ eyebrow, title, intro, children }: PageShellProps) {
         </div>
       </section>
       {children}
+      {!hideAuthor && (
+        <AuthorEntityBlock articleTitle={title} articleDescription={intro} />
+      )}
     </main>
   );
 }
