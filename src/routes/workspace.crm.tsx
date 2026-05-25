@@ -146,6 +146,8 @@ function CRMPage() {
   const { session } = useAuth();
   const listLeads = useServerFn(listLeadsFn);
   const listInbox = useServerFn(listInboxFn);
+  const updateStage = useServerFn(updateLeadPipelineStageFn);
+
 
   const [view, setView] = useState<"pipeline" | "inbox">("pipeline");
   const [leads, setLeads] = useState<Lead[]>([]);
