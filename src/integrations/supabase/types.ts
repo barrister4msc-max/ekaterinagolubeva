@@ -261,6 +261,65 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_consents: {
+        Row: {
+          ai_processing_consent: boolean
+          consent_given: boolean
+          consent_source: string
+          consent_text: string
+          consent_type: string
+          consent_version: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          lead_id: string | null
+          legal_disclaimer_accepted: boolean
+          page_url: string | null
+          privacy_policy_version: string
+          user_agent: string | null
+        }
+        Insert: {
+          ai_processing_consent?: boolean
+          consent_given?: boolean
+          consent_source: string
+          consent_text: string
+          consent_type: string
+          consent_version?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          lead_id?: string | null
+          legal_disclaimer_accepted?: boolean
+          page_url?: string | null
+          privacy_policy_version?: string
+          user_agent?: string | null
+        }
+        Update: {
+          ai_processing_consent?: boolean
+          consent_given?: boolean
+          consent_source?: string
+          consent_text?: string
+          consent_type?: string
+          consent_version?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          lead_id?: string | null
+          legal_disclaimer_accepted?: boolean
+          page_url?: string | null
+          privacy_policy_version?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_consents_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_documents: {
         Row: {
           created_at: string | null

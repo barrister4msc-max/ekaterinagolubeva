@@ -4,6 +4,8 @@ import { useState } from "react";
 import { ArrowUpRight, MessageCircle, Sparkles, Check, Loader2 } from "lucide-react";
 import { classifyAndAskFn, finalizeLeadFn } from "@/lib/intake.functions";
 import { ContactChannels } from "@/components/contact-channels";
+import { CONSENT_TEXT_FORM, CONSENT_VERSION, PRIVACY_POLICY_VERSION } from "@/lib/consent";
+
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -51,15 +53,22 @@ function ContactPage() {
   const [currentAnswer, setCurrentAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [consent, setConsent] = useState(false);
+
 
   async function startIntake(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
+    if (!consent) {
+      setErr("Для отправки нужно дать согласие на обработку персональных данных.");
+      return;
+    }
     if (!name.trim() || !phone.trim() || originalText.trim().length < 10) {
       setErr("Заполните имя, телефон и кратко опишите ситуацию (минимум 10 символов).");
       return;
     }
     setLoading(true);
+
     try {
       const res = await classify({ data: { original_text: originalText.trim(), qa: [] } });
       setCategory(res.category);
@@ -114,8 +123,20 @@ function ContactPage() {
           original_text: originalText.trim(),
           category: (cat && CATEGORY_LABEL[cat] ? cat : null) as never,
           qa: finalQa,
+          consent: {
+            consent_given: true,
+            ai_processing_consent: true,
+            legal_disclaimer_accepted: true,
+            consent_text: CONSENT_TEXT_FORM,
+            consent_version: CONSENT_VERSION,
+            privacy_policy_version: PRIVACY_POLICY_VERSION,
+            consent_source: "contact_form",
+            page_url: typeof window !== "undefined" ? window.location.href : null,
+            user_agent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+          },
         },
       });
+
       setStep("done");
     } catch (e) {
       console.error(e);
@@ -206,9 +227,34 @@ function ContactPage() {
                   />
                 </Field>
 
+                <label className="flex items-start gap-3 rounded-lg border border-border bg-secondary/30 p-3 text-xs leading-relaxed text-foreground/80">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
+                    aria-required="true"
+                  />
+                  <span>
+                    Я даю согласие на обработку персональных данных, подтверждаю ознакомление с{" "}
+                    <Link to="/privacy" target="_blank" className="text-primary underline underline-offset-2">
+                      Политикой обработки персональных данных
+                    </Link>{" "}
+                    и соглашаюсь на использование AI-ассистента для предварительного анализа обращения.
+                    AI-ассистент не заменяет индивидуальную юридическую консультацию.{" "}
+                    <Link to="/consent" target="_blank" className="text-primary underline underline-offset-2">
+                      Согласие на обработку персональных данных
+                    </Link>.
+                  </span>
+                </label>
+
                 {err && <p className="text-sm text-destructive">{err}</p>}
 
-                <button type="submit" disabled={loading} className="btn-primary w-full justify-center">
+                <button
+                  type="submit"
+                  disabled={loading || !consent}
+                  className="btn-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
+                >
                   {loading ? (
                     <>
                       <Loader2 size={16} className="animate-spin" /> Анализирую…
@@ -219,12 +265,9 @@ function ContactPage() {
                     </>
                   )}
                 </button>
-                <p className="text-xs text-muted-foreground">
-                  Нажимая кнопку, вы соглашаетесь с обработкой персональных данных.
-                  Информация конфиденциальна.
-                </p>
               </form>
             )}
+
 
             {step === "questions" && (
               <div className="space-y-6">

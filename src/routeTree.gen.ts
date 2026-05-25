@@ -29,8 +29,10 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LitigationRouteImport } from './routes/litigation'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as ConsentRouteImport } from './routes/consent'
 import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
 import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spory'
+import { Route as AiDisclaimerRouteImport } from './routes/ai-disclaimer'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as SlugRouteImport } from './routes/$slug'
@@ -146,6 +148,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConsentRoute = ConsentRouteImport.update({
+  id: '/consent',
+  path: '/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CommercialRentRoute = CommercialRentRouteImport.update({
   id: '/commercial-rent',
   path: '/commercial-rent',
@@ -154,6 +161,11 @@ const CommercialRentRoute = CommercialRentRouteImport.update({
 const ArbitrazhnyeSporyRoute = ArbitrazhnyeSporyRouteImport.update({
   id: '/arbitrazhnye-spory',
   path: '/arbitrazhnye-spory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiDisclaimerRoute = AiDisclaimerRouteImport.update({
+  id: '/ai-disclaimer',
+  path: '/ai-disclaimer',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -233,8 +245,10 @@ export interface FileRoutesByFullPath {
   '/$slug': typeof SlugRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
+  '/ai-disclaimer': typeof AiDisclaimerRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
+  '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
   '/litigation': typeof LitigationRoute
@@ -271,8 +285,10 @@ export interface FileRoutesByTo {
   '/$slug': typeof SlugRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
+  '/ai-disclaimer': typeof AiDisclaimerRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
+  '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
   '/litigation': typeof LitigationRoute
@@ -310,8 +326,10 @@ export interface FileRoutesById {
   '/$slug': typeof SlugRoute
   '/about': typeof AboutRoute
   '/admin': typeof AdminRouteWithChildren
+  '/ai-disclaimer': typeof AiDisclaimerRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
+  '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
   '/litigation': typeof LitigationRoute
@@ -350,8 +368,10 @@ export interface FileRouteTypes {
     | '/$slug'
     | '/about'
     | '/admin'
+    | '/ai-disclaimer'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
+    | '/consent'
     | '/contact'
     | '/contracts'
     | '/litigation'
@@ -388,8 +408,10 @@ export interface FileRouteTypes {
     | '/$slug'
     | '/about'
     | '/admin'
+    | '/ai-disclaimer'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
+    | '/consent'
     | '/contact'
     | '/contracts'
     | '/litigation'
@@ -426,8 +448,10 @@ export interface FileRouteTypes {
     | '/$slug'
     | '/about'
     | '/admin'
+    | '/ai-disclaimer'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
+    | '/consent'
     | '/contact'
     | '/contracts'
     | '/litigation'
@@ -465,8 +489,10 @@ export interface RootRouteChildren {
   SlugRoute: typeof SlugRoute
   AboutRoute: typeof AboutRoute
   AdminRoute: typeof AdminRouteWithChildren
+  AiDisclaimerRoute: typeof AiDisclaimerRoute
   ArbitrazhnyeSporyRoute: typeof ArbitrazhnyeSporyRoute
   CommercialRentRoute: typeof CommercialRentRoute
+  ConsentRoute: typeof ConsentRoute
   ContactRoute: typeof ContactRoute
   ContractsRoute: typeof ContractsRoute
   LitigationRoute: typeof LitigationRoute
@@ -633,6 +659,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/consent': {
+      id: '/consent'
+      path: '/consent'
+      fullPath: '/consent'
+      preLoaderRoute: typeof ConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/commercial-rent': {
       id: '/commercial-rent'
       path: '/commercial-rent'
@@ -645,6 +678,13 @@ declare module '@tanstack/react-router' {
       path: '/arbitrazhnye-spory'
       fullPath: '/arbitrazhnye-spory'
       preLoaderRoute: typeof ArbitrazhnyeSporyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai-disclaimer': {
+      id: '/ai-disclaimer'
+      path: '/ai-disclaimer'
+      fullPath: '/ai-disclaimer'
+      preLoaderRoute: typeof AiDisclaimerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -787,8 +827,10 @@ const rootRouteChildren: RootRouteChildren = {
   SlugRoute: SlugRoute,
   AboutRoute: AboutRoute,
   AdminRoute: AdminRouteWithChildren,
+  AiDisclaimerRoute: AiDisclaimerRoute,
   ArbitrazhnyeSporyRoute: ArbitrazhnyeSporyRoute,
   CommercialRentRoute: CommercialRentRoute,
+  ConsentRoute: ConsentRoute,
   ContactRoute: ContactRoute,
   ContractsRoute: ContractsRoute,
   LitigationRoute: LitigationRoute,
@@ -815,13 +857,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
