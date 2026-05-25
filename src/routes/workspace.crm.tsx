@@ -127,11 +127,92 @@ function CRMPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "inbox" | "documents" | "tasks" | "timeline">("overview");
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState<{
+    channel: string;
+    leadStatus: string;
+    pipelineStage: string;
+    priority: string;
+    unread: "all" | "unread";
+    date: "all" | "today" | "7d" | "30d";
+  }>({
+    channel: "all",
+    leadStatus: "all",
+    pipelineStage: "all",
+    priority: "all",
+    unread: "all",
+    date: "all",
+  });
+
+  const resetFilters = () =>
+    setFilters({ channel: "all", leadStatus: "all", pipelineStage: "all", priority: "all", unread: "all", date: "all" });
+
+  const activeFiltersCount = useMemo(
+    () => Object.values(filters).filter((v) => v !== "all").length,
+    [filters],
+  );
+
+  const dateThreshold = useMemo(() => {
+    if (filters.date === "all") return null;
+    const now = Date.now();
+    if (filters.date === "today") {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+    if (filters.date === "7d") return now - 7 * 24 * 60 * 60 * 1000;
+    if (filters.date === "30d") return now - 30 * 24 * 60 * 60 * 1000;
+    return null;
+  }, [filters.date]);
+
+  const q = searchQuery.trim().toLowerCase();
+
+  const filteredLeads = useMemo(() => {
+    return leads.filter((l) => {
+      if (filters.leadStatus !== "all" && l.status !== filters.leadStatus) return false;
+      if (filters.pipelineStage !== "all" && (l.pipeline_stage ?? "new") !== filters.pipelineStage) return false;
+      if (filters.priority !== "all" && (l.priority ?? "normal") !== filters.priority) return false;
+      if (dateThreshold && new Date(l.created_at).getTime() < dateThreshold) return false;
+      if (q) {
+        const hay = [l.name, l.phone, l.original_text, l.category ?? "", l.source ?? ""].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [leads, filters, dateThreshold, q]);
+
+  const filteredInbox = useMemo(() => {
+    return inbox.filter((c) => {
+      if (filters.channel !== "all" && c.channel !== filters.channel) return false;
+      if (filters.unread === "unread") {
+        const last = c.last_message;
+        if (!last || last.direction !== "inbound") return false;
+      }
+      if (dateThreshold) {
+        const t = c.last_message_at ? new Date(c.last_message_at).getTime() : 0;
+        if (t < dateThreshold) return false;
+      }
+      if (q) {
+        const hay = [
+          c.leads?.name ?? "",
+          c.leads?.phone ?? "",
+          c.channel,
+          c.last_message?.message_text ?? "",
+          c.external_user_id ?? "",
+        ].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [inbox, filters, dateThreshold, q]);
+
   const reload = useCallback(async () => {
     const [leadsResult, inboxResult] = await Promise.allSettled([
       listLeads({ data: {} }),
       listInbox({ data: {} }),
     ]);
+
 
     if (leadsResult.status === "fulfilled") {
       setLeads((leadsResult.value.leads as unknown as Lead[]) ?? []);
