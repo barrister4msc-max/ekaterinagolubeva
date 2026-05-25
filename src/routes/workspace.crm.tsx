@@ -862,53 +862,56 @@ alert("Документ загружен");
           </div>
         </div>
 <div className="flex items-center gap-2">
-        <button
-          onClick={async () => {
-            <button
-  onClick={async () => {
-    const confirmed = confirm("Удалить документ?");
-    if (!confirmed) return;
 
-    const { error: storageError } = await supabase.storage
-      .from("lead-documents")
-      .remove([doc.file_url]);
+  <button
+    onClick={async () => {
+      const { data } = await supabase.storage
+        .from("lead-documents")
+        .createSignedUrl(doc.file_url, 60);
 
-    if (storageError) {
-      console.error(storageError);
-      alert(storageError.message);
-      return;
-    }
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, "_blank");
+      }
+    }}
+    className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
+  >
+    Открыть
+  </button>
 
-    const { error: dbError } = await supabase
-      .from("lead_documents")
-      .delete()
-      .eq("id", doc.id);
+  <button
+    onClick={async () => {
+      const confirmed = confirm("Удалить документ?");
+      if (!confirmed) return;
 
-    if (dbError) {
-      console.error(dbError);
-      alert(dbError.message);
-      return;
-    }
+      const { error: storageError } = await supabase.storage
+        .from("lead-documents")
+        .remove([doc.file_url]);
 
-    await loadDocuments();
-  }}
-  className="rounded-xl border border-red-200 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
->
-  Удалить
-</button>
-            const { data } = await supabase.storage
-              .from("lead-documents")
-              .createSignedUrl(doc.file_url, 60);
+      if (storageError) {
+        console.error(storageError);
+        alert(storageError.message);
+        return;
+      }
 
-            if (data?.signedUrl) {
-              window.open(data.signedUrl, "_blank");
-            }
-          }}
-          className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
-        >
-          Открыть
-        </button>
-      </div>
+      const { error: dbError } = await supabase
+        .from("lead_documents")
+        .delete()
+        .eq("id", doc.id);
+
+      if (dbError) {
+        console.error(dbError);
+        alert(dbError.message);
+        return;
+      }
+
+      await loadDocuments();
+    }}
+    className="rounded-xl border border-red-200 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+  >
+    Удалить
+  </button>
+
+</div>
     ))
   )}
 </div>
