@@ -18,6 +18,10 @@ export function useAuth(): AuthState {
 
   useEffect(() => {
     let mounted = true;
+    const finishLoading = () => {
+      if (mounted) setLoading(false);
+    };
+    const safetyTimer = window.setTimeout(finishLoading, 3000);
 
     async function absorbAuthRedirectFromUrl() {
       if (typeof window === "undefined" || authRedirectHandled) return;
@@ -45,22 +49,32 @@ export function useAuth(): AuthState {
 
     // Set up listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      if (!mounted) return;
       setSession(s);
       if (s?.user) {
         // Defer DB call
-        setTimeout(() => checkAdmin(s.user.id), 0);
+        setTimeout(() => checkAdmin(s.user.id).finally(finishLoading), 0);
       } else {
         setIsAdmin(false);
+        finishLoading();
       }
     });
 
     // Then load existing session
-    absorbAuthRedirectFromUrl().finally(() => supabase.auth.getSession().then(({ data: { session: s } }) => {
-      if (!mounted) return;
-      setSession(s);
-      if (s?.user) checkAdmin(s.user.id).finally(() => setLoading(false));
-      else setLoading(false);
-    }));
+    absorbAuthRedirectFromUrl()
+      .then(() => supabase.auth.getSession())
+      .then(({ data: { session: s } }) => {
+        if (!mounted) return;
+        setSession(s);
+        if (s?.user) checkAdmin(s.user.id).finally(finishLoading);
+        else finishLoading();
+      })
+      .catch((error) => {
+        console.error("auth session check failed", error);
+        setSession(null);
+        setIsAdmin(false);
+        finishLoading();
+      });
 
     async function checkAdmin(uid: string) {
       // Use security-definer RPC to bypass RLS on user_roles
@@ -77,6 +91,7 @@ export function useAuth(): AuthState {
 
     return () => {
       mounted = false;
+      window.clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
