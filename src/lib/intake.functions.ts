@@ -127,11 +127,25 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
         utm_term: z.string().trim().max(200).optional().nullable(),
         landing_url: z.string().trim().max(2000).optional().nullable(),
         referrer: z.string().trim().max(2000).optional().nullable(),
+        consent: z.object({
+          consent_given: z.boolean(),
+          ai_processing_consent: z.boolean(),
+          legal_disclaimer_accepted: z.boolean(),
+          consent_text: z.string().min(1).max(4000),
+          consent_version: z.string().max(50).default("2026-05"),
+          privacy_policy_version: z.string().max(50).default("2026-05"),
+          consent_source: z.string().max(100),
+          page_url: z.string().max(2000).optional().nullable(),
+          user_agent: z.string().max(1000).optional().nullable(),
+        }),
       })
       .parse(input),
   )
-
   .handler(async ({ data }) => {
+    if (!data.consent.consent_given) {
+      throw new Error("Не дано согласие на обработку персональных данных.");
+    }
+
     let summary: string | null = null;
     let urgency: "low" | "medium" | "high" | null = null;
     let risks: string[] = [];
@@ -168,8 +182,10 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
       documents_checklist = experimental_output.documents_checklist;
     } catch (e) {
       console.error("finalizeLeadFn AI error:", e);
-      // Graceful fallback: save lead without AI enrichment
     }
+
+    const consent = data.consent;
+    const nowIso = new Date().toISOString();
 
     const { data: inserted, error } = await supabaseAdmin
       .from("leads")
@@ -193,8 +209,15 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
         utm_term: data.utm_term ?? null,
         landing_url: data.landing_url ?? null,
         referrer: data.referrer ?? null,
+        consent_given: true,
+        consent_timestamp: nowIso,
+        consent_version: consent.consent_version,
+        consent_source: consent.consent_source,
+        privacy_policy_version: consent.privacy_policy_version,
+        ai_processing_consent: consent.ai_processing_consent,
+        legal_disclaimer_accepted: consent.legal_disclaimer_accepted,
+        consent_user_agent: consent.user_agent ?? null,
       } as never)
-
       .select("id")
       .single();
 
@@ -203,5 +226,34 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
       throw new Error("Не удалось сохранить обращение. Попробуйте позже.");
     }
 
-    return { id: inserted.id, summary, urgency, next_step };
+    const leadId = inserted.id;
+
+    const { error: consentErr } = await supabaseAdmin
+      .from("lead_consents")
+      .insert({
+        lead_id: leadId,
+        consent_type: "personal_data_and_ai_processing",
+        consent_text: consent.consent_text,
+        consent_version: consent.consent_version,
+        privacy_policy_version: consent.privacy_policy_version,
+        consent_source: consent.consent_source,
+        consent_given: true,
+        ai_processing_consent: consent.ai_processing_consent,
+        legal_disclaimer_accepted: consent.legal_disclaimer_accepted,
+        user_agent: consent.user_agent ?? null,
+        page_url: consent.page_url ?? null,
+      } as never);
+    if (consentErr) console.error("lead_consents insert error:", consentErr);
+
+    const { error: evErr } = await supabaseAdmin
+      .from("lead_events")
+      .insert({
+        lead_id: leadId,
+        type: "consent_given",
+        message: "Пользователь дал согласие на обработку персональных данных и AI-анализ обращения.",
+      } as never);
+    if (evErr) console.error("lead_events insert error:", evErr);
+
+    return { id: leadId, summary, urgency, next_step };
   });
+
