@@ -773,15 +773,58 @@ function LeadDrawer({
 
         {activeTab === "inbox" && <LeadInbox leadId={lead.id} />}
 
-        {activeTab === "documents" && (
-          <section className="mt-8 rounded-3xl border bg-white p-6">
-            <div className="flex items-center gap-2">
-              <FileText size={17} />
-              <h3 className="font-medium">Documents</h3>
-            </div>
-            <div className="mt-5 text-sm text-muted-foreground">Подключение к lead_documents — следующим шагом.</div>
-          </section>
-        )}
+     <section className="mt-8 rounded-3xl border bg-white p-6">
+  <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center gap-2">
+      <FileText size={17} />
+      <h3 className="font-medium">Documents</h3>
+    </div>
+
+    <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-neutral-950 px-4 py-2 text-sm text-white">
+      <Plus size={14} />
+      Upload
+
+      <input
+        type="file"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+
+          const filePath = `${lead.id}/${Date.now()}-${file.name}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("lead-documents")
+            .upload(filePath, file);
+
+          if (uploadError) {
+            console.error(uploadError);
+            return;
+          }
+
+          const { error: dbError } = await supabase
+            .from("lead_documents")
+            .insert({
+              lead_id: lead.id,
+              file_name: file.name,
+              file_path: filePath,
+            });
+
+          if (dbError) {
+            console.error(dbError);
+            return;
+          }
+
+          alert("Документ загружен");
+        }}
+      />
+    </label>
+  </div>
+
+  <div className="mt-6 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+    Документы лида будут отображаться здесь
+  </div>
+</section>
 
         {activeTab === "tasks" && (
           <section className="mt-8 rounded-3xl border bg-white p-6">
