@@ -1,18 +1,22 @@
-// Plain anchor used — target page may not exist yet as a typed route.
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 interface AuthorEntityBlockProps {
-  /** Title of the article for BlogPosting schema. Optional. */
   articleTitle?: string;
-  /** Short description for BlogPosting schema. Optional. */
   articleDescription?: string;
+  dateModified?: string;
 }
 
 /**
- * E-E-A-T / YMYL trust block: author entity displayed at the end of a
- * legal service / SEO article page, just before the CTA section.
- * Emits Person schema, and BlogPosting schema when article meta is provided.
+ * E-E-A-T / YMYL trust block: author entity rendered at the end of a
+ * legal service / SEO article page. Emits Person schema, and BlogPosting
+ * schema when article meta is provided.
  */
-export function AuthorEntityBlock({ articleTitle, articleDescription }: AuthorEntityBlockProps) {
+export function AuthorEntityBlock({ articleTitle, articleDescription, dateModified }: AuthorEntityBlockProps) {
+  const { settings } = useSiteSettings();
+  const name = settings.legal_full_name || "Екатерина Голубева";
+  const photo = settings.advisor_photo_url || settings.hero_image_url;
+  const baseUrl = settings.site_domain || "https://ekaterinagolubeva.lovable.app";
+
   return (
     <section
       aria-label="Автор материала"
@@ -21,14 +25,24 @@ export function AuthorEntityBlock({ articleTitle, articleDescription }: AuthorEn
       <div className="card-soft mx-auto max-w-3xl">
         <div className="eyebrow mb-3">Материал подготовлен</div>
         <div className="flex items-start gap-4">
-          <div
-            aria-hidden
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 font-display text-xl text-primary"
-          >
-            ЕГ
-          </div>
+          {photo ? (
+            <img
+              src={photo}
+              alt={name}
+              loading="lazy"
+              className="h-16 w-16 shrink-0 rounded-full object-cover"
+              style={{ objectPosition: `${settings.hero_object_position_x}% ${settings.hero_object_position_y}%` }}
+            />
+          ) : (
+            <div
+              aria-hidden
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary/10 font-display text-xl text-primary"
+            >
+              ЕГ
+            </div>
+          )}
           <div className="flex-1">
-            <div className="font-display text-2xl text-foreground">Екатерина Голубева</div>
+            <div className="font-display text-2xl text-foreground">{name}</div>
             <div className="mt-1 text-sm text-muted-foreground">
               Юрист по недвижимости и судебным спорам
             </div>
@@ -38,7 +52,7 @@ export function AuthorEntityBlock({ articleTitle, articleDescription }: AuthorEn
               спокойно, по существу и с полной ответственностью за результат.
             </p>
             <div className="mt-4">
-              <a href="/#advisor" className="text-sm text-primary hover:underline">
+              <a href="/about" className="text-sm text-primary hover:underline">
                 О специалисте →
               </a>
             </div>
@@ -46,7 +60,6 @@ export function AuthorEntityBlock({ articleTitle, articleDescription }: AuthorEn
         </div>
       </div>
 
-      {/* Schema.org: Person (author) */}
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger
@@ -54,19 +67,19 @@ export function AuthorEntityBlock({ articleTitle, articleDescription }: AuthorEn
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Person",
-            name: "Екатерина Голубева",
+            name,
             jobTitle: "Юрист по недвижимости и судебным спорам",
-            url: "https://ekaterinagolubeva.lovable.app",
+            url: `${baseUrl}/about`,
+            ...(photo ? { image: photo } : {}),
             worksFor: {
               "@type": "LegalService",
-              name: "Екатерина Голубева — Premium Legal Real Estate Advisor",
+              name: `${name} — Premium Legal Real Estate Advisor`,
             },
             areaServed: ["Москва", "Московская область", "Российская Федерация"],
           }),
         }}
       />
 
-      {/* Schema.org: BlogPosting / Article when article meta is provided */}
       {articleTitle && (
         <script
           type="application/ld+json"
@@ -77,14 +90,15 @@ export function AuthorEntityBlock({ articleTitle, articleDescription }: AuthorEn
               "@type": "BlogPosting",
               headline: articleTitle,
               description: articleDescription,
+              ...(dateModified ? { dateModified } : {}),
               author: {
                 "@type": "Person",
-                name: "Екатерина Голубева",
+                name,
                 jobTitle: "Юрист по недвижимости и судебным спорам",
               },
               publisher: {
                 "@type": "LegalService",
-                name: "Екатерина Голубева — Premium Legal Real Estate Advisor",
+                name: `${name} — Premium Legal Real Estate Advisor`,
               },
               inLanguage: "ru-RU",
             }),
