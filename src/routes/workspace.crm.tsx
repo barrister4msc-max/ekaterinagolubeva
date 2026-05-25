@@ -487,7 +487,7 @@ function CRMPage() {
           Загрузка…
         </div>
       ) : view === "pipeline" ? (
-        <PipelineView leads={filteredLeads} onSelect={(l) => { setSelectedLead(l); setActiveTab("overview"); }} />
+        <PipelineView leads={filteredLeads} onSelect={(l) => { setSelectedLead(l); setActiveTab("overview"); }} onMove={handleMoveLead} />
       ) : (
         <InboxView
           conversations={filteredInbox}
