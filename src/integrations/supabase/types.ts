@@ -404,10 +404,17 @@ export type Database = {
       leads: {
         Row: {
           admin_notes: string | null
+          ai_processing_consent: boolean
           ai_summary: string | null
           assigned_to: string | null
           category: string | null
           closed_at: string | null
+          consent_given: boolean
+          consent_ip: string | null
+          consent_source: string | null
+          consent_timestamp: string | null
+          consent_user_agent: string | null
+          consent_version: string | null
           contact: string | null
           created_at: string
           documents_checklist: string[]
@@ -415,6 +422,7 @@ export type Database = {
           id: string
           landing_url: string | null
           last_contact_at: string | null
+          legal_disclaimer_accepted: boolean
           name: string
           next_followup_at: string | null
           next_step: string | null
@@ -422,6 +430,7 @@ export type Database = {
           phone: string
           pipeline_stage: string | null
           priority: string | null
+          privacy_policy_version: string | null
           qa: Json
           referrer: string | null
           risks: string[]
@@ -437,10 +446,17 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          ai_processing_consent?: boolean
           ai_summary?: string | null
           assigned_to?: string | null
           category?: string | null
           closed_at?: string | null
+          consent_given?: boolean
+          consent_ip?: string | null
+          consent_source?: string | null
+          consent_timestamp?: string | null
+          consent_user_agent?: string | null
+          consent_version?: string | null
           contact?: string | null
           created_at?: string
           documents_checklist?: string[]
@@ -448,6 +464,7 @@ export type Database = {
           id?: string
           landing_url?: string | null
           last_contact_at?: string | null
+          legal_disclaimer_accepted?: boolean
           name: string
           next_followup_at?: string | null
           next_step?: string | null
@@ -455,6 +472,7 @@ export type Database = {
           phone: string
           pipeline_stage?: string | null
           priority?: string | null
+          privacy_policy_version?: string | null
           qa?: Json
           referrer?: string | null
           risks?: string[]
@@ -470,10 +488,17 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          ai_processing_consent?: boolean
           ai_summary?: string | null
           assigned_to?: string | null
           category?: string | null
           closed_at?: string | null
+          consent_given?: boolean
+          consent_ip?: string | null
+          consent_source?: string | null
+          consent_timestamp?: string | null
+          consent_user_agent?: string | null
+          consent_version?: string | null
           contact?: string | null
           created_at?: string
           documents_checklist?: string[]
@@ -481,6 +506,7 @@ export type Database = {
           id?: string
           landing_url?: string | null
           last_contact_at?: string | null
+          legal_disclaimer_accepted?: boolean
           name?: string
           next_followup_at?: string | null
           next_step?: string | null
@@ -488,6 +514,7 @@ export type Database = {
           phone?: string
           pipeline_stage?: string | null
           priority?: string | null
+          privacy_policy_version?: string | null
           qa?: Json
           referrer?: string | null
           risks?: string[]
