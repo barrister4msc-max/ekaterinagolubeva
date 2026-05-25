@@ -909,6 +909,34 @@ useEffect(() => {
           <div className="mt-1 text-xs text-muted-foreground">
             {new Date(doc.created_at).toLocaleDateString("ru-RU")}
           </div>
+          {doc.analysis_status === "completed" && (
+  <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
+    {doc.document_type && (
+      <div className="text-xs font-medium text-blue-900">
+        Тип: {doc.document_type}
+      </div>
+    )}
+
+    {doc.ai_summary && (
+      <div className="mt-2 text-xs leading-5 text-muted-foreground">
+        {doc.ai_summary}
+      </div>
+    )}
+
+    {doc.ai_risks?.length > 0 && (
+      <div className="mt-3 flex flex-wrap gap-2">
+        {doc.ai_risks.map((risk: string, idx: number) => (
+          <span
+            key={idx}
+            className="rounded-full bg-red-100 px-2 py-1 text-[11px] text-red-700"
+          >
+            {risk}
+          </span>
+        ))}
+      </div>
+    )}
+  </div>
+)}
         </div>
 <div className="flex items-center gap-2">
 
