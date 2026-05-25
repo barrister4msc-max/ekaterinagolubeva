@@ -227,9 +227,34 @@ function ContactPage() {
                   />
                 </Field>
 
+                <label className="flex items-start gap-3 rounded-lg border border-border bg-secondary/30 p-3 text-xs leading-relaxed text-foreground/80">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
+                    aria-required="true"
+                  />
+                  <span>
+                    Я даю согласие на обработку персональных данных, подтверждаю ознакомление с{" "}
+                    <Link to="/privacy" target="_blank" className="text-primary underline underline-offset-2">
+                      Политикой обработки персональных данных
+                    </Link>{" "}
+                    и соглашаюсь на использование AI-ассистента для предварительного анализа обращения.
+                    AI-ассистент не заменяет индивидуальную юридическую консультацию.{" "}
+                    <Link to="/consent" target="_blank" className="text-primary underline underline-offset-2">
+                      Согласие на обработку персональных данных
+                    </Link>.
+                  </span>
+                </label>
+
                 {err && <p className="text-sm text-destructive">{err}</p>}
 
-                <button type="submit" disabled={loading} className="btn-primary w-full justify-center">
+                <button
+                  type="submit"
+                  disabled={loading || !consent}
+                  className="btn-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
+                >
                   {loading ? (
                     <>
                       <Loader2 size={16} className="animate-spin" /> Анализирую…
@@ -240,12 +265,9 @@ function ContactPage() {
                     </>
                   )}
                 </button>
-                <p className="text-xs text-muted-foreground">
-                  Нажимая кнопку, вы соглашаетесь с обработкой персональных данных.
-                  Информация конфиденциальна.
-                </p>
               </form>
             )}
+
 
             {step === "questions" && (
               <div className="space-y-6">
