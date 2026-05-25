@@ -692,6 +692,26 @@ function LeadDrawer({
   setActiveTab: (t: "overview" | "inbox" | "documents" | "tasks" | "timeline") => void;
   onClose: () => void;
 }) {
+  const [documents, setDocuments] = useState<any[]>([]);
+
+useEffect(() => {
+  const loadDocuments = async () => {
+    const { data, error } = await supabase
+      .from("lead_documents")
+      .select("*")
+      .eq("lead_id", lead.id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setDocuments(data || []);
+  };
+
+  loadDocuments();
+}, [lead.id]);
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-md"
