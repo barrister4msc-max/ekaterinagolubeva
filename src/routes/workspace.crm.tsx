@@ -844,37 +844,7 @@ useEffect(() => {
     e.target.value = "";
   }}
 />
-          if (!file) return;
-
-          const filePath = `${lead.id}/${Date.now()}-${file.name}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from("lead-documents")
-            .upload(filePath, file);
-
-          if (uploadError) {
-  console.error(uploadError);
-  alert(uploadError.message);
-  return;
-}
-
-          const { error: dbError } = await supabase
-            .from("lead_documents")
-            .insert({
-  lead_id: lead.id,
-  file_url: filePath,
-});
-
-          if (dbError) {
-  console.error(dbError);
-  alert(dbError.message);
-  return;
-}
-
-          await loadDocuments();
-alert("Документ загружен");
-        }}
-      />
+          
     </label>
   </div>
 
