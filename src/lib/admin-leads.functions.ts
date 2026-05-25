@@ -125,3 +125,61 @@ if (data.admin_notes !== undefined)
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+const PIPELINE_STAGES = [
+  "new",
+  "contacted",
+  "waiting_documents",
+  "analysis",
+  "offer_sent",
+  "in_work",
+  "court",
+  "closed",
+  "lost",
+] as const;
+
+export const updateLeadPipelineStageFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        pipeline_stage: z.enum(PIPELINE_STAGES),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.userId);
+
+    const { data: current, error: readErr } = await supabaseAdmin
+      .from("leads")
+      .select("status")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readErr) throw new Error(readErr.message);
+    if (!current) throw new Error("Лид не найден");
+
+    const patch: {
+      pipeline_stage: (typeof PIPELINE_STAGES)[number];
+      status?: "new" | "in_progress" | "waiting" | "closed";
+      closed_at?: string | null;
+    } = { pipeline_stage: data.pipeline_stage };
+
+    if (data.pipeline_stage === "closed") {
+      patch.status = "closed";
+      patch.closed_at = new Date().toISOString();
+    } else if (current.status === "closed") {
+      patch.status = "in_progress";
+      patch.closed_at = null;
+    }
+
+    const { data: updated, error } = await supabaseAdmin
+      .from("leads")
+      .update(patch)
+      .eq("id", data.id)
+      .select("*")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return { lead: updated };
+  });
+
