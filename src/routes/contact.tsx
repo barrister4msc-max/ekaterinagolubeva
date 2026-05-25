@@ -301,9 +301,7 @@ function ContactPage() {
                   напишите в WhatsApp или Telegram, я отвечу быстрее.
                 </p>
                 <div className="flex flex-wrap gap-3 pt-2">
-                  <a href="https://wa.me/79000000000" className="btn-ghost btn-ghost--equal">
-                    <MessageCircle size={14} /> WhatsApp
-                  </a>
+                  <ContactChannels variant="ghost" showLabels showEmail={false} />
                   <Link to="/" className="btn-ghost btn-ghost--equal">
                     На главную <ArrowUpRight size={14} />
                   </Link>
