@@ -901,7 +901,7 @@ useEffect(() => {
     documents.map((doc) => (
       <div
         key={doc.id}
-        className="flex items-center justify-between rounded-2xl border bg-white p-4"
+        className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border bg-white p-4"
       >
         <div>
           <div className="text-sm font-medium">{doc.file_url.split("/").pop()}</div>
