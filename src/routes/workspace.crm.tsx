@@ -927,7 +927,31 @@ setPreviewName(doc.file_url.split("/").pop() ?? "Документ");
   >
     Открыть
   </button>
+<button
+  onClick={async () => {
+    const { error } = await supabase.functions.invoke(
+      "analyze-lead-document",
+      {
+        body: {
+          documentId: doc.id,
+        },
+      }
+    );
 
+    if (error) {
+      console.error(error);
+      alert(error.message);
+      return;
+    }
+
+    await loadDocuments();
+
+    alert("AI анализ завершен");
+  }}
+  className="rounded-xl border border-blue-200 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50"
+>
+  AI анализ
+</button>
   <button
     onClick={async () => {
       const confirmed = confirm("Удалить документ?");
