@@ -826,10 +826,9 @@ useEffect(() => {
           const { error: dbError } = await supabase
             .from("lead_documents")
             .insert({
-              lead_id: lead.id,
-              file_name: file.name,
-              file_path: filePath,
-            });
+  lead_id: lead.id,
+  file_url: filePath,
+});
 
           if (dbError) {
   console.error(dbError);
