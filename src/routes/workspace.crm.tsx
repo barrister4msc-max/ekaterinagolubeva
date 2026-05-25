@@ -848,7 +848,50 @@ useEffect(() => {
           
     </label>
   </div>
+<div
+  className="mt-6 rounded-2xl border border-dashed border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground"
+  onDragOver={(e) => {
+    e.preventDefault();
+  }}
+  onDrop={async (e) => {
+    e.preventDefault();
 
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length === 0) return;
+
+    for (const file of files) {
+      const filePath = `${lead.id}/${Date.now()}-${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("lead-documents")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        console.error(uploadError);
+        alert(uploadError.message);
+        return;
+      }
+
+      const { error: dbError } = await supabase
+        .from("lead_documents")
+        .insert({
+          lead_id: lead.id,
+          file_url: filePath,
+        });
+
+      if (dbError) {
+        console.error(dbError);
+        alert(dbError.message);
+        return;
+      }
+    }
+
+    await loadDocuments();
+    alert("Документы загружены");
+  }}
+>
+  Перетащите документы сюда
+</div>
   <div className="mt-6 space-y-3">
   {documents.length === 0 ? (
     <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
