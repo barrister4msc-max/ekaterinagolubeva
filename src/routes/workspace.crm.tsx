@@ -903,7 +903,7 @@ useEffect(() => {
         key={doc.id}
         className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border bg-white p-4"
       >
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">{doc.file_url.split("/").pop()}</div>
 
           <div className="mt-1 text-xs text-muted-foreground">
