@@ -56,7 +56,10 @@ type Lead = {
   ai_summary: string | null;
   next_step: string | null;
   risks: string[] | null;
+  category: string | null;
+  source: string | null;
 };
+
 
 type Conversation = {
   id: string;
