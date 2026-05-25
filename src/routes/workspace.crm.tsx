@@ -941,6 +941,29 @@ setPreviewName(doc.file_url.split("/").pop() ?? "Документ");
             Подключение к lead_events — следующим шагом.
           </div>
         )}
+        {previewUrl && (
+  <div className="mt-8 rounded-3xl border bg-white p-4">
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <div className="text-sm font-medium">{previewName}</div>
+
+      <button
+        onClick={() => {
+          setPreviewUrl(null);
+          setPreviewName(null);
+        }}
+        className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
+      >
+        Закрыть preview
+      </button>
+    </div>
+
+    <iframe
+      src={previewUrl}
+      className="h-[520px] w-full rounded-2xl border"
+      title={previewName ?? "Document preview"}
+    />
+  </div>
+)}
       </aside>
     </div>
   );
