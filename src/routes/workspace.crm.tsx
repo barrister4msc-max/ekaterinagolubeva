@@ -680,6 +680,8 @@ function InboxView({
 
 
 function LeadDrawer({
+  onClose,
+}: {
   lead,
   activeTab,
   setActiveTab,
