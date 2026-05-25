@@ -59,11 +59,16 @@ function ContactPage() {
   async function startIntake(e: React.FormEvent) {
     e.preventDefault();
     setErr(null);
+    if (!consent) {
+      setErr("Для отправки нужно дать согласие на обработку персональных данных.");
+      return;
+    }
     if (!name.trim() || !phone.trim() || originalText.trim().length < 10) {
       setErr("Заполните имя, телефон и кратко опишите ситуацию (минимум 10 символов).");
       return;
     }
     setLoading(true);
+
     try {
       const res = await classify({ data: { original_text: originalText.trim(), qa: [] } });
       setCategory(res.category);
