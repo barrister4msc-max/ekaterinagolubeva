@@ -825,7 +825,7 @@ function LeadDrawer({
     Документы лида будут отображаться здесь
   </div>
 </section>
-
+)}
         {activeTab === "tasks" && (
           <section className="mt-8 rounded-3xl border bg-white p-6">
             <div className="flex items-center gap-2">
