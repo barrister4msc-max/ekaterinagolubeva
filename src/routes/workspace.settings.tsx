@@ -22,7 +22,7 @@ function SettingsPage() {
     e: React.ChangeEvent<HTMLInputElement>,
     field: "hero_image_url" | "advisor_photo_url",
     setBusy: (v: boolean) => void,
-    inputRef: React.RefObject<HTMLInputElement>,
+    inputRef: React.RefObject<HTMLInputElement | null>,
   ) {
     const file = e.target.files?.[0];
     if (!file) return;
