@@ -832,9 +832,10 @@ useEffect(() => {
             });
 
           if (dbError) {
-            console.error(dbError);
-            return;
-          }
+  console.error(dbError);
+  alert(dbError.message);
+  return;
+}
 
           await loadDocuments();
 alert("Документ загружен");
