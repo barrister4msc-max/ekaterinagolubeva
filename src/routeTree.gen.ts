@@ -29,6 +29,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as LitigationRouteImport } from './routes/litigation'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as ConsentRouteImport } from './routes/consent'
 import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
 import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spory'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -146,6 +147,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConsentRoute = ConsentRouteImport.update({
+  id: '/consent',
+  path: '/consent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CommercialRentRoute = CommercialRentRouteImport.update({
   id: '/commercial-rent',
   path: '/commercial-rent',
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
+  '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
   '/litigation': typeof LitigationRoute
@@ -273,6 +280,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
+  '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
   '/litigation': typeof LitigationRoute
@@ -312,6 +320,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
   '/commercial-rent': typeof CommercialRentRoute
+  '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
   '/litigation': typeof LitigationRoute
@@ -352,6 +361,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
+    | '/consent'
     | '/contact'
     | '/contracts'
     | '/litigation'
@@ -390,6 +400,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
+    | '/consent'
     | '/contact'
     | '/contracts'
     | '/litigation'
@@ -428,6 +439,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/arbitrazhnye-spory'
     | '/commercial-rent'
+    | '/consent'
     | '/contact'
     | '/contracts'
     | '/litigation'
@@ -467,6 +479,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   ArbitrazhnyeSporyRoute: typeof ArbitrazhnyeSporyRoute
   CommercialRentRoute: typeof CommercialRentRoute
+  ConsentRoute: typeof ConsentRoute
   ContactRoute: typeof ContactRoute
   ContractsRoute: typeof ContractsRoute
   LitigationRoute: typeof LitigationRoute
@@ -633,6 +646,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/consent': {
+      id: '/consent'
+      path: '/consent'
+      fullPath: '/consent'
+      preLoaderRoute: typeof ConsentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/commercial-rent': {
       id: '/commercial-rent'
       path: '/commercial-rent'
@@ -789,6 +809,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   ArbitrazhnyeSporyRoute: ArbitrazhnyeSporyRoute,
   CommercialRentRoute: CommercialRentRoute,
+  ConsentRoute: ConsentRoute,
   ContactRoute: ContactRoute,
   ContractsRoute: ContractsRoute,
   LitigationRoute: LitigationRoute,
@@ -815,3 +836,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
