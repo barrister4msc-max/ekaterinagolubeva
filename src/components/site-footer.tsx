@@ -40,6 +40,7 @@ export function SiteFooter() {
             </ul>
           </div>
         </div>
+        <FooterLegalInfo />
 
         <div className="hairline mt-12" />
         <div className="mt-6 flex flex-col items-start justify-between gap-2 text-xs text-muted-foreground md:flex-row md:items-center">
