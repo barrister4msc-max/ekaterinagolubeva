@@ -20,7 +20,8 @@ import {
   MessageSquare,
   Send,
 } from "lucide-react";
-import { listLeadsFn } from "@/lib/admin-leads.functions";
+import { listLeadsFn, updateLeadPipelineStageFn } from "@/lib/admin-leads.functions";
+import { toast } from "sonner";
 import {
   listConversationsByLeadFn,
   listMessagesFn,
@@ -145,6 +146,8 @@ function CRMPage() {
   const { session } = useAuth();
   const listLeads = useServerFn(listLeadsFn);
   const listInbox = useServerFn(listInboxFn);
+  const updateStage = useServerFn(updateLeadPipelineStageFn);
+
 
   const [view, setView] = useState<"pipeline" | "inbox">("pipeline");
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -279,6 +282,39 @@ function CRMPage() {
       supabase.removeChannel(channel);
     };
   }, [session, reload]);
+
+  const handleMoveLead = useCallback(
+    async (leadId: string, targetStage: string) => {
+      const prev = leads.find((l) => l.id === leadId);
+      if (!prev) return;
+      if ((prev.pipeline_stage ?? "new") === targetStage) return;
+
+      // optimistic
+      const optimistic: Partial<Lead> = { pipeline_stage: targetStage };
+      if (targetStage === "closed") optimistic.status = "closed";
+      else if (prev.status === "closed") optimistic.status = "in_progress";
+
+      setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, ...optimistic } : l)));
+      setSelectedLead((s) => (s && s.id === leadId ? { ...s, ...optimistic } : s));
+
+      try {
+        const res = await updateStage({ data: { id: leadId, pipeline_stage: targetStage as never } });
+        const updated = (res as { lead: Lead | null }).lead;
+        if (updated) {
+          setLeads((ls) => ls.map((l) => (l.id === leadId ? { ...l, ...updated } : l)));
+          setSelectedLead((s) => (s && s.id === leadId ? { ...s, ...updated } : s));
+        }
+        toast.success("Стадия обновлена");
+      } catch (e) {
+        // revert
+        setLeads((ls) => ls.map((l) => (l.id === leadId ? prev : l)));
+        setSelectedLead((s) => (s && s.id === leadId ? prev : s));
+        toast.error(e instanceof Error ? e.message : "Не удалось обновить стадию");
+      }
+    },
+    [leads, updateStage],
+  );
+
 
 
   const kpi = useMemo(() => {
@@ -451,7 +487,7 @@ function CRMPage() {
           Загрузка…
         </div>
       ) : view === "pipeline" ? (
-        <PipelineView leads={filteredLeads} onSelect={(l) => { setSelectedLead(l); setActiveTab("overview"); }} />
+        <PipelineView leads={filteredLeads} onSelect={(l) => { setSelectedLead(l); setActiveTab("overview"); }} onMove={handleMoveLead} />
       ) : (
         <InboxView
           conversations={filteredInbox}
@@ -479,16 +515,48 @@ function CRMPage() {
   );
 }
 
-function PipelineView({ leads, onSelect }: { leads: Lead[]; onSelect: (l: Lead) => void }) {
+function PipelineView({
+  leads,
+  onSelect,
+  onMove,
+}: {
+  leads: Lead[];
+  onSelect: (l: Lead) => void;
+  onMove: (leadId: string, targetStage: string) => void | Promise<void>;
+}) {
+  const [dragOver, setDragOver] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
   return (
     <div className="rounded-2xl border border-border bg-white/55 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.03)]">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => {
           const colLeads = leads.filter((l) => (l.pipeline_stage ?? "new") === column.id);
+          const isOver = dragOver === column.id;
           return (
             <section
               key={column.id}
-              className="min-h-[260px] rounded-2xl border border-border/60 bg-white/70 p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                if (dragOver !== column.id) setDragOver(column.id);
+              }}
+              onDragLeave={(e) => {
+                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                setDragOver((c) => (c === column.id ? null : c));
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = e.dataTransfer.getData("text/lead-id") || draggingId;
+                setDragOver(null);
+                setDraggingId(null);
+                if (id) void onMove(id, column.id);
+              }}
+              className={`min-h-[260px] rounded-2xl border p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur transition-colors ${
+                isOver
+                  ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30"
+                  : "border-border/60 bg-white/70"
+              }`}
             >
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -505,8 +573,20 @@ function PipelineView({ leads, onSelect }: { leads: Lead[]; onSelect: (l: Lead) 
                 {colLeads.map((lead) => (
                   <article
                     key={lead.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/lead-id", lead.id);
+                      e.dataTransfer.effectAllowed = "move";
+                      setDraggingId(lead.id);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingId(null);
+                      setDragOver(null);
+                    }}
                     onClick={() => onSelect(lead)}
-                    className="group cursor-pointer rounded-2xl border border-border/60 bg-white p-3 shadow-[0_4px_20px_rgba(0,0,0,0.035)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)]"
+                    className={`group select-none rounded-2xl border border-border/60 bg-white p-3 shadow-[0_4px_20px_rgba(0,0,0,0.035)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] cursor-grab active:cursor-grabbing ${
+                      draggingId === lead.id ? "opacity-50" : ""
+                    }`}
                   >
                     <h3 className="text-sm font-semibold">{lead.name}</h3>
                     <p className="mt-3 line-clamp-3 text-[13px] leading-5 text-muted-foreground">
@@ -533,6 +613,7 @@ function PipelineView({ leads, onSelect }: { leads: Lead[]; onSelect: (l: Lead) 
     </div>
   );
 }
+
 
 function InboxView({
   conversations,
