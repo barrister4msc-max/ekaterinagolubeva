@@ -956,7 +956,13 @@ useEffect(() => {
       ["Dates", doc.extracted_data.structured_analysis.dates],
       ["Recommended actions", doc.extracted_data.structured_analysis.recommended_actions],
     ].map(([label, value]) => {
-      const items = Array.isArray(value) ? value : [];
+      const items = Array.isArray(value)
+  ? value.filter((v) => {
+      if (typeof v === "string") return v.trim().length > 0;
+      if (typeof v === "object" && v !== null) return Object.keys(v).length > 0;
+      return Boolean(v);
+    })
+  : [];
 
       if (items.length === 0) return null;
 
