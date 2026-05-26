@@ -937,37 +937,39 @@ useEffect(() => {
     )}
   </div>
 )}
-          {doc.extracted_data
-  ?.structured_analysis && (
+          {doc.extracted_data?.structured_analysis && (
   <div className="mt-4 space-y-3">
+    {[
+      ["Parties", doc.extracted_data.structured_analysis.parties],
+      ["Amounts", doc.extracted_data.structured_analysis.amounts],
+      ["Dates", doc.extracted_data.structured_analysis.dates],
+      ["Recommended actions", doc.extracted_data.structured_analysis.recommended_actions],
+    ].map(([label, value]) => {
+      const items = Array.isArray(value) ? value : [];
 
-    {doc.extracted_data
-      ?.structured_analysis
-      ?.parties?.length > 0 && (
-      <div>
-        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          Parties
-        </div>
+      if (items.length === 0) return null;
 
-        <div className="flex flex-wrap gap-2">
-          {doc.extracted_data
-            .structured_analysis
-            .parties.map(
-              (
-                item: string,
-                idx: number
-              ) => (
-                <span
-                  key={idx}
-                  className="rounded-full border bg-white px-2 py-1 text-[11px]"
-                >
-                  {item}
-                </span>
-              )
-            )}
+      return (
+        <div key={String(label)}>
+          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {String(label)}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {items.map((item: unknown, idx: number) => (
+              <span
+                key={idx}
+                className="rounded-full border bg-white px-2 py-1 text-[11px]"
+              >
+                {typeof item === "string" ? item : JSON.stringify(item)}
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
-    )}
+      );
+    })}
+  </div>
+)}
 
     {doc.extracted_data
       ?.structured_analysis
