@@ -693,6 +693,7 @@ function LeadDrawer({
 const [documents, setDocuments] = useState<any[]>([]);
 const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 const [previewName, setPreviewName] = useState<string | null>(null);
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const uploadDocuments = async (files: File[]) => {
   console.log("UPLOAD FILES:", files);
 
