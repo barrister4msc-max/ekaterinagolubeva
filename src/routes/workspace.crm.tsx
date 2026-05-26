@@ -1144,7 +1144,9 @@ alert("AI анализ завершен");
               Краткое резюме
             </div>
             <div className="mt-2 text-sm leading-6 text-blue-950">
-              {a.short_summary || analysisDoc.ai_summary || "Резюме пока не сформировано"}
+              {a.short_summary
+  ? a.short_summary
+  : "Структурное резюме пока не сформировано. Выполните AI анализ повторно."}
             </div>
           </div>
 
