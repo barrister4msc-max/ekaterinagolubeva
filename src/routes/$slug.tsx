@@ -10,7 +10,7 @@ import {
 import { ContactCta } from "@/components/contact-cta";
 import { ContactChannels } from "@/components/contact-channels";
 
-const SITE_URL = "https://4upro.ai";
+const SITE_URL = "https://legalpracticelife.ru";
 
 function canonicalHref(page: Pick<SeoPageRecord, "slug" | "canonical_path">) {
   const path = page.canonical_path?.trim() || `/${page.slug}`;
