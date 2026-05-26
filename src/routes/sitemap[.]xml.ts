@@ -25,15 +25,20 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const { data, error } = await (supabaseAdmin as never as {
-          from: (t: string) => {
-            select: (s: string) => {
-              eq: (c: string, v: unknown) => {
-                eq: (c: string, v: unknown) => Promise<{ data: SeoPageRow[] | null; error: unknown }>;
+        const { data, error } = await (
+          supabaseAdmin as never as {
+            from: (t: string) => {
+              select: (s: string) => {
+                eq: (
+                  c: string,
+                  v: unknown,
+                ) => {
+                  eq: (c: string, v: unknown) => Promise<{ data: SeoPageRow[] | null; error: unknown }>;
+                };
               };
             };
-          };
-        })
+          }
+        )
           .from("seo_pages")
           .select("slug,canonical_path,updated_at,changefreq,priority")
           .eq("is_published", true)
@@ -45,9 +50,7 @@ export const Route = createFileRoute("/sitemap.xml")({
 
         const rows: SeoPageRow[] = data ?? [];
 
-        const staticEntries = [
-          { path: "/", changefreq: "weekly", priority: "1.0" },
-        ];
+        const staticEntries = [{ path: "/", changefreq: "weekly", priority: "1.0" }];
 
         const urls: string[] = [];
 
@@ -68,8 +71,7 @@ export const Route = createFileRoute("/sitemap.xml")({
           const loc = `${BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
           const lastmod = r.updated_at ? new Date(r.updated_at).toISOString() : null;
           const changefreq = r.changefreq?.trim() || "weekly";
-          const priority =
-            r.priority !== null && r.priority !== undefined ? String(r.priority) : "0.8";
+          const priority = r.priority !== null && r.priority !== undefined ? String(r.priority) : "0.8";
           urls.push(
             [
               `  <url>`,
@@ -93,7 +95,8 @@ export const Route = createFileRoute("/sitemap.xml")({
 
         return new Response(xml, {
           headers: {
-            "Content-Type": "application/xml; charset=utf-8",
+            "Content-Type": "text/xml; charset=utf-8",
+            "X-Content-Type-Options": "nosniff",
             "Cache-Control": "public, max-age=3600",
           },
         });
