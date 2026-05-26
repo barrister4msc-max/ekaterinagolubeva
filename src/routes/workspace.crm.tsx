@@ -973,9 +973,35 @@ useEffect(() => {
                 className="rounded-2xl border bg-white px-3 py-2 text-[11px] max-w-full"
               >
                 {typeof item === "string" ? (
-  item
+  item.trim() || "—"
 ) : typeof item === "object" && item !== null ? (
   <div className="space-y-1 text-left">
+    <div className="font-medium">
+      {(item as any).name ||
+        (item as any).party ||
+        (item as any).person ||
+        (item as any).title ||
+        (item as any).description ||
+        "Объект"}
+    </div>
+
+    <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+      {(item as any).role && (
+        <span>Role: {(item as any).role}</span>
+      )}
+
+      {(item as any).value && (
+        <span>Value: {(item as any).value}</span>
+      )}
+
+      {(item as any).currency && (
+        <span>{(item as any).currency}</span>
+      )}
+    </div>
+  </div>
+) : (
+  String(item)
+)}
     {(item as any).description && (
       <div className="font-medium">
         {(item as any).description}
