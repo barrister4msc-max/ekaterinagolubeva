@@ -1006,9 +1006,7 @@ useEffect(() => {
     </div>
   </div>
 ) : (
-  String(item)
-
-    
+  String(item)   
 )}
               </span>
             ))}
