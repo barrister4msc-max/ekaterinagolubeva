@@ -1039,24 +1039,54 @@ setPreviewName(doc.file_url.split("/").pop() ?? "Документ");
         {previewUrl && (
   <div className="mt-8 rounded-3xl border bg-white p-4">
     <div className="mb-3 flex items-center justify-between gap-3">
-      <div className="text-sm font-medium">{previewName}</div>
+      <div className="text-sm font-medium">
+        {previewName}
+      </div>
 
-      <button
-        onClick={() => {
-          setPreviewUrl(null);
-          setPreviewName(null);
-        }}
-        className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
-      >
-        Закрыть preview
-      </button>
+      <div className="flex items-center gap-2">
+        <a
+          href={previewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
+        >
+          Открыть в новой вкладке
+        </a>
+
+        <button
+          onClick={() => {
+            setPreviewUrl(null);
+            setPreviewName(null);
+          }}
+          className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
+        >
+          Закрыть preview
+        </button>
+      </div>
     </div>
 
-    <iframe
-      src={previewUrl}
-      className="h-[520px] w-full rounded-2xl border"
-      title={previewName ?? "Document preview"}
-    />
+    {previewUrl.toLowerCase().includes(".pdf") ? (
+      <iframe
+        src={previewUrl}
+        className="h-[720px] w-full rounded-2xl border"
+        title={previewName ?? "Document preview"}
+      />
+    ) : (
+      <div className="rounded-2xl border bg-secondary/30 p-8 text-center">
+        <div className="text-sm text-muted-foreground">
+          Preview недоступен для этого типа файла.
+        </div>
+
+        <a
+          href={previewUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 inline-flex rounded-xl bg-neutral-950 px-4 py-2 text-sm text-white"
+        >
+          Открыть документ
+        </a>
+      </div>
+    )}
   </div>
 )}
       </aside>
