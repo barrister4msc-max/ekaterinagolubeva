@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
-const BASE_URL = "https://4upro.ai";
+const BASE_URL = "https://legalpracticelife.ru";
 
 interface SeoPageRow {
   slug: string;

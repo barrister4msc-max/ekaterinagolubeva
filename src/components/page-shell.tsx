@@ -30,7 +30,7 @@ interface PageShellProps {
   canonicalPath?: string;
 }
 
-const SITE_BASE = "https://ekaterinagolubeva.lovable.app";
+const SITE_BASE = "https://legalpracticelife.ru";
 
 function formatDate(value?: string): string | null {
   if (!value) return null;
