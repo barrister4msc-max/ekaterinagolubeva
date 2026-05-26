@@ -974,10 +974,10 @@ useEffect(() => {
 
           <div className="flex flex-wrap gap-2">
             {items.map((item: unknown, idx: number) => (
-              <span
-                key={idx}
-                className="rounded-2xl border bg-white px-3 py-2 text-[11px] max-w-full"
-              >
+              <div
+  key={idx}
+  className="rounded-2xl border bg-white px-3 py-2 text-[11px] max-w-full"
+>
                 {typeof item === "string" ? (
   item.trim() || "—"
 ) : typeof item === "object" && item !== null ? (
@@ -992,24 +992,24 @@ useEffect(() => {
     </div>
 
     <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-      {(item as any).role && (
-        <span>Role: {(item as any).role}</span>
-      )}
+  {(item as any).role && (
+    <span>Role: {(item as any).role}</span>
+  )}
 
-      {(item as any).value && (
-        <span>Value: {(item as any).value}</span>
-      )}
+  {(item as any).value && (
+    <span>Value: {(item as any).value}</span>
+  )}
 
-      {(item as any).currency && (
-        <span>{(item as any).currency}</span>
-      )}
-    </div>
+  {(item as any).currency && (
+    <span>{(item as any).currency}</span>
+  )}
+</div>
   </div>
 ) : (
   String(item)   
 )}
-              </span>
-            ))}
+</div>
+))}
           </div>
         </div>
       );
