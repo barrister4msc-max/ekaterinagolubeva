@@ -709,9 +709,9 @@ const [previewName, setPreviewName] = useState<string | null>(null);
       return;
     }
 
-    const safeName = file.name
-      .replace(/[^\w.\-а-яА-ЯёЁ]/g, "_")
-      .replace(/_+/g, "_");
+    const extension = file.name.split(".").pop()?.toLowerCase() || "file";
+
+const safeName = `document-${Date.now()}.${extension}`;
 
     const filePath = `${lead.id}/${Date.now()}-${safeName}`;
 
