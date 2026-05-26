@@ -1098,7 +1098,7 @@ setPreviewName(doc.file_url.split("/").pop() ?? "Документ");
       </div>
     </div>
 
-    {previewUrl.toLowerCase().includes(".pdf") ? (
+    {previewName?.toLowerCase().endsWith(".pdf") ? (
       <iframe
         src={previewUrl}
         className="h-[720px] w-full rounded-2xl border"
