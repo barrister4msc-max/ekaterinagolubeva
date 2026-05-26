@@ -244,6 +244,10 @@ function ContactPage() {
                     AI-ассистент не заменяет индивидуальную юридическую консультацию.{" "}
                     <Link to="/consent" target="_blank" className="text-primary underline underline-offset-2">
                       Согласие на обработку персональных данных
+                    </Link>
+                    {" · "}
+                    <Link to="/ai-disclaimer" target="_blank" className="text-primary underline underline-offset-2">
+                      Условия использования AI-ассистента
                     </Link>.
                   </span>
                 </label>
