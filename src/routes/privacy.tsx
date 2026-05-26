@@ -80,9 +80,56 @@ function PrivacyPage() {
         <section>
           <h2 className="font-display text-xl text-foreground">4. Правовые основания</h2>
           <p className="mt-3">
-            Обработка осуществляется на основании Федерального закона
-            от 27.07.2006 № 152-ФЗ «О персональных данных», вашего согласия,
-            а также для исполнения договора, стороной которого вы являетесь.
+            Обработка персональных данных осуществляется в соответствии с{" "}
+            <a
+              href="https://www.consultant.ru/document/cons_doc_LAW_61801/"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="text-primary hover:underline"
+            >
+              Федеральным законом от 27.07.2006 № 152-ФЗ «О персональных данных»
+            </a>
+            , в частности:
+          </p>
+          <ul className="mt-3 list-disc space-y-1 pl-5">
+            <li>
+              <a
+                href="https://www.consultant.ru/document/cons_doc_LAW_61801/dc0b9959ca27fba1add9a97f0ae4a81af29efc9d/"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-primary hover:underline"
+              >
+                ст. 5 152-ФЗ
+              </a>{" "}
+              — принципы обработки персональных данных;
+            </li>
+            <li>
+              <a
+                href="https://www.consultant.ru/document/cons_doc_LAW_61801/dde34a3ce702894aa97e632e7b1ee36259fdec46/"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-primary hover:underline"
+              >
+                ст. 9 152-ФЗ
+              </a>{" "}
+              — согласие субъекта персональных данных на их обработку;
+            </li>
+            <li>
+              <a
+                href="https://www.consultant.ru/document/cons_doc_LAW_61801/c80b0b8ea2cda85a73c4f7ac17f88a82b9d33564/"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-primary hover:underline"
+              >
+                ст. 18.1 152-ФЗ
+              </a>{" "}
+              — меры, направленные на обеспечение выполнения оператором обязанностей,
+              в том числе политика обработки персональных данных.
+            </li>
+          </ul>
+          <p className="mt-3">
+            Обработка также может осуществляться для исполнения договора, стороной
+            которого является субъект персональных данных.
           </p>
         </section>
 

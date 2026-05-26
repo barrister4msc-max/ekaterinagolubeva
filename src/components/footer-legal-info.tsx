@@ -108,6 +108,16 @@ export function FooterLegalInfo() {
               </a>
             </li>
             <li>
+              <a href="/consent" className="text-foreground/80 hover:text-primary">
+                Согласие на обработку персональных данных
+              </a>
+            </li>
+            <li>
+              <a href="/ai-disclaimer" className="text-foreground/80 hover:text-primary">
+                AI-дисклеймер
+              </a>
+            </li>
+            <li>
               <a href="/terms" className="text-foreground/80 hover:text-primary">
                 Оферта / Пользовательское соглашение
               </a>
