@@ -961,7 +961,17 @@ useEffect(() => {
                 key={idx}
                 className="rounded-full border bg-white px-2 py-1 text-[11px]"
               >
-                {typeof item === "string" ? item : JSON.stringify(item)}
+                {typeof item === "string"
+  ? item
+  : typeof item === "object" && item !== null
+    ? [
+        (item as any).value,
+        (item as any).currency,
+        (item as any).description,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : String(item)}
               </span>
             ))}
           </div>
