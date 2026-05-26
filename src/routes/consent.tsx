@@ -39,9 +39,44 @@ function ConsentPage() {
 
       <article className="container-wide max-w-3xl py-16 md:py-24 space-y-6 text-sm leading-relaxed text-foreground/85">
         <p>
-          В соответствии со статьёй 9 Федерального закона от 27.07.2006 № 152-ФЗ
-          «О персональных данных», направляя обращение через сайт, пользователь
-          даёт согласие на обработку своих персональных данных.
+          В соответствии со{" "}
+          <a
+            href="https://www.consultant.ru/document/cons_doc_LAW_61801/dde34a3ce702894aa97e632e7b1ee36259fdec46/"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-primary hover:underline"
+          >
+            статьёй 9
+          </a>{" "}
+          Федерального закона от 27.07.2006{" "}
+          <a
+            href="https://www.consultant.ru/document/cons_doc_LAW_61801/"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-primary hover:underline"
+          >
+            № 152-ФЗ «О персональных данных»
+          </a>
+          , направляя обращение через сайт, пользователь даёт согласие на обработку
+          своих персональных данных. Принципы обработки определены{" "}
+          <a
+            href="https://www.consultant.ru/document/cons_doc_LAW_61801/dc0b9959ca27fba1add9a97f0ae4a81af29efc9d/"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-primary hover:underline"
+          >
+            ст. 5 152-ФЗ
+          </a>
+          , политика обработки публикуется в соответствии с{" "}
+          <a
+            href="https://www.consultant.ru/document/cons_doc_LAW_61801/c80b0b8ea2cda85a73c4f7ac17f88a82b9d33564/"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-primary hover:underline"
+          >
+            ст. 18.1 152-ФЗ
+          </a>
+          .
         </p>
 
         <section>
