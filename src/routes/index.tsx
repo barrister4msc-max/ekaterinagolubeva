@@ -19,9 +19,9 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров. Москва, МО и дистанционно по России." },
       { property: "og:title", content: "Екатерина Голубева — Premium Legal Real Estate Advisor" },
       { property: "og:description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров. Trusted Representative in Russia." },
-      { property: "og:url", content: "https://ekaterinagolubeva.lovable.app/" },
+      { property: "og:url", content: "https://legalpracticelife.ru/" },
     ],
-    links: [{ rel: "canonical", href: "https://ekaterinagolubeva.lovable.app/" }],
+    links: [{ rel: "canonical", href: "https://legalpracticelife.ru/" }],
   }),
   component: HomePage,
 });

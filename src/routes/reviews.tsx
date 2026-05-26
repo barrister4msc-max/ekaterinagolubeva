@@ -15,9 +15,9 @@ export const Route = createFileRoute("/reviews")({
         property: "og:description",
         content: "Отзывы с Avito о работе по договорам, недвижимости и спорам.",
       },
-      { property: "og:url", content: "https://4upro.ai/reviews" },
+      { property: "og:url", content: "https://legalpracticelife.ru/reviews" },
     ],
-    links: [{ rel: "canonical", href: "https://4upro.ai/reviews" }],
+    links: [{ rel: "canonical", href: "https://legalpracticelife.ru/reviews" }],
   }),
   component: ReviewsPage,
 });

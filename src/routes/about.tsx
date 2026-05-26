@@ -4,7 +4,7 @@ import { useSiteSettings, heroSrc } from "@/hooks/use-site-settings";
 import { ContactCta } from "@/components/contact-cta";
 import { ContactChannels } from "@/components/contact-channels";
 
-const SITE_BASE = "https://ekaterinagolubeva.lovable.app";
+const SITE_BASE = "https://legalpracticelife.ru";
 
 export const Route = createFileRoute("/about")({
   head: () => ({

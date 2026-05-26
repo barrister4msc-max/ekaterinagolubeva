@@ -34,7 +34,7 @@ export function FooterLegalInfo() {
       : "Екатерина Голубева — Premium Legal Real Estate Advisor",
     description:
       "Юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и по России.",
-    url: site_domain || "https://ekaterinagolubeva.lovable.app",
+    url: site_domain || "https://legalpracticelife.ru",
     areaServed: ["Москва", "Московская область", "Российская Федерация"],
     founder: {
       "@type": "Person",

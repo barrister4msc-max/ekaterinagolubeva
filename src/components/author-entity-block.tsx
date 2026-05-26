@@ -15,7 +15,7 @@ export function AuthorEntityBlock({ articleTitle, articleDescription, dateModifi
   const { settings } = useSiteSettings();
   const name = settings.legal_full_name || "Екатерина Голубева";
   const photo = settings.advisor_photo_url || settings.hero_image_url;
-  const baseUrl = settings.site_domain || "https://ekaterinagolubeva.lovable.app";
+  const baseUrl = settings.site_domain || "https://legalpracticelife.ru";
 
   return (
     <section

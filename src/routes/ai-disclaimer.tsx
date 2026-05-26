@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-const SITE_BASE = "https://ekaterinagolubeva.lovable.app";
+const SITE_BASE = "https://legalpracticelife.ru";
 
 export const Route = createFileRoute("/ai-disclaimer")({
   head: () => ({
