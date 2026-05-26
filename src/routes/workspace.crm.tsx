@@ -1068,6 +1068,17 @@ setPreviewName(doc.file_url.split("/").pop() ?? "Документ");
 >
   {analyzingId === doc.id ? "Анализ..." : "AI анализ"}
 </button>
+  {analyzingId === doc.id ? "Анализ..." : "AI анализ"}
+</button>
+
+<button
+  onClick={() => setAnalysisDoc(doc)}
+  className="rounded-xl border border-amber-200 px-3 py-2 text-xs text-amber-700 hover:bg-amber-50"
+>
+  Показать анализ
+</button>
+
+<button
   <button
     onClick={async () => {
       const confirmed = confirm("Удалить документ?");
