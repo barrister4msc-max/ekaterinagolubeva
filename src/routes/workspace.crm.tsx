@@ -950,74 +950,7 @@ useEffect(() => {
     )}
   </div>
 )}
-          {doc.extracted_data?.structured_analysis && (
-  <div className="mt-4 space-y-3">
-    {[
-      ["Parties", doc.extracted_data.structured_analysis.parties],
-      ["Amounts", doc.extracted_data.structured_analysis.amounts],
-      ["Dates", doc.extracted_data.structured_analysis.dates],
-      ["Recommended actions", doc.extracted_data.structured_analysis.recommended_actions],
-    ].map(([label, value]) => {
-      const items = Array.isArray(value)
-  ? value.filter((v) => {
-      if (typeof v === "string") return v.trim().length > 0;
-      if (typeof v === "object" && v !== null) return Object.keys(v).length > 0;
-      return Boolean(v);
-    })
-  : [];
-
-      if (items.length === 0) return null;
-
-      return (
-        <div key={String(label)}>
-          <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            {String(label)}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-           {items.map((item: unknown, idx: number) => (
-  <div
-    key={idx}
-    className="rounded-2xl border bg-white px-3 py-2 text-[11px] max-w-full"
-  >
-    {typeof item === "string" ? (
-      item.trim() || "—"
-    ) : typeof item === "object" && item !== null ? (
-      <div className="space-y-1 text-left">
-        <div className="font-medium">
-          {(item as any).name ||
-            (item as any).party ||
-            (item as any).person ||
-            (item as any).title ||
-            (item as any).description ||
-            "Объект"}
-        </div>
-
-        <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-          {(item as any).role && (
-            <span>Role: {(item as any).role}</span>
-          )}
-
-          {(item as any).value && (
-            <span>Value: {(item as any).value}</span>
-          )}
-
-          {(item as any).currency && (
-            <span>{(item as any).currency}</span>
-          )}
-        </div>
-      </div>
-    ) : (
-      String(item)
-    )}
-  </div>
-))}
-          </div>
-        </div>
-      );
-    })}
-  </div>
-)}
+          
         </div>
 <div className="flex items-center gap-2">
 
