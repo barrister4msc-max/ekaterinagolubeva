@@ -713,7 +713,7 @@ const [previewName, setPreviewName] = useState<string | null>(null);
 
 const safeName = `document-${Date.now()}.${extension}`;
 
-    const filePath = `${lead.id}/${Date.now()}-${safeName}`;
+    const filePath = `${lead.id}/${safeName}`;
 
     console.log("UPLOAD PATH:", filePath);
 
