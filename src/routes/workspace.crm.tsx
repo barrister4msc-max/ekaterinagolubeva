@@ -1004,9 +1004,14 @@ useEffect(() => {
           return;
         }
 
-        await loadDocuments();
+        const freshDocs = await loadDocuments();
+const freshDoc = freshDocs.find((d) => d.id === doc.id);
 
-        alert("AI анализ завершен");
+if (freshDoc) {
+  setAnalysisDoc(freshDoc);
+}
+
+alert("AI анализ завершен");
       } finally {
         setAnalyzingId(null);
       }
@@ -1017,11 +1022,25 @@ useEffect(() => {
   </button>
 
   <button
-    onClick={() => setAnalysisDoc(doc)}
-    className="rounded-xl border border-amber-200 px-3 py-2 text-xs text-amber-700 hover:bg-amber-50"
-  >
-    Показать анализ
-  </button>
+  onClick={async () => {
+    const { data, error } = await supabase
+      .from("lead_documents")
+      .select("*")
+      .eq("id", doc.id)
+      .single();
+
+    if (error) {
+      console.error(error);
+      alert(error.message);
+      return;
+    }
+
+    setAnalysisDoc(data);
+  }}
+  className="rounded-xl border border-amber-200 px-3 py-2 text-xs text-amber-700 hover:bg-amber-50"
+>
+  Показать анализ
+</button>
 
   <button
     onClick={async () => {
