@@ -940,17 +940,33 @@ useEffect(() => {
                 key={idx}
                 className="rounded-full border bg-white px-2 py-1 text-[11px]"
               >
-                {typeof item === "string"
-  ? item
-  : typeof item === "object" && item !== null
-    ? [
-        (item as any).value,
-        (item as any).currency,
-        (item as any).description,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : String(item)}
+                {typeof item === "string" ? (
+  item
+) : typeof item === "object" && item !== null ? (
+  <div className="space-y-1 text-left">
+    {(item as any).description && (
+      <div className="font-medium">
+        {(item as any).description}
+      </div>
+    )}
+
+    <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+      {(item as any).value && (
+        <span>
+          Value: {(item as any).value}
+        </span>
+      )}
+
+      {(item as any).currency && (
+        <span>
+          {(item as any).currency}
+        </span>
+      )}
+    </div>
+  </div>
+) : (
+  String(item)
+)}
               </span>
             ))}
           </div>
