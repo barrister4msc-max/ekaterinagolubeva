@@ -1104,57 +1104,46 @@ useEffect(() => {
             Подключение к lead_events — следующим шагом.
           </div>
         )}
-        {previewUrl && (
-  <div className="mt-8 rounded-3xl border bg-white p-4">
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <div className="text-sm font-medium">
-        {previewName}
+        {analysisDoc && (
+  <div className="mt-8 rounded-3xl border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
+    <div className="mb-6 flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold">
+          AI анализ документа
+        </h3>
+
+        <p className="mt-1 text-xs text-muted-foreground">
+          {analysisDoc.file_name ||
+            analysisDoc.file_url.split("/").pop()}
+        </p>
       </div>
 
-      <div className="flex items-center gap-2">
-        <a
-          href={previewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
-        >
-          Открыть в новой вкладке
-        </a>
-
-        <button
-          onClick={() => {
-            setPreviewUrl(null);
-            setPreviewName(null);
-          }}
-          className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
-        >
-          Закрыть preview
-        </button>
-      </div>
+      <button
+        onClick={() => setAnalysisDoc(null)}
+        className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
+      >
+        Закрыть
+      </button>
     </div>
 
-    {previewName?.toLowerCase().endsWith(".pdf") ? (
-      <iframe
-        src={previewUrl}
-        className="h-[720px] w-full rounded-2xl border"
-        title={previewName ?? "Document preview"}
-      />
-    ) : (
-      <div className="rounded-2xl border bg-secondary/30 p-8 text-center">
-        <div className="text-sm text-muted-foreground">
-          Preview недоступен для этого типа файла.
-        </div>
-
-        <a
-          href={previewUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 inline-flex rounded-xl bg-neutral-950 px-4 py-2 text-sm text-white"
+    <div className="space-y-4">
+      {Object.entries(
+        analysisDoc.extracted_data?.structured_analysis || {}
+      ).map(([key, value]) => (
+        <div
+          key={key}
+          className="rounded-2xl border bg-secondary/30 p-4"
         >
-          Открыть документ
-        </a>
-      </div>
-    )}
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {key}
+          </div>
+
+          <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-6">
+            {JSON.stringify(value, null, 2)}
+          </pre>
+        </div>
+      ))}
+    </div>
   </div>
 )}
       </aside>
