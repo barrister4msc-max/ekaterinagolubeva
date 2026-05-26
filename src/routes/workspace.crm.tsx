@@ -1059,15 +1059,11 @@ useEffect(() => {
 </div>
        {analysisDoc && (
   <div className="mt-8 rounded-3xl border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
-    <div className="mb-6 flex items-center justify-between">
+    <div className="mb-6 flex items-start justify-between gap-4">
       <div>
-        <h3 className="text-lg font-semibold">
-          AI анализ документа
-        </h3>
-
+        <h3 className="text-lg font-semibold">AI анализ документа</h3>
         <p className="mt-1 text-xs text-muted-foreground">
-          {analysisDoc.file_name ||
-            analysisDoc.file_url.split("/").pop()}
+          {analysisDoc.file_name || analysisDoc.file_url.split("/").pop()}
         </p>
       </div>
 
@@ -1079,24 +1075,87 @@ useEffect(() => {
       </button>
     </div>
 
-    <div className="space-y-4">
-      {Object.entries(
-        analysisDoc.extracted_data?.structured_analysis || {}
-      ).map(([key, value]) => (
-        <div
-          key={key}
-          className="rounded-2xl border bg-secondary/30 p-4"
-        >
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {key}
+    {(() => {
+      const a = analysisDoc.extracted_data?.structured_analysis || {};
+      const rf = a.rf_compliance_checks || {};
+
+      const renderList = (title: string, items: any, red = false) => {
+        const arr = Array.isArray(items) ? items : items ? [items] : [];
+
+        return (
+          <div className="rounded-2xl border bg-secondary/30 p-4">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {title}
+            </div>
+
+            {arr.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {arr.map((item: any, idx: number) => (
+                  <span
+                    key={idx}
+                    className={`rounded-full px-3 py-1 text-xs ${
+                      red
+                        ? "bg-red-100 text-red-700"
+                        : "bg-white text-muted-foreground"
+                    }`}
+                  >
+                    {typeof item === "string"
+                      ? item
+                      : JSON.stringify(item)}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">Не найдено</div>
+            )}
+          </div>
+        );
+      };
+
+      return (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+            <div className="text-xs font-semibold uppercase tracking-wide text-blue-900">
+              Краткое резюме
+            </div>
+            <div className="mt-2 text-sm leading-6 text-blue-950">
+              {a.short_summary || analysisDoc.ai_summary || "Резюме пока не сформировано"}
+            </div>
           </div>
 
-          <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-6">
-            {JSON.stringify(value, null, 2)}
-          </pre>
+          {renderList("Категория документа", a.document_category)}
+          {renderList("Стороны", a.parties)}
+          {renderList("Физлица", a.persons)}
+          {renderList("Компании", a.companies)}
+          {renderList("Адреса", a.addresses)}
+          {renderList("Суммы", a.amounts)}
+          {renderList("Даты", a.dates)}
+          {renderList("Кадастровые номера", a.cad_numbers)}
+
+          {renderList("Юридические риски", a.legal_risks, true)}
+          {renderList("Что проверить юристу", a.missing_checks, true)}
+          {renderList("Рекомендации", a.recommended_actions)}
+
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-red-800">
+              Проверка РФ: иноагенты / нежелательные организации / экстремистские перечни
+            </div>
+
+            <div className="space-y-3">
+              {renderList("Возможные совпадения с иноагентами", rf.foreign_agent_mentions, true)}
+              {renderList("Возможные совпадения с нежелательными организациями", rf.undesirable_organization_mentions, true)}
+              {renderList("Возможные совпадения с экстремистскими / террористическими перечнями", rf.extremist_or_terrorist_mentions, true)}
+              {renderList("Санкционные / репутационные флаги", rf.sanctions_or_reputation_flags, true)}
+              {renderList("Что проверить по официальным реестрам", rf.recommended_registry_checks, true)}
+            </div>
+
+            <div className="mt-4 rounded-xl bg-white p-3 text-xs leading-5 text-muted-foreground">
+              AI-проверка является предварительной. Окончательный вывод нужно делать только после проверки по официальным реестрам РФ.
+            </div>
+          </div>
         </div>
-      ))}
-    </div>
+      );
+    })()}
   </div>
 )}
 </section>
