@@ -694,31 +694,63 @@ const [documents, setDocuments] = useState<any[]>([]);
 const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 const [previewName, setPreviewName] = useState<string | null>(null);
   const uploadDocuments = async (files: File[]) => {
-  if (files.length === 0) return;
+  console.log("UPLOAD FILES:", files);
+
+  if (files.length === 0) {
+    alert("Файл не выбран");
+    return;
+  }
 
   for (const file of files) {
-    const filePath = `${lead.id}/${Date.now()}-${file.name}`;
+    console.log("UPLOAD FILE:", file.name, file.size, file.type);
 
-    const { error: uploadError } = await supabase.storage
-      .from("lead-documents")
-      .upload(filePath, file);
-
-    if (uploadError) {
-      console.error(uploadError);
-      alert(uploadError.message);
+    if (file.size > 20 * 1024 * 1024) {
+      alert("Файл слишком большой. Максимум 20 МБ");
       return;
     }
 
-    const { error: dbError } = await supabase
-      .from("lead_documents")
-      .insert({
-        lead_id: lead.id,
-        file_url: filePath,
-      });
+    const safeName = file.name
+      .replace(/[^\w.\-а-яА-ЯёЁ]/g, "_")
+      .replace(/_+/g, "_");
+
+    const filePath = `${lead.id}/${Date.now()}-${safeName}`;
+
+    console.log("UPLOAD PATH:", filePath);
+
+    const { data: uploadData, error: uploadError } =
+      await supabase.storage
+        .from("lead-documents")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type || "application/octet-stream",
+        });
+
+    console.log("UPLOAD RESULT:", uploadData, uploadError);
+
+    if (uploadError) {
+      console.error(uploadError);
+      alert("Storage upload error: " + uploadError.message);
+      return;
+    }
+
+    const { data: insertedDoc, error: dbError } =
+      await supabase
+        .from("lead_documents")
+        .insert({
+          lead_id: lead.id,
+          file_url: filePath,
+          file_name: file.name,
+          analysis_status: "uploaded",
+        })
+        .select("*")
+        .single();
+
+    console.log("DB INSERT RESULT:", insertedDoc, dbError);
 
     if (dbError) {
       console.error(dbError);
-      alert(dbError.message);
+      alert("DB insert error: " + dbError.message);
       return;
     }
   }
