@@ -973,42 +973,42 @@ useEffect(() => {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {items.map((item: unknown, idx: number) => (
-              <div
-  key={idx}
-  className="rounded-2xl border bg-white px-3 py-2 text-[11px] max-w-full"
->
-                {typeof item === "string" ? (
-  item.trim() || "—"
-) : typeof item === "object" && item !== null ? (
-  <div className="space-y-1 text-left">
-    <div className="font-medium">
-      {(item as any).name ||
-        (item as any).party ||
-        (item as any).person ||
-        (item as any).title ||
-        (item as any).description ||
-        "Объект"}
-    </div>
+           {items.map((item: unknown, idx: number) => (
+  <div
+    key={idx}
+    className="rounded-2xl border bg-white px-3 py-2 text-[11px] max-w-full"
+  >
+    {typeof item === "string" ? (
+      item.trim() || "—"
+    ) : typeof item === "object" && item !== null ? (
+      <div className="space-y-1 text-left">
+        <div className="font-medium">
+          {(item as any).name ||
+            (item as any).party ||
+            (item as any).person ||
+            (item as any).title ||
+            (item as any).description ||
+            "Объект"}
+        </div>
 
-    <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-  {(item as any).role && (
-    <span>Role: {(item as any).role}</span>
-  )}
+        <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+          {(item as any).role && (
+            <span>Role: {(item as any).role}</span>
+          )}
 
-  {(item as any).value && (
-    <span>Value: {(item as any).value}</span>
-  )}
+          {(item as any).value && (
+            <span>Value: {(item as any).value}</span>
+          )}
 
-  {(item as any).currency && (
-    <span>{(item as any).currency}</span>
-  )}
-</div>
+          {(item as any).currency && (
+            <span>{(item as any).currency}</span>
+          )}
+        </div>
+      </div>
+    ) : (
+      String(item)
+    )}
   </div>
-) : (
-  String(item)   
-)}
-</div>
 ))}
           </div>
         </div>
