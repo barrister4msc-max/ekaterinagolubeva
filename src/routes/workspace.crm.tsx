@@ -917,7 +917,9 @@ useEffect(() => {
         className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border bg-white p-4"
       >
         <div className="min-w-0 flex-1">
-          <div className="break-all text-sm font-medium">{doc.file_url.split("/").pop()}</div>
+          <div className="break-all text-sm font-medium">
+  {doc.file_name || doc.file_url.split("/").pop()}
+</div>
 
           <div className="mt-1 text-xs text-muted-foreground">
             {new Date(doc.created_at).toLocaleDateString("ru-RU")}
