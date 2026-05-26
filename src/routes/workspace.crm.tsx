@@ -1202,7 +1202,44 @@ alert("AI анализ завершен");
             Подключение к lead_events — следующим шагом.
           </div>
         )}
-        
+        {previewUrl && (
+  <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-6">
+    <div className="h-[90vh] w-full max-w-5xl rounded-3xl bg-white p-4 shadow-2xl">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="text-sm font-medium">
+          {previewName || "Документ"}
+        </div>
+
+        <div className="flex gap-2">
+          <a
+            href={previewUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
+          >
+            Открыть в новой вкладке
+          </a>
+
+          <button
+            onClick={() => {
+              setPreviewUrl(null);
+              setPreviewName(null);
+            }}
+            className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
+          >
+            Закрыть
+          </button>
+        </div>
+      </div>
+
+      <iframe
+        src={previewUrl}
+        className="h-[calc(90vh-72px)] w-full rounded-2xl border"
+        title={previewName || "Document preview"}
+      />
+    </div>
+  </div>
+)}
       </aside>
     </div>
   );
