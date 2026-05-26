@@ -1036,29 +1036,36 @@ setPreviewName(doc.file_url.split("/").pop() ?? "Документ");
     Открыть
   </button>
 <button
+  disabled={analyzingId === doc.id}
   onClick={async () => {
-    const { error } = await supabase.functions.invoke(
-      "analyze-lead-document",
-      {
-        body: {
-          documentId: doc.id,
-        },
+    try {
+      setAnalyzingId(doc.id);
+
+      const { error } = await supabase.functions.invoke(
+        "analyze-lead-document",
+        {
+          body: {
+            documentId: doc.id,
+          },
+        }
+      );
+
+      if (error) {
+        console.error(error);
+        alert(error.message);
+        return;
       }
-    );
 
-    if (error) {
-      console.error(error);
-      alert(error.message);
-      return;
+      await loadDocuments();
+
+      alert("AI анализ завершен");
+    } finally {
+      setAnalyzingId(null);
     }
-
-    await loadDocuments();
-
-    alert("AI анализ завершен");
   }}
-  className="rounded-xl border border-blue-200 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50"
+  className="rounded-xl border border-blue-200 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
 >
-  AI анализ
+  {analyzingId === doc.id ? "Анализ..." : "AI анализ"}
 </button>
   <button
     onClick={async () => {
