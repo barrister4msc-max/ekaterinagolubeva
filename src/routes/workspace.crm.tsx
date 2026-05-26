@@ -937,6 +937,124 @@ useEffect(() => {
     )}
   </div>
 )}
+          {doc.extracted_data
+  ?.structured_analysis && (
+  <div className="mt-4 space-y-3">
+
+    {doc.extracted_data
+      ?.structured_analysis
+      ?.parties?.length > 0 && (
+      <div>
+        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Parties
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {doc.extracted_data
+            .structured_analysis
+            .parties.map(
+              (
+                item: string,
+                idx: number
+              ) => (
+                <span
+                  key={idx}
+                  className="rounded-full border bg-white px-2 py-1 text-[11px]"
+                >
+                  {item}
+                </span>
+              )
+            )}
+        </div>
+      </div>
+    )}
+
+    {doc.extracted_data
+      ?.structured_analysis
+      ?.amounts?.length > 0 && (
+      <div>
+        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Amounts
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {doc.extracted_data
+            .structured_analysis
+            .amounts.map(
+              (
+                item: string,
+                idx: number
+              ) => (
+                <span
+                  key={idx}
+                  className="rounded-full bg-green-100 px-2 py-1 text-[11px] text-green-700"
+                >
+                  {item}
+                </span>
+              )
+            )}
+        </div>
+      </div>
+    )}
+
+    {doc.extracted_data
+      ?.structured_analysis
+      ?.dates?.length > 0 && (
+      <div>
+        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Dates
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {doc.extracted_data
+            .structured_analysis
+            .dates.map(
+              (
+                item: string,
+                idx: number
+              ) => (
+                <span
+                  key={idx}
+                  className="rounded-full bg-blue-100 px-2 py-1 text-[11px] text-blue-700"
+                >
+                  {item}
+                </span>
+              )
+            )}
+        </div>
+      </div>
+    )}
+
+    {doc.extracted_data
+      ?.structured_analysis
+      ?.recommended_actions
+      ?.length > 0 && (
+      <div>
+        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          Recommended actions
+        </div>
+
+        <div className="space-y-1">
+          {doc.extracted_data
+            .structured_analysis
+            .recommended_actions.map(
+              (
+                item: string,
+                idx: number
+              ) => (
+                <div
+                  key={idx}
+                  className="rounded-xl border bg-white px-3 py-2 text-xs"
+                >
+                  {item}
+                </div>
+              )
+            )}
+        </div>
+      </div>
+    )}
+  </div>
+)}
         </div>
 <div className="flex items-center gap-2">
 
