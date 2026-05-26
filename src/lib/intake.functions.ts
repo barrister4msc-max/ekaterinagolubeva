@@ -247,9 +247,10 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
       throw new Error("Не удалось сохранить обращение. Попробуйте позже.");
     }
 
-    const leadId = inserted.id;
+    const leadId = (inserted as { id: string }).id;
+    console.log("[finalizeLeadFn] lead inserted — DB returned:", inserted);
 
-    const { error: consentErr } = await supabaseAdmin
+    const { data: consentRow, error: consentErr } = await supabaseAdmin
       .from("lead_consents")
       .insert({
         lead_id: leadId,
@@ -263,17 +264,24 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
         legal_disclaimer_accepted: consent.legal_disclaimer_accepted,
         user_agent: consent.user_agent ?? null,
         page_url: consent.page_url ?? null,
-      } as never);
-    if (consentErr) console.error("lead_consents insert error:", consentErr);
+      } as never)
+      .select("id, consent_given, ai_processing_consent, legal_disclaimer_accepted")
+      .single();
+    if (consentErr) console.error("[finalizeLeadFn] lead_consents insert error:", consentErr);
+    else console.log("[finalizeLeadFn] lead_consents inserted:", consentRow);
 
-    const { error: evErr } = await supabaseAdmin
+    const { data: evRow, error: evErr } = await supabaseAdmin
       .from("lead_events")
       .insert({
         lead_id: leadId,
         type: "consent_given",
         message: "Пользователь дал согласие на обработку персональных данных и AI-анализ обращения.",
-      } as never);
-    if (evErr) console.error("lead_events insert error:", evErr);
+      } as never)
+      .select("id, type")
+      .single();
+    if (evErr) console.error("[finalizeLeadFn] lead_events insert error:", evErr);
+    else console.log("[finalizeLeadFn] lead_events inserted:", evRow);
+
 
     return { id: leadId, summary, urgency, next_step };
   });
