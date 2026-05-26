@@ -938,7 +938,7 @@ useEffect(() => {
             {items.map((item: unknown, idx: number) => (
               <span
                 key={idx}
-                className="rounded-full border bg-white px-2 py-1 text-[11px]"
+                className="rounded-2xl border bg-white px-3 py-2 text-[11px] max-w-full"
               >
                 {typeof item === "string" ? (
   item
