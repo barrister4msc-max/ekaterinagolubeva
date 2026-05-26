@@ -187,6 +187,33 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
     const consent = data.consent;
     const nowIso = new Date().toISOString();
 
+    const consentPayload = {
+      consent_given: true,
+      consent_timestamp: nowIso,
+      consent_version: consent.consent_version,
+      consent_source: consent.consent_source,
+      privacy_policy_version: consent.privacy_policy_version,
+      ai_processing_consent: consent.ai_processing_consent,
+      legal_disclaimer_accepted: consent.legal_disclaimer_accepted,
+      consent_user_agent: consent.user_agent ?? null,
+    };
+
+    console.log("[finalizeLeadFn] inserting lead", {
+      name: data.name,
+      phone: data.phone,
+      category: data.category ?? null,
+      source: data.source ?? "website",
+      consent_input: {
+        consent_given: consent.consent_given,
+        ai_processing_consent: consent.ai_processing_consent,
+        legal_disclaimer_accepted: consent.legal_disclaimer_accepted,
+        consent_source: consent.consent_source,
+        consent_version: consent.consent_version,
+        privacy_policy_version: consent.privacy_policy_version,
+      },
+      consent_payload_to_db: consentPayload,
+    });
+
     const { data: inserted, error } = await supabaseAdmin
       .from("leads")
       .insert({
@@ -209,17 +236,11 @@ export const finalizeLeadFn = createServerFn({ method: "POST" })
         utm_term: data.utm_term ?? null,
         landing_url: data.landing_url ?? null,
         referrer: data.referrer ?? null,
-        consent_given: true,
-        consent_timestamp: nowIso,
-        consent_version: consent.consent_version,
-        consent_source: consent.consent_source,
-        privacy_policy_version: consent.privacy_policy_version,
-        ai_processing_consent: consent.ai_processing_consent,
-        legal_disclaimer_accepted: consent.legal_disclaimer_accepted,
-        consent_user_agent: consent.user_agent ?? null,
+        ...consentPayload,
       } as never)
-      .select("id")
+      .select("id, consent_given, consent_timestamp, consent_source, consent_version, privacy_policy_version, ai_processing_consent, legal_disclaimer_accepted")
       .single();
+
 
     if (error) {
       console.error("Lead insert error:", error);
