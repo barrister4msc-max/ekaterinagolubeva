@@ -1055,6 +1055,48 @@ useEffect(() => {
     ))
   )}
 </div>
+       {analysisDoc && (
+  <div className="mt-8 rounded-3xl border bg-white p-6 shadow-[0_8px_40px_rgba(0,0,0,0.04)]">
+    <div className="mb-6 flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold">
+          AI анализ документа
+        </h3>
+
+        <p className="mt-1 text-xs text-muted-foreground">
+          {analysisDoc.file_name ||
+            analysisDoc.file_url.split("/").pop()}
+        </p>
+      </div>
+
+      <button
+        onClick={() => setAnalysisDoc(null)}
+        className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
+      >
+        Закрыть
+      </button>
+    </div>
+
+    <div className="space-y-4">
+      {Object.entries(
+        analysisDoc.extracted_data?.structured_analysis || {}
+      ).map(([key, value]) => (
+        <div
+          key={key}
+          className="rounded-2xl border bg-secondary/30 p-4"
+        >
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {key}
+          </div>
+
+          <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-6">
+            {JSON.stringify(value, null, 2)}
+          </pre>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 </section>
 )}
         {activeTab === "tasks" && (
