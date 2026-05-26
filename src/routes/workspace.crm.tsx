@@ -962,57 +962,93 @@ useEffect(() => {
 
       if (data?.signedUrl) {
         setPreviewUrl(data.signedUrl);
-setPreviewName(doc.file_url.split("/").pop() ?? "Документ");
+
+        setPreviewName(
+          doc.file_name ||
+          doc.file_url.split("/").pop() ||
+          "Документ"
+        );
       }
     }}
     className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
   >
     Открыть
   </button>
-<button
-  disabled={analyzingId === doc.id}
-  onClick={async () => {
-    try {
-      setAnalyzingId(doc.id);
 
-      const { error } = await supabase.functions.invoke(
-        "analyze-lead-document",
-        {
-          body: {
-            documentId: doc.id,
-          },
+  <button
+    disabled={analyzingId === doc.id}
+    onClick={async () => {
+      try {
+        setAnalyzingId(doc.id);
+
+        const { error } = await supabase.functions.invoke(
+          "analyze-lead-document",
+          {
+            body: {
+              documentId: doc.id,
+            },
+          }
+        );
+
+        if (error) {
+          console.error(error);
+          alert(error.message);
+          return;
         }
-      );
 
-      if (error) {
-        console.error(error);
-        alert(error.message);
+        await loadDocuments();
+
+        alert("AI анализ завершен");
+      } finally {
+        setAnalyzingId(null);
+      }
+    }}
+    className="rounded-xl border border-blue-200 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    {analyzingId === doc.id ? "Анализ..." : "AI анализ"}
+  </button>
+
+  <button
+    onClick={() => setAnalysisDoc(doc)}
+    className="rounded-xl border border-amber-200 px-3 py-2 text-xs text-amber-700 hover:bg-amber-50"
+  >
+    Показать анализ
+  </button>
+
+  <button
+    onClick={async () => {
+      const confirmed = confirm("Удалить документ?");
+      if (!confirmed) return;
+
+      const { error: storageError } = await supabase.storage
+        .from("lead-documents")
+        .remove([doc.file_url]);
+
+      if (storageError) {
+        console.error(storageError);
+        alert(storageError.message);
+        return;
+      }
+
+      const { error: dbError } = await supabase
+        .from("lead_documents")
+        .delete()
+        .eq("id", doc.id);
+
+      if (dbError) {
+        console.error(dbError);
+        alert(dbError.message);
         return;
       }
 
       await loadDocuments();
+    }}
+    className="rounded-xl border border-red-200 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
+  >
+    Удалить
+  </button>
 
-      alert("AI анализ завершен");
-    } finally {
-      setAnalyzingId(null);
-    }
-  }}
-  className="rounded-xl border border-blue-200 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
->
-  {analyzingId === doc.id ? "Анализ..." : "AI анализ"}
-</button>
-  {analyzingId === doc.id ? "Анализ..." : "AI анализ"}
-</button>
-
-<button
-  onClick={() => setAnalysisDoc(doc)}
-  className="rounded-xl border border-amber-200 px-3 py-2 text-xs text-amber-700 hover:bg-amber-50"
->
-  Показать анализ
-</button>
-
-<button
-  <button
+</div>
     onClick={async () => {
       const confirmed = confirm("Удалить документ?");
       if (!confirmed) return;
