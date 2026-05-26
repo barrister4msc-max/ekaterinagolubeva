@@ -55,8 +55,9 @@ export function AiChatDialog({ open, onClose }: { open: boolean; onClose: () => 
         <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-5 py-5 text-sm">
           <div className="rounded-lg border border-border/60 bg-secondary/30 p-3 text-[11px] leading-relaxed text-muted-foreground">
             Отправляя сообщение, вы соглашаетесь с обработкой персональных данных и использованием AI-ассистента для предварительного анализа обращения. AI-ассистент не заменяет индивидуальную юридическую консультацию. Подробнее:{" "}
-            <Link to="/privacy" onClick={onClose} className="text-primary underline underline-offset-2">/privacy</Link>{" "}и{" "}
-            <Link to="/consent" onClick={onClose} className="text-primary underline underline-offset-2">/consent</Link>.
+            <Link to="/privacy" onClick={onClose} className="text-primary underline underline-offset-2">/privacy</Link>,{" "}
+            <Link to="/consent" onClick={onClose} className="text-primary underline underline-offset-2">/consent</Link>{" "}и{" "}
+            <Link to="/ai-disclaimer" onClick={onClose} className="text-primary underline underline-offset-2">/ai-disclaimer</Link>.
           </div>
           {messages.length === 0 && (
             <div className="rounded-lg bg-secondary/40 p-4 text-foreground/75">
