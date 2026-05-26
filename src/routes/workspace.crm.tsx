@@ -762,18 +762,24 @@ const safeName = `document-${Date.now()}.${extension}`;
   alert("Документы загружены");
 };
 const loadDocuments = useCallback(async () => {
-  const { data, error } = await supabase
-    .from("lead_documents")
-    .select("*")
-    .eq("lead_id", lead.id)
-    .order("created_at", { ascending: false });
+  const { data, error } =
+    await supabase
+      .from("lead_documents")
+      .select("*")
+      .eq("lead_id", lead.id)
+      .order(
+        "created_at",
+        { ascending: false }
+      );
 
   if (error) {
     console.error(error);
-    return;
+    return [];
   }
 
   setDocuments(data || []);
+
+  return data || [];
 }, [lead.id]);
 
 useEffect(() => {
