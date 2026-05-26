@@ -844,40 +844,12 @@ useEffect(() => {
   multiple
   className="hidden"
   onChange={async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+  const files = Array.from(e.target.files || []);
 
-    for (const file of files) {
-      const filePath = `${lead.id}/${Date.now()}-${file.name}`;
+  await uploadDocuments(files);
 
-      const { error: uploadError } = await supabase.storage
-        .from("lead-documents")
-        .upload(filePath, file);
-
-      if (uploadError) {
-        console.error(uploadError);
-        alert(uploadError.message);
-        return;
-      }
-
-      const { error: dbError } = await supabase
-        .from("lead_documents")
-        .insert({
-          lead_id: lead.id,
-          file_url: filePath,
-        });
-
-      if (dbError) {
-        console.error(dbError);
-        alert(dbError.message);
-        return;
-      }
-    }
-
-    await loadDocuments();
-    alert("Документы загружены");
-    e.target.value = "";
-  }}
+  e.target.value = "";
+}}
 />
           
     </label>
