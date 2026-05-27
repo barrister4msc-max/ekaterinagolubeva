@@ -943,7 +943,7 @@ onDrop={(e) => e.preventDefault()}
             {new Date(doc.created_at).toLocaleDateString("ru-RU")}
           </div>
           {doc.analysis_status === "completed" && (
-  <div className="mt-3 max-w-md rounded-2xl border border-blue-100 bg-blue-50 p-3">
+  <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
     {doc.document_type && (
       <div className="text-xs font-medium text-blue-900">
         Тип: {doc.document_type}
