@@ -1,38 +1,43 @@
-import { MessageCircle, Send, Mail } from "lucide-react";
+import { MessageCircle, Send, Mail, Phone } from "lucide-react";
 import { useSiteSettings } from "@/hooks/use-site-settings";
+import { CONTACT_FALLBACK, pick } from "@/lib/contacts";
 
 /**
- * Renders contact-channel buttons (WhatsApp / Telegram / MAX / Email) for
- * channels the admin has configured. Empty channels are skipped — no
- * placeholder links. Variant controls visual style; layout is responsive grid.
+ * Renders contact-channel rows (Phone / Email / WhatsApp / Telegram / MAX).
+ * Phone and Email always render — falling back to canonical practice contacts
+ * if site_settings are empty — so the “Контакты” block is never blank.
+ * Messenger channels are only shown when the admin has configured them.
  */
 export function ContactChannels({
   variant = "ghost",
   className = "",
   showLabels = true,
   showEmail = true,
+  showPhone = true,
 }: {
   variant?: "ghost" | "minimal";
   className?: string;
   showLabels?: boolean;
   showEmail?: boolean;
+  showPhone?: boolean;
 }) {
   const { settings, loaded } = useSiteSettings();
   if (!loaded) return null;
 
+  const phone = pick(settings.contact_phone, CONTACT_FALLBACK.contact_phone);
+  const email = pick(settings.contact_email, CONTACT_FALLBACK.contact_email);
+
   const items: { href: string; icon: typeof MessageCircle; label: string }[] = [];
+
+  if (showPhone)
+    items.push({ href: CONTACT_FALLBACK.contact_phone_tel, icon: Phone, label: phone });
+  if (showEmail) items.push({ href: `mailto:${email}`, icon: Mail, label: email });
   if (settings.contact_whatsapp_url)
     items.push({ href: settings.contact_whatsapp_url, icon: MessageCircle, label: "WhatsApp" });
   if (settings.contact_telegram_url)
     items.push({ href: settings.contact_telegram_url, icon: Send, label: "Telegram" });
   if (settings.contact_max_url)
     items.push({ href: settings.contact_max_url, icon: Send, label: "MAX" });
-  if (showEmail && settings.contact_email)
-    items.push({
-      href: `mailto:${settings.contact_email}`,
-      icon: Mail,
-      label: settings.contact_email,
-    });
 
   if (items.length === 0) return null;
 
