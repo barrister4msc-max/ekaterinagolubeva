@@ -1201,6 +1201,11 @@ alert("AI анализ завершен");
               {renderList("Возможные совпадения с нежелательными организациями", rf.undesirable_organization_mentions, true)}
               {renderList("Возможные совпадения с экстремистскими / террористическими перечнями", rf.extremist_or_terrorist_mentions, true)}
               {renderList("Санкционные / репутационные флаги", rf.sanctions_or_reputation_flags, true)}
+              {renderList(
+  "Потенциальные AML/KYC флаги",
+  rf.aml_flags,
+  true
+)}
               {renderList("Что проверить по официальным реестрам", rf.recommended_registry_checks, true)}
             </div>
 
