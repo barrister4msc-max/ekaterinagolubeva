@@ -65,7 +65,7 @@ export function useSiteSettings() {
           setSettings({ ...DEFAULTS, ...clean });
         }
         setLoaded(true);
-      });
+      }, () => setLoaded(true));
   }, []);
 
   return { settings, setSettings, loaded };
