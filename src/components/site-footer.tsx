@@ -1,12 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { FooterLegalInfo } from "./footer-legal-info";
 import { useSiteSettings } from "@/hooks/use-site-settings";
+import { CONTACT_FALLBACK, pick } from "@/lib/contacts";
 
 export function SiteFooter() {
   const { settings } = useSiteSettings();
-  const { contact_whatsapp_url, contact_telegram_url, contact_max_url, contact_email } = settings;
-  const hasChannels =
-    contact_whatsapp_url || contact_telegram_url || contact_max_url || contact_email;
+  const { contact_whatsapp_url, contact_telegram_url, contact_max_url } = settings;
+  const contact_email = pick(settings.contact_email, CONTACT_FALLBACK.contact_email);
+  const contact_phone = pick(settings.contact_phone, CONTACT_FALLBACK.contact_phone);
+
 
   return (
     <footer className="mt-32 border-t border-border bg-background">
