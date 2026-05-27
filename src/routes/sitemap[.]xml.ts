@@ -50,7 +50,21 @@ export const Route = createFileRoute("/sitemap.xml")({
 
         const rows: SeoPageRow[] = data ?? [];
 
-        const staticEntries = [{ path: "/", changefreq: "weekly", priority: "1.0" }];
+        const staticEntries: { path: string; changefreq: string; priority: string }[] = [
+          { path: "/", changefreq: "weekly", priority: "1.0" },
+          { path: "/about", changefreq: "monthly", priority: "0.8" },
+          { path: "/ekaterina-golubeva", changefreq: "monthly", priority: "0.9" },
+          { path: "/real-estate", changefreq: "monthly", priority: "0.8" },
+          { path: "/contact", changefreq: "monthly", priority: "0.7" },
+          { path: "/reviews", changefreq: "monthly", priority: "0.6" },
+          { path: "/privacy", changefreq: "yearly", priority: "0.3" },
+          { path: "/terms", changefreq: "yearly", priority: "0.3" },
+          { path: "/consent", changefreq: "yearly", priority: "0.3" },
+          { path: "/ai-disclaimer", changefreq: "yearly", priority: "0.3" },
+          { path: "/arbitrazhnye-spory", changefreq: "monthly", priority: "0.8" },
+          { path: "/nedvizhimost", changefreq: "monthly", priority: "0.8" },
+          { path: "/litigation", changefreq: "monthly", priority: "0.7" },
+        ];
 
         const urls: string[] = [];
 
