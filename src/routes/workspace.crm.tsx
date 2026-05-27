@@ -965,8 +965,7 @@ onDrop={(e) => e.preventDefault()}
           </span>
         ))}
       </div>
-     </div>
-)}
+    )}
 
     {doc.ai_summary && (
   <div className="mt-2 line-clamp-6 overflow-hidden text-xs leading-5 text-muted-foreground">
