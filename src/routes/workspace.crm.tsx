@@ -968,20 +968,7 @@ onDrop={(e) => e.preventDefault()}
 
   
 
-    {doc.ai_risks?.length > 0 && (
-      <div className="mt-3 flex flex-wrap gap-2">
-        {doc.ai_risks.map((risk: string, idx: number) => (
-          <span
-            key={idx}
-            className="rounded-full bg-red-100 px-2 py-1 text-[11px] text-red-700"
-          >
-            {risk}
-          </span>
-        ))}
-      </div>
-    )}
-  </div>
-)}
+    
         </div>
 <div className="flex items-center gap-2">
 
