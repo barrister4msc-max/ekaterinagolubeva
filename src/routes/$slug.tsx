@@ -99,10 +99,11 @@ function SeoPageComponent() {
   })();
 
   const category = getCategoryForSlug(page.slug);
-  const breadcrumbTrail: { label: string; href?: string }[] = [
+  type Crumb = { label: string; href?: string };
+  const breadcrumbTrail: Crumb[] = [
     { label: "Главная", href: "/" },
     ...(category
-      ? [{ label: category.label, ...(category.path ? { href: category.path } : {}) }]
+      ? [{ label: category.label, ...(category.path ? { href: category.path } : {}) } as Crumb]
       : []),
     { label: page.h1_ru || page.title_ru },
   ];
@@ -119,7 +120,8 @@ function SeoPageComponent() {
     })),
   };
 
-  const schemaScripts: { type: string; children: string }[] = [
+  type SchemaScript = { type: string; children: string };
+  const schemaScripts: SchemaScript[] = [
     { type: "application/ld+json", children: JSON.stringify(breadcrumbSchema) },
   ];
   if (page.schema_json && typeof page.schema_json === "object") {
