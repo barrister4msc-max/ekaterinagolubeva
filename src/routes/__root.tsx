@@ -63,6 +63,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Legal Advisor — Premium Legal Real Estate Advisor в Москве" },
       { name: "description", content: "Спокойное юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и дистанционно по России." },
       { name: "author", content: "Legal Advisor" },
+      { name: "yandex-verification", content: "925f786bea446022" },
       { property: "og:site_name", content: "Legal Advisor" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
