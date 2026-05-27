@@ -610,6 +610,42 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_knowledge_chunks: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          source_type: string | null
+          title: string | null
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          source_type?: string | null
+          title?: string | null
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          source_type?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
