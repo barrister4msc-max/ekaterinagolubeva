@@ -1,0 +1,1 @@
+ALTER TABLE public.legal_knowledge_chunks ENABLE ROW LEVEL SECURITY;
