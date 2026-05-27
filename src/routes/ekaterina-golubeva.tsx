@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell, BulletSection } from "@/components/page-shell";
 import { ContactChannels } from "@/components/contact-channels";
+import { TrustBlock } from "@/components/trust-block";
 import portrait from "@/assets/ekaterina-portrait.jpg";
 
 const SITE_URL = "https://legalpracticelife.ru";
@@ -150,6 +151,9 @@ function EkaterinaGolubevaPage() {
           { title: "Судебное представительство", text: "Полное ведение дела в судах общей юрисдикции и арбитраже." },
         ]}
       />
+      <div className="container-wide pb-12">
+        <TrustBlock />
+      </div>
     </PageShell>
   );
 }
