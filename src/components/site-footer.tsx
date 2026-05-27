@@ -45,27 +45,33 @@ export function SiteFooter() {
 
           <div>
             <div className="eyebrow mb-4">Контакты</div>
-            {hasChannels ? (
-              <ul className="space-y-2 text-sm">
-                {contact_whatsapp_url && (
-                  <li><a href={contact_whatsapp_url} target="_blank" rel="noreferrer" className="text-foreground/80 hover:text-primary">WhatsApp</a></li>
-                )}
-                {contact_telegram_url && (
-                  <li><a href={contact_telegram_url} target="_blank" rel="noreferrer" className="text-foreground/80 hover:text-primary">Telegram</a></li>
-                )}
-                {contact_max_url && (
-                  <li><a href={contact_max_url} target="_blank" rel="noreferrer" className="text-foreground/80 hover:text-primary">MAX</a></li>
-                )}
-                {contact_email && (
-                  <li><a href={`mailto:${contact_email}`} className="text-foreground/80 hover:text-primary">Email</a></li>
-                )}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                <Link to="/contact" className="hover:text-primary">Связаться через форму</Link>
-              </p>
-            )}
+            <ul className="space-y-2 text-sm">
+              <li>
+                <a href={CONTACT_FALLBACK.contact_phone_tel} className="text-foreground/80 hover:text-primary">
+                  {contact_phone}
+                </a>
+              </li>
+              <li>
+                <a href={`mailto:${contact_email}`} className="text-foreground/80 hover:text-primary">
+                  {contact_email}
+                </a>
+              </li>
+              <li className="text-muted-foreground">
+                {CONTACT_FALLBACK.legal_form} · {CONTACT_FALLBACK.legal_full_name}
+              </li>
+              <li className="text-muted-foreground">{CONTACT_FALLBACK.legal_address}</li>
+              {contact_whatsapp_url && (
+                <li><a href={contact_whatsapp_url} target="_blank" rel="noreferrer" className="text-foreground/80 hover:text-primary">WhatsApp</a></li>
+              )}
+              {contact_telegram_url && (
+                <li><a href={contact_telegram_url} target="_blank" rel="noreferrer" className="text-foreground/80 hover:text-primary">Telegram</a></li>
+              )}
+              {contact_max_url && (
+                <li><a href={contact_max_url} target="_blank" rel="noreferrer" className="text-foreground/80 hover:text-primary">MAX</a></li>
+              )}
+            </ul>
           </div>
+
         </div>
         <FooterLegalInfo />
 
