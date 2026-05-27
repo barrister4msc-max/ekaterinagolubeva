@@ -46,6 +46,7 @@ import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
 import { Route as WorkspaceCrmRouteImport } from './routes/workspace.crm'
+import { Route as WorkspaceAiPodborRouteImport } from './routes/workspace.ai-podbor'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
@@ -235,6 +236,11 @@ const WorkspaceCrmRoute = WorkspaceCrmRouteImport.update({
   path: '/crm',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceAiPodborRoute = WorkspaceAiPodborRouteImport.update({
+  id: '/ai-podbor',
+  path: '/ai-podbor',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -285,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
@@ -327,6 +334,7 @@ export interface FileRoutesByTo {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
@@ -370,6 +378,7 @@ export interface FileRoutesById {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
@@ -414,6 +423,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/workspace/ai-podbor'
     | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/leads'
@@ -456,6 +466,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/workspace/ai-podbor'
     | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/leads'
@@ -498,6 +509,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/workspace/ai-podbor'
     | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/leads'
@@ -804,6 +816,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceCrmRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/ai-podbor': {
+      id: '/workspace/ai-podbor'
+      path: '/ai-podbor'
+      fullPath: '/workspace/ai-podbor'
+      preLoaderRoute: typeof WorkspaceAiPodborRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -839,6 +858,7 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface WorkspaceRouteChildren {
+  WorkspaceAiPodborRoute: typeof WorkspaceAiPodborRoute
   WorkspaceCrmRoute: typeof WorkspaceCrmRoute
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
@@ -849,6 +869,7 @@ interface WorkspaceRouteChildren {
 }
 
 const WorkspaceRouteChildren: WorkspaceRouteChildren = {
+  WorkspaceAiPodborRoute: WorkspaceAiPodborRoute,
   WorkspaceCrmRoute: WorkspaceCrmRoute,
   WorkspaceDashboardRoute: WorkspaceDashboardRoute,
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
