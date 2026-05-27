@@ -896,18 +896,28 @@ useEffect(() => {
   </div>
 <div
   className="mt-6 rounded-2xl border border-dashed border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground"
+  onDragEnter={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }}
   onDragOver={(e) => {
     e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
   }}
   onDrop={async (e) => {
-  e.preventDefault();
+    e.preventDefault();
+    e.stopPropagation();
 
-  const files = Array.from(
-    e.dataTransfer.files || []
-  );
+    const files = Array.from(e.dataTransfer.files || []);
 
-  await uploadDocuments(files);
-}}
+    if (files.length === 0) {
+      alert("Файл не найден");
+      return;
+    }
+
+    await uploadDocuments(files);
+  }}
 >
   Перетащите документы сюда
 </div>
