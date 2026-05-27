@@ -789,6 +789,8 @@ useEffect(() => {
     <div
       className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-md"
       onClick={onClose}
+      onDragOver={(e) => e.preventDefault()}
+onDrop={(e) => e.preventDefault()}
     >
       <aside
         onClick={(e) => e.stopPropagation()}
