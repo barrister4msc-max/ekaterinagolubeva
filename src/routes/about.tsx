@@ -199,6 +199,13 @@ function AboutPage() {
             jobTitle: "Юрист по недвижимости и судебным спорам",
             url: `${SITE_BASE}/about`,
             ...(photo ? { image: photo } : {}),
+            telephone: "+7 (995) 099-58-98",
+            email: "legallife2026@yandex.ru",
+            address: {
+              "@type": "PostalAddress",
+              addressLocality: "Москва",
+              addressCountry: "RU",
+            },
             knowsAbout: [
               "Недвижимость",
               "Аренда",
@@ -213,7 +220,10 @@ function AboutPage() {
               name: `${name} — Legal Real Estate Advisor`,
               areaServed: ["Москва", "Московская область", "Российская Федерация"],
               url: SITE_BASE,
+              telephone: "+7 (995) 099-58-98",
+              email: "legallife2026@yandex.ru",
             },
+
           }),
         }}
       />
