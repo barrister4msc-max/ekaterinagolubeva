@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import heroFallback from "@/assets/hero-advisor.jpg";
+import ekaterinaPortrait from "@/assets/ekaterina-portrait.jpg";
 
 export interface SiteSettings {
   hero_image_url: string | null;
