@@ -9,6 +9,7 @@ import {
 } from "@/lib/seo-pages.functions";
 import { ContactCta } from "@/components/contact-cta";
 import { ContactChannels } from "@/components/contact-channels";
+import { TrustBlock } from "@/components/trust-block";
 import { getCategoryForSlug, isSameCategory } from "@/lib/seo-categories";
 
 const SITE_URL = "https://legalpracticelife.ru";
@@ -230,6 +231,10 @@ function SeoPageComponent() {
           </div>
         </section>
       )}
+
+      <div className="container-wide pb-16">
+        <TrustBlock />
+      </div>
     </main>
   );
 }

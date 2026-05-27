@@ -15,9 +15,9 @@ import { ReviewsSection } from "@/components/reviews-section";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Екатерина Голубева — Premium Legal Real Estate Advisor в Москве" },
+      { title: "Екатерина Голубева — Legal Real Estate Advisor в Москве" },
       { name: "description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров. Москва, МО и дистанционно по России." },
-      { property: "og:title", content: "Екатерина Голубева — Premium Legal Real Estate Advisor" },
+      { property: "og:title", content: "Екатерина Голубева — Legal Real Estate Advisor" },
       { property: "og:description", content: "Спокойное сопровождение сделок с недвижимостью, аренды, договоров и судебных споров. Trusted Representative in Russia." },
       { property: "og:url", content: "https://legalpracticelife.ru/" },
     ],
@@ -105,7 +105,7 @@ function HomePage() {
                 src={url ? heroSrc(url, 900) : heroImg}
                 srcSet={url ? heroSrcSet(url) : undefined}
                 sizes="(min-width: 768px) 36vw, 85vw"
-                alt="Екатерина Голубева — Premium Legal Real Estate Advisor"
+                alt="Екатерина Голубева — Legal Real Estate Advisor"
                 width={900}
                 height={1125}
                 fetchPriority="high"
