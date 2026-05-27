@@ -971,7 +971,7 @@ onDrop={(e) => e.preventDefault()}
 
     
         </div>
-<div className="flex items-center gap-2">
+<div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto">
 
   <button
     onClick={async () => {
