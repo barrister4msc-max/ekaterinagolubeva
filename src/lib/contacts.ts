@@ -4,7 +4,7 @@
  * empty in site_settings (null / undefined / ""), the value here is used.
  */
 export const CONTACT_FALLBACK = {
-  legal_form: "Самозанятый",
+  legal_form: "Самозанятая",
   legal_full_name: "Голубева Е. А.",
   legal_full_name_long: "Голубева Екатерина Александровна",
   legal_address: "Москва, Россия",

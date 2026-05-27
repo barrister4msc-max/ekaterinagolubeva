@@ -213,7 +213,7 @@ function SettingsPage() {
       {/* LEGAL */}
       <Card title="Юридические реквизиты">
         <div className="grid gap-5 md:grid-cols-2">
-          <Input label="Форма (ИП / Самозанятый / ООО)" value={settings.legal_form ?? ""} onChange={(v) => set("legal_form", v || null)} />
+          <Input label="Форма (ИП / Самозанятая / ООО)" value={settings.legal_form ?? ""} onChange={(v) => set("legal_form", v || null)} />
           <Input label="ФИО полностью" value={settings.legal_full_name ?? ""} onChange={(v) => set("legal_full_name", v || null)} />
           <Input label="ИНН" value={settings.legal_inn ?? ""} onChange={(v) => set("legal_inn", v || null)} />
           <Input label="ОГРНИП / ОГРН" value={settings.legal_ogrnip ?? ""} onChange={(v) => set("legal_ogrnip", v || null)} />

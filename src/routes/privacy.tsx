@@ -23,7 +23,7 @@ export const Route = createFileRoute("/privacy")({
 function PrivacyPage() {
   const { settings } = useSiteSettings();
   const operator = [settings.legal_form, settings.legal_full_name].filter(Boolean).join(" · ") ||
-    "Самозанятый · Голубева Екатерина Александровна";
+    "Самозанятая · Голубева Екатерина Александровна";
 
   return (
     <main>
