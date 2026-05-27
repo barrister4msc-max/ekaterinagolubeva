@@ -673,6 +673,180 @@ export type Database = {
         }
         Relationships: []
       }
+      properties: {
+        Row: {
+          address: string | null
+          ai_summary: string | null
+          area: number | null
+          created_at: string
+          description: string | null
+          district: string | null
+          id: string
+          images: Json | null
+          investment_score: number | null
+          is_active: boolean
+          last_seen_at: string | null
+          legal_risk_score: number | null
+          price: number | null
+          property_type: string | null
+          risk_flags: Json | null
+          source: string | null
+          source_url: string | null
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          ai_summary?: string | null
+          area?: number | null
+          created_at?: string
+          description?: string | null
+          district?: string | null
+          id?: string
+          images?: Json | null
+          investment_score?: number | null
+          is_active?: boolean
+          last_seen_at?: string | null
+          legal_risk_score?: number | null
+          price?: number | null
+          property_type?: string | null
+          risk_flags?: Json | null
+          source?: string | null
+          source_url?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          ai_summary?: string | null
+          area?: number | null
+          created_at?: string
+          description?: string | null
+          district?: string | null
+          id?: string
+          images?: Json | null
+          investment_score?: number | null
+          is_active?: boolean
+          last_seen_at?: string | null
+          legal_risk_score?: number | null
+          price?: number | null
+          property_type?: string | null
+          risk_flags?: Json | null
+          source?: string | null
+          source_url?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      property_matches: {
+        Row: {
+          ai_reason: string | null
+          created_at: string
+          id: string
+          legal_comment: string | null
+          match_score: number | null
+          property_id: string
+          request_id: string
+          status: string
+        }
+        Insert: {
+          ai_reason?: string | null
+          created_at?: string
+          id?: string
+          legal_comment?: string | null
+          match_score?: number | null
+          property_id: string
+          request_id: string
+          status?: string
+        }
+        Update: {
+          ai_reason?: string | null
+          created_at?: string
+          id?: string
+          legal_comment?: string | null
+          match_score?: number | null
+          property_id?: string
+          request_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_matches_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_matches_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "property_search_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_search_requests: {
+        Row: {
+          ai_summary: string | null
+          area_max: number | null
+          area_min: number | null
+          budget_max: number | null
+          budget_min: number | null
+          client_comment: string | null
+          client_name: string
+          contact_method: string | null
+          created_at: string
+          districts: string[] | null
+          goal: string | null
+          id: string
+          phone: string
+          property_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          area_max?: number | null
+          area_min?: number | null
+          budget_max?: number | null
+          budget_min?: number | null
+          client_comment?: string | null
+          client_name: string
+          contact_method?: string | null
+          created_at?: string
+          districts?: string[] | null
+          goal?: string | null
+          id?: string
+          phone: string
+          property_type: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          area_max?: number | null
+          area_min?: number | null
+          budget_max?: number | null
+          budget_min?: number | null
+          client_comment?: string | null
+          client_name?: string
+          contact_method?: string | null
+          created_at?: string
+          districts?: string[] | null
+          goal?: string | null
+          id?: string
+          phone?: string
+          property_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       seo_pages: {
         Row: {
           canonical_path: string | null
