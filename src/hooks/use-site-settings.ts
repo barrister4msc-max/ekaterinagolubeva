@@ -58,7 +58,12 @@ export function useSiteSettings() {
       .eq("id", 1)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setSettings({ ...DEFAULTS, ...(data as Partial<SiteSettings>) });
+        if (data) {
+          const clean = Object.fromEntries(
+            Object.entries(data as Record<string, unknown>).filter(([, v]) => v !== null && v !== undefined && v !== "")
+          ) as Partial<SiteSettings>;
+          setSettings({ ...DEFAULTS, ...clean });
+        }
         setLoaded(true);
       });
   }, []);
