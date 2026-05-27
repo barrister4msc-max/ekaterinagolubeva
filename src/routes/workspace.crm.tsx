@@ -1163,7 +1163,10 @@ alert("AI анализ завершен");
   : "Структурное резюме пока не сформировано. Выполните AI анализ повторно."}
             </div>
             {analysisDoc.ai_summary && !a.short_summary && (
-  <details className="rounded-2xl border bg-white p-4">
+  <details
+  open={false}
+  className="rounded-2xl border bg-white p-4"
+>
     <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted-foreground">
       Показать сырой OCR-текст
     </summary>
