@@ -411,7 +411,7 @@ function HomePage() {
 
           <div className="md:col-span-6 card-soft flex flex-col justify-between gap-6">
             <div>
-              <div className="eyebrow mb-3">AI-помощник</div>
+              <div className="eyebrow mb-3">&nbsp;</div>
               <p className="text-base leading-relaxed">
                 Опишите ситуацию в защищённой форме. AI-помощник задаст
                 2–3 уточняющих вопроса и подготовит сводку для разбора.
