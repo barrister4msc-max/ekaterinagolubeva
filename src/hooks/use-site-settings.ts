@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import heroFallback from "@/assets/hero-advisor.jpg";
+import ekaterinaPortrait from "@/assets/ekaterina-portrait.jpg";
 
 export interface SiteSettings {
   hero_image_url: string | null;
@@ -40,7 +41,7 @@ const DEFAULTS: SiteSettings = {
   contact_whatsapp_url: null,
   contact_max_url: null,
   site_domain: null,
-  advisor_photo_url: null,
+  advisor_photo_url: ekaterinaPortrait,
 };
 
 const ALL_COLUMNS =
@@ -57,7 +58,12 @@ export function useSiteSettings() {
       .eq("id", 1)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setSettings({ ...DEFAULTS, ...(data as Partial<SiteSettings>) });
+        if (data) {
+          const clean = Object.fromEntries(
+            Object.entries(data as Record<string, unknown>).filter(([, v]) => v !== null && v !== undefined && v !== "")
+          ) as Partial<SiteSettings>;
+          setSettings({ ...DEFAULTS, ...clean });
+        }
         setLoaded(true);
       });
   }, []);
