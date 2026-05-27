@@ -1,66 +1,51 @@
 import { useSiteSettings, telHref } from "@/hooks/use-site-settings";
+import { CONTACT_FALLBACK, pick } from "@/lib/contacts";
 
 /**
- * Legal/YMYL trust block for the footer. Reads business identity, contacts
- * and address from site_settings (editable by admin in /workspace/settings).
- * Fields that the admin hasn't filled in yet are hidden — no placeholders.
+ * Legal/YMYL trust block for the footer. Falls back to the canonical practice
+ * identity (см. CONTACT_FALLBACK) if site_settings fields are empty, so the
+ * footer never renders blank.
  */
 export function FooterLegalInfo() {
   const { settings, loaded } = useSiteSettings();
   if (!loaded) return null;
 
-  // Static defaults reflect the registered practice identity. Admin-edited
-  // values in site_settings still override per field.
-  const {
-    legal_form = "Самозанятый",
-    legal_full_name = "Голубева Екатерина Александровна",
-    legal_inn,
-    legal_ogrnip,
-    legal_address = "Москва, Россия",
-    contact_email = "legallife2026@yandex.ru",
-    contact_phone = "+7 (995) 099-58-98",
-    site_domain,
-  } = {
-    ...settings,
-    legal_form: settings.legal_form ?? "Самозанятый",
-    legal_full_name: settings.legal_full_name ?? "Голубева Екатерина Александровна",
-    legal_address: settings.legal_address ?? "Москва, Россия",
-    contact_email: settings.contact_email ?? "legallife2026@yandex.ru",
-    contact_phone: settings.contact_phone ?? "+7 (995) 099-58-98",
-  };
+  const legal_form = pick(settings.legal_form, CONTACT_FALLBACK.legal_form);
+  const legal_full_name = pick(
+    settings.legal_full_name,
+    CONTACT_FALLBACK.legal_full_name_long,
+  );
+  const legal_address = pick(settings.legal_address, CONTACT_FALLBACK.legal_address);
+  const contact_email = pick(settings.contact_email, CONTACT_FALLBACK.contact_email);
+  const contact_phone = pick(settings.contact_phone, CONTACT_FALLBACK.contact_phone);
+  const { legal_inn, legal_ogrnip, site_domain } = settings;
 
-  const tel = telHref(contact_phone);
+  const tel = telHref(contact_phone) ?? CONTACT_FALLBACK.contact_phone_tel;
 
-  const hasRequisites = legal_form || legal_full_name || legal_inn || legal_ogrnip;
-  const hasContacts = contact_email || contact_phone || legal_address;
-
-  // Schema.org payload only for fields that are filled.
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "LegalService",
-    name: legal_full_name
-      ? `${legal_full_name} — Legal Real Estate Advisor`
-      : "Екатерина Голубева — Legal Real Estate Advisor",
+    name: `${legal_full_name} — Legal Real Estate Advisor`,
     description:
       "Юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и по России.",
     url: site_domain || "https://legalpracticelife.ru",
     areaServed: ["Москва", "Московская область", "Российская Федерация"],
-    founder: {
-      "@type": "Person",
-      name: legal_full_name || "Екатерина Голубева",
-      jobTitle: "Юрист по недвижимости и судебным спорам",
-    },
-  };
-  if (contact_email) schema.email = contact_email;
-  if (contact_phone) schema.telephone = contact_phone;
-  if (legal_address) {
-    schema.address = {
+    email: contact_email,
+    telephone: contact_phone,
+    address: {
       "@type": "PostalAddress",
       addressLocality: "Москва",
-      streetAddress: legal_address,
       addressCountry: "RU",
-    };
-  }
+      streetAddress: legal_address,
+    },
+    founder: {
+      "@type": "Person",
+      name: legal_full_name,
+      jobTitle: "Юрист по недвижимости и судебным спорам",
+      telephone: contact_phone,
+      email: contact_email,
+    },
+  };
 
   return (
     <section
@@ -68,45 +53,33 @@ export function FooterLegalInfo() {
       className="mt-12 border-t border-border pt-8 text-xs leading-relaxed text-muted-foreground"
     >
       <div className="grid gap-6 md:grid-cols-3">
-        {hasRequisites && (
-          <div>
-            <div className="eyebrow mb-3 text-[10px] text-foreground/70">Реквизиты</div>
-            <ul className="space-y-1">
-              {(legal_form || legal_full_name) && (
-                <li>
-                  {[legal_form, legal_full_name].filter(Boolean).join(" · ")}
-                </li>
-              )}
-              {legal_inn && <li>ИНН: {legal_inn}</li>}
-              {legal_ogrnip && <li>ОГРНИП: {legal_ogrnip}</li>}
-            </ul>
-          </div>
-        )}
+        <div>
+          <div className="eyebrow mb-3 text-[10px] text-foreground/70">Реквизиты</div>
+          <ul className="space-y-1">
+            <li>{legal_form} · {legal_full_name}</li>
+            {legal_inn && <li>ИНН: {legal_inn}</li>}
+            {legal_ogrnip && <li>ОГРНИП: {legal_ogrnip}</li>}
+          </ul>
+        </div>
 
-        {hasContacts && (
-          <div>
-            <div className="eyebrow mb-3 text-[10px] text-foreground/70">Контакты</div>
-            <ul className="space-y-1">
-              {contact_email && (
-                <li>
-                  Email:{" "}
-                  <a href={`mailto:${contact_email}`} className="text-foreground/80 hover:text-primary">
-                    {contact_email}
-                  </a>
-                </li>
-              )}
-              {tel && (
-                <li>
-                  Телефон:{" "}
-                  <a href={tel} className="text-foreground/80 hover:text-primary">
-                    {contact_phone}
-                  </a>
-                </li>
-              )}
-              {legal_address && <li>Адрес: {legal_address}</li>}
-            </ul>
-          </div>
-        )}
+        <div>
+          <div className="eyebrow mb-3 text-[10px] text-foreground/70">Контакты</div>
+          <ul className="space-y-1">
+            <li>
+              Телефон:{" "}
+              <a href={tel} className="text-foreground/80 hover:text-primary">
+                {contact_phone}
+              </a>
+            </li>
+            <li>
+              Email:{" "}
+              <a href={`mailto:${contact_email}`} className="text-foreground/80 hover:text-primary">
+                {contact_email}
+              </a>
+            </li>
+            <li>Адрес: {legal_address}</li>
+          </ul>
+        </div>
 
         <div>
           <div className="eyebrow mb-3 text-[10px] text-foreground/70">Документы</div>
