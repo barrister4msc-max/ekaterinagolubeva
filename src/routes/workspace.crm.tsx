@@ -1256,11 +1256,19 @@ alert("AI анализ завершен");
         </div>
       </div>
 
-      <iframe
-        src={previewUrl}
-        className="h-[calc(90vh-72px)] w-full rounded-2xl border"
-        title={previewName || "Document preview"}
-      />
+      {previewUrl?.match(/\.(jpg|jpeg|png|webp)$/i) ? (
+  <img
+    src={previewUrl}
+    alt={previewName || "preview"}
+    className="h-[calc(90vh-72px)] w-full rounded-2xl border object-contain bg-black/5"
+  />
+) : (
+  <iframe
+    src={previewUrl}
+    className="h-[calc(90vh-72px)] w-full rounded-2xl border"
+    title={previewName || "Document preview"}
+  />
+)}
     </div>
   </div>
 )}
