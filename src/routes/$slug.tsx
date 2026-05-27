@@ -9,6 +9,7 @@ import {
 } from "@/lib/seo-pages.functions";
 import { ContactCta } from "@/components/contact-cta";
 import { ContactChannels } from "@/components/contact-channels";
+import { getCategoryForSlug, isSameCategory } from "@/lib/seo-categories";
 
 const SITE_URL = "https://legalpracticelife.ru";
 
