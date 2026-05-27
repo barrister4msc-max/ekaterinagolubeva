@@ -152,6 +152,23 @@ function SeoPageComponent() {
       <section className="border-b border-border bg-secondary/30">
         <div className="container-wide py-20 md:py-28">
           <div className="max-w-3xl">
+            <nav aria-label="breadcrumb" className="mb-6 text-xs text-muted-foreground">
+              <ol className="flex flex-wrap items-center gap-1.5">
+                {breadcrumbTrail.map((c, i) => {
+                  const isLast = i === breadcrumbTrail.length - 1;
+                  return (
+                    <li key={i} className="flex items-center gap-1.5">
+                      {c.href && !isLast ? (
+                        <a href={c.href} className="hover:text-primary">{c.label}</a>
+                      ) : (
+                        <span className={isLast ? "text-foreground/70" : ""}>{c.label}</span>
+                      )}
+                      {!isLast && <span aria-hidden>/</span>}
+                    </li>
+                  );
+                })}
+              </ol>
+            </nav>
             <h1 className="text-4xl md:text-6xl">{page.h1_ru}</h1>
             {page.meta_description_ru && (
               <p className="mt-6 text-base leading-relaxed text-muted-foreground md:text-lg">
