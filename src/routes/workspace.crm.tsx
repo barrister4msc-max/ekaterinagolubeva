@@ -1140,20 +1140,23 @@ alert("AI анализ завершен");
             </div>
 
             {arr.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="space-y-2">
                 {arr.map((item: any, idx: number) => (
                   <span
-                    key={idx}
-                    className={`rounded-full px-3 py-1 text-xs ${
-                      red
-                        ? "bg-red-100 text-red-700"
-                        : "bg-white text-muted-foreground"
-                    }`}
-                  >
-                    {typeof item === "string"
-                      ? item
-                      : JSON.stringify(item)}
-                  </span>
+  key={idx}
+  className={`max-w-full whitespace-normal break-words rounded-2xl px-3 py-2 text-xs leading-5 ${
+    red
+      ? "bg-red-100 text-red-700"
+      : "bg-secondary text-muted-foreground"
+  }`}
+>
+  {typeof item === "string"
+    ? item
+    : Object.entries(item)
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k}: ${String(v)}`)
+        .join(" · ")}
+</span>
                 ))}
               </div>
             ) : (
