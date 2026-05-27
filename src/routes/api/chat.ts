@@ -5,7 +5,7 @@ import { createLovableAiGatewayProvider } from "@/lib/ai-gateway";
 
 type ChatRequestBody = { messages?: unknown };
 
-const SYSTEM_PROMPT = `Ты — вежливый ассистент юриста Екатерины Голубевой (Premium Legal Real Estate Advisor, Москва).
+const SYSTEM_PROMPT = `Ты — вежливый ассистент юриста Екатерины Голубевой (Legal Real Estate Advisor, Москва).
 Специализация: недвижимость, аренда, договоры, судебные споры, представительство за границей.
 
 Правила:

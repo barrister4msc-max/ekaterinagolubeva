@@ -45,7 +45,7 @@ export function SiteHeader() {
             className="text-[9px] uppercase tracking-[0.28em] md:text-[10px]"
             style={{ color: "#B89B72", lineHeight: 1.4 }}
           >
-            Premium Legal Real Estate Advisor
+            Legal Real Estate Advisor
           </span>
           <span className="mt-1.5 font-display text-lg leading-[1.1] text-foreground md:text-xl">
             Екатерина Голубева

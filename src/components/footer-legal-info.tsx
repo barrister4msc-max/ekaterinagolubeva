@@ -30,8 +30,8 @@ export function FooterLegalInfo() {
     "@context": "https://schema.org",
     "@type": "LegalService",
     name: legal_full_name
-      ? `${legal_full_name} — Premium Legal Real Estate Advisor`
-      : "Екатерина Голубева — Premium Legal Real Estate Advisor",
+      ? `${legal_full_name} — Legal Real Estate Advisor`
+      : "Екатерина Голубева — Legal Real Estate Advisor",
     description:
       "Юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и по России.",
     url: site_domain || "https://legalpracticelife.ru",

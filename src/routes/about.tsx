@@ -210,7 +210,7 @@ function AboutPage() {
             areaServed: ["Москва", "Московская область", "Российская Федерация"],
             worksFor: {
               "@type": "LegalService",
-              name: `${name} — Premium Legal Real Estate Advisor`,
+              name: `${name} — Legal Real Estate Advisor`,
               areaServed: ["Москва", "Московская область", "Российская Федерация"],
               url: SITE_BASE,
             },

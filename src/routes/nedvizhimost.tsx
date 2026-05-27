@@ -49,7 +49,7 @@ function NedvizhimostPage() {
       <section className="border-b border-border bg-secondary/30">
         <div className="container-wide grid gap-12 py-16 md:grid-cols-12 md:gap-16 md:py-28">
           <div className="md:col-span-7">
-            <div className="eyebrow mb-6">Premium Legal Real Estate Advisory</div>
+            <div className="eyebrow mb-6">Legal Real Estate Advisory</div>
             <h1 className="text-4xl leading-[1.05] md:text-[3.8rem]">
               Риэлторское и юридическое<br />
               сопровождение<br />
@@ -69,7 +69,7 @@ function NedvizhimostPage() {
           <div className="md:col-span-5">
             <img
               src={interiorImg}
-              alt="Premium interior"
+              alt="Interior"
               width={1200}
               height={800}
               className="aspect-[3/2] w-full object-cover"

@@ -73,7 +73,7 @@ export function AuthorEntityBlock({ articleTitle, articleDescription, dateModifi
             ...(photo ? { image: photo } : {}),
             worksFor: {
               "@type": "LegalService",
-              name: `${name} — Premium Legal Real Estate Advisor`,
+              name: `${name} — Legal Real Estate Advisor`,
             },
             areaServed: ["Москва", "Московская область", "Российская Федерация"],
           }),
@@ -98,7 +98,7 @@ export function AuthorEntityBlock({ articleTitle, articleDescription, dateModifi
               },
               publisher: {
                 "@type": "LegalService",
-                name: `${name} — Premium Legal Real Estate Advisor`,
+                name: `${name} — Legal Real Estate Advisor`,
               },
               inLanguage: "ru-RU",
             }),

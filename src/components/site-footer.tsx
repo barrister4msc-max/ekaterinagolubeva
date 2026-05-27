@@ -15,7 +15,7 @@ export function SiteFooter() {
           <div className="md:col-span-2">
             <div className="font-display text-2xl">Екатерина Голубева<span className="text-primary">.</span></div>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              Premium Legal Real Estate Advisor. Спокойное сопровождение
+              Legal Real Estate Advisor. Спокойное сопровождение
               сложных ситуаций — недвижимость, аренда, договоры, суды.
             </p>
             <p className="mt-6 text-xs uppercase tracking-[0.22em] text-primary">
@@ -71,7 +71,7 @@ export function SiteFooter() {
         <div className="mt-6 flex flex-col items-start justify-between gap-2 text-xs text-muted-foreground md:flex-row md:items-center">
           <span>© {new Date().getFullYear()} Екатерина Голубева. Все права защищены.</span>
           <div className="flex items-center gap-4">
-            <span>Premium Private Advisor · Trusted Representative in Russia</span>
+            <span>Private Advisor · Trusted Representative in Russia</span>
             <Link
               to="/workspace/login"
               className="text-[11px] uppercase tracking-[0.2em] text-foreground/35 transition hover:text-primary"

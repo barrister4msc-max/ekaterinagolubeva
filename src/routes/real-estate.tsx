@@ -6,7 +6,7 @@ export const Route = createFileRoute("/real-estate")({
     meta: [
       { title: "Недвижимость — сопровождение сделок и проверка квартир | Екатерина Голубева" },
       { name: "description", content: "Проверка квартиры, сопровождение сделки, аресты и ограничения, риски покупки, раздел имущества в Москве и МО." },
-      { property: "og:title", content: "Недвижимость — Premium Legal Real Estate Advisor" },
+      { property: "og:title", content: "Недвижимость — Legal Real Estate Advisor" },
       { property: "og:description", content: "Тихая, точная защита ваших интересов в сделках с недвижимостью." },
     ],
   }),

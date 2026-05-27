@@ -110,7 +110,7 @@ export function ReviewsSection({
       ? {
           "@context": "https://schema.org",
           "@type": "LegalService",
-          name: "Екатерина Голубева — Premium Legal Real Estate Advisor",
+          name: "Екатерина Голубева — Legal Real Estate Advisor",
           aggregateRating: {
             "@type": "AggregateRating",
             ratingValue: avgRating.toFixed(2),
