@@ -8,6 +8,11 @@ const SITE_URL = "https://legalpracticelife.ru";
 const CANONICAL = `${SITE_URL}/ekaterina-golubeva`;
 const IMAGE_URL = `${SITE_URL}/about-portrait.jpg`;
 
+const CONTACT = {
+  phone: "+7 (995) 099-58-98",
+  email: "legallife2026@yandex.ru",
+};
+
 const personSchema = {
   "@context": "https://schema.org",
   "@type": "Person",
@@ -15,11 +20,14 @@ const personSchema = {
   jobTitle: "Юрист по недвижимости, договорному праву и судебным спорам",
   url: CANONICAL,
   image: IMAGE_URL,
+  telephone: CONTACT.phone,
+  email: CONTACT.email,
   address: {
     "@type": "PostalAddress",
     addressLocality: "Москва",
     addressCountry: "RU",
   },
+  areaServed: ["Москва", "Московская область", "Российская Федерация"],
   knowsAbout: [
     "Недвижимость",
     "Договорное право",
@@ -40,13 +48,20 @@ const legalServiceSchema = {
   name: "Юридическая практика Екатерины Голубевой",
   url: CANONICAL,
   image: IMAGE_URL,
-  areaServed: { "@type": "Country", name: "Россия" },
+  telephone: CONTACT.phone,
+  email: CONTACT.email,
+  areaServed: ["Москва", "Московская область", "Российская Федерация"],
   address: {
     "@type": "PostalAddress",
     addressLocality: "Москва",
     addressCountry: "RU",
   },
-  provider: { "@type": "Person", name: "Екатерина Голубева" },
+  provider: {
+    "@type": "Person",
+    name: "Екатерина Голубева",
+    telephone: CONTACT.phone,
+    email: CONTACT.email,
+  },
   serviceType: [
     "Сопровождение сделок с недвижимостью",
     "Договорное право",
@@ -55,6 +70,7 @@ const legalServiceSchema = {
     "Земельные споры",
   ],
 };
+
 
 const breadcrumbSchema = {
   "@context": "https://schema.org",
