@@ -118,6 +118,13 @@ function SeoPageComponent() {
       ...(c.href ? { item: `${SITE_BASE}${c.href}` } : {}),
     })),
   };
+
+  const schemaScripts: { type: string; children: string }[] = [
+    { type: "application/ld+json", children: JSON.stringify(breadcrumbSchema) },
+  ];
+  if (page.schema_json && typeof page.schema_json === "object") {
+    schemaScripts.push({
+      type: "application/ld+json",
       children: JSON.stringify(page.schema_json),
     });
   }
