@@ -559,7 +559,7 @@ function PipelineView({
               }`}
             >
               <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto">
                   <span className={`h-2 w-2 rounded-full ${column.dot}`} />
                   <h2 className="text-xs font-semibold uppercase tracking-[0.12em]">
                     {column.label}
