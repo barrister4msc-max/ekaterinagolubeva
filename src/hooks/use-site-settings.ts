@@ -41,7 +41,7 @@ const DEFAULTS: SiteSettings = {
   contact_whatsapp_url: null,
   contact_max_url: null,
   site_domain: null,
-  advisor_photo_url: null,
+  advisor_photo_url: ekaterinaPortrait,
 };
 
 const ALL_COLUMNS =
