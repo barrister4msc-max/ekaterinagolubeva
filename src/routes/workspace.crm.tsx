@@ -966,25 +966,7 @@ onDrop={(e) => e.preventDefault()}
   </div>
 )}
 
-    {doc.ai_summary && (
-  <div className="mt-2 line-clamp-6 overflow-hidden text-xs leading-5 text-muted-foreground">
-    {(() => {
-      try {
-        const parsed =
-          typeof doc.structured_analysis === "string"
-            ? JSON.parse(doc.structured_analysis)
-            : doc.structured_analysis;
-
-        return (
-          parsed?.short_summary ||
-          doc.ai_summary
-        );
-      } catch {
-        return doc.ai_summary;
-      }
-    })()}
-  </div>
-)}
+  
 
     {doc.ai_risks?.length > 0 && (
       <div className="mt-3 flex flex-wrap gap-2">
