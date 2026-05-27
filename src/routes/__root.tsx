@@ -70,8 +70,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "Legal Advisor — Premium Legal Real Estate Advisor в Москве" },
       { property: "og:description", content: "Спокойное юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и дистанционно по России." },
       { name: "twitter:description", content: "Спокойное юридическое сопровождение недвижимости, аренды, договоров и судебных споров в Москве, МО и дистанционно по России." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/38278110-5fc0-49c8-a56d-fd6c00749661/id-preview-846f4bfd--0172752e-9cee-4e4a-ad5c-82ad0cbd7785.lovable.app-1779049069059.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/38278110-5fc0-49c8-a56d-fd6c00749661/id-preview-846f4bfd--0172752e-9cee-4e4a-ad5c-82ad0cbd7785.lovable.app-1779049069059.png" },
+      { property: "og:image", content: "https://legalpracticelife.ru/about-portrait.jpg" },
+      { name: "twitter:image", content: "https://legalpracticelife.ru/about-portrait.jpg" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
