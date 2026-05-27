@@ -91,12 +91,33 @@ function SeoPageComponent() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const related: SeoPageLink[] = (links ?? []).filter((l) => l.slug !== page.slug).slice(0, 8);
+  const related: SeoPageLink[] = (() => {
+    const all = (links ?? []).filter((l) => l.slug !== page.slug);
+    const same = all.filter((l) => isSameCategory(l.slug, page.slug));
+    const rest = all.filter((l) => !isSameCategory(l.slug, page.slug));
+    return [...same, ...rest].slice(0, 5);
+  })();
 
-  const schemaScripts: { type: string; children: string }[] = [];
-  if (page.schema_json && typeof page.schema_json === "object") {
-    schemaScripts.push({
-      type: "application/ld+json",
+  const category = getCategoryForSlug(page.slug);
+  const breadcrumbTrail: { label: string; href?: string }[] = [
+    { label: "Главная", href: "/" },
+    ...(category
+      ? [{ label: category.label, ...(category.path ? { href: category.path } : {}) }]
+      : []),
+    { label: page.h1_ru || page.title_ru },
+  ];
+
+  const SITE_BASE = SITE_URL;
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbTrail.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: c.label,
+      ...(c.href ? { item: `${SITE_BASE}${c.href}` } : {}),
+    })),
+  };
       children: JSON.stringify(page.schema_json),
     });
   }
