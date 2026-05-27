@@ -128,7 +128,7 @@ function PodborPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Имя *">
                   <input
-                    className="form-input"
+                    className="input-line"
                     value={form.client_name}
                     onChange={(e) => upd("client_name", e.target.value)}
                     required
@@ -137,7 +137,7 @@ function PodborPage() {
                 </Field>
                 <Field label="Телефон *">
                   <input
-                    className="form-input"
+                    className="input-line"
                     value={form.phone}
                     onChange={(e) => upd("phone", e.target.value)}
                     required
@@ -148,7 +148,7 @@ function PodborPage() {
 
               <Field label="Telegram / WhatsApp">
                 <input
-                  className="form-input"
+                  className="input-line"
                   value={form.contact_method}
                   onChange={(e) => upd("contact_method", e.target.value)}
                   placeholder="@username или ссылка"
@@ -158,7 +158,7 @@ function PodborPage() {
 
               <Field label="Тип объекта">
                 <select
-                  className="form-input"
+                  className="input-line"
                   value={form.property_type}
                   onChange={(e) => upd("property_type", e.target.value)}
                 >
@@ -173,7 +173,7 @@ function PodborPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Бюджет от, ₽">
                   <input
-                    className="form-input"
+                    className="input-line"
                     type="number"
                     min="0"
                     value={form.budget_min}
@@ -182,7 +182,7 @@ function PodborPage() {
                 </Field>
                 <Field label="Бюджет до, ₽">
                   <input
-                    className="form-input"
+                    className="input-line"
                     type="number"
                     min="0"
                     value={form.budget_max}
@@ -193,7 +193,7 @@ function PodborPage() {
 
               <Field label="Районы / локации">
                 <input
-                  className="form-input"
+                  className="input-line"
                   value={form.districts}
                   onChange={(e) => upd("districts", e.target.value)}
                   placeholder="Например: Хамовники, Пресненский (через запятую)"
@@ -203,7 +203,7 @@ function PodborPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Площадь от, м²">
                   <input
-                    className="form-input"
+                    className="input-line"
                     type="number"
                     min="0"
                     value={form.area_min}
@@ -212,7 +212,7 @@ function PodborPage() {
                 </Field>
                 <Field label="Площадь до, м²">
                   <input
-                    className="form-input"
+                    className="input-line"
                     type="number"
                     min="0"
                     value={form.area_max}
@@ -223,7 +223,7 @@ function PodborPage() {
 
               <Field label="Цель покупки">
                 <select
-                  className="form-input"
+                  className="input-line"
                   value={form.goal}
                   onChange={(e) => upd("goal", e.target.value)}
                 >
@@ -237,7 +237,7 @@ function PodborPage() {
 
               <Field label="Комментарий">
                 <textarea
-                  className="form-input min-h-[100px]"
+                  className="input-line min-h-[100px]"
                   value={form.client_comment}
                   onChange={(e) => upd("client_comment", e.target.value)}
                   maxLength={2000}
