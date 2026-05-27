@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type {} from "@tanstack/react-start";
+import { setResponseHeader, setResponseStatus } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const BASE_URL = "https://legalpracticelife.ru";
@@ -107,12 +107,14 @@ export const Route = createFileRoute("/sitemap.xml")({
           `</urlset>`,
         ].join("\n");
 
+        setResponseStatus(200);
+        setResponseHeader("content-type", "application/xml; charset=utf-8");
+        setResponseHeader("cache-control", "public, max-age=3600");
+        setResponseHeader("x-robots-tag", "noindex");
         return new Response(xml, {
           headers: {
-            "Content-Type": "application/xml; charset=utf-8",
-            "X-Content-Type-Options": "nosniff",
-            "X-Robots-Tag": "noindex",
-            "Cache-Control": "public, max-age=3600",
+            "content-type": "application/xml; charset=utf-8",
+            "cache-control": "public, max-age=3600",
           },
         });
       },
