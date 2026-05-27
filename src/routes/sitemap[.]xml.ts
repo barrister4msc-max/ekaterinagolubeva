@@ -109,8 +109,9 @@ export const Route = createFileRoute("/sitemap.xml")({
 
         return new Response(xml, {
           headers: {
-            "Content-Type": "text/xml; charset=utf-8",
+            "Content-Type": "application/xml; charset=utf-8",
             "X-Content-Type-Options": "nosniff",
+            "X-Robots-Tag": "noindex",
             "Cache-Control": "public, max-age=3600",
           },
         });
