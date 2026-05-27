@@ -965,8 +965,7 @@ onDrop={(e) => e.preventDefault()}
           </span>
         ))}
       </div>
-    )}
-  </div>
+     </div>
 )}
 
     {doc.ai_summary && (
