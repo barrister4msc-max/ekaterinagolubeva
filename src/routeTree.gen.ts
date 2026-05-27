@@ -24,6 +24,7 @@ import { Route as RentalDisputesRouteImport } from './routes/rental-disputes'
 import { Route as RealEstateRouteImport } from './routes/real-estate'
 import { Route as ProverkaKvartiryMoskvaRouteImport } from './routes/proverka-kvartiry-moskva'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PodborNedvizhimostiRouteImport } from './routes/podbor-nedvizhimosti'
 import { Route as NedvizhimostRouteImport } from './routes/nedvizhimost'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LitigationRouteImport } from './routes/litigation'
@@ -45,6 +46,7 @@ import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
 import { Route as WorkspaceCrmRouteImport } from './routes/workspace.crm'
+import { Route as WorkspaceAiPodborRouteImport } from './routes/workspace.ai-podbor'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
@@ -122,6 +124,11 @@ const ProverkaKvartiryMoskvaRoute = ProverkaKvartiryMoskvaRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PodborNedvizhimostiRoute = PodborNedvizhimostiRouteImport.update({
+  id: '/podbor-nedvizhimosti',
+  path: '/podbor-nedvizhimosti',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NedvizhimostRoute = NedvizhimostRouteImport.update({
@@ -229,6 +236,11 @@ const WorkspaceCrmRoute = WorkspaceCrmRouteImport.update({
   path: '/crm',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceAiPodborRoute = WorkspaceAiPodborRouteImport.update({
+  id: '/ai-podbor',
+  path: '/ai-podbor',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -261,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
+  '/podbor-nedvizhimosti': typeof PodborNedvizhimostiRoute
   '/privacy': typeof PrivacyRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
@@ -278,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
@@ -302,6 +316,7 @@ export interface FileRoutesByTo {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
+  '/podbor-nedvizhimosti': typeof PodborNedvizhimostiRoute
   '/privacy': typeof PrivacyRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
@@ -319,6 +334,7 @@ export interface FileRoutesByTo {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
@@ -344,6 +360,7 @@ export interface FileRoutesById {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
+  '/podbor-nedvizhimosti': typeof PodborNedvizhimostiRoute
   '/privacy': typeof PrivacyRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
@@ -361,6 +378,7 @@ export interface FileRoutesById {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
@@ -387,6 +405,7 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
+    | '/podbor-nedvizhimosti'
     | '/privacy'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
@@ -404,6 +423,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/workspace/ai-podbor'
     | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/leads'
@@ -428,6 +448,7 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
+    | '/podbor-nedvizhimosti'
     | '/privacy'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
@@ -445,6 +466,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/workspace/ai-podbor'
     | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/leads'
@@ -469,6 +491,7 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
+    | '/podbor-nedvizhimosti'
     | '/privacy'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
@@ -486,6 +509,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/workspace/ai-podbor'
     | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/leads'
@@ -511,6 +535,7 @@ export interface RootRouteChildren {
   LitigationRoute: typeof LitigationRoute
   LoginRoute: typeof LoginRoute
   NedvizhimostRoute: typeof NedvizhimostRoute
+  PodborNedvizhimostiRoute: typeof PodborNedvizhimostiRoute
   PrivacyRoute: typeof PrivacyRoute
   ProverkaKvartiryMoskvaRoute: typeof ProverkaKvartiryMoskvaRoute
   RealEstateRoute: typeof RealEstateRoute
@@ -635,6 +660,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/podbor-nedvizhimosti': {
+      id: '/podbor-nedvizhimosti'
+      path: '/podbor-nedvizhimosti'
+      fullPath: '/podbor-nedvizhimosti'
+      preLoaderRoute: typeof PodborNedvizhimostiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/nedvizhimost': {
@@ -784,6 +816,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceCrmRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/ai-podbor': {
+      id: '/workspace/ai-podbor'
+      path: '/ai-podbor'
+      fullPath: '/workspace/ai-podbor'
+      preLoaderRoute: typeof WorkspaceAiPodborRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -819,6 +858,7 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface WorkspaceRouteChildren {
+  WorkspaceAiPodborRoute: typeof WorkspaceAiPodborRoute
   WorkspaceCrmRoute: typeof WorkspaceCrmRoute
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
@@ -829,6 +869,7 @@ interface WorkspaceRouteChildren {
 }
 
 const WorkspaceRouteChildren: WorkspaceRouteChildren = {
+  WorkspaceAiPodborRoute: WorkspaceAiPodborRoute,
   WorkspaceCrmRoute: WorkspaceCrmRoute,
   WorkspaceDashboardRoute: WorkspaceDashboardRoute,
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
@@ -857,6 +898,7 @@ const rootRouteChildren: RootRouteChildren = {
   LitigationRoute: LitigationRoute,
   LoginRoute: LoginRoute,
   NedvizhimostRoute: NedvizhimostRoute,
+  PodborNedvizhimostiRoute: PodborNedvizhimostiRoute,
   PrivacyRoute: PrivacyRoute,
   ProverkaKvartiryMoskvaRoute: ProverkaKvartiryMoskvaRoute,
   RealEstateRoute: RealEstateRoute,

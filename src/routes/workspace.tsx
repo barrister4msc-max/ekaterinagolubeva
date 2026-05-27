@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tansta
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, MessageSquareQuote, KanbanSquare } from "lucide-react";
+import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, MessageSquareQuote, KanbanSquare, Building2 } from "lucide-react";
 
 export const Route = createFileRoute("/workspace")({
   head: () => ({
@@ -18,6 +18,7 @@ const nav = [
   { to: "/workspace/dashboard", label: "Дашборд", icon: LayoutDashboard },
   { to: "/workspace/leads", label: "Заявки", icon: Inbox },
   { to: "/workspace/crm", label: "CRM", icon: KanbanSquare },
+  { to: "/workspace/ai-podbor", label: "AI-подбор", icon: Building2 },
   { to: "/workspace/reviews", label: "Отзывы", icon: MessageSquareQuote },
   { to: "/workspace/statistics", label: "Статистика", icon: BarChart3 },
   { to: "/workspace/settings", label: "Настройки", icon: Settings },
