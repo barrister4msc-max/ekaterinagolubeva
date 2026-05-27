@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Mail, Sparkles, ChevronDown, ArrowUpRight } from "lucide-react";
+import { FileText, PenLine, ChevronDown, ArrowUpRight } from "lucide-react";
 import { AiChatDialog } from "./ai-chat-dialog";
 
 type Props = {
