@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { PageShell, BulletSection } from "@/components/page-shell";
 import { ContactChannels } from "@/components/contact-channels";
-import portrait from "@/assets/about-portrait.jpg";
+import portrait from "@/assets/ekaterina-portrait.jpg";
 
 const SITE_URL = "https://legalpracticelife.ru";
 const CANONICAL = `${SITE_URL}/ekaterina-golubeva`;
