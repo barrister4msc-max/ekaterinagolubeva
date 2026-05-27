@@ -902,6 +902,16 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_superadmin: { Args: { _user_id: string }; Returns: boolean }
+      match_legal_knowledge: {
+        Args: { match_count?: number; query_embedding: string }
+        Returns: {
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+          title: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "super_admin"
