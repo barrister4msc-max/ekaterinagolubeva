@@ -24,6 +24,7 @@ import { Route as RentalDisputesRouteImport } from './routes/rental-disputes'
 import { Route as RealEstateRouteImport } from './routes/real-estate'
 import { Route as ProverkaKvartiryMoskvaRouteImport } from './routes/proverka-kvartiry-moskva'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PodborNedvizhimostiRouteImport } from './routes/podbor-nedvizhimosti'
 import { Route as NedvizhimostRouteImport } from './routes/nedvizhimost'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LitigationRouteImport } from './routes/litigation'
@@ -122,6 +123,11 @@ const ProverkaKvartiryMoskvaRoute = ProverkaKvartiryMoskvaRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PodborNedvizhimostiRoute = PodborNedvizhimostiRouteImport.update({
+  id: '/podbor-nedvizhimosti',
+  path: '/podbor-nedvizhimosti',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NedvizhimostRoute = NedvizhimostRouteImport.update({
@@ -261,6 +267,7 @@ export interface FileRoutesByFullPath {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
+  '/podbor-nedvizhimosti': typeof PodborNedvizhimostiRoute
   '/privacy': typeof PrivacyRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
@@ -302,6 +309,7 @@ export interface FileRoutesByTo {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
+  '/podbor-nedvizhimosti': typeof PodborNedvizhimostiRoute
   '/privacy': typeof PrivacyRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
@@ -344,6 +352,7 @@ export interface FileRoutesById {
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
+  '/podbor-nedvizhimosti': typeof PodborNedvizhimostiRoute
   '/privacy': typeof PrivacyRoute
   '/proverka-kvartiry-moskva': typeof ProverkaKvartiryMoskvaRoute
   '/real-estate': typeof RealEstateRoute
@@ -387,6 +396,7 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
+    | '/podbor-nedvizhimosti'
     | '/privacy'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
@@ -428,6 +438,7 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
+    | '/podbor-nedvizhimosti'
     | '/privacy'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
@@ -469,6 +480,7 @@ export interface FileRouteTypes {
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
+    | '/podbor-nedvizhimosti'
     | '/privacy'
     | '/proverka-kvartiry-moskva'
     | '/real-estate'
@@ -511,6 +523,7 @@ export interface RootRouteChildren {
   LitigationRoute: typeof LitigationRoute
   LoginRoute: typeof LoginRoute
   NedvizhimostRoute: typeof NedvizhimostRoute
+  PodborNedvizhimostiRoute: typeof PodborNedvizhimostiRoute
   PrivacyRoute: typeof PrivacyRoute
   ProverkaKvartiryMoskvaRoute: typeof ProverkaKvartiryMoskvaRoute
   RealEstateRoute: typeof RealEstateRoute
@@ -635,6 +648,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/podbor-nedvizhimosti': {
+      id: '/podbor-nedvizhimosti'
+      path: '/podbor-nedvizhimosti'
+      fullPath: '/podbor-nedvizhimosti'
+      preLoaderRoute: typeof PodborNedvizhimostiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/nedvizhimost': {
@@ -857,6 +877,7 @@ const rootRouteChildren: RootRouteChildren = {
   LitigationRoute: LitigationRoute,
   LoginRoute: LoginRoute,
   NedvizhimostRoute: NedvizhimostRoute,
+  PodborNedvizhimostiRoute: PodborNedvizhimostiRoute,
   PrivacyRoute: PrivacyRoute,
   ProverkaKvartiryMoskvaRoute: ProverkaKvartiryMoskvaRoute,
   RealEstateRoute: RealEstateRoute,
