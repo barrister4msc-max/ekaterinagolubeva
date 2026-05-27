@@ -9,16 +9,25 @@ export function FooterLegalInfo() {
   const { settings, loaded } = useSiteSettings();
   if (!loaded) return null;
 
+  // Static defaults reflect the registered practice identity. Admin-edited
+  // values in site_settings still override per field.
   const {
-    legal_form,
-    legal_full_name,
+    legal_form = "Самозанятый",
+    legal_full_name = "Голубева Екатерина Александровна",
     legal_inn,
     legal_ogrnip,
-    legal_address,
-    contact_email,
-    contact_phone,
+    legal_address = "Москва, Россия",
+    contact_email = "legallife2026@yandex.ru",
+    contact_phone = "+7 (995) 099-58-98",
     site_domain,
-  } = settings;
+  } = {
+    ...settings,
+    legal_form: settings.legal_form ?? "Самозанятый",
+    legal_full_name: settings.legal_full_name ?? "Голубева Екатерина Александровна",
+    legal_address: settings.legal_address ?? "Москва, Россия",
+    contact_email: settings.contact_email ?? "legallife2026@yandex.ru",
+    contact_phone: settings.contact_phone ?? "+7 (995) 099-58-98",
+  };
 
   const tel = telHref(contact_phone);
 
