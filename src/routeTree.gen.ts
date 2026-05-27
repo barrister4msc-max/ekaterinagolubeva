@@ -27,6 +27,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as NedvizhimostRouteImport } from './routes/nedvizhimost'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LitigationRouteImport } from './routes/litigation'
+import { Route as EkaterinaGolubevaRouteImport } from './routes/ekaterina-golubeva'
 import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConsentRouteImport } from './routes/consent'
@@ -136,6 +137,11 @@ const LoginRoute = LoginRouteImport.update({
 const LitigationRoute = LitigationRouteImport.update({
   id: '/litigation',
   path: '/litigation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EkaterinaGolubevaRoute = EkaterinaGolubevaRouteImport.update({
+  id: '/ekaterina-golubeva',
+  path: '/ekaterina-golubeva',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContractsRoute = ContractsRouteImport.update({
@@ -251,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
+  '/ekaterina-golubeva': typeof EkaterinaGolubevaRoute
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
@@ -291,6 +298,7 @@ export interface FileRoutesByTo {
   '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
+  '/ekaterina-golubeva': typeof EkaterinaGolubevaRoute
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
@@ -332,6 +340,7 @@ export interface FileRoutesById {
   '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
   '/contracts': typeof ContractsRoute
+  '/ekaterina-golubeva': typeof EkaterinaGolubevaRoute
   '/litigation': typeof LitigationRoute
   '/login': typeof LoginRoute
   '/nedvizhimost': typeof NedvizhimostRoute
@@ -374,6 +383,7 @@ export interface FileRouteTypes {
     | '/consent'
     | '/contact'
     | '/contracts'
+    | '/ekaterina-golubeva'
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
@@ -414,6 +424,7 @@ export interface FileRouteTypes {
     | '/consent'
     | '/contact'
     | '/contracts'
+    | '/ekaterina-golubeva'
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
@@ -454,6 +465,7 @@ export interface FileRouteTypes {
     | '/consent'
     | '/contact'
     | '/contracts'
+    | '/ekaterina-golubeva'
     | '/litigation'
     | '/login'
     | '/nedvizhimost'
@@ -495,6 +507,7 @@ export interface RootRouteChildren {
   ConsentRoute: typeof ConsentRoute
   ContactRoute: typeof ContactRoute
   ContractsRoute: typeof ContractsRoute
+  EkaterinaGolubevaRoute: typeof EkaterinaGolubevaRoute
   LitigationRoute: typeof LitigationRoute
   LoginRoute: typeof LoginRoute
   NedvizhimostRoute: typeof NedvizhimostRoute
@@ -643,6 +656,13 @@ declare module '@tanstack/react-router' {
       path: '/litigation'
       fullPath: '/litigation'
       preLoaderRoute: typeof LitigationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ekaterina-golubeva': {
+      id: '/ekaterina-golubeva'
+      path: '/ekaterina-golubeva'
+      fullPath: '/ekaterina-golubeva'
+      preLoaderRoute: typeof EkaterinaGolubevaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contracts': {
@@ -833,6 +853,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConsentRoute: ConsentRoute,
   ContactRoute: ContactRoute,
   ContractsRoute: ContractsRoute,
+  EkaterinaGolubevaRoute: EkaterinaGolubevaRoute,
   LitigationRoute: LitigationRoute,
   LoginRoute: LoginRoute,
   NedvizhimostRoute: NedvizhimostRoute,

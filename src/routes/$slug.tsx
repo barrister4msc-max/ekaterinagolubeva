@@ -9,6 +9,7 @@ import {
 } from "@/lib/seo-pages.functions";
 import { ContactCta } from "@/components/contact-cta";
 import { ContactChannels } from "@/components/contact-channels";
+import { getCategoryForSlug, isSameCategory } from "@/lib/seo-categories";
 
 const SITE_URL = "https://legalpracticelife.ru";
 
@@ -90,9 +91,37 @@ function SeoPageComponent() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const related: SeoPageLink[] = (links ?? []).filter((l) => l.slug !== page.slug).slice(0, 8);
+  const related: SeoPageLink[] = (() => {
+    const all = (links ?? []).filter((l) => l.slug !== page.slug);
+    const same = all.filter((l) => isSameCategory(l.slug, page.slug));
+    const rest = all.filter((l) => !isSameCategory(l.slug, page.slug));
+    return [...same, ...rest].slice(0, 5);
+  })();
 
-  const schemaScripts: { type: string; children: string }[] = [];
+  const category = getCategoryForSlug(page.slug);
+  const breadcrumbTrail: { label: string; href?: string }[] = [
+    { label: "Главная", href: "/" },
+    ...(category
+      ? [{ label: category.label, ...(category.path ? { href: category.path } : {}) }]
+      : []),
+    { label: page.h1_ru || page.title_ru },
+  ];
+
+  const SITE_BASE = SITE_URL;
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbTrail.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: c.label,
+      ...(c.href ? { item: `${SITE_BASE}${c.href}` } : {}),
+    })),
+  };
+
+  const schemaScripts: { type: string; children: string }[] = [
+    { type: "application/ld+json", children: JSON.stringify(breadcrumbSchema) },
+  ];
   if (page.schema_json && typeof page.schema_json === "object") {
     schemaScripts.push({
       type: "application/ld+json",
@@ -123,6 +152,23 @@ function SeoPageComponent() {
       <section className="border-b border-border bg-secondary/30">
         <div className="container-wide py-20 md:py-28">
           <div className="max-w-3xl">
+            <nav aria-label="breadcrumb" className="mb-6 text-xs text-muted-foreground">
+              <ol className="flex flex-wrap items-center gap-1.5">
+                {breadcrumbTrail.map((c, i) => {
+                  const isLast = i === breadcrumbTrail.length - 1;
+                  return (
+                    <li key={i} className="flex items-center gap-1.5">
+                      {c.href && !isLast ? (
+                        <a href={c.href} className="hover:text-primary">{c.label}</a>
+                      ) : (
+                        <span className={isLast ? "text-foreground/70" : ""}>{c.label}</span>
+                      )}
+                      {!isLast && <span aria-hidden>/</span>}
+                    </li>
+                  );
+                })}
+              </ol>
+            </nav>
             <h1 className="text-4xl md:text-6xl">{page.h1_ru}</h1>
             {page.meta_description_ru && (
               <p className="mt-6 text-base leading-relaxed text-muted-foreground md:text-lg">
