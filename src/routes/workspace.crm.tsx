@@ -896,7 +896,6 @@ onDrop={(e) => e.preventDefault()}
           
     </label>
   </div>
-<div
   <div
   className="mt-6 rounded-2xl border border-dashed border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground transition-colors hover:border-blue-300 hover:bg-blue-50"
   onDragEnter={(e) => {
