@@ -896,7 +896,6 @@ onDrop={(e) => e.preventDefault()}
           
     </label>
   </div>
-<div
   <div
   className="mt-6 rounded-2xl border border-dashed border-border bg-secondary/30 p-6 text-center text-sm text-muted-foreground transition-colors hover:border-blue-300 hover:bg-blue-50"
   onDragEnter={(e) => {
@@ -1236,7 +1235,7 @@ alert("AI анализ завершен");
           </div>
         )}
         {previewUrl && (
-  <div className="fixed inset-0 z-[80] overflow-y-auto" flex items-center justify-center bg-black/50 p-6">
+  <div className="fixed inset-0 z-[80] overflow-y-auto flex items-center justify-center bg-black/50 p-6">
     <div className="h-[90vh] w-full max-w-5xl rounded-3xl bg-white p-4 shadow-2xl">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="text-sm font-medium">

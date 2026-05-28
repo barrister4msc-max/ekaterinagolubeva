@@ -68,6 +68,494 @@ export type Database = {
           },
         ]
       }
+      ai_intake_analysis: {
+        Row: {
+          category: string | null
+          client_id: string | null
+          confidence: number | null
+          conversation_id: string | null
+          created_at: string
+          extracted_entities: Json
+          id: string
+          lead_id: string | null
+          model_name: string | null
+          next_questions: Json
+          recommended_action: string | null
+          risk_level: string | null
+          subcategory: string | null
+          summary: string | null
+          urgency_level: string | null
+        }
+        Insert: {
+          category?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          extracted_entities?: Json
+          id?: string
+          lead_id?: string | null
+          model_name?: string | null
+          next_questions?: Json
+          recommended_action?: string | null
+          risk_level?: string | null
+          subcategory?: string | null
+          summary?: string | null
+          urgency_level?: string | null
+        }
+        Update: {
+          category?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          extracted_entities?: Json
+          id?: string
+          lead_id?: string | null
+          model_name?: string | null
+          next_questions?: Json
+          recommended_action?: string | null
+          risk_level?: string | null
+          subcategory?: string | null
+          summary?: string | null
+          urgency_level?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_intake_analysis_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_intake_analysis_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "communication_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_intake_analysis_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_usage_logs: {
+        Row: {
+          cost_estimate: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          model_name: string | null
+          operation_type: string | null
+          tokens_input: number | null
+          tokens_output: number | null
+          user_id: string | null
+        }
+        Insert: {
+          cost_estimate?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          model_name?: string | null
+          operation_type?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          cost_estimate?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          model_name?: string | null
+          operation_type?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      communication_attachments: {
+        Row: {
+          ai_detected_risks: Json
+          ai_summary: string | null
+          created_at: string
+          external_file_id: string | null
+          external_file_unique_id: string | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          message_id: string | null
+          mime_type: string | null
+          ocr_text: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          ai_detected_risks?: Json
+          ai_summary?: string | null
+          created_at?: string
+          external_file_id?: string | null
+          external_file_unique_id?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          message_id?: string | null
+          mime_type?: string | null
+          ocr_text?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          ai_detected_risks?: Json
+          ai_summary?: string | null
+          created_at?: string
+          external_file_id?: string | null
+          external_file_unique_id?: string | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          message_id?: string | null
+          mime_type?: string | null
+          ocr_text?: string | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "communication_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_channels: {
+        Row: {
+          channel_type: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          settings_json: Json
+          updated_at: string
+        }
+        Insert: {
+          channel_type: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          settings_json?: Json
+          updated_at?: string
+        }
+        Update: {
+          channel_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          settings_json?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      communication_contacts: {
+        Row: {
+          channel_id: string | null
+          created_at: string
+          crm_client_id: string | null
+          email: string | null
+          external_chat_id: string | null
+          external_user_id: string | null
+          first_name: string | null
+          full_name: string | null
+          id: string
+          is_blocked: boolean
+          language_code: string | null
+          last_name: string | null
+          phone: string | null
+          raw_profile: Json
+          source: string | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          channel_id?: string | null
+          created_at?: string
+          crm_client_id?: string | null
+          email?: string | null
+          external_chat_id?: string | null
+          external_user_id?: string | null
+          first_name?: string | null
+          full_name?: string | null
+          id?: string
+          is_blocked?: boolean
+          language_code?: string | null
+          last_name?: string | null
+          phone?: string | null
+          raw_profile?: Json
+          source?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          channel_id?: string | null
+          created_at?: string
+          crm_client_id?: string | null
+          email?: string | null
+          external_chat_id?: string | null
+          external_user_id?: string | null
+          first_name?: string | null
+          full_name?: string | null
+          id?: string
+          is_blocked?: boolean
+          language_code?: string | null
+          last_name?: string | null
+          phone?: string | null
+          raw_profile?: Json
+          source?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_contacts_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "communication_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_contacts_crm_client_fk"
+            columns: ["crm_client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_conversations: {
+        Row: {
+          ai_category: string | null
+          ai_risk_level: string | null
+          ai_subcategory: string | null
+          ai_summary: string | null
+          assigned_to: string | null
+          channel_id: string | null
+          contact_id: string | null
+          created_at: string
+          crm_client_id: string | null
+          crm_lead_id: string | null
+          id: string
+          last_message_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_category?: string | null
+          ai_risk_level?: string | null
+          ai_subcategory?: string | null
+          ai_summary?: string | null
+          assigned_to?: string | null
+          channel_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          crm_client_id?: string | null
+          crm_lead_id?: string | null
+          id?: string
+          last_message_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_category?: string | null
+          ai_risk_level?: string | null
+          ai_subcategory?: string | null
+          ai_summary?: string | null
+          assigned_to?: string | null
+          channel_id?: string | null
+          contact_id?: string | null
+          created_at?: string
+          crm_client_id?: string | null
+          crm_lead_id?: string | null
+          id?: string
+          last_message_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_conversations_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "communication_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_conversations_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "communication_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_conversations_crm_client_fk"
+            columns: ["crm_client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_conversations_crm_lead_fk"
+            columns: ["crm_lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_messages: {
+        Row: {
+          ai_extracted_entities: Json
+          ai_summary: string | null
+          conversation_id: string | null
+          created_at: string
+          direction: string
+          external_message_id: string | null
+          id: string
+          message_type: string
+          raw_payload: Json
+          text_content: string | null
+        }
+        Insert: {
+          ai_extracted_entities?: Json
+          ai_summary?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          direction: string
+          external_message_id?: string | null
+          id?: string
+          message_type?: string
+          raw_payload?: Json
+          text_content?: string | null
+        }
+        Update: {
+          ai_extracted_entities?: Json
+          ai_summary?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          direction?: string
+          external_message_id?: string | null
+          id?: string
+          message_type?: string
+          raw_payload?: Json
+          text_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "communication_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "communication_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      communication_webhook_events: {
+        Row: {
+          channel_type: string
+          created_at: string
+          external_update_id: string | null
+          id: string
+          processed: boolean
+          processing_error: string | null
+          raw_payload: Json
+        }
+        Insert: {
+          channel_type: string
+          created_at?: string
+          external_update_id?: string | null
+          id?: string
+          processed?: boolean
+          processing_error?: string | null
+          raw_payload: Json
+        }
+        Update: {
+          channel_type?: string
+          created_at?: string
+          external_update_id?: string | null
+          id?: string
+          processed?: boolean
+          processing_error?: string | null
+          raw_payload?: Json
+        }
+        Relationships: []
+      }
+      consultation_bookings: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          id: string
+          lead_id: string | null
+          matter_id: string | null
+          meeting_type: string | null
+          notes: string | null
+          scheduled_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          matter_id?: string | null
+          meeting_type?: string | null
+          notes?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          matter_id?: string | null
+          meeting_type?: string | null
+          notes?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_bookings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_bookings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_bookings_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       consultations: {
         Row: {
           created_at: string
@@ -111,6 +599,173 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_clauses: {
+        Row: {
+          ai_comment: string | null
+          clause_number: string | null
+          clause_text: string | null
+          clause_title: string | null
+          contract_id: string | null
+          created_at: string
+          id: string
+          risk_level: string | null
+        }
+        Insert: {
+          ai_comment?: string | null
+          clause_number?: string | null
+          clause_text?: string | null
+          clause_title?: string | null
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          risk_level?: string | null
+        }
+        Update: {
+          ai_comment?: string | null
+          clause_number?: string | null
+          clause_text?: string | null
+          clause_title?: string | null
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          risk_level?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_clauses_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_reviews: {
+        Row: {
+          ai_summary: string | null
+          contract_id: string | null
+          created_at: string
+          id: string
+          recommended_action: string | null
+          review_status: string
+          risk_level: string
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          recommended_action?: string | null
+          review_status?: string
+          risk_level?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          contract_id?: string | null
+          created_at?: string
+          id?: string
+          recommended_action?: string | null
+          review_status?: string
+          risk_level?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_reviews_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_risks: {
+        Row: {
+          contract_review_id: string | null
+          created_at: string
+          id: string
+          recommended_fix: string | null
+          risk_description: string | null
+          risk_title: string
+          severity: string
+        }
+        Insert: {
+          contract_review_id?: string | null
+          created_at?: string
+          id?: string
+          recommended_fix?: string | null
+          risk_description?: string | null
+          risk_title: string
+          severity?: string
+        }
+        Update: {
+          contract_review_id?: string | null
+          created_at?: string
+          id?: string
+          recommended_fix?: string | null
+          risk_description?: string | null
+          risk_title?: string
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_risks_contract_review_id_fkey"
+            columns: ["contract_review_id"]
+            isOneToOne: false
+            referencedRelation: "contract_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          ai_summary: string | null
+          contract_type: string
+          created_at: string
+          file_name: string | null
+          id: string
+          matter_id: string | null
+          status: string
+          storage_path: string | null
+          updated_at: string
+          version_number: number
+        }
+        Insert: {
+          ai_summary?: string | null
+          contract_type: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          matter_id?: string | null
+          status?: string
+          storage_path?: string | null
+          updated_at?: string
+          version_number?: number
+        }
+        Update: {
+          ai_summary?: string | null
+          contract_type?: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          matter_id?: string | null
+          status?: string
+          storage_path?: string | null
+          updated_at?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
             referencedColumns: ["id"]
           },
         ]
@@ -215,6 +870,472 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      court_cases: {
+        Row: {
+          ai_summary: string | null
+          case_number: string | null
+          claim_amount: number | null
+          court_name: string | null
+          created_at: string
+          id: string
+          judge_name: string | null
+          matter_id: string | null
+          next_hearing_at: string | null
+          risk_level: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          case_number?: string | null
+          claim_amount?: number | null
+          court_name?: string | null
+          created_at?: string
+          id?: string
+          judge_name?: string | null
+          matter_id?: string | null
+          next_hearing_at?: string | null
+          risk_level?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          case_number?: string | null
+          claim_amount?: number | null
+          court_name?: string | null
+          created_at?: string
+          id?: string
+          judge_name?: string | null
+          matter_id?: string | null
+          next_hearing_at?: string | null
+          risk_level?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_cases_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      court_deadlines: {
+        Row: {
+          court_case_id: string | null
+          created_at: string
+          deadline_at: string
+          id: string
+          notes: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          court_case_id?: string | null
+          created_at?: string
+          deadline_at: string
+          id?: string
+          notes?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          court_case_id?: string | null
+          created_at?: string
+          deadline_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_deadlines_court_case_id_fkey"
+            columns: ["court_case_id"]
+            isOneToOne: false
+            referencedRelation: "court_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      court_documents: {
+        Row: {
+          ai_summary: string | null
+          court_case_id: string | null
+          created_at: string
+          document_type: string | null
+          file_name: string | null
+          id: string
+          ocr_text: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          court_case_id?: string | null
+          created_at?: string
+          document_type?: string | null
+          file_name?: string | null
+          id?: string
+          ocr_text?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          court_case_id?: string | null
+          created_at?: string
+          document_type?: string | null
+          file_name?: string | null
+          id?: string
+          ocr_text?: string | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_documents_court_case_id_fkey"
+            columns: ["court_case_id"]
+            isOneToOne: false
+            referencedRelation: "court_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      court_hearings: {
+        Row: {
+          court_case_id: string | null
+          created_at: string
+          hearing_date: string | null
+          hearing_type: string | null
+          id: string
+          notes: string | null
+          result: string | null
+        }
+        Insert: {
+          court_case_id?: string | null
+          created_at?: string
+          hearing_date?: string | null
+          hearing_type?: string | null
+          id?: string
+          notes?: string | null
+          result?: string | null
+        }
+        Update: {
+          court_case_id?: string | null
+          created_at?: string
+          hearing_date?: string | null
+          hearing_type?: string | null
+          id?: string
+          notes?: string | null
+          result?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "court_hearings_court_case_id_fkey"
+            columns: ["court_case_id"]
+            isOneToOne: false
+            referencedRelation: "court_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_clients: {
+        Row: {
+          client_type: string
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          notes: string | null
+          phone: string | null
+          source: string | null
+          tags: string[]
+          updated_at: string
+        }
+        Insert: {
+          client_type?: string
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          source?: string | null
+          tags?: string[]
+          updated_at?: string
+        }
+        Update: {
+          client_type?: string
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          notes?: string | null
+          phone?: string | null
+          source?: string | null
+          tags?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      crm_leads: {
+        Row: {
+          ai_category: string | null
+          ai_recommended_action: string | null
+          ai_risk_level: string | null
+          ai_subcategory: string | null
+          ai_summary: string | null
+          assigned_to: string | null
+          client_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          pipeline_stage: string
+          source: string | null
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_category?: string | null
+          ai_recommended_action?: string | null
+          ai_risk_level?: string | null
+          ai_subcategory?: string | null
+          ai_summary?: string | null
+          assigned_to?: string | null
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          pipeline_stage?: string
+          source?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_category?: string | null
+          ai_recommended_action?: string | null
+          ai_risk_level?: string | null
+          ai_subcategory?: string | null
+          ai_summary?: string | null
+          assigned_to?: string | null
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          pipeline_stage?: string
+          source?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_leads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_notes: {
+        Row: {
+          author_id: string | null
+          client_id: string | null
+          content: string
+          created_at: string
+          id: string
+          lead_id: string | null
+          matter_id: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          client_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          matter_id?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          client_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          matter_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_notes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_notes_matter_fk"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_tasks: {
+        Row: {
+          assigned_to: string | null
+          client_id: string | null
+          created_at: string
+          description: string | null
+          due_at: string | null
+          id: string
+          lead_id: string | null
+          matter_id: string | null
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          lead_id?: string | null
+          matter_id?: string | null
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          lead_id?: string | null
+          matter_id?: string | null
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_tasks_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_tasks_matter_fk"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          ai_detected_entities: Json
+          ai_detected_risks: Json
+          ai_summary: string | null
+          client_id: string | null
+          created_at: string
+          document_type: string | null
+          file_name: string | null
+          id: string
+          lead_id: string | null
+          matter_id: string | null
+          mime_type: string | null
+          ocr_text: string | null
+          storage_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_detected_entities?: Json
+          ai_detected_risks?: Json
+          ai_summary?: string | null
+          client_id?: string | null
+          created_at?: string
+          document_type?: string | null
+          file_name?: string | null
+          id?: string
+          lead_id?: string | null
+          matter_id?: string | null
+          mime_type?: string | null
+          ocr_text?: string | null
+          storage_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_detected_entities?: Json
+          ai_detected_risks?: Json
+          ai_summary?: string | null
+          client_id?: string | null
+          created_at?: string
+          document_type?: string | null
+          file_name?: string | null
+          id?: string
+          lead_id?: string | null
+          matter_id?: string | null
+          mime_type?: string | null
+          ocr_text?: string | null
+          storage_path?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
             referencedColumns: ["id"]
           },
         ]
@@ -646,6 +1767,224 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_matters: {
+        Row: {
+          ai_summary: string | null
+          client_id: string | null
+          closed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          lead_id: string | null
+          matter_type: string
+          opened_at: string | null
+          priority: string
+          risk_level: string | null
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          client_id?: string | null
+          closed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          lead_id?: string | null
+          matter_type: string
+          opened_at?: string | null
+          priority?: string
+          risk_level?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          client_id?: string | null
+          closed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          lead_id?: string | null
+          matter_type?: string
+          opened_at?: string | null
+          priority?: string
+          risk_level?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_matters_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_matters_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legal_parties: {
+        Row: {
+          created_at: string
+          details_json: Json
+          email: string | null
+          full_name: string | null
+          id: string
+          matter_id: string | null
+          party_type: string
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          details_json?: Json
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          matter_id?: string | null
+          party_type: string
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          details_json?: Json
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          matter_id?: string | null
+          party_type?: string
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_parties_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legal_risks: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          matter_id: string | null
+          recommended_action: string | null
+          risk_code: string | null
+          severity: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          matter_id?: string | null
+          recommended_action?: string | null
+          risk_code?: string | null
+          severity?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          matter_id?: string | null
+          recommended_action?: string | null
+          risk_code?: string | null
+          severity?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_risks_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          client_id: string | null
+          created_at: string
+          currency: string
+          id: string
+          lead_id: string | null
+          matter_id: string | null
+          payment_type: string | null
+          provider: string | null
+          provider_payload: Json
+          provider_payment_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          client_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          lead_id?: string | null
+          matter_id?: string | null
+          payment_type?: string | null
+          provider?: string | null
+          provider_payload?: Json
+          provider_payment_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          client_id?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          lead_id?: string | null
+          matter_id?: string | null
+          payment_type?: string | null
+          provider?: string | null
+          provider_payload?: Json
+          provider_payment_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -801,11 +2140,18 @@ export type Database = {
           client_name: string
           contact_method: string | null
           created_at: string
+          deposit_max: number | null
           districts: string[] | null
+          furniture_required: boolean | null
           goal: string | null
+          has_children: boolean | null
+          has_pets: boolean | null
           id: string
+          move_in_date: string | null
           phone: string
           property_type: string
+          registration_required: boolean | null
+          rental_term: string | null
           status: string
           updated_at: string
         }
@@ -819,11 +2165,18 @@ export type Database = {
           client_name: string
           contact_method?: string | null
           created_at?: string
+          deposit_max?: number | null
           districts?: string[] | null
+          furniture_required?: boolean | null
           goal?: string | null
+          has_children?: boolean | null
+          has_pets?: boolean | null
           id?: string
+          move_in_date?: string | null
           phone: string
           property_type: string
+          registration_required?: boolean | null
+          rental_term?: string | null
           status?: string
           updated_at?: string
         }
@@ -837,15 +2190,661 @@ export type Database = {
           client_name?: string
           contact_method?: string | null
           created_at?: string
+          deposit_max?: number | null
           districts?: string[] | null
+          furniture_required?: boolean | null
           goal?: string | null
+          has_children?: boolean | null
+          has_pets?: boolean | null
           id?: string
+          move_in_date?: string | null
           phone?: string
           property_type?: string
+          registration_required?: boolean | null
+          rental_term?: string | null
           status?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      real_estate_deals: {
+        Row: {
+          ai_summary: string | null
+          buyer_client_id: string | null
+          created_at: string
+          currency: string | null
+          deal_stage: string
+          id: string
+          matter_id: string | null
+          mortgage_flag: boolean
+          object_id: string | null
+          price: number | null
+          registration_status: string | null
+          risk_level: string | null
+          seller_client_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          buyer_client_id?: string | null
+          created_at?: string
+          currency?: string | null
+          deal_stage?: string
+          id?: string
+          matter_id?: string | null
+          mortgage_flag?: boolean
+          object_id?: string | null
+          price?: number | null
+          registration_status?: string | null
+          risk_level?: string | null
+          seller_client_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          buyer_client_id?: string | null
+          created_at?: string
+          currency?: string | null
+          deal_stage?: string
+          id?: string
+          matter_id?: string | null
+          mortgage_flag?: boolean
+          object_id?: string | null
+          price?: number | null
+          registration_status?: string | null
+          risk_level?: string | null
+          seller_client_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_deals_buyer_client_id_fkey"
+            columns: ["buyer_client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_deals_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_deals_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_deals_seller_client_id_fkey"
+            columns: ["seller_client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_documents: {
+        Row: {
+          ai_detected_risks: Json
+          ai_summary: string | null
+          created_at: string
+          deal_id: string | null
+          document_type: string | null
+          file_name: string | null
+          id: string
+          object_id: string | null
+          ocr_text: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          ai_detected_risks?: Json
+          ai_summary?: string | null
+          created_at?: string
+          deal_id?: string | null
+          document_type?: string | null
+          file_name?: string | null
+          id?: string
+          object_id?: string | null
+          ocr_text?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          ai_detected_risks?: Json
+          ai_summary?: string | null
+          created_at?: string
+          deal_id?: string | null
+          document_type?: string | null
+          file_name?: string | null
+          id?: string
+          object_id?: string | null
+          ocr_text?: string | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_documents_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_documents_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_objects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_matches: {
+        Row: {
+          ai_reason: string | null
+          created_at: string
+          id: string
+          investment_score: number | null
+          legal_risk_score: number | null
+          match_score: number | null
+          object_id: string | null
+          request_id: string | null
+          status: string
+        }
+        Insert: {
+          ai_reason?: string | null
+          created_at?: string
+          id?: string
+          investment_score?: number | null
+          legal_risk_score?: number | null
+          match_score?: number | null
+          object_id?: string | null
+          request_id?: string | null
+          status?: string
+        }
+        Update: {
+          ai_reason?: string | null
+          created_at?: string
+          id?: string
+          investment_score?: number | null
+          legal_risk_score?: number | null
+          match_score?: number | null
+          object_id?: string | null
+          request_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_matches_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_matches_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_negotiations: {
+        Row: {
+          ai_summary: string | null
+          created_at: string
+          deal_id: string | null
+          id: string
+          message: string | null
+          negotiation_stage: string
+          next_action: string | null
+          offer_id: string | null
+          party: string | null
+          result: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          message?: string | null
+          negotiation_stage?: string
+          next_action?: string | null
+          offer_id?: string | null
+          party?: string | null
+          result?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          created_at?: string
+          deal_id?: string | null
+          id?: string
+          message?: string | null
+          negotiation_stage?: string
+          next_action?: string | null
+          offer_id?: string | null
+          party?: string | null
+          result?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_negotiations_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_negotiations_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_objects: {
+        Row: {
+          address_text: string | null
+          ai_summary: string | null
+          area_kitchen: number | null
+          area_land: number | null
+          area_living: number | null
+          area_total: number | null
+          cadastral_number: string | null
+          city: string | null
+          created_at: string
+          currency: string | null
+          deal_type: string | null
+          district: string | null
+          floor: number | null
+          floors_total: number | null
+          id: string
+          investment_score: number | null
+          legal_risk_score: number | null
+          owner_type: string | null
+          price: number | null
+          property_type: string
+          rooms: number | null
+          source: string | null
+          source_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address_text?: string | null
+          ai_summary?: string | null
+          area_kitchen?: number | null
+          area_land?: number | null
+          area_living?: number | null
+          area_total?: number | null
+          cadastral_number?: string | null
+          city?: string | null
+          created_at?: string
+          currency?: string | null
+          deal_type?: string | null
+          district?: string | null
+          floor?: number | null
+          floors_total?: number | null
+          id?: string
+          investment_score?: number | null
+          legal_risk_score?: number | null
+          owner_type?: string | null
+          price?: number | null
+          property_type: string
+          rooms?: number | null
+          source?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address_text?: string | null
+          ai_summary?: string | null
+          area_kitchen?: number | null
+          area_land?: number | null
+          area_living?: number | null
+          area_total?: number | null
+          cadastral_number?: string | null
+          city?: string | null
+          created_at?: string
+          currency?: string | null
+          deal_type?: string | null
+          district?: string | null
+          floor?: number | null
+          floors_total?: number | null
+          id?: string
+          investment_score?: number | null
+          legal_risk_score?: number | null
+          owner_type?: string | null
+          price?: number | null
+          property_type?: string
+          rooms?: number | null
+          source?: string | null
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      real_estate_offers: {
+        Row: {
+          ai_summary: string | null
+          created_at: string
+          currency: string | null
+          deal_id: string | null
+          id: string
+          legal_risk_level: string | null
+          notes: string | null
+          object_id: string | null
+          offer_price: number | null
+          offer_type: string
+          request_id: string | null
+          status: string
+          terms: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          created_at?: string
+          currency?: string | null
+          deal_id?: string | null
+          id?: string
+          legal_risk_level?: string | null
+          notes?: string | null
+          object_id?: string | null
+          offer_price?: number | null
+          offer_type?: string
+          request_id?: string | null
+          status?: string
+          terms?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          created_at?: string
+          currency?: string | null
+          deal_id?: string | null
+          id?: string
+          legal_risk_level?: string | null
+          notes?: string | null
+          object_id?: string | null
+          offer_price?: number | null
+          offer_type?: string
+          request_id?: string | null
+          status?: string
+          terms?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_offers_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_offers_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_offers_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_registry_checks: {
+        Row: {
+          ai_summary: string | null
+          cadastral_number: string | null
+          check_type: string | null
+          created_at: string
+          deal_id: string | null
+          detected_risks: Json
+          id: string
+          object_id: string | null
+          result_json: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          cadastral_number?: string | null
+          check_type?: string | null
+          created_at?: string
+          deal_id?: string | null
+          detected_risks?: Json
+          id?: string
+          object_id?: string | null
+          result_json?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          cadastral_number?: string | null
+          check_type?: string | null
+          created_at?: string
+          deal_id?: string | null
+          detected_risks?: Json
+          id?: string
+          object_id?: string | null
+          result_json?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_registry_checks_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_registry_checks_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_objects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_requests: {
+        Row: {
+          ai_questions: Json
+          ai_summary: string | null
+          area_max: number | null
+          area_min: number | null
+          budget_max: number | null
+          budget_min: number | null
+          city: string | null
+          client_comment: string | null
+          client_id: string | null
+          created_at: string
+          districts: string[]
+          goal: string
+          id: string
+          lead_id: string | null
+          must_have: string[]
+          must_not_have: string[]
+          property_type: string | null
+          risk_level: string | null
+          rooms_max: number | null
+          rooms_min: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_questions?: Json
+          ai_summary?: string | null
+          area_max?: number | null
+          area_min?: number | null
+          budget_max?: number | null
+          budget_min?: number | null
+          city?: string | null
+          client_comment?: string | null
+          client_id?: string | null
+          created_at?: string
+          districts?: string[]
+          goal: string
+          id?: string
+          lead_id?: string | null
+          must_have?: string[]
+          must_not_have?: string[]
+          property_type?: string | null
+          risk_level?: string | null
+          rooms_max?: number | null
+          rooms_min?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_questions?: Json
+          ai_summary?: string | null
+          area_max?: number | null
+          area_min?: number | null
+          budget_max?: number | null
+          budget_min?: number | null
+          city?: string | null
+          client_comment?: string | null
+          client_id?: string | null
+          created_at?: string
+          districts?: string[]
+          goal?: string
+          id?: string
+          lead_id?: string | null
+          must_have?: string[]
+          must_not_have?: string[]
+          property_type?: string | null
+          risk_level?: string | null
+          rooms_max?: number | null
+          rooms_min?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "crm_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_requests_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_risks: {
+        Row: {
+          created_at: string
+          deal_id: string | null
+          description: string | null
+          id: string
+          object_id: string | null
+          recommended_action: string | null
+          risk_type: string | null
+          severity: string
+        }
+        Insert: {
+          created_at?: string
+          deal_id?: string | null
+          description?: string | null
+          id?: string
+          object_id?: string | null
+          recommended_action?: string | null
+          risk_type?: string | null
+          severity?: string
+        }
+        Update: {
+          created_at?: string
+          deal_id?: string | null
+          description?: string | null
+          id?: string
+          object_id?: string | null
+          recommended_action?: string | null
+          risk_type?: string | null
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_risks_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_risks_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_objects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      real_estate_viewings: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          object_id: string | null
+          request_id: string | null
+          scheduled_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          object_id?: string | null
+          request_id?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          object_id?: string | null
+          request_id?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "real_estate_viewings_object_id_fkey"
+            columns: ["object_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_objects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "real_estate_viewings_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "real_estate_requests"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       seo_pages: {
         Row: {
