@@ -1412,6 +1412,30 @@ const [selectedCase, setSelectedCase] = useState<any | null>(null);
               </div>
             </button>
           ))}
+                </div>
+      )}
+
+      {selectedCase && (
+        <div className="mt-6 rounded-2xl border bg-white p-5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-lg font-semibold">
+              {selectedCase.title}
+            </h4>
+
+            <span className="rounded-full bg-secondary px-3 py-1 text-xs">
+              {selectedCase.status || "new"}
+            </span>
+          </div>
+
+          <div className="mt-4 text-sm text-muted-foreground">
+            Тип дела: {selectedCase.case_type || "Не указан"}
+          </div>
+
+          {selectedCase.ai_summary && (
+            <div className="mt-4 rounded-xl bg-secondary/40 p-4 text-sm">
+              {selectedCase.ai_summary}
+            </div>
+          )}
         </div>
       )}
     </section>
