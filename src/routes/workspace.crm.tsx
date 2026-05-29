@@ -822,12 +822,13 @@ onDrop={(e) => e.preventDefault()}
 
         <div className="mt-8 flex flex-wrap gap-2 rounded-2xl border bg-white p-2">
           {([
-            ["overview", "Overview"],
-            ["inbox", "Inbox"],
-            ["documents", "Documents"],
-            ["tasks", "Tasks"],
-            ["timeline", "Timeline"],
-          ] as const).map(([tab, label]) => (
+  ["overview", "Overview"],
+  ["cases", "Cases"],
+  ["inbox", "Inbox"],
+  ["documents", "Documents"],
+  ["tasks", "Tasks"],
+  ["timeline", "Timeline"],
+] as const).map(...)
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
