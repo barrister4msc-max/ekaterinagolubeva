@@ -1464,6 +1464,27 @@ const [selectedCase, setSelectedCase] = useState<any | null>(null);
     Пока нет прикреплённых документов
   </div>
 </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+  <div className="rounded-xl border bg-white p-3">
+    <div className="text-xs text-muted-foreground">Суд</div>
+    <div className="mt-1">{selectedCase.court_name || "Не указан"}</div>
+  </div>
+
+  <div className="rounded-xl border bg-white p-3">
+    <div className="text-xs text-muted-foreground">Номер дела</div>
+    <div className="mt-1">{selectedCase.court_case_number || "Не указан"}</div>
+  </div>
+
+  <div className="rounded-xl border bg-white p-3">
+    <div className="text-xs text-muted-foreground">Оппонент</div>
+    <div className="mt-1">{selectedCase.opponent_name || "Не указан"}</div>
+  </div>
+
+  <div className="rounded-xl border bg-white p-3">
+    <div className="text-xs text-muted-foreground">Сумма требований</div>
+    <div className="mt-1">{selectedCase.claim_amount || "Не указана"}</div>
+  </div>
+</div>
           {selectedCase.ai_summary && (
             <div className="mt-4 rounded-xl bg-secondary/40 p-4 text-sm">
               {selectedCase.ai_summary}
