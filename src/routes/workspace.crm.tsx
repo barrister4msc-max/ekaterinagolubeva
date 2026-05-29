@@ -1417,15 +1417,42 @@ const [selectedCase, setSelectedCase] = useState<any | null>(null);
 
       {selectedCase && (
         <div className="mt-6 rounded-2xl border bg-white p-5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-lg font-semibold">
-              {selectedCase.title}
-            </h4>
+          <div className="flex items-center justify-between gap-3">
+  <h4 className="text-lg font-semibold">
+    {selectedCase.title}
+  </h4>
 
-            <span className="rounded-full bg-secondary px-3 py-1 text-xs">
-              {selectedCase.status || "new"}
-            </span>
-          </div>
+  <div className="flex items-center gap-2">
+    <span className="rounded-full bg-secondary px-3 py-1 text-xs">
+      {selectedCase.status || "new"}
+    </span>
+
+    <button
+      type="button"
+      onClick={async () => {
+        const confirmed = confirm("Удалить это дело?");
+        if (!confirmed) return;
+
+        const { error } = await supabase
+          .from("legal_cases")
+          .delete()
+          .eq("id", selectedCase.id);
+
+        if (error) {
+          console.error(error);
+          alert("Ошибка удаления дела: " + error.message);
+          return;
+        }
+
+        setSelectedCase(null);
+        await loadCases();
+      }}
+      className="rounded-full border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50"
+    >
+      Удалить
+    </button>
+  </div>
+</div>
 
           <div className="mt-4 text-sm text-muted-foreground">
             Тип дела: {selectedCase.case_type || "Не указан"}
