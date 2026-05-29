@@ -1298,7 +1298,7 @@ function LeadCases({ leadId }: { leadId: string }) {
     const { data, error } = await supabase
       .from("legal_cases")
       .select("*")
-      .eq("lead_id", leadId)
+      .eq("legacy_lead_id", leadId)
       .order("created_at", { ascending: false });
 
     if (error) {
