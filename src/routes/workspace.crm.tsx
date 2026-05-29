@@ -1329,11 +1329,11 @@ function LeadCases({ leadId }: { leadId: string }) {
             const { error } = await supabase
               .from("legal_cases")
               .insert({
-                lead_id: leadId,
-                title,
-                status: "new",
-                priority: "normal",
-              });
+  legacy_lead_id: leadId,
+  title,
+  status: "new",
+  priority: "normal",
+})
 
             if (error) {
               console.error(error);
