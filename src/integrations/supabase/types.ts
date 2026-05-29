@@ -180,6 +180,42 @@ export type Database = {
         }
         Relationships: []
       }
+      case_documents: {
+        Row: {
+          case_id: string
+          created_at: string | null
+          document_id: string
+          id: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string | null
+          document_id: string
+          id?: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string | null
+          document_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "case_documents_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "legal_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "case_documents_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "lead_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       communication_attachments: {
         Row: {
           ai_detected_risks: Json
@@ -1730,6 +1766,87 @@ export type Database = {
           utm_term?: string | null
         }
         Relationships: []
+      }
+      legal_cases: {
+        Row: {
+          ai_summary: string | null
+          case_type: string | null
+          claim_amount: number | null
+          court_case_number: string | null
+          court_name: string | null
+          created_at: string | null
+          id: string
+          lead_id: string | null
+          legacy_lead_id: string | null
+          matter_status: string | null
+          next_deadline_at: string | null
+          next_hearing_at: string | null
+          opponent_name: string | null
+          opponent_phone: string | null
+          priority: string | null
+          responsible_lawyer: string | null
+          status: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          case_type?: string | null
+          claim_amount?: number | null
+          court_case_number?: string | null
+          court_name?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          legacy_lead_id?: string | null
+          matter_status?: string | null
+          next_deadline_at?: string | null
+          next_hearing_at?: string | null
+          opponent_name?: string | null
+          opponent_phone?: string | null
+          priority?: string | null
+          responsible_lawyer?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          case_type?: string | null
+          claim_amount?: number | null
+          court_case_number?: string | null
+          court_name?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          legacy_lead_id?: string | null
+          matter_status?: string | null
+          next_deadline_at?: string | null
+          next_hearing_at?: string | null
+          opponent_name?: string | null
+          opponent_phone?: string | null
+          priority?: string | null
+          responsible_lawyer?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_cases_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_cases_legacy_lead_id_fkey"
+            columns: ["legacy_lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_knowledge_chunks: {
         Row: {
