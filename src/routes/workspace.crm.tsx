@@ -1426,7 +1426,62 @@ const [selectedCase, setSelectedCase] = useState<any | null>(null);
     <span className="rounded-full bg-secondary px-3 py-1 text-xs">
       {selectedCase.status || "new"}
     </span>
+<button
+  type="button"
+  onClick={async () => {
+    const courtName = prompt(
+      "Суд",
+      selectedCase.court_name || ""
+    );
 
+    const courtCaseNumber = prompt(
+      "Номер дела",
+      selectedCase.court_case_number || ""
+    );
+
+    const opponentName = prompt(
+      "Оппонент",
+      selectedCase.opponent_name || ""
+    );
+
+    const claimAmount = prompt(
+      "Сумма требований",
+      String(selectedCase.claim_amount || "")
+    );
+
+    const { error } = await supabase
+      .from("legal_cases")
+      .update({
+        court_name: courtName || null,
+        court_case_number: courtCaseNumber || null,
+        opponent_name: opponentName || null,
+        claim_amount: claimAmount
+          ? Number(claimAmount)
+          : null,
+      })
+      .eq("id", selectedCase.id);
+
+    if (error) {
+      alert("Ошибка обновления дела: " + error.message);
+      return;
+    }
+
+    await loadCases();
+
+    const { data } = await supabase
+      .from("legal_cases")
+      .select("*")
+      .eq("id", selectedCase.id)
+      .single();
+
+    if (data) {
+      setSelectedCase(data);
+    }
+  }}
+  className="rounded-full border px-3 py-1 text-xs hover:bg-secondary"
+>
+  Редактировать
+</button>
     <button
       type="button"
       onClick={async () => {
