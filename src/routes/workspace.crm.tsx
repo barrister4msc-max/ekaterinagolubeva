@@ -1289,6 +1289,7 @@ alert("AI анализ завершен");
   );
 }
 function LeadCases({ leadId }: { leadId: string }) {
+  console.log("LeadCases leadId =", leadId);
   const [cases, setCases] = useState<any[]>([]);
   const [loadingCases, setLoadingCases] = useState(true);
 const [selectedCase, setSelectedCase] = useState<any | null>(null);
