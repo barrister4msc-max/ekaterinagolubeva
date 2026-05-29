@@ -686,8 +686,8 @@ function LeadDrawer({
   onClose,
 }: {
   lead: Lead;
-  activeTab: "overview" | "inbox" | "documents" | "tasks" | "timeline";
-  setActiveTab: (t: "overview" | "inbox" | "documents" | "tasks" | "timeline") => void;
+  activeTab: "overview" | "cases" | "inbox" | "documents" | "tasks" | "timeline";  
+  setActiveTab: (t: "overview" | "cases" | "inbox" | "documents" | "tasks" | "timeline") => void;
   onClose: () => void;
 }) {
 const [documents, setDocuments] = useState<any[]>([]);
