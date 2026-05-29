@@ -1291,7 +1291,7 @@ alert("AI анализ завершен");
 function LeadCases({ leadId }: { leadId: string }) {
   const [cases, setCases] = useState<any[]>([]);
   const [loadingCases, setLoadingCases] = useState(true);
-
+const [selectedCase, setSelectedCase] = useState<any | null>(null);
   const loadCases = useCallback(async () => {
     setLoadingCases(true);
 
