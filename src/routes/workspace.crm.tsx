@@ -828,17 +828,19 @@ onDrop={(e) => e.preventDefault()}
   ["documents", "Documents"],
   ["tasks", "Tasks"],
   ["timeline", "Timeline"],
-] as const).map(...)
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`rounded-xl px-4 py-2 text-sm hover:bg-secondary ${
-                activeTab === tab ? "bg-neutral-950 text-white" : "text-muted-foreground"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+] as const).map(([tab, label]) => (
+  <button
+    key={tab}
+    onClick={() => setActiveTab(tab)}
+    className={`rounded-xl px-4 py-2 text-sm hover:bg-secondary ${
+      activeTab === tab
+        ? "bg-neutral-950 text-white"
+        : "text-muted-foreground"
+    }`}
+  >
+    {label}
+  </button>
+))}
         </div>
 
         {activeTab === "overview" && (
