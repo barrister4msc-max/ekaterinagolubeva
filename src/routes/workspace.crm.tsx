@@ -1289,13 +1289,126 @@ alert("AI анализ завершен");
   );
 }
 function LeadCases({ leadId }: { leadId: string }) {
+  const [cases, setCases] = useState<any[]>([]);
+  const [loadingCases, setLoadingCases] = useState(true);
+
+  const loadCases = useCallback(async () => {
+    setLoadingCases(true);
+
+    const { data, error } = await supabase
+      .from("legal_cases")
+      .select("*")
+      .eq("lead_id", leadId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      alert("Ошибка загрузки дел: " + error.message);
+      setLoadingCases(false);
+      return;
+    }
+
+    setCases(data || []);
+    setLoadingCases(false);
+  }, [leadId]);
+
+  useEffect(() => {
+    loadCases();
+  }, [loadCases]);
+
   return (
     <section className="mt-8 rounded-3xl border bg-white p-6">
-      <h3 className="font-medium">Дела клиента</h3>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="font-medium">Дела клиента</h3>
 
-      <div className="mt-4 text-sm text-muted-foreground">
-        Пока дел нет. Следующим шагом подключим таблицу legal_cases.
+        <button
+          onClick={async () => {
+            const title = prompt("Название дела", "Новое дело");
+            if (!title) return;
+
+            const { error } = await supabase
+              .from("legal_cases")
+              .insert({
+                lead_id: leadId,
+                title,
+                status: "new",
+                priority: "normal",
+              });
+
+            if (error) {
+              console.error(error);
+              alert("Ошибка создания дела: " + error.message);
+              return;
+            }
+
+            await loadCases();
+          }}
+          className="rounded-xl bg-neutral-950 px-4 py-2 text-xs text-white hover:bg-neutral-800"
+        >
+          Создать дело
+        </button>
       </div>
+
+      {loadingCases ? (
+        <div className="mt-5 text-sm text-muted-foreground">
+          Загрузка дел…
+        </div>
+      ) : cases.length === 0 ? (
+        <div className="mt-5 rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+          Дел пока нет. Нажмите «Создать дело».
+        </div>
+      ) : (
+        <div className="mt-5 space-y-3">
+          {cases.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-2xl border bg-secondary/30 p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-medium">
+                    {item.title}
+                  </div>
+
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {item.case_type || "Тип дела не указан"}
+                  </div>
+                </div>
+
+                <span className="rounded-full bg-white px-3 py-1 text-xs text-muted-foreground">
+                  {item.status || "new"}
+                </span>
+              </div>
+
+              {item.description && (
+                <div className="mt-3 text-sm leading-6 text-muted-foreground">
+                  {item.description}
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                {item.case_number && (
+                  <span className="rounded-full bg-white px-2 py-1">
+                    № {item.case_number}
+                  </span>
+                )}
+
+                {item.court_name && (
+                  <span className="rounded-full bg-white px-2 py-1">
+                    {item.court_name}
+                  </span>
+                )}
+
+                {item.claim_amount && (
+                  <span className="rounded-full bg-white px-2 py-1">
+                    Сумма: {item.claim_amount}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
