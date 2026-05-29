@@ -1409,7 +1409,7 @@ function LeadCases({ leadId }: { leadId: string }) {
                   </span>
                 )}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
