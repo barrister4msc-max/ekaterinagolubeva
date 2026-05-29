@@ -870,6 +870,7 @@ onDrop={(e) => e.preventDefault()}
         )}
 
         {activeTab === "inbox" && <LeadInbox leadId={lead.id} />}
+        {activeTab === "cases" && <LeadCases leadId={lead.id} />}
 {activeTab === "documents" && (
      <section className="mt-8 rounded-3xl border bg-white p-6">
   <div className="flex items-center justify-between gap-3">
