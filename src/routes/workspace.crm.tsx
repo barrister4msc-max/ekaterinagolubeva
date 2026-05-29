@@ -1330,7 +1330,7 @@ const [selectedCase, setSelectedCase] = useState<any | null>(null);
             const { error } = await supabase
               .from("legal_cases")
               .insert({
-  legacy_lead_id: leadId,
+  lead_id: leadId,
   title,
   status: "new",
   priority: "normal",
