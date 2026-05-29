@@ -1299,6 +1299,17 @@ function LeadCases({ leadId }: { leadId: string }) {
     </section>
   );
 }
+function LeadCases({ leadId }: { leadId: string }) {
+  return (
+    <section className="mt-8 rounded-3xl border bg-white p-6">
+      <h3 className="font-medium">Дела клиента</h3>
+
+      <div className="mt-4 text-sm text-muted-foreground">
+        Пока дел нет. Следующим шагом подключим таблицу legal_cases.
+      </div>
+    </section>
+  );
+}
 function LeadInbox({ leadId }: { leadId: string }) {
   const listConvs = useServerFn(listConversationsByLeadFn);
   const listMsgs = useServerFn(listMessagesFn);
