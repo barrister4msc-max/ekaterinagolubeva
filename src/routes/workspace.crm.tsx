@@ -1360,10 +1360,14 @@ function LeadCases({ leadId }: { leadId: string }) {
       ) : (
         <div className="mt-5 space-y-3">
           {cases.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-2xl border bg-secondary/30 p-4"
-            >
+  <button
+    key={item.id}
+    type="button"
+    onClick={() => {
+      console.log("open case", item.id);
+    }}
+    className="w-full rounded-2xl border bg-secondary/30 p-4 text-left transition hover:border-neutral-400 hover:bg-secondary/50"
+  >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="text-sm font-medium">
