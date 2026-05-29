@@ -1364,8 +1364,8 @@ const [selectedCase, setSelectedCase] = useState<any | null>(null);
     key={item.id}
     type="button"
     onClick={() => {
-      console.log("open case", item.id);
-    }}
+  setSelectedCase(item);
+}}
     className="w-full rounded-2xl border bg-secondary/30 p-4 text-left transition hover:border-neutral-400 hover:bg-secondary/50"
   >
               <div className="flex items-start justify-between gap-3">
