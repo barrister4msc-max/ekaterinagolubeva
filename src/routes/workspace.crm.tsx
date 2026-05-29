@@ -1457,7 +1457,13 @@ const [selectedCase, setSelectedCase] = useState<any | null>(null);
           <div className="mt-4 text-sm text-muted-foreground">
             Тип дела: {selectedCase.case_type || "Не указан"}
           </div>
+<div className="mt-4 rounded-xl bg-secondary/30 p-4">
+  <div className="font-medium">Документы дела</div>
 
+  <div className="mt-2 text-sm text-muted-foreground">
+    Пока нет прикреплённых документов
+  </div>
+</div>
           {selectedCase.ai_summary && (
             <div className="mt-4 rounded-xl bg-secondary/40 p-4 text-sm">
               {selectedCase.ai_summary}
