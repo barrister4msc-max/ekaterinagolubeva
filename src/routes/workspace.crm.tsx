@@ -801,13 +801,12 @@ const safeName = `document-${Date.now()}.${extension}`;
       alert("DB insert error: " + dbError.message);
       return;
     }
-    await supabase
+     await supabase
   .from("lead_events")
   .insert({
     lead_id: lead.id,
-    event_type: "document_uploaded",
-    title: "Загружен документ",
-    description: file.name,
+    type: "document_uploaded",
+    message: `Загружен документ: ${file.name}`,
   });
   }
 
