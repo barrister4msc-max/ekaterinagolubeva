@@ -922,13 +922,20 @@ onDrop={(e) => e.preventDefault()}
     if (!confirmed) return;
 
     const { error } = await supabase
-      .from("leads")
-      .update({
-        archived_at: new Date().toISOString(),
-        pipeline_stage: "closed",
-        status: "closed",
-      })
-      await supabase
+  .from("leads")
+  .update({
+    archived_at: new Date().toISOString(),
+    pipeline_stage: "closed",
+    status: "closed",
+  })
+  .eq("id", lead.id);
+
+if (error) {
+  alert("Ошибка архивации: " + error.message);
+  return;
+}
+
+await supabase
   .from("lead_events")
   .insert({
     lead_id: lead.id,
@@ -936,7 +943,6 @@ onDrop={(e) => e.preventDefault()}
     title: "Заявка архивирована",
     description: `Заявка №${lead.lead_number}`,
   });
-      .eq("id", lead.id);
 
     if (error) {
       alert("Ошибка архивации: " + error.message);
