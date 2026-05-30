@@ -1672,6 +1672,7 @@ export type Database = {
           referrer: string | null
           risks: string[]
           source: string | null
+          source_crm_lead_id: string | null
           status: Database["public"]["Enums"]["lead_status"]
           updated_at: string
           urgency: Database["public"]["Enums"]["lead_urgency"] | null
@@ -1714,6 +1715,7 @@ export type Database = {
           referrer?: string | null
           risks?: string[]
           source?: string | null
+          source_crm_lead_id?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string
           urgency?: Database["public"]["Enums"]["lead_urgency"] | null
@@ -1756,6 +1758,7 @@ export type Database = {
           referrer?: string | null
           risks?: string[]
           source?: string | null
+          source_crm_lead_id?: string | null
           status?: Database["public"]["Enums"]["lead_status"]
           updated_at?: string
           urgency?: Database["public"]["Enums"]["lead_urgency"] | null
@@ -1765,7 +1768,15 @@ export type Database = {
           utm_source?: string | null
           utm_term?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_source_crm_lead_id_fkey"
+            columns: ["source_crm_lead_id"]
+            isOneToOne: false
+            referencedRelation: "crm_leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_cases: {
         Row: {
