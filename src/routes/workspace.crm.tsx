@@ -781,7 +781,7 @@ if (crmLeadId) {
     const { data: convs } = await supabase
       .from("communication_conversations")
       .select("id")
-      .eq("crm_lead_id", leadRow.source_crm_lead_id);
+      .eq("crm_lead_id", crmLeadId);
 
     const convIds = (convs || []).map((c: any) => c.id);
 
