@@ -1191,9 +1191,8 @@ await supabase
   .from("lead_events")
   .insert({
     lead_id: lead.id,
-    event_type: "ai_analysis",
-    title: "AI анализ выполнен",
-    description: doc.file_name,
+    type: "ai_analysis",
+    message: `AI анализ выполнен: ${doc.file_name}`,
   });
         const freshDocs = await loadDocuments();
 const freshDoc = freshDocs.find((d) => d.id === doc.id);
