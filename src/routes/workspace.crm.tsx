@@ -1521,9 +1521,8 @@ await supabase
   .from("lead_events")
   .insert({
     lead_id: leadId,
-    event_type: "case_created",
-    title: "Создано дело",
-    description: title,
+    type: "case_created",
+    message: `Создано дело: ${title}`,
   });
   
             if (error) {
