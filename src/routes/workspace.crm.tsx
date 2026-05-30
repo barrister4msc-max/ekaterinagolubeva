@@ -776,7 +776,11 @@ const loadDocuments = useCallback(async () => {
   let telegramDocs: any[] = [];
 
 const crmLeadId = lead.source_crm_lead_id;
-
+console.log("DOCUMENTS LEAD DEBUG", {
+  leadId: lead.id,
+  name: lead.name,
+  sourceCrmLeadId: lead.source_crm_lead_id,
+});
 if (crmLeadId) {
     const { data: convs } = await supabase
       .from("communication_conversations")
