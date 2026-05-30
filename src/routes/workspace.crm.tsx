@@ -589,7 +589,9 @@ function PipelineView({
                       draggingId === lead.id ? "opacity-50" : ""
                     }`}
                   >
-                    <h3 className="text-sm font-semibold">{lead.name}</h3>
+                    <h3 className="text-sm font-semibold">
+  №{lead.lead_number ?? "—"} · {lead.name}
+</h3>
                     <p className="mt-3 line-clamp-3 text-[13px] leading-5 text-muted-foreground">
                       {lead.original_text}
                     </p>
