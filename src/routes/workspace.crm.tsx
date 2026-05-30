@@ -824,7 +824,7 @@ if (crmLeadId) {
 
   setDocuments(allDocs);
   return allDocs;
-}, [lead.id]);
+}, [lead.id, lead.source_crm_lead_id]);
 
 useEffect(() => {
   loadDocuments();
