@@ -773,15 +773,11 @@ const loadDocuments = useCallback(async () => {
     console.error(leadDocsError);
   }
 
-  const { data: leadRow } = await supabase
-    .from("leads")
-    .select("source_crm_lead_id")
-    .eq("id", lead.id)
-    .single();
-
   let telegramDocs: any[] = [];
 
-  if (leadRow?.source_crm_lead_id) {
+const crmLeadId = lead.source_crm_lead_id;
+
+if (crmLeadId) {
     const { data: convs } = await supabase
       .from("communication_conversations")
       .select("id")
