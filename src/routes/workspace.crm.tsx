@@ -1477,7 +1477,14 @@ const [selectedCase, setSelectedCase] = useState<any | null>(null);
   status: "new",
   priority: "normal",
 })
-
+await supabase
+  .from("lead_events")
+  .insert({
+    lead_id: leadId,
+    event_type: "case_created",
+    title: "Создано дело",
+    description: title,
+  });
             if (error) {
               console.error(error);
               alert("Ошибка создания дела: " + error.message);
