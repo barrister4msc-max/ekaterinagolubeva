@@ -763,24 +763,71 @@ const safeName = `document-${Date.now()}.${extension}`;
   alert("Документы загружены");
 };
 const loadDocuments = useCallback(async () => {
-  const { data, error } =
-    await supabase
-      .from("lead_documents")
-      .select("*")
-      .eq("lead_id", lead.id)
-      .order(
-        "created_at",
-        { ascending: false }
-      );
+  const { data: leadDocs, error: leadDocsError } = await supabase
+    .from("lead_documents")
+    .select("*")
+    .eq("lead_id", lead.id)
+    .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error(error);
-    return [];
+  if (leadDocsError) {
+    console.error(leadDocsError);
   }
 
-  setDocuments(data || []);
+  const { data: leadRow } = await supabase
+    .from("leads")
+    .select("source_crm_lead_id")
+    .eq("id", lead.id)
+    .single();
 
-  return data || [];
+  let telegramDocs: any[] = [];
+
+  if (leadRow?.source_crm_lead_id) {
+    const { data: convs } = await supabase
+      .from("communication_conversations")
+      .select("id")
+      .eq("crm_lead_id", leadRow.source_crm_lead_id);
+
+    const convIds = (convs || []).map((c: any) => c.id);
+
+    if (convIds.length > 0) {
+      const { data: msgs } = await supabase
+        .from("communication_messages")
+        .select("id")
+        .in("conversation_id", convIds);
+
+      const msgIds = (msgs || []).map((m: any) => m.id);
+
+      if (msgIds.length > 0) {
+        const { data: atts } = await supabase
+          .from("communication_attachments")
+          .select("*")
+          .in("message_id", msgIds)
+          .not("storage_path", "is", null)
+          .order("created_at", { ascending: false });
+
+        telegramDocs = (atts || []).map((a: any) => ({
+          ...a,
+          _source: "telegram_attachment",
+          file_url: a.storage_path,
+          analysis_status: "uploaded",
+        }));
+      }
+    }
+  }
+
+  const normalizedLeadDocs = (leadDocs || []).map((d: any) => ({
+    ...d,
+    _source: "lead_documents",
+  }));
+
+  const allDocs = [...telegramDocs, ...normalizedLeadDocs].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() -
+      new Date(a.created_at).getTime()
+  );
+
+  setDocuments(allDocs);
+  return allDocs;
 }, [lead.id]);
 
 useEffect(() => {
