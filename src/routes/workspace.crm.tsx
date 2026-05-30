@@ -153,7 +153,8 @@ function CRMPage() {
   const updateStage = useServerFn(updateLeadPipelineStageFn);
 
 
-  const [view, setView] = useState<"pipeline" | "inbox">("pipeline");
+  const [view, setView] =
+  useState<"pipeline" | "inbox" | "archive">("pipeline");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [inbox, setInbox] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
