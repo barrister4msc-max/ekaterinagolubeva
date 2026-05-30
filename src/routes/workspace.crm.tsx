@@ -60,6 +60,7 @@ type Lead = {
   category: string | null;
   source: string | null;
   source_crm_lead_id?: string | null;
+  archived_at: string | null;
 };
 
 
