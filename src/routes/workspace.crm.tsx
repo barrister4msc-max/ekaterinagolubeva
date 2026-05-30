@@ -928,6 +928,14 @@ onDrop={(e) => e.preventDefault()}
         pipeline_stage: "closed",
         status: "closed",
       })
+      await supabase
+  .from("lead_events")
+  .insert({
+    lead_id: lead.id,
+    event_type: "archived",
+    title: "Заявка архивирована",
+    description: `Заявка №${lead.lead_number}`,
+  });
       .eq("id", lead.id);
 
     if (error) {
