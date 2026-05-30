@@ -217,7 +217,9 @@ function CRMPage() {
       return true;
     });
   }, [leads, filters, dateThreshold, q]);
-
+const archivedLeads = useMemo(() => {
+  return leads.filter((l) => l.archived_at);
+}, [leads]);
   const filteredInbox = useMemo(() => {
     return inbox.filter((c) => {
       if (filters.channel !== "all" && c.channel !== filters.channel) return false;
