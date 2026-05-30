@@ -507,9 +507,25 @@ const archivedLeads = useMemo(() => {
           Загрузка…
         </div>
       ) : view === "pipeline" ? (
-        <PipelineView leads={filteredLeads} onSelect={(l) => { setSelectedLead(l); setActiveTab("overview"); }} onMove={handleMoveLead} />
-      ) : (
-        <InboxView
+  <PipelineView
+    leads={filteredLeads}
+    onSelect={(l) => {
+      setSelectedLead(l);
+      setActiveTab("overview");
+    }}
+    onMove={handleMoveLead}
+  />
+) : view === "archive" ? (
+  <PipelineView
+    leads={archivedLeads}
+    onSelect={(l) => {
+      setSelectedLead(l);
+      setActiveTab("overview");
+    }}
+    onMove={handleMoveLead}
+  />
+) : (
+  <InboxView
           conversations={filteredInbox}
           error={inboxError}
           onSelect={(c) => {
