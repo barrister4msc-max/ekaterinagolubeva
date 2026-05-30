@@ -59,6 +59,7 @@ type Lead = {
   risks: string[] | null;
   category: string | null;
   source: string | null;
+  source_crm_lead_id?: string | null;
 };
 
 
