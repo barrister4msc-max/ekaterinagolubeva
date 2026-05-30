@@ -202,6 +202,7 @@ function CRMPage() {
 
   const filteredLeads = useMemo(() => {
     return leads.filter((l) => {
+      if (l.archived_at) return false;
       if (filters.leadStatus !== "all" && l.status !== filters.leadStatus) return false;
       if (filters.pipelineStage !== "all" && (l.pipeline_stage ?? "new") !== filters.pipelineStage) return false;
       if (filters.priority !== "all" && (l.priority ?? "normal") !== filters.priority) return false;
