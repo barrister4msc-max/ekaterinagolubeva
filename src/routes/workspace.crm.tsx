@@ -862,7 +862,9 @@ onDrop={(e) => e.preventDefault()}
             <div className="mb-4 inline-flex rounded-full border bg-white px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
               Legal dossier
             </div>
-            <h2 className="font-display text-4xl">{lead.name}</h2>
+            <h2 className="font-display text-4xl">
+  №{lead.lead_number ?? "—"} · {lead.name}
+</h2>
             <p className="mt-3 text-sm text-muted-foreground">{lead.original_text}</p>
             <div className="mt-5 flex flex-wrap gap-2">
               <span className={`rounded-full px-3 py-1 text-xs ${priorityClass(lead.priority)}`}>
