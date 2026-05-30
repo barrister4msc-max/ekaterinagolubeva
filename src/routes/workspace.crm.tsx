@@ -317,9 +317,8 @@ const archivedLeads = useMemo(() => {
   .from("lead_events")
   .insert({
     lead_id: leadId,
-    event_type: "stage_changed",
-    title: "Изменена стадия",
-    description: targetStage,
+    type: "stage_changed",
+    message: `Стадия изменена на: ${targetStage}`,
   });
       } catch (e) {
         // revert
