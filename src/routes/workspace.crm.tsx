@@ -793,6 +793,14 @@ const safeName = `document-${Date.now()}.${extension}`;
       alert("DB insert error: " + dbError.message);
       return;
     }
+    await supabase
+  .from("lead_events")
+  .insert({
+    lead_id: lead.id,
+    event_type: "document_uploaded",
+    title: "Загружен документ",
+    description: file.name,
+  });
   }
 
   await loadDocuments();
