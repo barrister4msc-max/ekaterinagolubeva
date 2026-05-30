@@ -1484,15 +1484,28 @@ const [selectedCase, setSelectedCase] = useState<any | null>(null);
             if (!title) return;
 
             const { error } = await supabase
-              .from("legal_cases")
-              .insert({
-  lead_id: leadId,
-  title,
-  status: "new",
-  priority: "normal",
-})
+  .from("legal_cases")
+  .insert({
+    lead_id: leadId,
+    title,
+    status: "new",
+    priority: "normal",
+  });
+
+if (error) {
+  console.error(error);
+  alert("Ошибка создания дела: " + error.message);
+  return;
+}
+
 await supabase
   .from("lead_events")
+  .insert({
+    lead_id: leadId,
+    event_type: "case_created",
+    title: "Создано дело",
+    description: title,
+  });
   .insert({
     lead_id: leadId,
     event_type: "case_created",
