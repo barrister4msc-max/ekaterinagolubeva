@@ -1024,22 +1024,36 @@ onDrop={(e) => e.preventDefault()}
         </div>
 <div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto">
 
-  <button
-    onClick={async () => {
-      const { data } = await supabase.storage
-        .from("lead-documents")
-        .createSignedUrl(doc.file_url, 60);
+  onClick={async () => {
+  const bucket =
+    doc._source === "telegram_attachment"
+      ? "communication-attachments"
+      : "lead-documents";
 
-      if (data?.signedUrl) {
-        setPreviewUrl(data.signedUrl);
+  const path =
+    doc._source === "telegram_attachment"
+      ? doc.storage_path
+      : doc.file_url;
 
-        setPreviewName(
-          doc.file_name ||
-          doc.file_url.split("/").pop() ||
-          "Документ"
-        );
-      }
-    }}
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, 60);
+
+  if (error) {
+    console.error(error);
+    alert(error.message);
+    return;
+  }
+
+  if (data?.signedUrl) {
+    setPreviewUrl(data.signedUrl);
+    setPreviewName(
+      doc.file_name ||
+      path.split("/").pop() ||
+      "Документ"
+    );
+  }
+}}
     className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
   >
     Открыть
