@@ -361,6 +361,18 @@ const archivedLeads = useMemo(() => {
                 <span className="rounded-full bg-white/20 px-1.5 text-[11px]">{inbox.length}</span>
               )}
             </button>
+            <button
+  type="button"
+  onClick={() => setView("archive")}
+  className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm ${
+    view === "archive"
+      ? "bg-neutral-950 text-white"
+      : "text-muted-foreground"
+  }`}
+>
+  <FileText size={14} />
+  Archive
+</button>
           </div>
 
           <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-3 text-sm shadow-sm">
