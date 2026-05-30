@@ -204,6 +204,9 @@ function CRMPage() {
   const q = searchQuery.trim().toLowerCase();
 
   const filteredLeads = useMemo(() => {
+    const archivedLeads = useMemo(() => {
+  return leads.filter((l) => l.archived_at);
+}, [leads]);
     return leads.filter((l) => {
       if (l.archived_at) return false;
       if (filters.leadStatus !== "all" && l.status !== filters.leadStatus) return false;
