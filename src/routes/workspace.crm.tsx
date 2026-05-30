@@ -313,6 +313,14 @@ const archivedLeads = useMemo(() => {
           setSelectedLead((s) => (s && s.id === leadId ? { ...s, ...updated } : s));
         }
         toast.success("Стадия обновлена");
+        await supabase
+  .from("lead_events")
+  .insert({
+    lead_id: leadId,
+    event_type: "stage_changed",
+    title: "Изменена стадия",
+    description: targetStage,
+  });
       } catch (e) {
         // revert
         setLeads((ls) => ls.map((l) => (l.id === leadId ? prev : l)));
