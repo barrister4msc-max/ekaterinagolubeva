@@ -1023,8 +1023,8 @@ onDrop={(e) => e.preventDefault()}
     
         </div>
 <div className="flex w-full flex-wrap items-center justify-end gap-2 md:w-auto">
-
-  onClick={async () => {
+  <button
+    onClick={async () => {
   const bucket =
     doc._source === "telegram_attachment"
       ? "communication-attachments"
