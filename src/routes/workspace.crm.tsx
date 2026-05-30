@@ -955,9 +955,8 @@ await supabase
   .from("lead_events")
   .insert({
     lead_id: lead.id,
-    event_type: "archived",
-    title: "Заявка архивирована",
-    description: `Заявка №${lead.lead_number}`,
+    type: "archived",
+    message: `Заявка №${lead.lead_number} архивирована`,
   });
 
     if (error) {
