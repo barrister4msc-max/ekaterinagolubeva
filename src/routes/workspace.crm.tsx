@@ -805,12 +805,23 @@ if (crmLeadId) {
           .not("storage_path", "is", null)
           .order("created_at", { ascending: false });
 
-        telegramDocs = (atts || []).map((a: any) => ({
-          ...a,
-          _source: "telegram_attachment",
-          file_url: a.storage_path,
-          analysis_status: "uploaded",
-        }));
+        const uniqueAtts = Array.from(
+  new Map(
+    (atts || [])
+      .filter((a: any) => a.storage_path)
+      .map((a: any) => [
+        `${a.file_name}-${a.file_size}`,
+        a,
+      ])
+  ).values()
+);
+
+telegramDocs = uniqueAtts.map((a: any) => ({
+  ...a,
+  _source: "telegram_attachment",
+  file_url: a.storage_path,
+  analysis_status: "uploaded",
+}));
       }
     }
   }
