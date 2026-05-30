@@ -882,6 +882,36 @@ onDrop={(e) => e.preventDefault()}
               </span>
             </div>
           </div>
+          <button
+  onClick={async () => {
+    const confirmed = confirm(
+      `Архивировать заявку №${lead.lead_number ?? ""}?`
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("leads")
+      .update({
+        archived_at: new Date().toISOString(),
+        pipeline_stage: "closed",
+        status: "closed",
+      })
+      .eq("id", lead.id);
+
+    if (error) {
+      alert("Ошибка архивации: " + error.message);
+      return;
+    }
+
+    alert("Заявка отправлена в архив");
+    onClose();
+    window.location.reload();
+  }}
+  className="rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm text-red-600 shadow-sm hover:bg-red-50"
+>
+  Архивировать
+</button>
           <button onClick={onClose} className="rounded-2xl border bg-white p-3 shadow-sm hover:bg-secondary" aria-label="Закрыть">
             <X size={18} />
           </button>
