@@ -1181,7 +1181,14 @@ await supabase
           alert(error.message);
           return;
         }
-
+await supabase
+  .from("lead_events")
+  .insert({
+    lead_id: lead.id,
+    event_type: "ai_analysis",
+    title: "AI анализ выполнен",
+    description: doc.file_name,
+  });
         const freshDocs = await loadDocuments();
 const freshDoc = freshDocs.find((d) => d.id === doc.id);
 
