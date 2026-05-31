@@ -948,20 +948,13 @@ if (error) {
   alert("Ошибка архивации: " + error.message);
   return;
 }
-console.log("ARCHIVE EVENT START");
-console.log("ARCHIVE EVENT START");
-
-const eventResult = await supabase
+await supabase
   .from("lead_events")
   .insert({
     lead_id: lead.id,
     type: "archived",
     message: `Заявка №${lead.lead_number} архивирована`,
   });
-
-console.log("EVENT RESULT", eventResult);
-
-alert(JSON.stringify(eventResult));
 
     alert("Заявка отправлена в архив");
     onClose();
