@@ -54,7 +54,7 @@ export function AiChatDialog({ open, onClose }: { open: boolean; onClose: () => 
 
         <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-5 py-5 text-sm">
           <div className="rounded-lg border border-border/60 bg-secondary/30 p-3 text-[11px] leading-relaxed text-muted-foreground">
-            Отправляя сообщение, вы соглашаетесь с обработкой персональных данных и использованием AI-ассистента для предварительного анализа обращения. AI-ассистент не заменяет индивидуальную юридическую консультацию. Подробнее:{" "}
+            Отправляя сообщение, вы соглашаетесь с обработкой персональных данных и использованием AI-ассистента для предварительного анализа обращения. AI-ассистент не заменяет индивидуальную юридическую консультацию. Если вы прикрепляете или цитируете документы (договоры, выписки, переписку), вы даёте отдельное согласие на их обработку исключительно для анализа вашей правовой ситуации. Подробнее:{" "}
             <Link to="/privacy" onClick={onClose} className="text-primary underline underline-offset-2">/privacy</Link>,{" "}
             <Link to="/consent" onClick={onClose} className="text-primary underline underline-offset-2">/consent</Link>{" "}и{" "}
             <Link to="/ai-disclaimer" onClick={onClose} className="text-primary underline underline-offset-2">/ai-disclaimer</Link>.
