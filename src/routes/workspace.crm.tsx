@@ -150,6 +150,8 @@ function FilterSelect({
 
 function CRMPage() {
   const { session } = useAuth();
+  const { lead: leadParam } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const listLeads = useServerFn(listLeadsFn);
   const listInbox = useServerFn(listInboxFn);
   const updateStage = useServerFn(updateLeadPipelineStageFn);
