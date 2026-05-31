@@ -166,14 +166,24 @@ function CRMPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "cases" | "inbox" | "documents" | "tasks" | "timeline">("overview");
 
-  // Sync selectedLead with ?lead= URL param
+  // Sync selectedLead with ?lead= URL param (runs after leads load from Supabase).
+  // Matches against both internal lead.id and source_crm_lead_id, because
+  // external links (Telegram bot, n8n) reference the crm_lead id.
   useEffect(() => {
     if (!leadParam) {
       if (selectedLead) setSelectedLead(null);
       return;
     }
-    if (selectedLead?.id === leadParam) return;
-    const found = leads.find((l) => l.id === leadParam);
+    if (
+      selectedLead &&
+      (selectedLead.id === leadParam || selectedLead.source_crm_lead_id === leadParam)
+    ) {
+      return;
+    }
+    if (!leads.length) return; // wait for leads to load
+    const found = leads.find(
+      (l) => l.id === leadParam || l.source_crm_lead_id === leadParam,
+    );
     if (found) setSelectedLead(found);
   }, [leadParam, leads, selectedLead]);
 
