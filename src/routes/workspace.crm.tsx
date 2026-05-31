@@ -844,17 +844,36 @@ const loadDocuments = useCallback(async () => {
 
   let telegramDocs: any[] = [];
 
-const crmLeadId = lead.source_crm_lead_id;
-console.log("DOCUMENTS LEAD DEBUG", {
-  leadId: lead.id,
-  name: lead.name,
-  sourceCrmLeadId: lead.source_crm_lead_id,
-});
-if (crmLeadId) {
+  const crmLeadId = lead.source_crm_lead_id;
+  console.log("DOCUMENTS LEAD DEBUG", {
+    leadId: lead.id,
+    name: lead.name,
+    sourceCrmLeadId: lead.source_crm_lead_id,
+  });
+
+  // Strict per-dossier fetch of lead_documents: this lead, or rows already
+  // bound to its crm_lead. Never fall back to client-wide queries.
+  const leadDocsFilter = crmLeadId
+    ? `lead_id.eq.${lead.id},crm_lead_id.eq.${crmLeadId}`
+    : `lead_id.eq.${lead.id}`;
+  const { data: leadDocs, error: leadDocsError } = await supabase
+    .from("lead_documents")
+    .select("*")
+    .or(leadDocsFilter)
+    .order("created_at", { ascending: false });
+
+  if (leadDocsError) {
+    console.error(leadDocsError);
+  }
+
+  let telegramDocs: any[] = [];
+
+  if (crmLeadId) {
     const { data: convs } = await supabase
       .from("communication_conversations")
       .select("id")
       .eq("crm_lead_id", crmLeadId);
+
 
     const convIds = (convs || []).map((c: any) => c.id);
 
