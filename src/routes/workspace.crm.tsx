@@ -736,6 +736,7 @@ function LeadDrawer({
   onClose: () => void;
 }) {
 const [documents, setDocuments] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
 const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 const [previewName, setPreviewName] = useState<string | null>(null);
   const [analysisDoc, setAnalysisDoc] = useState<any | null>(null);
