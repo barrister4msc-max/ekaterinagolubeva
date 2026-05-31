@@ -73,15 +73,29 @@ export type Database = {
           category: string | null
           client_id: string | null
           confidence: number | null
+          confidence_score: number | null
           conversation_id: string | null
           created_at: string
           extracted_entities: Json
+          full_result: Json | null
           id: string
           lead_id: string | null
+          legal_analysis: string | null
+          missing_documents: Json | null
           model_name: string | null
           next_questions: Json
+          practice_area: string | null
+          query: string | null
           recommended_action: string | null
+          recommended_actions: Json | null
+          retrieved_law_chunks: Json | null
+          retrieved_laws: Json | null
+          retrieved_sources: Json | null
           risk_level: string | null
+          risks: Json | null
+          service_priority: string | null
+          service_type: string | null
+          short_answer: string | null
           subcategory: string | null
           summary: string | null
           urgency_level: string | null
@@ -90,15 +104,29 @@ export type Database = {
           category?: string | null
           client_id?: string | null
           confidence?: number | null
+          confidence_score?: number | null
           conversation_id?: string | null
           created_at?: string
           extracted_entities?: Json
+          full_result?: Json | null
           id?: string
           lead_id?: string | null
+          legal_analysis?: string | null
+          missing_documents?: Json | null
           model_name?: string | null
           next_questions?: Json
+          practice_area?: string | null
+          query?: string | null
           recommended_action?: string | null
+          recommended_actions?: Json | null
+          retrieved_law_chunks?: Json | null
+          retrieved_laws?: Json | null
+          retrieved_sources?: Json | null
           risk_level?: string | null
+          risks?: Json | null
+          service_priority?: string | null
+          service_type?: string | null
+          short_answer?: string | null
           subcategory?: string | null
           summary?: string | null
           urgency_level?: string | null
@@ -107,15 +135,29 @@ export type Database = {
           category?: string | null
           client_id?: string | null
           confidence?: number | null
+          confidence_score?: number | null
           conversation_id?: string | null
           created_at?: string
           extracted_entities?: Json
+          full_result?: Json | null
           id?: string
           lead_id?: string | null
+          legal_analysis?: string | null
+          missing_documents?: Json | null
           model_name?: string | null
           next_questions?: Json
+          practice_area?: string | null
+          query?: string | null
           recommended_action?: string | null
+          recommended_actions?: Json | null
+          retrieved_law_chunks?: Json | null
+          retrieved_laws?: Json | null
+          retrieved_sources?: Json | null
           risk_level?: string | null
+          risks?: Json | null
+          service_priority?: string | null
+          service_type?: string | null
+          short_answer?: string | null
           subcategory?: string | null
           summary?: string | null
           urgency_level?: string | null
