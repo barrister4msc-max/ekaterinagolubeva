@@ -832,18 +832,6 @@ const safeName = `document-${Date.now()}.${extension}`;
   alert("Документы загружены");
 };
 const loadDocuments = useCallback(async () => {
-  const { data: leadDocs, error: leadDocsError } = await supabase
-    .from("lead_documents")
-    .select("*")
-    .eq("lead_id", lead.id)
-    .order("created_at", { ascending: false });
-
-  if (leadDocsError) {
-    console.error(leadDocsError);
-  }
-
-  let telegramDocs: any[] = [];
-
   const crmLeadId = lead.source_crm_lead_id;
   console.log("DOCUMENTS LEAD DEBUG", {
     leadId: lead.id,
@@ -867,6 +855,8 @@ const loadDocuments = useCallback(async () => {
   }
 
   let telegramDocs: any[] = [];
+
+
 
   if (crmLeadId) {
     const { data: convs } = await supabase
