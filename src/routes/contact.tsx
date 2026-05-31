@@ -237,6 +237,10 @@ function ContactPage() {
                   <input
                     type="checkbox"
                     checked={consent}
+                <label className="flex items-start gap-3 rounded-lg border border-border bg-secondary/30 p-3 text-xs leading-relaxed text-foreground/80">
+                  <input
+                    type="checkbox"
+                    checked={consent}
                     onChange={(e) => setConsent(e.target.checked)}
                     className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
                     aria-required="true"
@@ -258,11 +262,31 @@ function ContactPage() {
                   </span>
                 </label>
 
+                <label className="flex items-start gap-3 rounded-lg border border-border bg-secondary/30 p-3 text-xs leading-relaxed text-foreground/80">
+                  <input
+                    type="checkbox"
+                    checked={documentsConsent}
+                    onChange={(e) => setDocumentsConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
+                    aria-required="true"
+                  />
+                  <span>
+                    Даю отдельное согласие на обработку документов, которые я добровольно передаю
+                    в рамках обращения (договоры, выписки, переписка, иные материалы). Документы
+                    используются исключительно для анализа моей правовой ситуации, не передаются
+                    третьим лицам без моего отдельного согласия и удаляются по моему запросу или
+                    по завершении работы.{" "}
+                    <Link to="/consent" target="_blank" className="text-primary underline underline-offset-2">
+                      Подробнее
+                    </Link>.
+                  </span>
+                </label>
+
                 {err && <p className="text-sm text-destructive">{err}</p>}
 
                 <button
                   type="submit"
-                  disabled={loading || !consent}
+                  disabled={loading || !consent || !documentsConsent}
                   className="btn-primary w-full justify-center disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {loading ? (
