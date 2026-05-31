@@ -522,7 +522,7 @@ const archivedLeads = useMemo(() => {
   <PipelineView
     leads={filteredLeads}
     onSelect={(l) => {
-      setSelectedLead(l);
+      navigate({ search: { lead: l.id } });
       setActiveTab("overview");
     }}
     onMove={handleMoveLead}
@@ -531,7 +531,7 @@ const archivedLeads = useMemo(() => {
   <PipelineView
     leads={archivedLeads}
     onSelect={(l) => {
-      setSelectedLead(l);
+      navigate({ search: { lead: l.id } });
       setActiveTab("overview");
     }}
     onMove={handleMoveLead}
@@ -543,7 +543,7 @@ const archivedLeads = useMemo(() => {
           onSelect={(c) => {
             const lead = leads.find((l) => l.id === c.lead_id);
             if (lead) {
-              setSelectedLead(lead);
+              navigate({ search: { lead: lead.id } });
               setActiveTab("inbox");
             }
           }}
@@ -556,7 +556,7 @@ const archivedLeads = useMemo(() => {
           lead={selectedLead}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          onClose={() => setSelectedLead(null)}
+          onClose={() => navigate({ search: {} })}
         />
       ) : null}
     </div>
