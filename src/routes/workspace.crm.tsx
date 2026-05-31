@@ -963,11 +963,6 @@ console.log("EVENT RESULT", eventResult);
 
 alert(JSON.stringify(eventResult));
 
-    if (error) {
-      alert("Ошибка архивации: " + error.message);
-      return;
-    }
-
     alert("Заявка отправлена в архив");
     onClose();
     window.location.reload();
@@ -1530,12 +1525,6 @@ await supabase
     type: "case_created",
     message: `Создано дело: ${title}`,
   });
-  
-            if (error) {
-              console.error(error);
-              alert("Ошибка создания дела: " + error.message);
-              return;
-            }
 
             await loadCases();
           }}
