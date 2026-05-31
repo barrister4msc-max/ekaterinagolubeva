@@ -237,10 +237,6 @@ function ContactPage() {
                   <input
                     type="checkbox"
                     checked={consent}
-                <label className="flex items-start gap-3 rounded-lg border border-border bg-secondary/30 p-3 text-xs leading-relaxed text-foreground/80">
-                  <input
-                    type="checkbox"
-                    checked={consent}
                     onChange={(e) => setConsent(e.target.checked)}
                     className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-primary"
                     aria-required="true"
