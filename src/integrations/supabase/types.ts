@@ -1638,11 +1638,50 @@ export type Database = {
           },
         ]
       }
+      lead_timeline: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          event_type: string
+          id: string
+          lead_id: string
+          metadata: Json | null
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          event_type: string
+          id?: string
+          lead_id: string
+          metadata?: Json | null
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          event_type?: string
+          id?: string
+          lead_id?: string
+          metadata?: Json | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_timeline_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           admin_notes: string | null
           ai_processing_consent: boolean
           ai_summary: string | null
+          archived_at: string | null
           assigned_to: string | null
           category: string | null
           closed_at: string | null
@@ -1659,6 +1698,7 @@ export type Database = {
           id: string
           landing_url: string | null
           last_contact_at: string | null
+          lead_number: number
           legal_disclaimer_accepted: boolean
           name: string
           next_followup_at: string | null
@@ -1686,6 +1726,7 @@ export type Database = {
           admin_notes?: string | null
           ai_processing_consent?: boolean
           ai_summary?: string | null
+          archived_at?: string | null
           assigned_to?: string | null
           category?: string | null
           closed_at?: string | null
@@ -1702,6 +1743,7 @@ export type Database = {
           id?: string
           landing_url?: string | null
           last_contact_at?: string | null
+          lead_number?: number
           legal_disclaimer_accepted?: boolean
           name: string
           next_followup_at?: string | null
@@ -1729,6 +1771,7 @@ export type Database = {
           admin_notes?: string | null
           ai_processing_consent?: boolean
           ai_summary?: string | null
+          archived_at?: string | null
           assigned_to?: string | null
           category?: string | null
           closed_at?: string | null
@@ -1745,6 +1788,7 @@ export type Database = {
           id?: string
           landing_url?: string | null
           last_contact_at?: string | null
+          lead_number?: number
           legal_disclaimer_accepted?: boolean
           name?: string
           next_followup_at?: string | null
