@@ -96,6 +96,22 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <head><HeadContent /></head>
       <body>
         {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (() => {
+                const showFallback = () => {
+                  const root = document.body;
+                  if (!root || root.dataset.safeErrorShown === "true") return;
+                  root.dataset.safeErrorShown = "true";
+                  root.innerHTML = '<main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#faf8f5;color:#241f1b;font:15px/1.5 Inter,system-ui,-apple-system,sans-serif"><section style="max-width:420px;text-align:center"><h1 style="margin:0 0 8px;font:400 28px/1.15 Georgia,serif">Страница не загрузилась</h1><p style="margin:0 0 20px;color:#6f6258">Сбой перехвачен. Обновите страницу или вернитесь на главную.</p><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button onclick="location.reload()" style="border:1px solid #241f1b;background:#241f1b;color:white;padding:10px 16px;border-radius:6px;cursor:pointer">Обновить</button><a href="/" style="border:1px solid #d8d0c7;color:#241f1b;text-decoration:none;padding:10px 16px;border-radius:6px">На главную</a></div></section></main>';
+                };
+                window.addEventListener("error", showFallback);
+                window.addEventListener("unhandledrejection", showFallback);
+              })();
+            `,
+          }}
+        />
         <Scripts />
       </body>
     </html>

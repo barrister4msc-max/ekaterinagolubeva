@@ -1939,6 +1939,105 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_law_chunks: {
+        Row: {
+          article: string | null
+          code_name: string
+          content: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          is_active: boolean | null
+          jurisdiction: string
+          law_category: string | null
+          metadata: Json | null
+          part: string | null
+          practice_area: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          article?: string | null
+          code_name: string
+          content: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          is_active?: boolean | null
+          jurisdiction?: string
+          law_category?: string | null
+          metadata?: Json | null
+          part?: string | null
+          practice_area?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          article?: string | null
+          code_name?: string
+          content?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          is_active?: boolean | null
+          jurisdiction?: string
+          law_category?: string | null
+          metadata?: Json | null
+          part?: string | null
+          practice_area?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      legal_laws: {
+        Row: {
+          article: string | null
+          code_name: string
+          content: string
+          created_at: string | null
+          embedding: string | null
+          id: string
+          is_active: boolean | null
+          jurisdiction: string
+          law_category: string | null
+          metadata: Json | null
+          practice_area: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          article?: string | null
+          code_name: string
+          content: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          is_active?: boolean | null
+          jurisdiction?: string
+          law_category?: string | null
+          metadata?: Json | null
+          practice_area?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          article?: string | null
+          code_name?: string
+          content?: string
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          is_active?: boolean | null
+          jurisdiction?: string
+          law_category?: string | null
+          metadata?: Json | null
+          practice_area?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       legal_matters: {
         Row: {
           ai_summary: string | null
@@ -3250,6 +3349,31 @@ export type Database = {
       match_legal_knowledge: {
         Args: { match_count?: number; query_embedding: string }
         Returns: {
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+          title: string
+        }[]
+      }
+      match_legal_law_chunks: {
+        Args: { match_count?: number; query_embedding: string }
+        Returns: {
+          article: string
+          code_name: string
+          content: string
+          id: string
+          metadata: Json
+          part: string
+          similarity: number
+          title: string
+        }[]
+      }
+      match_legal_laws: {
+        Args: { match_count?: number; query_embedding: string }
+        Returns: {
+          article: string
+          code_name: string
           content: string
           id: string
           metadata: Json
