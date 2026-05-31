@@ -5,7 +5,7 @@ import { ArrowUpRight, MessageCircle, Sparkles, Check, Loader2 } from "lucide-re
 import { classifyAndAskFn, finalizeLeadFn } from "@/lib/intake.functions";
 import { ContactChannels } from "@/components/contact-channels";
 import { TrustBlock } from "@/components/trust-block";
-import { CONSENT_TEXT_FORM, CONSENT_VERSION, PRIVACY_POLICY_VERSION } from "@/lib/consent";
+import { CONSENT_TEXT_FORM, CONSENT_TEXT_DOCUMENTS, CONSENT_VERSION, PRIVACY_POLICY_VERSION } from "@/lib/consent";
 
 
 export const Route = createFileRoute("/contact")({
