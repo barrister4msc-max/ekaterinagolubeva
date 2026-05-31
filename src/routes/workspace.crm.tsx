@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +31,9 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/workspace/crm")({
+  validateSearch: (search: Record<string, unknown>): { lead?: string } => ({
+    lead: typeof search.lead === "string" ? search.lead : undefined,
+  }),
   component: CRMPage,
 });
 
@@ -147,6 +150,8 @@ function FilterSelect({
 
 function CRMPage() {
   const { session } = useAuth();
+  const { lead: leadParam } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const listLeads = useServerFn(listLeadsFn);
   const listInbox = useServerFn(listInboxFn);
   const updateStage = useServerFn(updateLeadPipelineStageFn);
@@ -160,6 +165,17 @@ function CRMPage() {
   const [inboxError, setInboxError] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "cases" | "inbox" | "documents" | "tasks" | "timeline">("overview");
+
+  // Sync selectedLead with ?lead= URL param
+  useEffect(() => {
+    if (!leadParam) {
+      if (selectedLead) setSelectedLead(null);
+      return;
+    }
+    if (selectedLead?.id === leadParam) return;
+    const found = leads.find((l) => l.id === leadParam);
+    if (found) setSelectedLead(found);
+  }, [leadParam, leads, selectedLead]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -517,7 +533,7 @@ const archivedLeads = useMemo(() => {
   <PipelineView
     leads={filteredLeads}
     onSelect={(l) => {
-      setSelectedLead(l);
+      navigate({ search: { lead: l.id } });
       setActiveTab("overview");
     }}
     onMove={handleMoveLead}
@@ -526,7 +542,7 @@ const archivedLeads = useMemo(() => {
   <PipelineView
     leads={archivedLeads}
     onSelect={(l) => {
-      setSelectedLead(l);
+      navigate({ search: { lead: l.id } });
       setActiveTab("overview");
     }}
     onMove={handleMoveLead}
@@ -538,7 +554,7 @@ const archivedLeads = useMemo(() => {
           onSelect={(c) => {
             const lead = leads.find((l) => l.id === c.lead_id);
             if (lead) {
-              setSelectedLead(lead);
+              navigate({ search: { lead: lead.id } });
               setActiveTab("inbox");
             }
           }}
@@ -551,7 +567,7 @@ const archivedLeads = useMemo(() => {
           lead={selectedLead}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          onClose={() => setSelectedLead(null)}
+          onClose={() => navigate({ search: {} })}
         />
       ) : null}
     </div>
