@@ -31,6 +31,9 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/workspace/crm")({
+  validateSearch: (search: Record<string, unknown>): { lead?: string } => ({
+    lead: typeof search.lead === "string" ? search.lead : undefined,
+  }),
   component: CRMPage,
 });
 
