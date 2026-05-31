@@ -33,6 +33,7 @@ import { Route as ContractsRouteImport } from './routes/contracts'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConsentRouteImport } from './routes/consent'
 import { Route as CommercialRentRouteImport } from './routes/commercial-rent'
+import { Route as BankrotstvoRouteImport } from './routes/bankrotstvo'
 import { Route as ArbitrazhnyeSporyRouteImport } from './routes/arbitrazhnye-spory'
 import { Route as AiDisclaimerRouteImport } from './routes/ai-disclaimer'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -171,6 +172,11 @@ const CommercialRentRoute = CommercialRentRouteImport.update({
   path: '/commercial-rent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BankrotstvoRoute = BankrotstvoRouteImport.update({
+  id: '/bankrotstvo',
+  path: '/bankrotstvo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ArbitrazhnyeSporyRoute = ArbitrazhnyeSporyRouteImport.update({
   id: '/arbitrazhnye-spory',
   path: '/arbitrazhnye-spory',
@@ -265,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/ai-disclaimer': typeof AiDisclaimerRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
+  '/bankrotstvo': typeof BankrotstvoRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
@@ -308,6 +315,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRouteWithChildren
   '/ai-disclaimer': typeof AiDisclaimerRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
+  '/bankrotstvo': typeof BankrotstvoRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
@@ -352,6 +360,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/ai-disclaimer': typeof AiDisclaimerRoute
   '/arbitrazhnye-spory': typeof ArbitrazhnyeSporyRoute
+  '/bankrotstvo': typeof BankrotstvoRoute
   '/commercial-rent': typeof CommercialRentRoute
   '/consent': typeof ConsentRoute
   '/contact': typeof ContactRoute
@@ -397,6 +406,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/ai-disclaimer'
     | '/arbitrazhnye-spory'
+    | '/bankrotstvo'
     | '/commercial-rent'
     | '/consent'
     | '/contact'
@@ -440,6 +450,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/ai-disclaimer'
     | '/arbitrazhnye-spory'
+    | '/bankrotstvo'
     | '/commercial-rent'
     | '/consent'
     | '/contact'
@@ -483,6 +494,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/ai-disclaimer'
     | '/arbitrazhnye-spory'
+    | '/bankrotstvo'
     | '/commercial-rent'
     | '/consent'
     | '/contact'
@@ -527,6 +539,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AiDisclaimerRoute: typeof AiDisclaimerRoute
   ArbitrazhnyeSporyRoute: typeof ArbitrazhnyeSporyRoute
+  BankrotstvoRoute: typeof BankrotstvoRoute
   CommercialRentRoute: typeof CommercialRentRoute
   ConsentRoute: typeof ConsentRoute
   ContactRoute: typeof ContactRoute
@@ -725,6 +738,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommercialRentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bankrotstvo': {
+      id: '/bankrotstvo'
+      path: '/bankrotstvo'
+      fullPath: '/bankrotstvo'
+      preLoaderRoute: typeof BankrotstvoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/arbitrazhnye-spory': {
       id: '/arbitrazhnye-spory'
       path: '/arbitrazhnye-spory'
@@ -890,6 +910,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AiDisclaimerRoute: AiDisclaimerRoute,
   ArbitrazhnyeSporyRoute: ArbitrazhnyeSporyRoute,
+  BankrotstvoRoute: BankrotstvoRoute,
   CommercialRentRoute: CommercialRentRoute,
   ConsentRoute: ConsentRoute,
   ContactRoute: ContactRoute,

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   ShieldCheck, FileCheck2, Scale, Building2, Handshake, Globe2,
   KeyRound, ArrowUpRight, MapPin, Send, MessageCircle, Mail,
-  Sparkles, Clock, Eye, ShieldHalf, FileText, UserCheck, Lock, User, BookOpen,
+  Sparkles, Clock, Eye, ShieldHalf, FileText, UserCheck, Lock, User, BookOpen, Landmark,
 } from "lucide-react";
 import heroImg from "@/assets/hero-advisor.jpg";
 import aboutImg from "@/assets/about-portrait.jpg";
@@ -41,6 +41,7 @@ const services = [
   { to: "/commercial-rent", icon: Building2, title: "Коммерческая аренда", text: "Сопровождение договоров, спорные условия, расторжение, расчёты, депозит." },
   { to: "/contracts", icon: FileCheck2, title: "Договоры", text: "Проверка и составление договоров, протоколы разногласий, подряд, поставка, услуги." },
   { to: "/litigation", icon: Scale, title: "Судебные споры", text: "Арбитраж, взыскание задолженности, иски, жалобы, ходатайства, представительство." },
+  { to: "/bankrotstvo", icon: Landmark, title: "Банкротство", text: "Банкротство физических лиц и ИП, защита имущества, оспаривание сделок, работа с кредиторами." },
   { to: "/representation", icon: Handshake, title: "Представительство", text: "Дистанционное участие в делах по Москве, МО и всей России." },
   { to: "/representation-abroad", icon: Globe2, title: "Клиентам за границей", text: "Сделки, суды, наследство и аренда — без необходимости личного присутствия в России." },
 ];
