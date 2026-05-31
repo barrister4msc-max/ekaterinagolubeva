@@ -782,15 +782,31 @@ const safeName = `document-${Date.now()}.${extension}`;
       return;
     }
 
+    // Resolve dossier context so the document is strictly bound to this lead.
+    const crmLeadId = lead.source_crm_lead_id ?? null;
+    let crmClientId: string | null = null;
+    if (crmLeadId) {
+      const { data: crmLeadRow } = await supabase
+        .from("crm_leads")
+        .select("client_id")
+        .eq("id", crmLeadId)
+        .maybeSingle();
+      crmClientId = (crmLeadRow as any)?.client_id ?? null;
+    }
+
     const { data: insertedDoc, error: dbError } =
       await supabase
         .from("lead_documents")
         .insert({
           lead_id: lead.id,
+          crm_lead_id: crmLeadId,
+          crm_client_id: crmClientId,
+          legal_matter_id: null,
+          conversation_id: null,
           file_url: filePath,
           file_name: file.name,
           analysis_status: "uploaded",
-        })
+        } as any)
         .select("*")
         .single();
 
@@ -801,6 +817,7 @@ const safeName = `document-${Date.now()}.${extension}`;
       alert("DB insert error: " + dbError.message);
       return;
     }
+
      await supabase
   .from("lead_events")
   .insert({

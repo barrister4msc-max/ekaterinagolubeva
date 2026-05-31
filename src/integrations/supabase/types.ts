@@ -1525,39 +1525,51 @@ export type Database = {
           ai_summary: string | null
           analysis_status: string | null
           analyzed_at: string | null
+          conversation_id: string | null
           created_at: string | null
+          crm_client_id: string | null
+          crm_lead_id: string | null
           document_type: string | null
           extracted_data: Json | null
           file_name: string | null
           file_url: string | null
           id: string
           lead_id: string | null
+          legal_matter_id: string | null
         }
         Insert: {
           ai_risks?: string[] | null
           ai_summary?: string | null
           analysis_status?: string | null
           analyzed_at?: string | null
+          conversation_id?: string | null
           created_at?: string | null
+          crm_client_id?: string | null
+          crm_lead_id?: string | null
           document_type?: string | null
           extracted_data?: Json | null
           file_name?: string | null
           file_url?: string | null
           id?: string
           lead_id?: string | null
+          legal_matter_id?: string | null
         }
         Update: {
           ai_risks?: string[] | null
           ai_summary?: string | null
           analysis_status?: string | null
           analyzed_at?: string | null
+          conversation_id?: string | null
           created_at?: string | null
+          crm_client_id?: string | null
+          crm_lead_id?: string | null
           document_type?: string | null
           extracted_data?: Json | null
           file_name?: string | null
           file_url?: string | null
           id?: string
           lead_id?: string | null
+          legal_matter_id?: string | null
         }
         Relationships: [
           {
