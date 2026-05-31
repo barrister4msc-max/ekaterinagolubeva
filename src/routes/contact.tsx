@@ -65,6 +65,10 @@ function ContactPage() {
       setErr("Для отправки нужно дать согласие на обработку персональных данных.");
       return;
     }
+    if (!documentsConsent) {
+      setErr("Для отправки нужно дать отдельное согласие на обработку документов.");
+      return;
+    }
     if (!name.trim() || !phone.trim() || originalText.trim().length < 10) {
       setErr("Заполните имя, телефон и кратко опишите ситуацию (минимум 10 символов).");
       return;
