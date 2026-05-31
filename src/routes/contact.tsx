@@ -55,6 +55,7 @@ function ContactPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
+  const [documentsConsent, setDocumentsConsent] = useState(false);
 
 
   async function startIntake(e: React.FormEvent) {
