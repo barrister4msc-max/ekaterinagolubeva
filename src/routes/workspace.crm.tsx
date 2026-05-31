@@ -892,7 +892,20 @@ telegramDocs = uniqueAtts.map((a: any) => ({
   setDocuments(allDocs);
   return allDocs;
 }, [lead.id, lead.source_crm_lead_id]);
+const loadEvents = useCallback(async () => {
+  const { data, error } = await supabase
+    .from("lead_events")
+    .select("*")
+    .eq("lead_id", lead.id)
+    .order("created_at", { ascending: false });
 
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setEvents(data || []);
+}, [lead.id]);
 useEffect(() => {
   loadDocuments();
 }, [loadDocuments]);
