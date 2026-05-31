@@ -948,7 +948,7 @@ if (error) {
   alert("Ошибка архивации: " + error.message);
   return;
 }
-
+console.log("ARCHIVE EVENT START");
 await supabase
   .from("lead_events")
   .insert({
