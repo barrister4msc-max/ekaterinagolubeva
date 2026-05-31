@@ -166,6 +166,17 @@ function CRMPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeTab, setActiveTab] = useState<"overview" | "cases" | "inbox" | "documents" | "tasks" | "timeline">("overview");
 
+  // Sync selectedLead with ?lead= URL param
+  useEffect(() => {
+    if (!leadParam) {
+      if (selectedLead) setSelectedLead(null);
+      return;
+    }
+    if (selectedLead?.id === leadParam) return;
+    const found = leads.find((l) => l.id === leadParam);
+    if (found) setSelectedLead(found);
+  }, [leadParam, leads, selectedLead]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState<{
