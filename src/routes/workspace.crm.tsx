@@ -1420,10 +1420,48 @@ alert("AI анализ завершен");
         )}
 
         {activeTab === "timeline" && (
-          <div className="mt-8 rounded-2xl border bg-white p-5 text-sm text-muted-foreground">
-            Подключение к lead_events — следующим шагом.
+  <section className="mt-8 rounded-3xl border bg-white p-6">
+    <div className="flex items-center justify-between gap-3">
+      <h3 className="font-medium">Timeline</h3>
+
+      <button
+        onClick={loadEvents}
+        className="rounded-xl border px-3 py-2 text-xs hover:bg-secondary"
+      >
+        Обновить
+      </button>
+    </div>
+
+    {events.length === 0 ? (
+      <div className="mt-5 rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+        Событий пока нет
+      </div>
+    ) : (
+      <div className="mt-6 space-y-3">
+        {events.map((event) => (
+          <div
+            key={event.id}
+            className="rounded-2xl border bg-secondary/30 p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="text-sm font-medium">
+                {event.message}
+              </div>
+
+              <span className="rounded-full bg-white px-2 py-1 text-[11px] text-muted-foreground">
+                {event.type}
+              </span>
+            </div>
+
+            <div className="mt-2 text-xs text-muted-foreground">
+              {new Date(event.created_at).toLocaleString("ru-RU")}
+            </div>
           </div>
-        )}
+        ))}
+      </div>
+    )}
+  </section>
+)}
         {previewUrl && (
   <div className="fixed inset-0 z-[80] overflow-y-auto flex items-center justify-center bg-black/50 p-6">
     <div className="h-[90vh] w-full max-w-5xl rounded-3xl bg-white p-4 shadow-2xl">
