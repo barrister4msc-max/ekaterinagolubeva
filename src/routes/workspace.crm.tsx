@@ -949,13 +949,19 @@ if (error) {
   return;
 }
 console.log("ARCHIVE EVENT START");
-await supabase
+console.log("ARCHIVE EVENT START");
+
+const eventResult = await supabase
   .from("lead_events")
   .insert({
     lead_id: lead.id,
     type: "archived",
     message: `Заявка №${lead.lead_number} архивирована`,
   });
+
+console.log("EVENT RESULT", eventResult);
+
+alert(JSON.stringify(eventResult));
 
     if (error) {
       alert("Ошибка архивации: " + error.message);
