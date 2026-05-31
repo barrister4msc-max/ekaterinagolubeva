@@ -133,7 +133,7 @@ function ContactPage() {
             consent_given: true,
             ai_processing_consent: true,
             legal_disclaimer_accepted: true,
-            consent_text: CONSENT_TEXT_FORM,
+            consent_text: `${CONSENT_TEXT_FORM}\n\n${CONSENT_TEXT_DOCUMENTS}`,
             consent_version: CONSENT_VERSION,
             privacy_policy_version: PRIVACY_POLICY_VERSION,
             consent_source: "contact_form",
