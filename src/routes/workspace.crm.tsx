@@ -782,15 +782,31 @@ const safeName = `document-${Date.now()}.${extension}`;
       return;
     }
 
+    // Resolve dossier context so the document is strictly bound to this lead.
+    const crmLeadId = lead.source_crm_lead_id ?? null;
+    let crmClientId: string | null = null;
+    if (crmLeadId) {
+      const { data: crmLeadRow } = await supabase
+        .from("crm_leads")
+        .select("client_id")
+        .eq("id", crmLeadId)
+        .maybeSingle();
+      crmClientId = (crmLeadRow as any)?.client_id ?? null;
+    }
+
     const { data: insertedDoc, error: dbError } =
       await supabase
         .from("lead_documents")
         .insert({
           lead_id: lead.id,
+          crm_lead_id: crmLeadId,
+          crm_client_id: crmClientId,
+          legal_matter_id: null,
+          conversation_id: null,
           file_url: filePath,
           file_name: file.name,
           analysis_status: "uploaded",
-        })
+        } as any)
         .select("*")
         .single();
 
@@ -801,6 +817,7 @@ const safeName = `document-${Date.now()}.${extension}`;
       alert("DB insert error: " + dbError.message);
       return;
     }
+
      await supabase
   .from("lead_events")
   .insert({
@@ -815,10 +832,22 @@ const safeName = `document-${Date.now()}.${extension}`;
   alert("Документы загружены");
 };
 const loadDocuments = useCallback(async () => {
+  const crmLeadId = lead.source_crm_lead_id;
+  console.log("DOCUMENTS LEAD DEBUG", {
+    leadId: lead.id,
+    name: lead.name,
+    sourceCrmLeadId: lead.source_crm_lead_id,
+  });
+
+  // Strict per-dossier fetch of lead_documents: this lead, or rows already
+  // bound to its crm_lead. Never fall back to client-wide queries.
+  const leadDocsFilter = crmLeadId
+    ? `lead_id.eq.${lead.id},crm_lead_id.eq.${crmLeadId}`
+    : `lead_id.eq.${lead.id}`;
   const { data: leadDocs, error: leadDocsError } = await supabase
     .from("lead_documents")
     .select("*")
-    .eq("lead_id", lead.id)
+    .or(leadDocsFilter)
     .order("created_at", { ascending: false });
 
   if (leadDocsError) {
@@ -827,17 +856,14 @@ const loadDocuments = useCallback(async () => {
 
   let telegramDocs: any[] = [];
 
-const crmLeadId = lead.source_crm_lead_id;
-console.log("DOCUMENTS LEAD DEBUG", {
-  leadId: lead.id,
-  name: lead.name,
-  sourceCrmLeadId: lead.source_crm_lead_id,
-});
-if (crmLeadId) {
+
+
+  if (crmLeadId) {
     const { data: convs } = await supabase
       .from("communication_conversations")
       .select("id")
       .eq("crm_lead_id", crmLeadId);
+
 
     const convIds = (convs || []).map((c: any) => c.id);
 
