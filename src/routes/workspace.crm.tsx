@@ -996,6 +996,77 @@ useEffect(() => {
   useEffect(() => {
   loadEvents();
 }, [loadEvents]);
+  const complianceSubjectOptions = useMemo(() => {
+  const options: Array<{
+    label: string;
+    subject_type: "person" | "company";
+    check_subject: string;
+    fio?: string;
+    inn?: string;
+    ogrn?: string;
+    ogrnip?: string;
+    birth_date?: string;
+    region?: string;
+    source: string;
+  }> = [];
+
+  if (lead.name) {
+    options.push({
+      label: `Заявитель: ${lead.name}`,
+      subject_type: "person",
+      check_subject: lead.name,
+      fio: lead.name,
+      source: "lead",
+    });
+  }
+
+  for (const doc of documents) {
+    const a = doc.extracted_data?.structured_analysis || {};
+
+    const persons = Array.isArray(a.persons) ? a.persons : [];
+    const companies = Array.isArray(a.companies) ? a.companies : [];
+
+    for (const p of persons) {
+      const fio =
+        typeof p === "string"
+          ? p
+          : p.fio || p.name || p.full_name || p.person_name || "";
+
+      if (!fio) continue;
+
+      options.push({
+        label: `Физлицо: ${fio} · ${doc.file_name || "документ заявителя"}`,
+        subject_type: "person",
+        check_subject: fio,
+        fio,
+        birth_date: typeof p === "object" ? p.birth_date || p.date_of_birth || "" : "",
+        region: typeof p === "object" ? p.region || "" : "",
+        source: doc.file_name || doc._source || "document",
+      });
+    }
+
+    for (const c of companies) {
+      const name =
+        typeof c === "string"
+          ? c
+          : c.name || c.company_name || c.legal_name || c.title || "";
+
+      if (!name) continue;
+
+      options.push({
+        label: `Организация: ${name} · ${doc.file_name || "документ заявителя"}`,
+        subject_type: "company",
+        check_subject: name,
+        inn: typeof c === "object" ? c.inn || c.tax_id || "" : "",
+        ogrn: typeof c === "object" ? c.ogrn || "" : "",
+        ogrnip: typeof c === "object" ? c.ogrnip || "" : "",
+        source: doc.file_name || doc._source || "document",
+      });
+    }
+  }
+
+  return options;
+}, [lead.name, documents]);
   return (
     <div
       className="fixed inset-0 z-50 flex justify-end bg-black/25 backdrop-blur-md"
