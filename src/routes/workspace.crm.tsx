@@ -769,6 +769,19 @@ const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 const [previewName, setPreviewName] = useState<string | null>(null);
   const [analysisDoc, setAnalysisDoc] = useState<any | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [complianceChecks, setComplianceChecks] = useState<any[]>([]);    
+  const [complianceRunning, setComplianceRunning] = useState(false);
+
+const [complianceForm, setComplianceForm] = useState({
+  subject_type: "company",
+  check_subject: lead.name || "",
+  inn: "",
+  ogrn: "",
+  ogrnip: "",
+  fio: "",
+  birth_date: "",
+  region: "",
+});
   const uploadDocuments = async (files: File[]) => {
   console.log("UPLOAD FILES:", files);
 
