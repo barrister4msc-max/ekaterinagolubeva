@@ -1636,6 +1636,15 @@ await supabase
     </div>
   </section>
 )}
+        {activeTab === "compliance" && (
+  <section className="mt-8 rounded-3xl border bg-white p-6">
+    <h3 className="font-medium">Compliance</h3>
+
+    <div className="mt-4 rounded-xl border border-dashed p-6 text-center">
+      Compliance tab works
+    </div>
+  </section>
+)}
         {activeTab === "tasks" && (
           <section className="mt-8 rounded-3xl border bg-white p-6">
             <div className="flex items-center gap-2">
