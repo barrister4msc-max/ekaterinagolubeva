@@ -1482,6 +1482,142 @@ await supabase
 )}
 </section>
 )}
+        {activeTab === "compliance" && (
+  <section className="mt-8 rounded-3xl border bg-white p-6">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <h3 className="font-medium">Compliance-проверка</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Проверка ФНС, ФССП, Федресурс, Минюст
+        </p>
+      </div>
+
+      <button
+        disabled={complianceRunning}
+        onClick={async () => {
+          try {
+            setComplianceRunning(true);
+
+            const { data, error } = await supabase.functions.invoke(
+              "compliance-check-orchestrator",
+              {
+                body: {
+                  lead_id: lead.id,
+                  client_id: null,
+                  subject_type: complianceForm.subject_type,
+                  check_subject: complianceForm.check_subject,
+                  inn: complianceForm.inn || null,
+                  ogrn: complianceForm.ogrn || null,
+                  ogrnip: complianceForm.ogrnip || null,
+                  fio: complianceForm.fio || null,
+                  birth_date: complianceForm.birth_date || null,
+                  region: complianceForm.region || null,
+                },
+              }
+            );
+
+            if (error) {
+              alert(error.message);
+              return;
+            }
+
+            await supabase.from("lead_events").insert({
+              lead_id: lead.id,
+              type: "compliance_check",
+              message: `Compliance-проверка создана: ${data?.compliance_check_id ?? ""}`,
+            });
+
+            await loadComplianceChecks();
+            alert("Compliance-проверка создана");
+          } finally {
+            setComplianceRunning(false);
+          }
+        }}
+        className="rounded-xl bg-neutral-950 px-4 py-2 text-sm text-white disabled:opacity-50"
+      >
+        {complianceRunning ? "Проверка..." : "AI Проверить"}
+      </button>
+    </div>
+
+    <div className="mt-6 grid gap-3 md:grid-cols-2">
+      {[
+        ["check_subject", "Наименование / ФИО"],
+        ["inn", "ИНН"],
+        ["ogrn", "ОГРН"],
+        ["ogrnip", "ОГРНИП"],
+        ["fio", "ФИО"],
+        ["birth_date", "Дата рождения"],
+        ["region", "Регион"],
+      ].map(([key, label]) => (
+        <label key={key} className="block">
+          <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            {label}
+          </span>
+          <input
+            value={(complianceForm as any)[key]}
+            onChange={(e) =>
+              setComplianceForm((f) => ({ ...f, [key]: e.target.value }))
+            }
+            className="mt-1 w-full rounded-xl border px-3 py-2 text-sm outline-none"
+          />
+        </label>
+      ))}
+    </div>
+
+    <div className="mt-6 space-y-3">
+      {complianceChecks.length === 0 ? (
+        <div className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+          Проверок пока нет
+        </div>
+      ) : (
+        complianceChecks.map((check) => (
+          <div key={check.id} className="rounded-2xl border bg-secondary/30 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium">
+                  {check.check_subject || "Compliance check"}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  status: {check.status} · risk: {check.risk_level || "—"}
+                </div>
+              </div>
+              <span className="rounded-full bg-white px-2 py-1 text-[11px] text-muted-foreground">
+                {new Date(check.created_at).toLocaleString("ru-RU")}
+              </span>
+            </div>
+
+            {check.summary && (
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                {check.summary}
+              </p>
+            )}
+
+            <div className="mt-4 space-y-2">
+              {(check.registry_results || []).map((r: any) => (
+                <div key={r.source_code} className="rounded-xl bg-white p-3 text-xs">
+                  <div className="font-medium">{r.source_name}</div>
+                  <div className="mt-1 text-muted-foreground">
+                    status: {r.status}
+                  </div>
+                  {r.lookup_url && (
+                    <a
+                      href={r.lookup_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-block text-blue-600 underline"
+                    >
+                      Открыть источник
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </section>
+)}
         {activeTab === "tasks" && (
           <section className="mt-8 rounded-3xl border bg-white p-6">
             <div className="flex items-center gap-2">
