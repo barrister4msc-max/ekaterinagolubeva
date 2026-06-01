@@ -186,6 +186,39 @@ export type Database = {
           },
         ]
       }
+      ai_source_routing_rules: {
+        Row: {
+          created_at: string
+          id: string
+          route_name: string
+          trigger_keywords: string[] | null
+          use_internal_laws: boolean
+          use_legal_knowledge: boolean
+          use_official_sources: boolean
+          use_registry_sources: boolean
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          route_name: string
+          trigger_keywords?: string[] | null
+          use_internal_laws?: boolean
+          use_legal_knowledge?: boolean
+          use_official_sources?: boolean
+          use_registry_sources?: boolean
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          route_name?: string
+          trigger_keywords?: string[] | null
+          use_internal_laws?: boolean
+          use_legal_knowledge?: boolean
+          use_official_sources?: boolean
+          use_registry_sources?: boolean
+        }
+        Relationships: []
+      }
       ai_usage_logs: {
         Row: {
           cost_estimate: number | null
@@ -570,6 +603,69 @@ export type Database = {
           processed?: boolean
           processing_error?: string | null
           raw_payload?: Json
+        }
+        Relationships: []
+      }
+      compliance_checks: {
+        Row: {
+          birth_date: string | null
+          check_subject: string | null
+          client_id: string | null
+          created_at: string
+          fio: string | null
+          id: string
+          inn: string | null
+          lead_id: string | null
+          missing_data: Json
+          ogrn: string | null
+          ogrnip: string | null
+          region: string | null
+          registry_results: Json
+          risk_level: string | null
+          status: string
+          subject_type: string | null
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          birth_date?: string | null
+          check_subject?: string | null
+          client_id?: string | null
+          created_at?: string
+          fio?: string | null
+          id?: string
+          inn?: string | null
+          lead_id?: string | null
+          missing_data?: Json
+          ogrn?: string | null
+          ogrnip?: string | null
+          region?: string | null
+          registry_results?: Json
+          risk_level?: string | null
+          status?: string
+          subject_type?: string | null
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          birth_date?: string | null
+          check_subject?: string | null
+          client_id?: string | null
+          created_at?: string
+          fio?: string | null
+          id?: string
+          inn?: string | null
+          lead_id?: string | null
+          missing_data?: Json
+          ogrn?: string | null
+          ogrnip?: string | null
+          region?: string | null
+          registry_results?: Json
+          risk_level?: string | null
+          status?: string
+          subject_type?: string | null
+          summary?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1417,6 +1513,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      external_registry_sources: {
+        Row: {
+          base_url: string
+          created_at: string
+          description: string | null
+          domain: string
+          id: string
+          is_active: boolean
+          lookup_url: string | null
+          required_data: Json
+          source_code: string | null
+          source_name: string
+          source_priority: number | null
+          source_type: string
+          use_case: string | null
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          description?: string | null
+          domain: string
+          id?: string
+          is_active?: boolean
+          lookup_url?: string | null
+          required_data?: Json
+          source_code?: string | null
+          source_name: string
+          source_priority?: number | null
+          source_type: string
+          use_case?: string | null
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          description?: string | null
+          domain?: string
+          id?: string
+          is_active?: boolean
+          lookup_url?: string | null
+          required_data?: Json
+          source_code?: string | null
+          source_name?: string
+          source_priority?: number | null
+          source_type?: string
+          use_case?: string | null
+        }
+        Relationships: []
       }
       external_reviews: {
         Row: {
@@ -2606,6 +2750,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      official_legal_sources: {
+        Row: {
+          base_url: string
+          created_at: string
+          description: string | null
+          domain: string
+          id: string
+          is_active: boolean
+          lookup_url: string
+          source_code: string
+          source_name: string
+          source_priority: number | null
+          source_type: string
+          use_case: string | null
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          description?: string | null
+          domain: string
+          id?: string
+          is_active?: boolean
+          lookup_url: string
+          source_code: string
+          source_name: string
+          source_priority?: number | null
+          source_type: string
+          use_case?: string | null
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          description?: string | null
+          domain?: string
+          id?: string
+          is_active?: boolean
+          lookup_url?: string
+          source_code?: string
+          source_name?: string
+          source_priority?: number | null
+          source_type?: string
+          use_case?: string | null
+        }
+        Relationships: []
       }
       payments: {
         Row: {
