@@ -1606,9 +1606,24 @@ await supabase
             );
 
             if (error) {
-              alert(error.message);
-              return;
-            }
+  console.error("COMPLIANCE EDGE ERROR:", error);
+
+  alert(
+    JSON.stringify(
+      {
+        message: error.message,
+        name: error.name,
+        context: (error as any).context,
+      },
+      null,
+      2,
+    ),
+  );
+
+  return;
+}
+
+console.log("COMPLIANCE EDGE DATA:", data);
 
             await supabase.from("lead_events").insert({
               lead_id: lead.id,
