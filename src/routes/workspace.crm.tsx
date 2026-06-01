@@ -972,6 +972,24 @@ const loadEvents = useCallback(async () => {
 
   setEvents(data || []);
 }, [lead.id]);
+const loadComplianceChecks = useCallback(async () => {
+  const { data, error } = await supabase
+    .from("compliance_checks")
+    .select("*")
+    .eq("lead_id", lead.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setComplianceChecks(data || []);
+}, [lead.id]);
+
+useEffect(() => {
+  loadComplianceChecks();
+}, [loadComplianceChecks]);
 useEffect(() => {
   loadDocuments();
 }, [loadDocuments]);
