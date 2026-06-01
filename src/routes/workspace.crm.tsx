@@ -1627,7 +1627,48 @@ await supabase
         {complianceRunning ? "Проверка..." : "AI Проверить"}
       </button>
     </div>
+<label className="mt-6 block">
+  <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+    Кого проверить
+  </span>
 
+  <select
+    className="mt-1 w-full rounded-xl border px-3 py-2 text-sm outline-none"
+    defaultValue=""
+    onChange={(e) => {
+      const idx = Number(e.target.value);
+      const selected = complianceSubjectOptions[idx];
+
+      if (!selected) return;
+
+      setComplianceForm((f) => ({
+        ...f,
+        subject_type: selected.subject_type,
+        check_subject: selected.check_subject,
+        fio: selected.fio || "",
+        inn: selected.inn || "",
+        ogrn: selected.ogrn || "",
+        ogrnip: selected.ogrnip || "",
+        birth_date: selected.birth_date || "",
+        region: selected.region || "",
+      }));
+    }}
+  >
+    <option value="">Выбрать из лида / документов</option>
+
+    {complianceSubjectOptions.map((item, idx) => (
+      <option key={`${item.source}-${idx}`} value={idx}>
+        {item.label}
+      </option>
+    ))}
+  </select>
+
+  {complianceSubjectOptions.length <= 1 && (
+    <div className="mt-2 text-xs text-muted-foreground">
+      Чтобы появились лица и организации из документов заявителя, сначала выполните AI анализ документа.
+    </div>
+  )}
+</label>
     <div className="mt-6 grid gap-3 md:grid-cols-2">
       {[
         ["check_subject", "Наименование / ФИО"],
