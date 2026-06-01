@@ -1046,6 +1046,7 @@ await supabase
   ["cases", "Cases"],
   ["inbox", "Inbox"],
   ["documents", "Documents"],
+  ["compliance", "Compliance"],
   ["tasks", "Tasks"],
   ["timeline", "Timeline"],
 ] as const).map(([tab, label]) => (
