@@ -1319,7 +1319,13 @@ alert("AI анализ завершен");
         alert(dbError.message);
         return;
       }
-
+await supabase
+  .from("lead_events")
+  .insert({
+    lead_id: lead.id,
+    type: "document_deleted",
+    message: `Удален документ: ${doc.file_name}`,
+  });
       await loadDocuments();
     }}
     className="rounded-xl border border-red-200 px-3 py-2 text-xs text-red-600 hover:bg-red-50"
