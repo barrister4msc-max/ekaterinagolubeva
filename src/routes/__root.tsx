@@ -1,3 +1,4 @@
+import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
@@ -13,6 +14,70 @@ import appCss from "../styles.css?url";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { FloatingMessengers } from "@/components/floating-messengers";
+
+function PreviewErrorFallback({ error }: { error?: unknown }) {
+  console.error(error);
+  const message = error instanceof Error ? error.message : "Неизвестная ошибка приложения";
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-sm">
+        <h1 className="text-xl">Превью не загрузилось</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Что-то пошло не так при отображении страницы. Обновите превью или вернитесь на главную.
+        </p>
+        <p className="mt-4 break-words rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+          {message}
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <button onClick={() => window.location.reload()} className="btn-primary">
+            Перезагрузить
+          </button>
+          <a href="/" className="btn-ghost">На главную</a>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+class GlobalPreviewErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: unknown | null }
+> {
+  state = { error: null };
+
+  private handleError = (event: ErrorEvent) => {
+    event.preventDefault();
+    this.setState({ error: event.error ?? event.message });
+  };
+
+  private handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    event.preventDefault();
+    this.setState({ error: event.reason });
+  };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error };
+  }
+
+  componentDidMount() {
+    window.addEventListener("error", this.handleError);
+    window.addEventListener("unhandledrejection", this.handleUnhandledRejection);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("error", this.handleError);
+    window.removeEventListener("unhandledrejection", this.handleUnhandledRejection);
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error(error);
+  }
+
+  render() {
+    if (this.state.error) return <PreviewErrorFallback error={this.state.error} />;
+    return this.props.children;
+  }
+}
 
 function NotFoundComponent() {
   return (
@@ -108,10 +173,12 @@ function RootComponent() {
   const isWorkspace = location.pathname.startsWith("/workspace");
   return (
     <QueryClientProvider client={queryClient}>
-      {!isWorkspace && <SiteHeader />}
-      <Outlet />
-      {!isWorkspace && <SiteFooter />}
-      {!isWorkspace && <FloatingMessengers />}
+      <GlobalPreviewErrorBoundary>
+        {!isWorkspace && <SiteHeader />}
+        <Outlet />
+        {!isWorkspace && <SiteFooter />}
+        {!isWorkspace && <FloatingMessengers />}
+      </GlobalPreviewErrorBoundary>
     </QueryClientProvider>
   );
 }
