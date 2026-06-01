@@ -164,7 +164,9 @@ function CRMPage() {
   const [loading, setLoading] = useState(true);
   const [inboxError, setInboxError] = useState<string | null>(null);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "cases" | "inbox" | "documents" | "tasks" | "timeline">("overview");
+  const [activeTab, setActiveTab] = useState<
+  "overview" | "cases" | "inbox" | "documents" | "compliance" | "tasks" | "timeline"
+>("overview");
 
   // Sync selectedLead with ?lead= URL param (runs after leads load from Supabase).
   // Matches against both internal lead.id and source_crm_lead_id, because
