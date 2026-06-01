@@ -1876,6 +1876,133 @@ export type Database = {
           },
         ]
       }
+      legal_ai_briefings: {
+        Row: {
+          affected_practice_areas: string[] | null
+          ai_model: string | null
+          ai_raw_result: Json | null
+          alert_id: string | null
+          article: string | null
+          created_at: string | null
+          created_task_id: string | null
+          id: string
+          impact_level: string | null
+          law_name: string | null
+          monitored_source_id: string | null
+          practice_area: string | null
+          recommendations: string | null
+          required_actions: Json | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          risks: Json | null
+          source_id: string | null
+          source_name: string | null
+          source_type: string | null
+          status: string | null
+          summary: string | null
+          title: string
+          what_changed: string | null
+          who_is_affected: string | null
+        }
+        Insert: {
+          affected_practice_areas?: string[] | null
+          ai_model?: string | null
+          ai_raw_result?: Json | null
+          alert_id?: string | null
+          article?: string | null
+          created_at?: string | null
+          created_task_id?: string | null
+          id?: string
+          impact_level?: string | null
+          law_name?: string | null
+          monitored_source_id?: string | null
+          practice_area?: string | null
+          recommendations?: string | null
+          required_actions?: Json | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risks?: Json | null
+          source_id?: string | null
+          source_name?: string | null
+          source_type?: string | null
+          status?: string | null
+          summary?: string | null
+          title: string
+          what_changed?: string | null
+          who_is_affected?: string | null
+        }
+        Update: {
+          affected_practice_areas?: string[] | null
+          ai_model?: string | null
+          ai_raw_result?: Json | null
+          alert_id?: string | null
+          article?: string | null
+          created_at?: string | null
+          created_task_id?: string | null
+          id?: string
+          impact_level?: string | null
+          law_name?: string | null
+          monitored_source_id?: string | null
+          practice_area?: string | null
+          recommendations?: string | null
+          required_actions?: Json | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risks?: Json | null
+          source_id?: string | null
+          source_name?: string | null
+          source_type?: string | null
+          status?: string | null
+          summary?: string | null
+          title?: string
+          what_changed?: string | null
+          who_is_affected?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_ai_briefings_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "legal_regulatory_update_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_ai_briefings_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "v_legal_regulatory_alerts_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_ai_briefings_monitored_source_id_fkey"
+            columns: ["monitored_source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_regulatory_monitored_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_ai_briefings_monitored_source_id_fkey"
+            columns: ["monitored_source_id"]
+            isOneToOne: false
+            referencedRelation: "v_legal_regulatory_monitoring_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_ai_briefings_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_regulatory_monitored_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_ai_briefings_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "v_legal_regulatory_monitoring_dashboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       legal_cases: {
         Row: {
           ai_summary: string | null
@@ -1998,15 +2125,20 @@ export type Database = {
           article: string | null
           code_name: string
           content: string
+          content_hash: string | null
           created_at: string | null
           embedding: string | null
           id: string
           is_active: boolean | null
           jurisdiction: string
           law_category: string | null
+          law_id: string | null
           metadata: Json | null
           part: string | null
           practice_area: string | null
+          source_checked_at: string | null
+          source_name: string | null
+          source_url: string | null
           title: string
           updated_at: string | null
         }
@@ -2014,15 +2146,20 @@ export type Database = {
           article?: string | null
           code_name: string
           content: string
+          content_hash?: string | null
           created_at?: string | null
           embedding?: string | null
           id?: string
           is_active?: boolean | null
           jurisdiction?: string
           law_category?: string | null
+          law_id?: string | null
           metadata?: Json | null
           part?: string | null
           practice_area?: string | null
+          source_checked_at?: string | null
+          source_name?: string | null
+          source_url?: string | null
           title: string
           updated_at?: string | null
         }
@@ -2030,15 +2167,20 @@ export type Database = {
           article?: string | null
           code_name?: string
           content?: string
+          content_hash?: string | null
           created_at?: string | null
           embedding?: string | null
           id?: string
           is_active?: boolean | null
           jurisdiction?: string
           law_category?: string | null
+          law_id?: string | null
           metadata?: Json | null
           part?: string | null
           practice_area?: string | null
+          source_checked_at?: string | null
+          source_name?: string | null
+          source_url?: string | null
           title?: string
           updated_at?: string | null
         }
@@ -2049,6 +2191,7 @@ export type Database = {
           article: string | null
           code_name: string
           content: string
+          content_hash: string | null
           created_at: string | null
           embedding: string | null
           id: string
@@ -2057,6 +2200,9 @@ export type Database = {
           law_category: string | null
           metadata: Json | null
           practice_area: string | null
+          source_checked_at: string | null
+          source_name: string | null
+          source_url: string | null
           title: string
           updated_at: string | null
         }
@@ -2064,6 +2210,7 @@ export type Database = {
           article?: string | null
           code_name: string
           content: string
+          content_hash?: string | null
           created_at?: string | null
           embedding?: string | null
           id?: string
@@ -2072,6 +2219,9 @@ export type Database = {
           law_category?: string | null
           metadata?: Json | null
           practice_area?: string | null
+          source_checked_at?: string | null
+          source_name?: string | null
+          source_url?: string | null
           title: string
           updated_at?: string | null
         }
@@ -2079,6 +2229,7 @@ export type Database = {
           article?: string | null
           code_name?: string
           content?: string
+          content_hash?: string | null
           created_at?: string | null
           embedding?: string | null
           id?: string
@@ -2087,6 +2238,9 @@ export type Database = {
           law_category?: string | null
           metadata?: Json | null
           practice_area?: string | null
+          source_checked_at?: string | null
+          source_name?: string | null
+          source_url?: string | null
           title?: string
           updated_at?: string | null
         }
@@ -2195,6 +2349,219 @@ export type Database = {
             columns: ["matter_id"]
             isOneToOne: false
             referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legal_regulatory_monitored_sources: {
+        Row: {
+          article: string | null
+          check_frequency: string | null
+          created_at: string | null
+          current_content: string | null
+          current_hash: string | null
+          id: string
+          importance_level: string | null
+          is_active: boolean | null
+          last_changed_at: string | null
+          last_checked_at: string | null
+          law_name: string | null
+          metadata: Json | null
+          practice_area: string
+          source_name: string
+          source_type: string
+          source_url: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          article?: string | null
+          check_frequency?: string | null
+          created_at?: string | null
+          current_content?: string | null
+          current_hash?: string | null
+          id?: string
+          importance_level?: string | null
+          is_active?: boolean | null
+          last_changed_at?: string | null
+          last_checked_at?: string | null
+          law_name?: string | null
+          metadata?: Json | null
+          practice_area: string
+          source_name: string
+          source_type?: string
+          source_url?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          article?: string | null
+          check_frequency?: string | null
+          created_at?: string | null
+          current_content?: string | null
+          current_hash?: string | null
+          id?: string
+          importance_level?: string | null
+          is_active?: boolean | null
+          last_changed_at?: string | null
+          last_checked_at?: string | null
+          law_name?: string | null
+          metadata?: Json | null
+          practice_area?: string
+          source_name?: string
+          source_type?: string
+          source_url?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      legal_regulatory_update_alerts: {
+        Row: {
+          ai_impact_analysis: Json | null
+          ai_model: string | null
+          ai_raw_result: Json | null
+          article: string | null
+          briefing_id: string | null
+          change_summary: string | null
+          created_at: string | null
+          crm_task_id: string | null
+          id: string
+          importance_level: string | null
+          law_name: string | null
+          monitored_source_id: string | null
+          new_content_excerpt: string | null
+          new_hash: string | null
+          old_content_excerpt: string | null
+          old_hash: string | null
+          practice_area: string
+          related_task_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_name: string | null
+          source_type: string | null
+          status: string | null
+          title: string
+        }
+        Insert: {
+          ai_impact_analysis?: Json | null
+          ai_model?: string | null
+          ai_raw_result?: Json | null
+          article?: string | null
+          briefing_id?: string | null
+          change_summary?: string | null
+          created_at?: string | null
+          crm_task_id?: string | null
+          id?: string
+          importance_level?: string | null
+          law_name?: string | null
+          monitored_source_id?: string | null
+          new_content_excerpt?: string | null
+          new_hash?: string | null
+          old_content_excerpt?: string | null
+          old_hash?: string | null
+          practice_area: string
+          related_task_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_name?: string | null
+          source_type?: string | null
+          status?: string | null
+          title: string
+        }
+        Update: {
+          ai_impact_analysis?: Json | null
+          ai_model?: string | null
+          ai_raw_result?: Json | null
+          article?: string | null
+          briefing_id?: string | null
+          change_summary?: string | null
+          created_at?: string | null
+          crm_task_id?: string | null
+          id?: string
+          importance_level?: string | null
+          law_name?: string | null
+          monitored_source_id?: string | null
+          new_content_excerpt?: string | null
+          new_hash?: string | null
+          old_content_excerpt?: string | null
+          old_hash?: string | null
+          practice_area?: string
+          related_task_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_name?: string | null
+          source_type?: string | null
+          status?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_regulatory_update_alerts_monitored_source_id_fkey"
+            columns: ["monitored_source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_regulatory_monitored_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_regulatory_update_alerts_monitored_source_id_fkey"
+            columns: ["monitored_source_id"]
+            isOneToOne: false
+            referencedRelation: "v_legal_regulatory_monitoring_dashboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      legal_regulatory_update_logs: {
+        Row: {
+          changed: boolean | null
+          created_at: string | null
+          error_message: string | null
+          id: string
+          message: string | null
+          monitored_source_id: string | null
+          new_hash: string | null
+          old_hash: string | null
+          raw_response: Json | null
+          status: string
+        }
+        Insert: {
+          changed?: boolean | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          message?: string | null
+          monitored_source_id?: string | null
+          new_hash?: string | null
+          old_hash?: string | null
+          raw_response?: Json | null
+          status?: string
+        }
+        Update: {
+          changed?: boolean | null
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          message?: string | null
+          monitored_source_id?: string | null
+          new_hash?: string | null
+          old_hash?: string | null
+          raw_response?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_regulatory_update_logs_monitored_source_id_fkey"
+            columns: ["monitored_source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_regulatory_monitored_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_regulatory_update_logs_monitored_source_id_fkey"
+            columns: ["monitored_source_id"]
+            isOneToOne: false
+            referencedRelation: "v_legal_regulatory_monitoring_dashboard"
             referencedColumns: ["id"]
           },
         ]
@@ -3336,6 +3703,80 @@ export type Database = {
         }
         Relationships: []
       }
+      tax_matter_profiles: {
+        Row: {
+          act_date: string | null
+          ai_summary: string | null
+          appeal_deadline: string | null
+          created_at: string | null
+          decision_date: string | null
+          demand_date: string | null
+          fine_amount: number | null
+          id: string
+          inspection_type: string | null
+          matter_id: string
+          objections_deadline: string | null
+          penalty_amount: number | null
+          requested_documents: Json | null
+          response_deadline: string | null
+          risk_factors: Json | null
+          tax_amount: number | null
+          tax_authority: string | null
+          tax_period: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          act_date?: string | null
+          ai_summary?: string | null
+          appeal_deadline?: string | null
+          created_at?: string | null
+          decision_date?: string | null
+          demand_date?: string | null
+          fine_amount?: number | null
+          id?: string
+          inspection_type?: string | null
+          matter_id: string
+          objections_deadline?: string | null
+          penalty_amount?: number | null
+          requested_documents?: Json | null
+          response_deadline?: string | null
+          risk_factors?: Json | null
+          tax_amount?: number | null
+          tax_authority?: string | null
+          tax_period?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          act_date?: string | null
+          ai_summary?: string | null
+          appeal_deadline?: string | null
+          created_at?: string | null
+          decision_date?: string | null
+          demand_date?: string | null
+          fine_amount?: number | null
+          id?: string
+          inspection_type?: string | null
+          matter_id?: string
+          objections_deadline?: string | null
+          penalty_amount?: number | null
+          requested_documents?: Json | null
+          response_deadline?: string | null
+          risk_factors?: Json | null
+          tax_amount?: number | null
+          tax_authority?: string | null
+          tax_period?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tax_matter_profiles_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -3389,7 +3830,103 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_legal_regulatory_alerts_dashboard: {
+        Row: {
+          ai_impact_analysis: Json | null
+          article: string | null
+          briefing_id: string | null
+          briefing_impact_level: string | null
+          briefing_summary: string | null
+          change_summary: string | null
+          created_at: string | null
+          crm_task_id: string | null
+          id: string | null
+          importance_level: string | null
+          law_name: string | null
+          monitored_source_id: string | null
+          new_content_excerpt: string | null
+          new_hash: string | null
+          old_content_excerpt: string | null
+          old_hash: string | null
+          practice_area: string | null
+          required_actions: Json | null
+          reviewed_at: string | null
+          risks: Json | null
+          source_name: string | null
+          source_type: string | null
+          status: string | null
+          title: string | null
+          what_changed: string | null
+          who_is_affected: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_regulatory_update_alerts_monitored_source_id_fkey"
+            columns: ["monitored_source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_regulatory_monitored_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_regulatory_update_alerts_monitored_source_id_fkey"
+            columns: ["monitored_source_id"]
+            isOneToOne: false
+            referencedRelation: "v_legal_regulatory_monitoring_dashboard"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_legal_regulatory_monitoring_dashboard: {
+        Row: {
+          article: string | null
+          check_frequency: string | null
+          id: string | null
+          importance_level: string | null
+          is_active: boolean | null
+          last_alert_at: string | null
+          last_changed_at: string | null
+          last_checked_at: string | null
+          law_name: string | null
+          new_alerts_count: number | null
+          practice_area: string | null
+          source_name: string | null
+          source_type: string | null
+          title: string | null
+        }
+        Insert: {
+          article?: string | null
+          check_frequency?: string | null
+          id?: string | null
+          importance_level?: string | null
+          is_active?: boolean | null
+          last_alert_at?: never
+          last_changed_at?: string | null
+          last_checked_at?: string | null
+          law_name?: string | null
+          new_alerts_count?: never
+          practice_area?: string | null
+          source_name?: string | null
+          source_type?: string | null
+          title?: string | null
+        }
+        Update: {
+          article?: string | null
+          check_frequency?: string | null
+          id?: string | null
+          importance_level?: string | null
+          is_active?: boolean | null
+          last_alert_at?: never
+          last_changed_at?: string | null
+          last_checked_at?: string | null
+          law_name?: string | null
+          new_alerts_count?: never
+          practice_area?: string | null
+          source_name?: string | null
+          source_type?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
@@ -3401,7 +3938,12 @@ export type Database = {
       }
       is_admin_or_superadmin: { Args: { _user_id: string }; Returns: boolean }
       match_legal_knowledge: {
-        Args: { match_count?: number; query_embedding: string }
+        Args: {
+          category_filter?: string
+          match_count?: number
+          query_embedding: string
+          subcategory_boost?: string
+        }
         Returns: {
           content: string
           id: string

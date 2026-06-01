@@ -3,6 +3,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 let authRedirectHandled = false;
+const AUTH_REQUEST_TIMEOUT_MS = 2500;
 
 export interface AuthState {
   session: Session | null;
@@ -23,6 +24,15 @@ export function useAuth(): AuthState {
     };
     const safetyTimer = window.setTimeout(finishLoading, 3000);
 
+    function withTimeout<T>(promise: PromiseLike<T>, label: string): Promise<T> {
+      return Promise.race([
+        Promise.resolve(promise),
+        new Promise<T>((_, reject) => {
+          window.setTimeout(() => reject(new Error(`${label} timed out`)), AUTH_REQUEST_TIMEOUT_MS);
+        }),
+      ]);
+    }
+
     async function absorbAuthRedirectFromUrl() {
       if (typeof window === "undefined" || authRedirectHandled) return;
 
@@ -36,9 +46,12 @@ export function useAuth(): AuthState {
 
       authRedirectHandled = true;
       if (code) {
-        await supabase.auth.exchangeCodeForSession(code);
+        await withTimeout(supabase.auth.exchangeCodeForSession(code), "auth code exchange");
       } else if (accessToken && refreshToken) {
-        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        await withTimeout(
+          supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }),
+          "auth token restore",
+        );
       }
 
       url.searchParams.delete("code");
@@ -62,7 +75,7 @@ export function useAuth(): AuthState {
 
     // Then load existing session
     absorbAuthRedirectFromUrl()
-      .then(() => supabase.auth.getSession())
+      .then(() => withTimeout(supabase.auth.getSession(), "auth session check"))
       .then(({ data: { session: s } }) => {
         if (!mounted) return;
         setSession(s);
@@ -78,15 +91,21 @@ export function useAuth(): AuthState {
 
     async function checkAdmin(uid: string) {
       // Use security-definer RPC to bypass RLS on user_roles
-      const { data, error } = await supabase.rpc("is_admin_or_superadmin", {
-        _user_id: uid,
-      });
-      if (error) {
+      try {
+        const { data, error } = await withTimeout(
+          supabase.rpc("is_admin_or_superadmin", { _user_id: uid }),
+          "admin role check",
+        );
+        if (error) {
+          console.error("admin role check failed", error);
+          setIsAdmin(false);
+          return;
+        }
+        setIsAdmin(!!data);
+      } catch (error) {
         console.error("admin role check failed", error);
         setIsAdmin(false);
-        return;
       }
-      setIsAdmin(!!data);
     }
 
     return () => {
