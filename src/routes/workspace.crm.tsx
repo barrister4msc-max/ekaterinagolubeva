@@ -1059,15 +1059,21 @@ useEffect(() => {
 
       if (!name) continue;
 
-      options.push({
-        label: `Организация: ${name} · ${doc.file_name || "документ заявителя"}`,
-        subject_type: "company",
-        check_subject: name,
-        inn: typeof c === "object" ? c.inn || c.tax_id || "" : "",
-        ogrn: typeof c === "object" ? c.ogrn || "" : "",
-        ogrnip: typeof c === "object" ? c.ogrnip || "" : "",
-        source: doc.file_name || doc._source || "document",
-      });
+      const director =
+  typeof c === "object"
+    ? c.director || c.ceo || c.head || c.representative || ""
+    : "";
+
+options.push({
+  label: `Организация: ${name}${director ? ` · директор: ${director}` : ""} · ${doc.file_name || "документ заявителя"}`,
+  subject_type: "company",
+  check_subject: name,
+  inn: typeof c === "object" ? c.inn || c.tax_id || "" : "",
+  ogrn: typeof c === "object" ? c.ogrn || "" : "",
+  ogrnip: typeof c === "object" ? c.ogrnip || "" : "",
+  fio: director,
+  source: doc.file_name || doc._source || "document",
+});
     }
   }
 
