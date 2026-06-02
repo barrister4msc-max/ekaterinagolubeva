@@ -1390,6 +1390,7 @@ alert("AI анализ завершен");
     {analyzingId === doc.id ? "Анализ..." : "AI анализ"}
   </button>
 <button
+  disabled={reviewingId === doc.id}
   onClick={async () => {
     try {
       const { data, error } = await supabase.functions.invoke(
