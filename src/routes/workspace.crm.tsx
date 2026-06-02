@@ -1428,7 +1428,7 @@ alert("AI анализ завершен");
   }}
   className="rounded-xl border border-green-200 px-3 py-2 text-xs text-green-700 hover:bg-green-50"
 >
-  Юр. проверка
+  {reviewingId === doc.id ? "Проверка..." : "Юр. проверка"}
 </button>
   <button
   onClick={async () => {
