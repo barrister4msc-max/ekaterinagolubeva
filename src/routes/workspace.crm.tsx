@@ -1039,6 +1039,10 @@ useEffect(() => {
         subject_type: "person",
         check_subject: fio,
         fio,
+        inn:
+  typeof p === "object"
+    ? p.inn || ""
+    : "",
         birth_date: typeof p === "object" ? p.birth_date || p.date_of_birth || "" : "",
         region: typeof p === "object" ? p.region || "" : "",
         source: doc.file_name || doc._source || "document",
