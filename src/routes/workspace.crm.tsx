@@ -1388,7 +1388,46 @@ alert("AI анализ завершен");
   >
     {analyzingId === doc.id ? "Анализ..." : "AI анализ"}
   </button>
+<button
+  onClick={async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "legal-document-review-orchestrator",
+        {
+          body: {
+            document_id: doc.id,
+          },
+        }
+      );
 
+      if (error) {
+        console.error(error);
+        alert(error.message);
+        return;
+      }
+
+      await supabase
+        .from("lead_events")
+        .insert({
+          lead_id: lead.id,
+          type: "legal_review",
+          message: `Юридическая проверка выполнена: ${doc.file_name}`,
+        });
+
+      alert(
+        data?.review_status === "failed"
+          ? "Проверка запущена, но завершилась с ошибкой. Можно повторить позже."
+          : "Юридическая проверка завершена"
+      );
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message ?? "Ошибка юридической проверки");
+    }
+  }}
+  className="rounded-xl border border-green-200 px-3 py-2 text-xs text-green-700 hover:bg-green-50"
+>
+  Юр. проверка
+</button>
   <button
   onClick={async () => {
     const { data, error } = await supabase
