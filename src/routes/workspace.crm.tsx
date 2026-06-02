@@ -1662,7 +1662,7 @@ await supabase.from("lead_events").insert({
       const selected = complianceSubjectOptions[idx];
 
       if (!selected) return;
-
+     setSelectedComplianceSubjectType(selected.subject_type);
       setComplianceForm((f) => ({
         ...f,
         subject_type: selected.subject_type,
