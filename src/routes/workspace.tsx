@@ -64,7 +64,7 @@ function WorkspaceLayout() {
   if (!isAdmin) {
     return (
       <main className="container-wide min-h-screen py-32" style={bgStyle}>
-        <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10 text-center shadow-[0_4px_30px_rgba(0,0,0,0.04)]">
+        <div className="mx-auto max-w-md rounded-lg border border-border bg-card/70 p-10 text-center shadow-[0_4px_30px_rgba(0,0,0,0.04)] backdrop-blur-sm">
           <h1 className="font-display text-2xl">Доступ ограничен</h1>
           <p className="mt-3 text-sm text-muted-foreground">
             Этот аккаунт не имеет роли admin.
@@ -85,7 +85,7 @@ function WorkspaceLayout() {
       <div className="container-wide flex min-h-screen flex-col gap-8 py-8 md:flex-row md:gap-10 md:py-10">
         {/* Side rail */}
         <aside className="md:w-60 md:shrink-0">
-          <div className="rounded-lg border border-border bg-card p-5 shadow-[0_2px_20px_rgba(0,0,0,0.03)] md:sticky md:top-8">
+          <div className="rounded-lg border border-border bg-card/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.03)] backdrop-blur-sm md:sticky md:top-8">
             <Link to="/" className="block">
               <div className="text-[10px] uppercase tracking-[0.28em] text-foreground/60">Workspace</div>
               <div className="mt-1 font-display text-lg leading-tight">Екатерина Голубева</div>
