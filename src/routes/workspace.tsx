@@ -3,6 +3,14 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, MessageSquareQuote, KanbanSquare, Building2 } from "lucide-react";
+import workspaceBg from "@/assets/workspace-bg.png.asset.json";
+
+const bgStyle: React.CSSProperties = {
+  backgroundImage: `linear-gradient(oklch(0.97 0.012 75 / 0.82), oklch(0.97 0.012 75 / 0.88)), url(${workspaceBg.url})`,
+  backgroundSize: "cover",
+  backgroundPosition: "center",
+  backgroundAttachment: "fixed",
+};
 
 export const Route = createFileRoute("/workspace")({
   head: () => ({
@@ -38,7 +46,7 @@ function WorkspaceLayout() {
 
   if (isLoginRoute) {
     return (
-      <div className="min-h-screen bg-[oklch(0.97_0.012_75)]">
+      <div className="min-h-screen" style={bgStyle}>
         <Outlet />
       </div>
     );
@@ -46,7 +54,7 @@ function WorkspaceLayout() {
 
   if (loading || !user) {
     return (
-      <main className="min-h-screen bg-[oklch(0.97_0.012_75)] py-32 text-center text-sm text-muted-foreground">
+      <main className="min-h-screen py-32 text-center text-sm text-muted-foreground" style={bgStyle}>
         Загрузка…
       </main>
     );
@@ -54,7 +62,7 @@ function WorkspaceLayout() {
 
   if (!isAdmin) {
     return (
-      <main className="container-wide min-h-screen bg-[oklch(0.97_0.012_75)] py-32">
+      <main className="container-wide min-h-screen py-32" style={bgStyle}>
         <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10 text-center shadow-[0_4px_30px_rgba(0,0,0,0.04)]">
           <h1 className="font-display text-2xl">Доступ ограничен</h1>
           <p className="mt-3 text-sm text-muted-foreground">
@@ -72,7 +80,7 @@ function WorkspaceLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[oklch(0.97_0.012_75)]">
+    <div className="min-h-screen" style={bgStyle}>
       <div className="container-wide flex min-h-screen flex-col gap-8 py-8 md:flex-row md:gap-10 md:py-10">
         {/* Side rail */}
         <aside className="md:w-60 md:shrink-0">
