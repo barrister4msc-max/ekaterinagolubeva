@@ -768,6 +768,8 @@ const [documents, setDocuments] = useState<any[]>([]);
 const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 const [previewName, setPreviewName] = useState<string | null>(null);
   const [analysisDoc, setAnalysisDoc] = useState<any | null>(null);
+  const [expandedAnalysisId, setExpandedAnalysisId] =
+  useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [complianceChecks, setComplianceChecks] = useState<any[]>([]);    
