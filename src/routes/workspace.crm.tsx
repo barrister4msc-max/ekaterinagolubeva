@@ -369,7 +369,7 @@ const archivedLeads = useMemo(() => {
 
   return (
     <div className="space-y-6 pb-8">
-      <div className="sticky top-0 z-20 flex flex-col gap-6 bg-[oklch(0.97_0.012_75)] pb-4 pt-2 xl:flex-row xl:items-start xl:justify-between">
+      <div className="sticky top-0 z-20 flex flex-col gap-6 bg-[oklch(0.97_0.012_75)]/70 pb-4 pt-2 backdrop-blur-md xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="font-display text-4xl leading-tight">Legal CRM</h1>
           <p className="mt-3 text-sm text-muted-foreground">
