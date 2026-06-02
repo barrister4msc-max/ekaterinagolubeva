@@ -6,7 +6,7 @@ import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, Message
 import workspaceBg from "@/assets/workspace-bg.png.asset.json";
 
 const bgStyle: React.CSSProperties = {
-  backgroundImage: `linear-gradient(oklch(0.97 0.012 75 / 0.82), oklch(0.97 0.012 75 / 0.88)), url(${workspaceBg.url})`,
+  backgroundImage: `linear-gradient(oklch(0.97 0.012 75 / 0.35), oklch(0.97 0.012 75 / 0.45)), url(${workspaceBg.url})`,
   backgroundSize: "cover",
   backgroundPosition: "center",
   backgroundAttachment: "fixed",
