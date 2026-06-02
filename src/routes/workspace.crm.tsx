@@ -1625,12 +1625,13 @@ await supabase
 
 console.log("COMPLIANCE EDGE DATA:", data);
 alert("EDGE OK");
-            await supabase.from("lead_events").insert({
-              lead_id: lead.id,
-              type: "compliance_check",
-              message: `Compliance-проверка создана: ${data?.compliance_check_id ?? ""}`,
-            });
-
+          /*
+await supabase.from("lead_events").insert({
+  lead_id: lead.id,
+  type: "compliance_check",
+  message: `Compliance-проверка создана: ${data?.compliance_check_id ?? ""}`,
+});
+*/
             await loadComplianceChecks();
             alert("Compliance-проверка создана");
           } finally {
