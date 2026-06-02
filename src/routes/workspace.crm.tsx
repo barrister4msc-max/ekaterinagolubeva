@@ -1692,14 +1692,14 @@ await supabase.from("lead_events").insert({
   )}
 </label>
     <div className="mt-6 grid gap-3 md:grid-cols-2">
+  {selectedComplianceSubjectType === "company" ? (
+    <>
       {[
-        ["check_subject", "Наименование / ФИО"],
+        ["check_subject", "Наименование организации"],
         ["inn", "ИНН"],
         ["ogrn", "ОГРН"],
         ["ogrnip", "ОГРНИП"],
-        ["fio", "ФИО"],
-        ["birth_date", "Дата рождения"],
-        ["region", "Регион"],
+        ["fio", "ФИО директора / представителя"],
       ].map(([key, label]) => (
         <label key={key} className="block">
           <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -1714,7 +1714,35 @@ await supabase.from("lead_events").insert({
           />
         </label>
       ))}
-    </div>
+    </>
+  ) : (
+    <>
+      {[
+        ["fio", "ФИО"],
+        ["inn", "ИНН"],
+        ["birth_date", "Дата рождения"],
+        ["region", "Регион"],
+      ].map(([key, label]) => (
+        <label key={key} className="block">
+          <span className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            {label}
+          </span>
+          <input
+            value={(complianceForm as any)[key]}
+            onChange={(e) =>
+              setComplianceForm((f) =>
+                key === "fio"
+                  ? { ...f, fio: e.target.value, check_subject: e.target.value }
+                  : { ...f, [key]: e.target.value },
+              )
+            }
+            className="mt-1 w-full rounded-xl border px-3 py-2 text-sm outline-none"
+          />
+        </label>
+      ))}
+    </>
+  )}
+</div>
 
     <div className="mt-6 space-y-3">
       {complianceChecks.length === 0 ? (
