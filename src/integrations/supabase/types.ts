@@ -2228,6 +2228,78 @@ export type Database = {
           },
         ]
       }
+      legal_document_reviews: {
+        Row: {
+          compliance_subjects: Json
+          created_at: string
+          document_id: string | null
+          document_type: string | null
+          draft_suggestions: Json
+          findings: Json
+          id: string
+          last_error: string | null
+          last_run_at: string | null
+          last_verified_at: string | null
+          lead_id: string | null
+          legal_basis: Json
+          recommended_actions: Json
+          required_documents: Json
+          review_status: string
+          risk_level: string | null
+          run_count: number | null
+          summary: string | null
+          updated_at: string
+          verification_alerts: Json
+          verification_status: string | null
+        }
+        Insert: {
+          compliance_subjects?: Json
+          created_at?: string
+          document_id?: string | null
+          document_type?: string | null
+          draft_suggestions?: Json
+          findings?: Json
+          id?: string
+          last_error?: string | null
+          last_run_at?: string | null
+          last_verified_at?: string | null
+          lead_id?: string | null
+          legal_basis?: Json
+          recommended_actions?: Json
+          required_documents?: Json
+          review_status?: string
+          risk_level?: string | null
+          run_count?: number | null
+          summary?: string | null
+          updated_at?: string
+          verification_alerts?: Json
+          verification_status?: string | null
+        }
+        Update: {
+          compliance_subjects?: Json
+          created_at?: string
+          document_id?: string | null
+          document_type?: string | null
+          draft_suggestions?: Json
+          findings?: Json
+          id?: string
+          last_error?: string | null
+          last_run_at?: string | null
+          last_verified_at?: string | null
+          lead_id?: string | null
+          legal_basis?: Json
+          recommended_actions?: Json
+          required_documents?: Json
+          review_status?: string
+          risk_level?: string | null
+          run_count?: number | null
+          summary?: string | null
+          updated_at?: string
+          verification_alerts?: Json
+          verification_status?: string | null
+        }
+        Relationships: []
+      }
       legal_knowledge_chunks: {
         Row: {
           category: string | null
