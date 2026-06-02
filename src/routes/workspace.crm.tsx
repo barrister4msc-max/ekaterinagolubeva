@@ -771,6 +771,8 @@ const [previewName, setPreviewName] = useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [complianceChecks, setComplianceChecks] = useState<any[]>([]);    
   const [complianceRunning, setComplianceRunning] = useState(false);
+  const [selectedComplianceSubjectType, setSelectedComplianceSubjectType] =
+  useState<"person" | "company">("person");
   const [complianceForm, setComplianceForm] = useState({
   subject_type: "company",
   check_subject: lead.name || "",
