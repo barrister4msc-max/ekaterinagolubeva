@@ -10,19 +10,18 @@ const bgStyle: React.CSSProperties = {
   backgroundSize: "cover",
   backgroundPosition: "center top",
   backgroundRepeat: "no-repeat",
-  filter: "saturate(0.82) brightness(0.88) blur(1px)",
-  transform: "scale(1.02)",
+  filter: "saturate(0.9) brightness(0.95)",
 };
 
 const bgOverlayStyle: React.CSSProperties = {
   background:
-    "linear-gradient(180deg, oklch(0.97 0.012 75 / 0.68) 0%, oklch(0.90 0.014 74 / 0.76) 48%, oklch(0.42 0.018 82 / 0.42) 100%)",
+    "linear-gradient(180deg, oklch(0.98 0.010 75 / 0.72) 0%, oklch(0.94 0.012 75 / 0.64) 45%, oklch(0.22 0.014 215 / 0.34) 100%)",
 };
 
 function WorkspaceBackground({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-transparent">
-      <div aria-hidden="true" className="fixed inset-0 -m-4 z-0" style={bgStyle} />
+      <div aria-hidden="true" className="fixed inset-0 z-0" style={bgStyle} />
       <div aria-hidden="true" className="fixed inset-0 z-0" style={bgOverlayStyle} />
       <div className="relative z-10 min-h-screen">{children}</div>
     </div>
@@ -105,7 +104,7 @@ function WorkspaceLayout() {
       <div className="container-wide flex min-h-screen flex-col gap-8 py-8 md:flex-row md:gap-10 md:py-10">
         {/* Side rail */}
         <aside className="md:w-60 md:shrink-0">
-          <div className="rounded-lg border border-border/80 bg-card/96 p-5 shadow-[0_18px_60px_rgba(47,41,37,0.14)] backdrop-blur-xl md:sticky md:top-8">
+          <div className="rounded-lg border border-border/80 bg-card p-5 shadow-[0_18px_60px_rgba(47,41,37,0.14)] md:sticky md:top-8">
             <Link to="/" className="block">
               <div className="text-[10px] uppercase tracking-[0.28em] text-foreground/60">Workspace</div>
               <div className="mt-1 font-display text-lg leading-tight">Екатерина Голубева</div>
