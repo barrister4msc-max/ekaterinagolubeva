@@ -368,8 +368,8 @@ const archivedLeads = useMemo(() => {
   }, [leads]);
 
   return (
-    <div className="space-y-6 pb-8">
-      <div className="sticky top-0 z-20 -mx-4 flex flex-col gap-6 rounded-2xl border border-border/80 bg-card/96 px-4 pb-4 pt-4 shadow-[0_18px_70px_rgba(47,41,37,0.18)] backdrop-blur-xl xl:flex-row xl:items-start xl:justify-between">
+    <div className="space-y-6 rounded-3xl border border-border/80 bg-card/94 p-5 pb-8 shadow-[0_28px_90px_rgba(47,41,37,0.18)] backdrop-blur-xl">
+      <div className="sticky top-0 z-20 flex flex-col gap-6 border-b border-border/60 bg-card/95 pb-5 pt-1 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="font-display text-4xl leading-tight">Legal CRM</h1>
           <p className="mt-3 text-sm text-muted-foreground">
@@ -599,7 +599,7 @@ function PipelineView({
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   return (
-    <div className="rounded-2xl border border-border/80 bg-card/94 p-4 shadow-[0_22px_80px_rgba(47,41,37,0.18)] backdrop-blur-xl">
+    <div className="rounded-2xl border border-border/70 bg-secondary/35 p-4 shadow-[0_14px_48px_rgba(47,41,37,0.10)]">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => {
           const colLeads = leads.filter((l) => (l.pipeline_stage ?? "new") === column.id);
@@ -626,7 +626,7 @@ function PipelineView({
               className={`min-h-[260px] rounded-2xl border p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur transition-colors ${
                 isOver
                   ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30"
-                  : "border-border/70 bg-card/88"
+                  : "border-border/70 bg-card/92"
               }`}
             >
               <div className="mb-4 flex items-center justify-between">
