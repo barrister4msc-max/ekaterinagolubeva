@@ -626,7 +626,7 @@ function PipelineView({
               className={`min-h-[260px] rounded-2xl border p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur transition-colors ${
                 isOver
                   ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30"
-                  : "border-border/60 bg-white/70"
+                  : "border-border/60 bg-white/45"
               }`}
             >
               <div className="mb-4 flex items-center justify-between">
@@ -655,7 +655,7 @@ function PipelineView({
                       setDragOver(null);
                     }}
                     onClick={() => onSelect(lead)}
-                    className={`group select-none rounded-2xl border border-border/60 bg-white p-3 shadow-[0_4px_20px_rgba(0,0,0,0.035)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] cursor-grab active:cursor-grabbing ${
+                    className={`group select-none rounded-2xl border border-border/60 bg-white/70 p-3 shadow-[0_4px_20px_rgba(0,0,0,0.035)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] cursor-grab active:cursor-grabbing ${
                       draggingId === lead.id ? "opacity-50" : ""
                     }`}
                   >
@@ -2411,7 +2411,7 @@ function Kpi({
   sub: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-white p-6 shadow-[0_6px_30px_rgba(0,0,0,0.035)]">
+    <div className="rounded-2xl border border-border bg-white/65 p-6 shadow-[0_6px_30px_rgba(0,0,0,0.035)] backdrop-blur-sm">
       <div className="flex items-center justify-between">
         <Icon size={18} className="text-muted-foreground" />
       </div>
