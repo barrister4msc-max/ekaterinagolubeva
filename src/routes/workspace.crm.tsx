@@ -1481,7 +1481,11 @@ await loadDocuments();
   }}
   className="rounded-xl border border-green-200 px-3 py-2 text-xs text-green-700 hover:bg-green-50"
 >
-  {reviewingId === doc.id ? "Проверка..." : "Юр. проверка"}
+  {reviewingId === doc.id
+  ? "Формирование..."
+  : legalReviewsByDocumentId[doc.id]
+    ? "Посмотреть заключение"
+    : "Сформировать заключение"}
 </button>
   
 
