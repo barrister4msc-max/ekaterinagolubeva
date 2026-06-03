@@ -1498,6 +1498,13 @@ await supabase
 
 </div>
 
+{expandedAnalysisId === doc.id &&
+ analysisDoc?.id === doc.id && (
+  <div className="mt-4 rounded-xl border bg-secondary/20 p-4 text-sm">
+    Анализ открыт внутри карточки
+  </div>
+)}
+
 </div>
 
     ))
