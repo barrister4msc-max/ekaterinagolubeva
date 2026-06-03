@@ -8,14 +8,20 @@ import workspaceBg from "@/assets/workspace-bg.png.asset.json";
 const bgStyle: React.CSSProperties = {
   backgroundImage: `url(${workspaceBg.url})`,
   backgroundSize: "cover",
-  backgroundPosition: "center",
+  backgroundPosition: "center top",
   backgroundRepeat: "no-repeat",
+};
+
+const bgOverlayStyle: React.CSSProperties = {
+  background:
+    "linear-gradient(115deg, oklch(0.18 0.018 70 / 0.50) 0%, oklch(0.96 0.012 75 / 0.22) 42%, oklch(0.12 0.018 215 / 0.62) 100%)",
 };
 
 function WorkspaceBackground({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-transparent">
       <div aria-hidden="true" className="fixed inset-0 z-0" style={bgStyle} />
+      <div aria-hidden="true" className="fixed inset-0 z-0" style={bgOverlayStyle} />
       <div className="relative z-10 min-h-screen">{children}</div>
     </div>
   );
@@ -97,7 +103,7 @@ function WorkspaceLayout() {
       <div className="container-wide flex min-h-screen flex-col gap-8 py-8 md:flex-row md:gap-10 md:py-10">
         {/* Side rail */}
         <aside className="md:w-60 md:shrink-0">
-          <div className="rounded-lg border border-border bg-card/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.03)] backdrop-blur-sm md:sticky md:top-8">
+          <div className="rounded-lg border border-border/80 bg-card/92 p-5 shadow-[0_18px_60px_rgba(47,41,37,0.14)] backdrop-blur-xl md:sticky md:top-8">
             <Link to="/" className="block">
               <div className="text-[10px] uppercase tracking-[0.28em] text-foreground/60">Workspace</div>
               <div className="mt-1 font-display text-lg leading-tight">Екатерина Голубева</div>
@@ -107,8 +113,8 @@ function WorkspaceLayout() {
                 <Link
                   key={n.to}
                   to={n.to}
-                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground/75 transition-colors hover:bg-secondary/40 hover:text-foreground"
-                  activeProps={{ className: "bg-secondary/60 text-foreground font-medium" }}
+                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground/75 transition-colors hover:bg-secondary/50 hover:text-foreground"
+                  activeProps={{ className: "bg-secondary/70 text-foreground font-medium" }}
                 >
                   <n.icon size={15} />
                   {n.label}
