@@ -1392,6 +1392,8 @@ alert("AI анализ завершен");
   disabled={reviewingId === doc.id}
   onClick={async () => {
     try {
+      setReviewingId(doc.id);
+
       const { data, error } = await supabase.functions.invoke(
         "legal-document-review-orchestrator",
         {
@@ -1421,9 +1423,11 @@ alert("AI анализ завершен");
           : "Юридическая проверка завершена"
       );
     } catch (e: any) {
-      console.error(e);
-      alert(e.message ?? "Ошибка юридической проверки");
-    }
+  console.error(e);
+  alert(e.message ?? "Ошибка юридической проверки");
+} finally {
+  setReviewingId(null);
+}
   }}
   className="rounded-xl border border-green-200 px-3 py-2 text-xs text-green-700 hover:bg-green-50"
 >
