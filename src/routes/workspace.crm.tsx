@@ -1612,56 +1612,99 @@ const review = legalReviewsByDocumentId[doc.id];
             {renderList("Что проверить юристу", a.missing_checks, true)}
             {renderList("Рекомендации", a.recommended_actions)}
           </div>
-          {review && (
-  <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-green-900">
-          Юридическая проверка
-        </div>
+          {expandedReviewId === doc.id &&
+ legalReviewsByDocumentId[doc.id] && (
+  <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-4">
+    {(() => {
+      const review = legalReviewsByDocumentId[doc.id];
 
-        <div className="mt-2 text-sm leading-6 text-green-950">
-          {review.summary || "Краткий вывод не сформирован"}
-        </div>
-      </div>
+      const renderReviewList = (title: string, items: any, red = false) => {
+        const arr = Array.isArray(items) ? items : items ? [items] : [];
 
-      <div className="flex flex-col items-end gap-2">
-  <span className="rounded-full bg-white px-2 py-1 text-[11px] uppercase text-green-800">
-    risk: {review.risk_level || "unknown"}
-  </span>
+        return (
+          <div className="rounded-xl border bg-white p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {title}
+            </div>
 
-  <span className="rounded-full bg-white px-2 py-1 text-[11px] uppercase text-green-800">
-    verification: {review.verification_status || "unknown"}
-  </span>
-</div>
-    </div>
- {review.verification_status === "needs_human_review" && (
-      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700">
-        ⚠ Требуется ручная проверка юристом.
-        Система обнаружила противоречие между документом,
-        юридическим выводом или нормативной базой.
-      </div>
-    )}
-    <div className="mt-4 grid gap-3">
-      {renderList("Выводы", review.findings)}
-      {renderList("Нормы / основания", review.legal_basis)}
-      {renderList("Рекомендации юриста", review.recommended_actions)}
-      {renderList("Алерты проверки", review.verification_alerts, true)}
-    </div>
+            <div className="mt-2 space-y-1 text-xs leading-5 text-muted-foreground">
+              {arr.length > 0 ? (
+                arr.map((item: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className={`rounded-lg px-2 py-1 ${
+                      red ? "bg-red-50 text-red-700" : "bg-secondary/40"
+                    }`}
+                  >
+                    {typeof item === "string"
+                      ? item
+                      : Object.entries(item)
+                          .filter(([, v]) => v)
+                          .map(([k, v]) => `${k}: ${String(v)}`)
+                          .join(" · ")}
+                  </div>
+                ))
+              ) : (
+                <div>Не найдено</div>
+              )}
+            </div>
+          </div>
+        );
+      };
 
-    <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-green-900">
-      <span className="rounded-full bg-white px-2 py-1">
-        status: {review.review_status || "unknown"}
-      </span>
+      return (
+        <>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-green-900">
+                Юридическое заключение
+              </div>
 
-      <span className="rounded-full bg-white px-2 py-1">
-        verification: {review.verification_status || "unknown"}
-      </span>
+              <div className="mt-2 text-sm leading-6 text-green-950">
+                {review.summary || "Краткий вывод не сформирован"}
+              </div>
+            </div>
 
-      <span className="rounded-full bg-white px-2 py-1">
-        запусков: {review.run_count ?? 0}
-      </span>
-    </div>
+            <div className="flex flex-col items-end gap-2">
+              <span className="rounded-full bg-white px-2 py-1 text-[11px] uppercase text-green-800">
+                risk: {review.risk_level || "unknown"}
+              </span>
+
+              <span className="rounded-full bg-white px-2 py-1 text-[11px] uppercase text-green-800">
+                verification: {review.verification_status || "unknown"}
+              </span>
+            </div>
+          </div>
+
+          {review.verification_status === "needs_human_review" && (
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700">
+              ⚠ Требуется ручная проверка юристом. Система обнаружила противоречие между документом, юридическим выводом или нормативной базой.
+            </div>
+          )}
+
+          <div className="mt-4 grid gap-3">
+            {renderReviewList("Выводы", review.findings)}
+            {renderReviewList("Нормы / основания", review.legal_basis)}
+            {renderReviewList("Рекомендации юриста", review.recommended_actions)}
+            {renderReviewList("Алерты проверки", review.verification_alerts, true)}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-green-900">
+            <span className="rounded-full bg-white px-2 py-1">
+              status: {review.review_status || "unknown"}
+            </span>
+
+            <span className="rounded-full bg-white px-2 py-1">
+              verification: {review.verification_status || "unknown"}
+            </span>
+
+            <span className="rounded-full bg-white px-2 py-1">
+              запусков: {review.run_count ?? 0}
+            </span>
+          </div>
+        </>
+      );
+    })()}
   </div>
 )}
         </>
