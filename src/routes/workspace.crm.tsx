@@ -2411,7 +2411,7 @@ function Kpi({
   sub: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-white/65 p-6 shadow-[0_6px_30px_rgba(0,0,0,0.035)] backdrop-blur-sm">
+    <div className="rounded-2xl border border-border/70 bg-card/90 p-6 shadow-[0_18px_60px_rgba(47,41,37,0.12)] backdrop-blur-xl">
       <div className="flex items-center justify-between">
         <Icon size={18} className="text-muted-foreground" />
       </div>
