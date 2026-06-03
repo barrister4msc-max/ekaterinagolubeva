@@ -10,12 +10,11 @@ const bgStyle: React.CSSProperties = {
   backgroundSize: "cover",
   backgroundPosition: "center top",
   backgroundRepeat: "no-repeat",
-  filter: "saturate(0.9) brightness(0.95)",
 };
 
 const bgOverlayStyle: React.CSSProperties = {
   background:
-    "linear-gradient(180deg, oklch(0.98 0.010 75 / 0.72) 0%, oklch(0.94 0.012 75 / 0.64) 45%, oklch(0.22 0.014 215 / 0.34) 100%)",
+    "linear-gradient(180deg, oklch(0.98 0.010 75 / 0.16) 0%, oklch(0.94 0.012 75 / 0.08) 45%, oklch(0.10 0.014 215 / 0.18) 100%)",
 };
 
 function WorkspaceBackground({ children }: { children: React.ReactNode }) {
