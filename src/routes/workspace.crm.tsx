@@ -1529,7 +1529,7 @@ await supabase
   <div className="mt-4 space-y-4 rounded-2xl border bg-secondary/20 p-4">
     {(() => {
       const a = analysisDoc.extracted_data?.structured_analysis || {};
-
+const review = legalReviewsByDocumentId[doc.id];
       const renderList = (title: string, items: any, red = false) => {
         const arr = Array.isArray(items) ? items : items ? [items] : [];
 
