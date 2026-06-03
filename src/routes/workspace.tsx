@@ -3,18 +3,19 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, MessageSquareQuote, KanbanSquare, Building2 } from "lucide-react";
-import workspaceBg from "@/assets/workspace-bg.png.asset.json";
+import workspaceBg from "@/assets/workspace-bg.webp.asset.json";
 
 const bgStyle: React.CSSProperties = {
   backgroundImage: `url(${workspaceBg.url})`,
   backgroundSize: "cover",
-  backgroundPosition: "center top",
+  backgroundPosition: "center center",
   backgroundRepeat: "no-repeat",
+  backgroundAttachment: "fixed",
 };
 
 const bgOverlayStyle: React.CSSProperties = {
   background:
-    "linear-gradient(180deg, oklch(0.98 0.010 75 / 0.16) 0%, oklch(0.94 0.012 75 / 0.08) 45%, oklch(0.10 0.014 215 / 0.18) 100%)",
+    "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 50%, rgba(10,20,35,0.10) 100%)",
 };
 
 function WorkspaceBackground({ children }: { children: React.ReactNode }) {
