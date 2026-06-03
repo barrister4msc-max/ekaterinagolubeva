@@ -1375,6 +1375,22 @@ await supabase
   <button
     disabled={analyzingId === doc.id}
     onClick={async () => {
+      if (
+  doc.analysis_status === "completed" &&
+  expandedAnalysisId === doc.id
+) {
+  setExpandedAnalysisId(null);
+  return;
+}
+
+if (
+  doc.analysis_status === "completed" &&
+  expandedAnalysisId !== doc.id
+) {
+  setAnalysisDoc(doc);
+  setExpandedAnalysisId(doc.id);
+  return;
+}
       try {
         setAnalyzingId(doc.id);
 
