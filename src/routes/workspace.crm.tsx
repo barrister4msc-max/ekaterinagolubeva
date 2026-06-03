@@ -594,7 +594,7 @@ function PipelineView({
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-[0_14px_48px_rgba(47,41,37,0.08)]">
+    <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_2px_12px_rgba(47,41,37,0.06)]">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => {
           const colLeads = leads.filter((l) => (l.pipeline_stage ?? "new") === column.id);
@@ -618,10 +618,10 @@ function PipelineView({
                 setDraggingId(null);
                 if (id) void onMove(id, column.id);
               }}
-              className={`min-h-[260px] rounded-2xl border p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur transition-colors ${
+              className={`min-h-[260px] rounded-2xl border p-4 transition-colors ${
                 isOver
                   ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30"
-                  : "border-border/70 bg-card/92"
+                  : "border-neutral-200 bg-neutral-50"
               }`}
             >
               <div className="mb-4 flex items-center justify-between">
@@ -650,7 +650,7 @@ function PipelineView({
                       setDragOver(null);
                     }}
                     onClick={() => onSelect(lead)}
-                    className={`group select-none rounded-2xl border border-border/70 bg-card/95 p-3 shadow-[0_8px_28px_rgba(47,41,37,0.08)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_16px_44px_rgba(47,41,37,0.14)] cursor-grab active:cursor-grabbing ${
+                    className={`group select-none rounded-xl border border-neutral-200 bg-white p-3 shadow-[0_1px_3px_rgba(47,41,37,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(47,41,37,0.10)] cursor-grab active:cursor-grabbing ${
                       draggingId === lead.id ? "opacity-50" : ""
                     }`}
                   >
@@ -2406,7 +2406,7 @@ function Kpi({
   sub: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-[0_14px_44px_rgba(47,41,37,0.10)]">
+    <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-[0_2px_12px_rgba(47,41,37,0.06)]">
       <div className="flex items-center justify-between">
         <Icon size={18} className="text-muted-foreground" />
       </div>
