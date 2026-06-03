@@ -968,9 +968,10 @@ const documentIds = allDocs
 
 if (documentIds.length > 0) {
   const { data: reviews, error: reviewsError } = await supabase
-    .from("legal_document_reviews")
-    .select("*")
-    .in("document_id", documentIds);
+  .from("legal_document_reviews")
+  .select("*")
+  .in("document_id", documentIds)
+  .order("updated_at", { ascending: false });
 
   if (reviewsError) {
     console.error("LEGAL REVIEWS LOAD ERROR:", reviewsError);
