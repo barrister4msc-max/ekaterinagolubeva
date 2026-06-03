@@ -618,10 +618,10 @@ function PipelineView({
                 setDraggingId(null);
                 if (id) void onMove(id, column.id);
               }}
-              className={`min-h-[260px] rounded-2xl border p-4 transition-colors ${
+              className={`min-h-[260px] rounded-2xl border p-4 backdrop-blur-sm transition-colors ${
                 isOver
-                  ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30"
-                  : "border-neutral-200 bg-neutral-50"
+                  ? "border-primary/60 bg-primary/10 ring-2 ring-primary/30"
+                  : "border-border/70 bg-card/85"
               }`}
             >
               <div className="mb-4 flex items-center justify-between">
