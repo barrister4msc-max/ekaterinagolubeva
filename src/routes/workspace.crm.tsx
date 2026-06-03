@@ -1501,55 +1501,76 @@ await supabase
 {expandedAnalysisId === doc.id &&
  analysisDoc?.id === doc.id && (
   <div className="mt-4 space-y-4 rounded-2xl border bg-secondary/20 p-4">
+    {(() => {
+      const a = analysisDoc.extracted_data?.structured_analysis || {};
 
-    <div className="rounded-xl border bg-white p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        AI Анализ
-      </div>
+      const renderList = (title: string, items: any, red = false) => {
+        const arr = Array.isArray(items) ? items : items ? [items] : [];
 
-      <div className="mt-2 text-sm">
-        {analysisDoc.ai_summary || "Нет краткого описания"}
-      </div>
-    </div>
+        return (
+          <div className="rounded-xl border bg-white p-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {title}
+            </div>
 
-    <div className="grid gap-3 md:grid-cols-2">
+            <div className="mt-2 space-y-1 text-xs leading-5 text-muted-foreground">
+              {arr.length > 0 ? (
+                arr.map((item: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className={`rounded-lg px-2 py-1 ${
+                      red ? "bg-red-50 text-red-700" : "bg-secondary/40"
+                    }`}
+                  >
+                    {typeof item === "string"
+                      ? item
+                      : Object.entries(item)
+                          .filter(([, v]) => v)
+                          .map(([k, v]) => `${k}: ${String(v)}`)
+                          .join(" · ")}
+                  </div>
+                ))
+              ) : (
+                <div>Не найдено</div>
+              )}
+            </div>
+          </div>
+        );
+      };
 
-      <div className="rounded-xl border bg-white p-4">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Тип документа
-        </div>
+      return (
+        <>
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-blue-900">
+              Краткое содержание
+            </div>
 
-        <div className="mt-2 text-sm">
-          {analysisDoc.document_type || "Не определен"}
-        </div>
-      </div>
+            <div className="mt-2 text-sm leading-6 text-blue-950">
+              {a.short_summary ||
+                analysisDoc.ai_summary ||
+                "Краткое содержание пока не сформировано"}
+            </div>
+          </div>
 
-      <div className="rounded-xl border bg-white p-4">
-        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Статус анализа
-        </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {renderList("Категория", a.document_category)}
+            {renderList("Стороны", a.parties)}
+            {renderList("Физлица", a.persons)}
+            {renderList("Компании", a.companies)}
+            {renderList("Адреса", a.addresses)}
+            {renderList("Суммы", a.amounts)}
+            {renderList("Даты", a.dates)}
+            {renderList("Кадастровые номера", a.cad_numbers)}
+          </div>
 
-        <div className="mt-2 text-sm">
-          {analysisDoc.analysis_status || "unknown"}
-        </div>
-      </div>
-
-    </div>
-
-    <div className="rounded-xl border bg-white p-4">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Извлеченные данные
-      </div>
-
-      <pre className="mt-2 overflow-auto text-xs">
-        {JSON.stringify(
-          analysisDoc.extracted_data,
-          null,
-          2
-        )}
-      </pre>
-    </div>
-
+          <div className="grid gap-3">
+            {renderList("Юридические риски", a.legal_risks, true)}
+            {renderList("Что проверить юристу", a.missing_checks, true)}
+            {renderList("Рекомендации", a.recommended_actions)}
+          </div>
+        </>
+      );
+    })()}
   </div>
 )}
 
