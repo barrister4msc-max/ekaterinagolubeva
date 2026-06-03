@@ -1441,6 +1441,16 @@ alert("AI анализ завершен");
 <button
   disabled={reviewingId === doc.id}
   onClick={async () => {
+
+    const existingReview =
+      legalReviewsByDocumentId[doc.id];
+
+    if (existingReview) {
+      setAnalysisDoc(doc);
+      setExpandedAnalysisId(doc.id);
+      return;
+    }
+
     try {
       setReviewingId(doc.id);
 
