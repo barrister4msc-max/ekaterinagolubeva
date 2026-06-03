@@ -1448,6 +1448,9 @@ alert("AI анализ завершен");
     }
 
     setAnalysisDoc(data);
+setExpandedAnalysisId((current) =>
+  current === doc.id ? null : doc.id
+);
   }}
   className="rounded-xl border border-amber-200 px-3 py-2 text-xs text-amber-700 hover:bg-amber-50"
 >
