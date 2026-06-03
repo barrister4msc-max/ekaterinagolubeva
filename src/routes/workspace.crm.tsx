@@ -1376,6 +1376,7 @@ const freshDoc = freshDocs.find((d) => d.id === doc.id);
 
 if (freshDoc) {
   setAnalysisDoc(freshDoc);
+  setExpandedAnalysisId(doc.id);
 }
 
 alert("AI анализ завершен");
