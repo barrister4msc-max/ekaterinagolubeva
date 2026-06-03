@@ -368,8 +368,8 @@ const archivedLeads = useMemo(() => {
   }, [leads]);
 
   return (
-    <div className="space-y-6 rounded-3xl border border-border/80 bg-card/94 p-5 pb-8 shadow-[0_28px_90px_rgba(47,41,37,0.18)] backdrop-blur-xl">
-      <div className="sticky top-0 z-20 flex flex-col gap-6 border-b border-border/60 bg-card/95 pb-5 pt-1 xl:flex-row xl:items-start xl:justify-between">
+    <div className="space-y-6 rounded-3xl border border-border/80 bg-card p-5 pb-8 shadow-[0_28px_90px_rgba(47,41,37,0.16)]">
+      <div className="sticky top-0 z-20 flex flex-col gap-6 border-b border-border/60 bg-card pb-5 pt-1 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="font-display text-4xl leading-tight">Legal CRM</h1>
           <p className="mt-3 text-sm text-muted-foreground">
@@ -378,7 +378,7 @@ const archivedLeads = useMemo(() => {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <div className="inline-flex rounded-xl border border-border/70 bg-card/95 p-1 shadow-sm">
+          <div className="inline-flex rounded-xl border border-border/70 bg-background p-1 shadow-sm">
             <button
               type="button"
               onClick={() => setView("pipeline")}
@@ -410,7 +410,7 @@ const archivedLeads = useMemo(() => {
 </button>
           </div>
 
-          <div className="flex h-11 items-center gap-2 rounded-xl border border-border/70 bg-card/95 px-3 text-sm shadow-sm">
+          <div className="flex h-11 items-center gap-2 rounded-xl border border-border/70 bg-background px-3 text-sm shadow-sm">
             <Search size={16} className="text-muted-foreground" />
             <input
               type="text"
@@ -435,7 +435,7 @@ const archivedLeads = useMemo(() => {
             <button
               type="button"
               onClick={() => setFiltersOpen((v) => !v)}
-              className={`flex h-11 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm shadow-sm ${filtersOpen || activeFiltersCount > 0 ? "bg-neutral-950 text-white" : "bg-card/95"}`}
+              className={`flex h-11 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm shadow-sm ${filtersOpen || activeFiltersCount > 0 ? "bg-neutral-950 text-white" : "bg-background"}`}
             >
               <SlidersHorizontal size={16} />
               Фильтры
@@ -599,7 +599,7 @@ function PipelineView({
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   return (
-    <div className="rounded-2xl border border-border/70 bg-secondary/35 p-4 shadow-[0_14px_48px_rgba(47,41,37,0.10)]">
+    <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-[0_14px_48px_rgba(47,41,37,0.08)]">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => {
           const colLeads = leads.filter((l) => (l.pipeline_stage ?? "new") === column.id);
