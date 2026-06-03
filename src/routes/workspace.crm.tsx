@@ -594,7 +594,7 @@ function PipelineView({
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_2px_12px_rgba(47,41,37,0.06)]">
+    <div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => {
           const colLeads = leads.filter((l) => (l.pipeline_stage ?? "new") === column.id);
