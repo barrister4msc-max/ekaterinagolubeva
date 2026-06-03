@@ -1617,7 +1617,13 @@ const review = legalReviewsByDocumentId[doc.id];
   </span>
 </div>
     </div>
-
+ {review.verification_status === "needs_human_review" && (
+      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-700">
+        ⚠ Требуется ручная проверка юристом.
+        Система обнаружила противоречие между документом,
+        юридическим выводом или нормативной базой.
+      </div>
+    )}
     <div className="mt-4 grid gap-3">
       {renderList("Выводы", review.findings)}
       {renderList("Нормы / основания", review.legal_basis)}
