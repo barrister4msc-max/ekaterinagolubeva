@@ -107,7 +107,6 @@ function WorkspaceLayout() {
           <div className="rounded-lg border border-border/80 bg-card p-5 shadow-[0_18px_60px_rgba(47,41,37,0.14)] md:sticky md:top-8">
             <Link to="/" className="block">
               <div className="text-[10px] uppercase tracking-[0.28em] text-foreground/60">Workspace</div>
-              <div className="mt-1 font-display text-lg leading-tight">Екатерина Голубева</div>
             </Link>
             <nav className="mt-6 flex flex-col gap-1">
               {nav.map((n) => (
