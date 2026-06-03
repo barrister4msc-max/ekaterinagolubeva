@@ -1500,8 +1500,56 @@ await supabase
 
 {expandedAnalysisId === doc.id &&
  analysisDoc?.id === doc.id && (
-  <div className="mt-4 rounded-xl border bg-secondary/20 p-4 text-sm">
-    Анализ открыт внутри карточки
+  <div className="mt-4 space-y-4 rounded-2xl border bg-secondary/20 p-4">
+
+    <div className="rounded-xl border bg-white p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        AI Анализ
+      </div>
+
+      <div className="mt-2 text-sm">
+        {analysisDoc.ai_summary || "Нет краткого описания"}
+      </div>
+    </div>
+
+    <div className="grid gap-3 md:grid-cols-2">
+
+      <div className="rounded-xl border bg-white p-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Тип документа
+        </div>
+
+        <div className="mt-2 text-sm">
+          {analysisDoc.document_type || "Не определен"}
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-white p-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Статус анализа
+        </div>
+
+        <div className="mt-2 text-sm">
+          {analysisDoc.analysis_status || "unknown"}
+        </div>
+      </div>
+
+    </div>
+
+    <div className="rounded-xl border bg-white p-4">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Извлеченные данные
+      </div>
+
+      <pre className="mt-2 overflow-auto text-xs">
+        {JSON.stringify(
+          analysisDoc.extracted_data,
+          null,
+          2
+        )}
+      </pre>
+    </div>
+
   </div>
 )}
 
