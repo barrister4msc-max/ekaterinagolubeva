@@ -766,6 +766,8 @@ const [previewName, setPreviewName] = useState<string | null>(null);
   const [analysisDoc, setAnalysisDoc] = useState<any | null>(null);
   const [expandedAnalysisId, setExpandedAnalysisId] =
   useState<string | null>(null);
+  const [expandedReviewId, setExpandedReviewId] =
+  useState<string | null>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [legalReviewsByDocumentId, setLegalReviewsByDocumentId] =
