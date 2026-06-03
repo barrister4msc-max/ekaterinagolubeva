@@ -1414,7 +1414,13 @@ alert("AI анализ завершен");
     }}
     className="rounded-xl border border-blue-200 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
   >
-    {analyzingId === doc.id ? "Анализ..." : "AI анализ"}
+    {analyzingId === doc.id
+  ? "Анализ..."
+  : expandedAnalysisId === doc.id
+    ? "Скрыть AI анализ"
+    : doc.analysis_status === "completed"
+      ? "Посмотреть AI анализ"
+      : "Выполнить AI анализ"}
   </button>
 <button
   disabled={reviewingId === doc.id}
