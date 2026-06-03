@@ -368,8 +368,8 @@ const archivedLeads = useMemo(() => {
   }, [leads]);
 
   return (
-    <div className="space-y-6 rounded-3xl border border-border/80 bg-card p-5 pb-8 shadow-[0_28px_90px_rgba(47,41,37,0.16)]">
-      <div className="sticky top-0 z-20 flex flex-col gap-6 border-b border-border/60 bg-card pb-5 pt-1 xl:flex-row xl:items-start xl:justify-between">
+    <div className="space-y-6 rounded-3xl border border-border/70 bg-card/72 p-5 pb-8 shadow-[0_28px_90px_rgba(47,41,37,0.16)] backdrop-blur-sm">
+      <div className="sticky top-0 z-20 flex flex-col gap-6 border-b border-border/60 bg-card/80 pb-5 pt-1 backdrop-blur-sm xl:flex-row xl:items-start xl:justify-between">
         <div />
 
         <div className="flex flex-wrap gap-3">
