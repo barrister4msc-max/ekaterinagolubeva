@@ -1442,7 +1442,7 @@ alert("AI анализ завершен");
           type: "legal_review",
           message: `Юридическая проверка выполнена: ${doc.file_name}`,
         });
-
+await loadDocuments();
       alert(
         data?.review_status === "failed"
           ? "Проверка запущена, но завершилась с ошибкой. Можно повторить позже."
