@@ -1594,6 +1594,46 @@ const review = legalReviewsByDocumentId[doc.id];
             {renderList("Что проверить юристу", a.missing_checks, true)}
             {renderList("Рекомендации", a.recommended_actions)}
           </div>
+          {review && (
+  <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-green-900">
+          Юридическая проверка
+        </div>
+
+        <div className="mt-2 text-sm leading-6 text-green-950">
+          {review.summary || "Краткий вывод не сформирован"}
+        </div>
+      </div>
+
+      <span className="rounded-full bg-white px-2 py-1 text-[11px] uppercase text-green-800">
+        risk: {review.risk_level || "unknown"}
+      </span>
+    </div>
+
+    <div className="mt-4 grid gap-3">
+      {renderList("Выводы", review.findings)}
+      {renderList("Нормы / основания", review.legal_basis)}
+      {renderList("Рекомендации юриста", review.recommended_actions)}
+      {renderList("Алерты проверки", review.verification_alerts, true)}
+    </div>
+
+    <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-green-900">
+      <span className="rounded-full bg-white px-2 py-1">
+        status: {review.review_status || "unknown"}
+      </span>
+
+      <span className="rounded-full bg-white px-2 py-1">
+        verification: {review.verification_status || "unknown"}
+      </span>
+
+      <span className="rounded-full bg-white px-2 py-1">
+        запусков: {review.run_count ?? 0}
+      </span>
+    </div>
+  </div>
+)}
         </>
       );
     })()}
