@@ -10,13 +10,13 @@ const bgStyle: React.CSSProperties = {
   backgroundSize: "cover",
   backgroundPosition: "center top",
   backgroundRepeat: "no-repeat",
-  filter: "saturate(0.78) brightness(0.72)",
+  filter: "saturate(0.82) brightness(0.88) blur(1px)",
   transform: "scale(1.02)",
 };
 
 const bgOverlayStyle: React.CSSProperties = {
   background:
-    "linear-gradient(135deg, oklch(0.16 0.012 70 / 0.68) 0%, oklch(0.92 0.018 74 / 0.58) 46%, oklch(0.13 0.018 215 / 0.72) 100%)",
+    "linear-gradient(180deg, oklch(0.97 0.012 75 / 0.68) 0%, oklch(0.90 0.014 74 / 0.76) 48%, oklch(0.42 0.018 82 / 0.42) 100%)",
 };
 
 function WorkspaceBackground({ children }: { children: React.ReactNode }) {
@@ -105,7 +105,7 @@ function WorkspaceLayout() {
       <div className="container-wide flex min-h-screen flex-col gap-8 py-8 md:flex-row md:gap-10 md:py-10">
         {/* Side rail */}
         <aside className="md:w-60 md:shrink-0">
-          <div className="rounded-lg border border-border/80 bg-card/95 p-5 shadow-[0_18px_60px_rgba(47,41,37,0.18)] backdrop-blur-xl md:sticky md:top-8">
+          <div className="rounded-lg border border-border/80 bg-card/96 p-5 shadow-[0_18px_60px_rgba(47,41,37,0.14)] backdrop-blur-xl md:sticky md:top-8">
             <Link to="/" className="block">
               <div className="text-[10px] uppercase tracking-[0.28em] text-foreground/60">Workspace</div>
               <div className="mt-1 font-display text-lg leading-tight">Екатерина Голубева</div>
