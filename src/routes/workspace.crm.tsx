@@ -368,8 +368,9 @@ const archivedLeads = useMemo(() => {
   }, [leads]);
 
   return (
-    <div className="space-y-6 rounded-3xl border border-border/70 bg-card/72 p-5 pb-8 shadow-[0_28px_90px_rgba(47,41,37,0.16)] backdrop-blur-sm">
-      <div className="sticky top-0 z-20 flex flex-col gap-6 border-b border-border/60 bg-card/80 pb-5 pt-1 backdrop-blur-sm xl:flex-row xl:items-start xl:justify-between">
+    <div className="space-y-6 rounded-3xl border border-white/40 bg-white/25 p-5 pb-8 shadow-[0_20px_60px_rgba(15,30,55,0.16)] backdrop-blur-xl">
+      <div className="sticky top-0 z-20 flex flex-col gap-6 border-b border-white/30 bg-white/20 pb-5 pt-1 backdrop-blur-xl xl:flex-row xl:items-start xl:justify-between">
+
         <div />
 
         <div className="flex flex-wrap gap-3">
@@ -621,7 +622,7 @@ function PipelineView({
               className={`min-h-[260px] rounded-2xl border p-4 backdrop-blur-sm transition-colors ${
                 isOver
                   ? "border-primary/60 bg-primary/10 ring-2 ring-primary/30"
-                  : "border-border/70 bg-card/85"
+                  : "border-white/40 bg-white/25 backdrop-blur-xl"
               }`}
             >
               <div className="mb-4 flex items-center justify-between">
@@ -650,7 +651,7 @@ function PipelineView({
                       setDragOver(null);
                     }}
                     onClick={() => onSelect(lead)}
-                    className={`group select-none rounded-xl border border-neutral-200 bg-white p-3 shadow-[0_1px_3px_rgba(47,41,37,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(47,41,37,0.10)] cursor-grab active:cursor-grabbing ${
+                    className={`group select-none rounded-xl border border-white/50 bg-white/55 p-3 shadow-[0_2px_8px_rgba(15,30,55,0.08)] backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/70 hover:shadow-[0_8px_24px_rgba(15,30,55,0.14)] cursor-grab active:cursor-grabbing ${
                       draggingId === lead.id ? "opacity-50" : ""
                     }`}
                   >
@@ -2406,7 +2407,7 @@ function Kpi({
   sub: string;
 }) {
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-[0_2px_12px_rgba(47,41,37,0.06)]">
+    <div className="rounded-2xl border border-white/40 bg-white/30 p-6 shadow-[0_8px_32px_rgba(15,30,55,0.12)] backdrop-blur-xl">
       <div className="flex items-center justify-between">
         <Icon size={18} className="text-muted-foreground" />
       </div>
