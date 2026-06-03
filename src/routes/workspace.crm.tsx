@@ -368,8 +368,8 @@ const archivedLeads = useMemo(() => {
   }, [leads]);
 
   return (
-    <div className="space-y-6 pb-8">
-      <div className="sticky top-0 z-20 flex flex-col gap-6 pb-4 pt-2 xl:flex-row xl:items-start xl:justify-between">
+    <div className="space-y-6 rounded-3xl border border-border/80 bg-card p-5 pb-8 shadow-[0_28px_90px_rgba(47,41,37,0.16)]">
+      <div className="sticky top-0 z-20 flex flex-col gap-6 border-b border-border/60 bg-card pb-5 pt-1 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="font-display text-4xl leading-tight">Legal CRM</h1>
           <p className="mt-3 text-sm text-muted-foreground">
@@ -378,7 +378,7 @@ const archivedLeads = useMemo(() => {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <div className="inline-flex rounded-xl border border-border bg-white p-1 shadow-sm">
+          <div className="inline-flex rounded-xl border border-border/70 bg-background p-1 shadow-sm">
             <button
               type="button"
               onClick={() => setView("pipeline")}
@@ -410,7 +410,7 @@ const archivedLeads = useMemo(() => {
 </button>
           </div>
 
-          <div className="flex h-11 items-center gap-2 rounded-xl border border-border bg-white px-3 text-sm shadow-sm">
+          <div className="flex h-11 items-center gap-2 rounded-xl border border-border/70 bg-background px-3 text-sm shadow-sm">
             <Search size={16} className="text-muted-foreground" />
             <input
               type="text"
@@ -435,7 +435,7 @@ const archivedLeads = useMemo(() => {
             <button
               type="button"
               onClick={() => setFiltersOpen((v) => !v)}
-              className={`flex h-11 items-center gap-2 rounded-xl border border-border px-4 text-sm shadow-sm ${filtersOpen || activeFiltersCount > 0 ? "bg-neutral-950 text-white" : "bg-white"}`}
+              className={`flex h-11 items-center gap-2 rounded-xl border border-border/70 px-4 text-sm shadow-sm ${filtersOpen || activeFiltersCount > 0 ? "bg-neutral-950 text-white" : "bg-background"}`}
             >
               <SlidersHorizontal size={16} />
               Фильтры
@@ -538,7 +538,7 @@ const archivedLeads = useMemo(() => {
       </div>
 
       {loading ? (
-        <div className="rounded-2xl border border-border bg-white/35 p-12 text-center text-sm text-muted-foreground backdrop-blur-sm">
+        <div className="rounded-2xl border border-border/70 bg-card/88 p-12 text-center text-sm text-muted-foreground shadow-[0_18px_70px_rgba(47,41,37,0.10)] backdrop-blur-xl">
           Загрузка…
         </div>
       ) : view === "pipeline" ? (
@@ -599,7 +599,7 @@ function PipelineView({
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   return (
-    <div className="rounded-2xl border border-border bg-white/30 p-4 shadow-[0_10px_40px_rgba(0,0,0,0.03)] backdrop-blur-sm">
+    <div className="rounded-2xl border border-border/70 bg-background p-4 shadow-[0_14px_48px_rgba(47,41,37,0.08)]">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => {
           const colLeads = leads.filter((l) => (l.pipeline_stage ?? "new") === column.id);
@@ -626,7 +626,7 @@ function PipelineView({
               className={`min-h-[260px] rounded-2xl border p-4 shadow-[0_4px_24px_rgba(0,0,0,0.03)] backdrop-blur transition-colors ${
                 isOver
                   ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30"
-                  : "border-border/60 bg-white/45"
+                  : "border-border/70 bg-card/92"
               }`}
             >
               <div className="mb-4 flex items-center justify-between">
@@ -655,7 +655,7 @@ function PipelineView({
                       setDragOver(null);
                     }}
                     onClick={() => onSelect(lead)}
-                    className={`group select-none rounded-2xl border border-border/60 bg-white/70 p-3 shadow-[0_4px_20px_rgba(0,0,0,0.035)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(0,0,0,0.08)] cursor-grab active:cursor-grabbing ${
+                    className={`group select-none rounded-2xl border border-border/70 bg-card/95 p-3 shadow-[0_8px_28px_rgba(47,41,37,0.08)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_16px_44px_rgba(47,41,37,0.14)] cursor-grab active:cursor-grabbing ${
                       draggingId === lead.id ? "opacity-50" : ""
                     }`}
                   >
@@ -2411,7 +2411,7 @@ function Kpi({
   sub: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-white/65 p-6 shadow-[0_6px_30px_rgba(0,0,0,0.035)] backdrop-blur-sm">
+    <div className="rounded-2xl border border-border/70 bg-card p-6 shadow-[0_14px_44px_rgba(47,41,37,0.10)]">
       <div className="flex items-center justify-between">
         <Icon size={18} className="text-muted-foreground" />
       </div>
