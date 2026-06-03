@@ -594,7 +594,7 @@ function PipelineView({
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-[0_2px_12px_rgba(47,41,37,0.06)]">
+    <div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {columns.map((column) => {
           const colLeads = leads.filter((l) => (l.pipeline_stage ?? "new") === column.id);
@@ -618,10 +618,10 @@ function PipelineView({
                 setDraggingId(null);
                 if (id) void onMove(id, column.id);
               }}
-              className={`min-h-[260px] rounded-2xl border p-4 transition-colors ${
+              className={`min-h-[260px] rounded-2xl border p-4 backdrop-blur-sm transition-colors ${
                 isOver
-                  ? "border-primary/60 bg-primary/5 ring-2 ring-primary/30"
-                  : "border-neutral-200 bg-neutral-50"
+                  ? "border-primary/60 bg-primary/10 ring-2 ring-primary/30"
+                  : "border-border/70 bg-card/85"
               }`}
             >
               <div className="mb-4 flex items-center justify-between">
