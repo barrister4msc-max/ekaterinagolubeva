@@ -1494,7 +1494,9 @@ await loadDocuments();
   {reviewingId === doc.id
   ? "Формирование..."
   : legalReviewsByDocumentId[doc.id]
-    ? "Посмотреть заключение"
+    ? expandedReviewId === doc.id
+      ? "Скрыть заключение"
+      : "Посмотреть заключение"
     : "Сформировать заключение"}
 </button>
   
