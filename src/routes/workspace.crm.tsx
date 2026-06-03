@@ -959,7 +959,31 @@ telegramDocs = uniqueAtts.map((a: any) => ({
   );
 
   setDocuments(allDocs);
-  return allDocs;
+
+const documentIds = allDocs
+  .filter((d: any) => d._source === "lead_documents")
+  .map((d: any) => d.id);
+
+if (documentIds.length > 0) {
+  const { data: reviews, error: reviewsError } = await supabase
+    .from("legal_document_reviews")
+    .select("*")
+    .in("document_id", documentIds);
+
+  if (reviewsError) {
+    console.error("LEGAL REVIEWS LOAD ERROR:", reviewsError);
+  } else {
+    const byDocId = Object.fromEntries(
+      (reviews || []).map((r: any) => [r.document_id, r])
+    );
+
+    setLegalReviewsByDocumentId(byDocId);
+  }
+} else {
+  setLegalReviewsByDocumentId({});
+}
+
+return allDocs;
 }, [lead.id, lead.source_crm_lead_id]);
 const loadEvents = useCallback(async () => {
   const { data, error } = await supabase
