@@ -1610,6 +1610,9 @@ const review = legalReviewsByDocumentId[doc.id];
       <span className="rounded-full bg-white px-2 py-1 text-[11px] uppercase text-green-800">
         risk: {review.risk_level || "unknown"}
       </span>
+      <span className="rounded-full bg-white px-2 py-1 text-[11px] uppercase text-green-800">
+  verification: {review.verification_status || "unknown"}
+</span>
     </div>
 
     <div className="mt-4 grid gap-3">
