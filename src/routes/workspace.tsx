@@ -9,9 +9,17 @@ const bgStyle: React.CSSProperties = {
   backgroundImage: `url(${workspaceBg.url})`,
   backgroundSize: "cover",
   backgroundPosition: "center",
-  backgroundAttachment: "fixed",
   backgroundRepeat: "no-repeat",
 };
+
+function WorkspaceBackground({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative min-h-screen overflow-x-hidden bg-transparent">
+      <div aria-hidden="true" className="fixed inset-0 z-0" style={bgStyle} />
+      <div className="relative z-10 min-h-screen">{children}</div>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/workspace")({
   head: () => ({
@@ -47,45 +55,49 @@ function WorkspaceLayout() {
 
   if (isLoginRoute) {
     return (
-      <div className="min-h-screen" style={bgStyle}>
+      <WorkspaceBackground>
         <Outlet />
-      </div>
+      </WorkspaceBackground>
     );
   }
 
   if (loading || !user) {
     return (
-      <main className="min-h-screen py-32 text-center text-sm text-muted-foreground" style={bgStyle}>
-        Загрузка…
-      </main>
+      <WorkspaceBackground>
+        <main className="min-h-screen py-32 text-center text-sm text-muted-foreground">
+          Загрузка…
+        </main>
+      </WorkspaceBackground>
     );
   }
 
   if (!isAdmin) {
     return (
-      <main className="container-wide min-h-screen py-32" style={bgStyle}>
-        <div className="mx-auto max-w-md rounded-lg border border-border bg-card p-10 text-center shadow-[0_4px_30px_rgba(0,0,0,0.04)]">
-          <h1 className="font-display text-2xl">Доступ ограничен</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Этот аккаунт не имеет роли admin.
-          </p>
-          <button
-            onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/workspace/login" }))}
-            className="btn-ghost mx-auto mt-6"
-          >
-            <LogOut size={14}/> Выйти
-          </button>
-        </div>
-      </main>
+      <WorkspaceBackground>
+        <main className="container-wide min-h-screen py-32">
+          <div className="mx-auto max-w-md rounded-lg border border-border bg-card/70 p-10 text-center shadow-[0_4px_30px_rgba(0,0,0,0.04)] backdrop-blur-sm">
+            <h1 className="font-display text-2xl">Доступ ограничен</h1>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Этот аккаунт не имеет роли admin.
+            </p>
+            <button
+              onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/workspace/login" }))}
+              className="btn-ghost mx-auto mt-6"
+            >
+              <LogOut size={14}/> Выйти
+            </button>
+          </div>
+        </main>
+      </WorkspaceBackground>
     );
   }
 
   return (
-    <div className="min-h-screen" style={bgStyle}>
+    <WorkspaceBackground>
       <div className="container-wide flex min-h-screen flex-col gap-8 py-8 md:flex-row md:gap-10 md:py-10">
         {/* Side rail */}
         <aside className="md:w-60 md:shrink-0">
-          <div className="rounded-lg border border-border bg-card p-5 shadow-[0_2px_20px_rgba(0,0,0,0.03)] md:sticky md:top-8">
+          <div className="rounded-lg border border-border bg-card/70 p-5 shadow-[0_2px_20px_rgba(0,0,0,0.03)] backdrop-blur-sm md:sticky md:top-8">
             <Link to="/" className="block">
               <div className="text-[10px] uppercase tracking-[0.28em] text-foreground/60">Workspace</div>
               <div className="mt-1 font-display text-lg leading-tight">Екатерина Голубева</div>
@@ -121,6 +133,6 @@ function WorkspaceLayout() {
           <Outlet />
         </main>
       </div>
-    </div>
+    </WorkspaceBackground>
   );
 }
