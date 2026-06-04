@@ -103,7 +103,7 @@ function AiPodborPage() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-        <aside className="rounded-lg border border-border bg-card p-3 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+        <aside className="rounded-lg border border-white/30 bg-white/10 backdrop-blur-sm p-3 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
           {loading ? (
             <div className="p-6 text-center text-sm text-muted-foreground">
               <Loader2 className="mx-auto animate-spin" size={18} />
@@ -144,7 +144,7 @@ function AiPodborPage() {
               onChanged={loadRequests}
             />
           ) : (
-            <div className="rounded-lg border border-border bg-card p-10 text-center text-sm text-muted-foreground">
+            <div className="rounded-lg border border-white/30 bg-white/10 backdrop-blur-sm p-10 text-center text-sm text-muted-foreground">
               Выберите заявку слева
             </div>
           )}
@@ -237,7 +237,7 @@ function RequestDetail({ request, onChanged }: { request: Request; onChanged: ()
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-border bg-card p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+      <div className="rounded-lg border border-white/30 bg-white/10 backdrop-blur-sm p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="font-display text-xl">{request.client_name}</h2>
@@ -286,7 +286,7 @@ function RequestDetail({ request, onChanged }: { request: Request; onChanged: ()
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-card p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+      <div className="rounded-lg border border-white/30 bg-white/10 backdrop-blur-sm p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
         <div className="flex items-center justify-between gap-3">
           <h3 className="font-display text-lg">Подходящие объекты</h3>
           <div className="flex gap-2">

@@ -170,7 +170,7 @@ function ReviewsAdmin() {
         />
       )}
 
-      <div className="rounded-lg border border-border bg-card shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+      <div className="rounded-lg border border-white/30 bg-white/10 backdrop-blur-sm shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
         {isLoading ? (
           <div className="p-8 text-sm text-muted-foreground">Загрузка…</div>
         ) : error ? (
@@ -272,7 +272,7 @@ function ReviewForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-lg border border-border bg-card p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
+      className="rounded-lg border border-white/30 bg-white/10 backdrop-blur-sm p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]"
     >
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg">{title}</h2>
