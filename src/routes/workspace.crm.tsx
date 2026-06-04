@@ -1453,10 +1453,13 @@ alert("AI анализ завершен");
       legalReviewsByDocumentId[doc.id];
 
     if (existingReview) {
-      setAnalysisDoc(doc);
-      setExpandedAnalysisId(doc.id);
-      return;
-    }
+  setExpandedReviewId(
+    expandedReviewId === doc.id ? null : doc.id
+  );
+  setExpandedAnalysisId(doc.id);
+  setAnalysisDoc(doc);
+  return;
+}
 
     try {
       setReviewingId(doc.id);
