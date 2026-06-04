@@ -247,7 +247,7 @@ function SettingsPage() {
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)] md:p-8">
+    <div className="rounded-xl border border-white/30 bg-white/10 backdrop-blur-sm p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)] md:p-8">
       <h2 className="mb-6 font-display text-xl">{title}</h2>
       {children}
     </div>

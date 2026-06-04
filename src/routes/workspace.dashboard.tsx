@@ -65,7 +65,7 @@ function Dashboard() {
         <StatCard icon={CheckCircle2} label="За 7 дней" value={stats.last7d} loading={loading} />
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)] md:p-8">
+      <section className="rounded-xl border border-white/30 bg-white/10 backdrop-blur-sm p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)] md:p-8">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="font-display text-2xl">Последние обращения</h2>
           <Link to="/workspace/leads" className="text-xs uppercase tracking-[0.18em] text-primary hover:underline">
@@ -110,7 +110,7 @@ function StatCard({
   icon: Icon, label, value, tone, loading,
 }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; value: number; tone?: "destructive"; loading: boolean }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+    <div className="rounded-xl border border-white/30 bg-white/10 backdrop-blur-sm p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
       <div className="flex items-center justify-between">
         <div className="text-[11px] uppercase tracking-[0.18em] text-foreground/60">{label}</div>
         <Icon size={16} className={tone === "destructive" ? "text-destructive" : "text-primary"} />

@@ -96,7 +96,7 @@ function groupCount<T>(arr: T[], key: (x: T) => string): [string, number][] {
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
+    <section className="rounded-xl border border-white/30 bg-white/10 backdrop-blur-sm p-6 shadow-[0_2px_20px_rgba(0,0,0,0.03)]">
       <div className="mb-5 text-[11px] uppercase tracking-[0.18em] text-foreground/60">{title}</div>
       {children}
     </section>
