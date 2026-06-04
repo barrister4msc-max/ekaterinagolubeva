@@ -104,7 +104,7 @@ function WorkspaceLayout() {
       <div className="container-wide flex min-h-screen flex-col gap-8 py-8 md:flex-row md:gap-10 md:py-10">
         {/* Side rail */}
         <aside className="md:w-60 md:shrink-0">
-          <div className="rounded-lg border border-border/80 bg-card p-5 shadow-[0_18px_60px_rgba(47,41,37,0.14)] md:sticky md:top-8">
+          <div className="rounded-lg border border-white/40 bg-white/20 p-5 shadow-[0_18px_60px_rgba(15,30,55,0.18)] backdrop-blur-xl md:sticky md:top-8">
             <Link to="/" className="block">
               <div className="text-[10px] uppercase tracking-[0.28em] text-foreground/60">Workspace</div>
             </Link>
