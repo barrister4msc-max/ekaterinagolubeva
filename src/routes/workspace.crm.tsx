@@ -1500,8 +1500,8 @@ if (freshReview) {
   }));
 
   setExpandedReviewId(doc.id);
-  setExpandedAnalysisId(null);
-  setAnalysisDoc(null);
+setExpandedAnalysisId(doc.id);
+setAnalysisDoc(doc);
 } else {
   alert("Заключение не найдено в legal_document_reviews после проверки");
   return;
