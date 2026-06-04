@@ -1484,6 +1484,7 @@ alert("AI анализ завершен");
           message: `Юридическая проверка выполнена: ${doc.file_name}`,
         });
 await loadDocuments();
+      await loadEvents();
       const { data: freshReview } = await supabase
   .from("legal_document_reviews")
   .select("*")
