@@ -979,6 +979,7 @@ if (documentIds.length > 0) {
     const byDocId: Record<string, any> = {};
 
 for (const r of reviews || []) {
+  if (!r.document_id) continue;
   if (!byDocId[r.document_id]) {
     byDocId[r.document_id] = r;
   }
