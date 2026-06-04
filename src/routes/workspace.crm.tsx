@@ -1403,8 +1403,10 @@ if (
           "analyze-lead-document",
           {
             body: {
-              documentId: doc.id,
-            },
+  document_id: doc.id,
+  lead_id: lead.id,
+  crm_lead_id: lead.source_crm_lead_id ?? null,
+},
           }
         );
 
