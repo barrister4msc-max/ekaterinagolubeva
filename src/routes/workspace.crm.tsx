@@ -976,9 +976,13 @@ if (documentIds.length > 0) {
   if (reviewsError) {
     console.error("LEGAL REVIEWS LOAD ERROR:", reviewsError);
   } else {
-    const byDocId = Object.fromEntries(
-      (reviews || []).map((r: any) => [r.document_id, r])
-    );
+    const byDocId: Record<string, any> = {};
+
+for (const r of reviews || []) {
+  if (!byDocId[r.document_id]) {
+    byDocId[r.document_id] = r;
+  }
+}
 
     setLegalReviewsByDocumentId(byDocId);
   }
