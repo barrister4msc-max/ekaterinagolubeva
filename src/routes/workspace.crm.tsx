@@ -1501,6 +1501,10 @@ if (freshReview) {
 
   setExpandedReviewId(doc.id);
   setExpandedAnalysisId(null);
+  setAnalysisDoc(null);
+} else {
+  alert("Заключение не найдено в legal_document_reviews после проверки");
+  return;
 }
       alert(
         data?.review_status === "failed"
