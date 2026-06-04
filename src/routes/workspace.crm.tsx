@@ -1482,6 +1482,23 @@ alert("AI анализ завершен");
           message: `Юридическая проверка выполнена: ${doc.file_name}`,
         });
 await loadDocuments();
+      const { data: freshReview } = await supabase
+  .from("legal_document_reviews")
+  .select("*")
+  .eq("document_id", doc.id)
+  .order("updated_at", { ascending: false })
+  .limit(1)
+  .maybeSingle();
+
+if (freshReview) {
+  setLegalReviewsByDocumentId((prev) => ({
+    ...prev,
+    [doc.id]: freshReview,
+  }));
+
+  setExpandedReviewId(doc.id);
+  setExpandedAnalysisId(null);
+}
       alert(
         data?.review_status === "failed"
           ? "Проверка запущена, но завершилась с ошибкой. Можно повторить позже."
