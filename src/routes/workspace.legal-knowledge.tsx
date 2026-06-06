@@ -419,11 +419,129 @@ function LegalKnowledgePage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="gaps" className="space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Источники, которые AI пытался использовать, но не нашёл в локальной базе. Автоматический интернет-поиск
-            отключён — загрузка только через подтверждение администратора.
-          </p>
+        <TabsContent value="sources" className="space-y-3">
+          <Card>
+            <CardContent className="space-y-3 p-3">
+              <div className="grid gap-2 md:grid-cols-4">
+                <div className="relative">
+                  <Search size={14} className="absolute left-2 top-2.5 text-muted-foreground" />
+                  <Input value={srcSearch} onChange={(e) => setSrcSearch(e.target.value)} placeholder="Поиск (название, номер, статья)" className="pl-7" />
+                </div>
+                <Select value={srcType} onValueChange={setSrcType}>
+                  <SelectTrigger><SelectValue placeholder="Тип" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все типы</SelectItem>
+                    <SelectItem value="codex">Кодекс</SelectItem>
+                    <SelectItem value="federal_law">Федеральный закон</SelectItem>
+                    <SelectItem value="fns_letter">Письмо ФНС</SelectItem>
+                    <SelectItem value="minfin_letter">Письмо Минфина</SelectItem>
+                    <SelectItem value="court_practice">Судебная практика</SelectItem>
+                    <SelectItem value="vs_review">Обзор ВС РФ</SelectItem>
+                    <SelectItem value="explanation">Разъяснение</SelectItem>
+                    <SelectItem value="other">Иное</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={srcVerif} onValueChange={setSrcVerif}>
+                  <SelectTrigger><SelectValue placeholder="Проверка" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все статусы проверки</SelectItem>
+                    <SelectItem value="needs_review">Требует проверки</SelectItem>
+                    <SelectItem value="verified_local_source">verified_local_source</SelectItem>
+                    <SelectItem value="official_verified">official_verified</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={srcImport} onValueChange={setSrcImport}>
+                  <SelectTrigger><SelectValue placeholder="Импорт" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Все статусы импорта</SelectItem>
+                    <SelectItem value="draft">draft</SelectItem>
+                    <SelectItem value="pending">pending</SelectItem>
+                    <SelectItem value="processing">processing</SelectItem>
+                    <SelectItem value="completed">completed</SelectItem>
+                    <SelectItem value="failed">failed</SelectItem>
+                    <SelectItem value="needs_review">needs_review</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="max-h-[70vh] overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Название</TableHead>
+                      <TableHead>Тип</TableHead>
+                      <TableHead>№ / Дата</TableHead>
+                      <TableHead>Способ</TableHead>
+                      <TableHead>Доверие</TableHead>
+                      <TableHead>Проверка</TableHead>
+                      <TableHead>Импорт</TableHead>
+                      <TableHead>Активен</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sources.map((s) => {
+                      const m = s.metadata ?? {};
+                      const gid = m.source_group_id as string;
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell className="max-w-xs">
+                            <div className="line-clamp-2 text-xs font-medium">{s.title ?? "—"}</div>
+                            {m.source_url && (
+                              <a href={m.source_url} target="_blank" rel="noreferrer" className="text-[10px] text-primary underline">
+                                источник
+                              </a>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs">{m.source_type ?? "—"}</TableCell>
+                          <TableCell className="text-xs">
+                            {m.document_number ?? "—"}
+                            <div className="text-[10px] text-muted-foreground">{m.document_date ?? ""}</div>
+                          </TableCell>
+                          <TableCell className="text-xs">{m.ingest_mode ?? "—"}</TableCell>
+                          <TableCell className="text-xs">
+                            <Badge variant={m.trust_level === "high" ? "default" : m.trust_level === "medium" ? "secondary" : "outline"}>
+                              {m.trust_level ?? "—"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell><StatusBadge status={m.verification_status} /></TableCell>
+                          <TableCell><StatusBadge status={m.import_status} /></TableCell>
+                          <TableCell className="text-xs">{s.is_active ? "да" : "нет"}</TableCell>
+                          <TableCell className="space-x-1 whitespace-nowrap">
+                            {m.source_url && (
+                              <Button size="sm" variant="ghost" asChild>
+                                <a href={m.source_url} target="_blank" rel="noreferrer">Открыть</a>
+                              </Button>
+                            )}
+                            <Button size="sm" variant="outline" onClick={() => void handleQueue(gid, s.title)}>
+                              <Send size={12} /> Индексация
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => void handleApproveSource(gid)}>
+                              <CheckCircle2 size={12} /> Одобрить
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => void handleDeactivate(gid)}>
+                              <Power size={12} /> Выкл
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {sources.length === 0 && (
+                      <TableRow><TableCell colSpan={9} className="text-center text-xs text-muted-foreground">Источников пока нет — загрузите первый через «+ Загрузить источник».</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="recommended" className="space-y-3">
+          <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+            <AlertTriangle size={14} className="mt-0.5" />
+            <div>
+              Источники, которые AI пытался использовать, но не нашёл в локальной базе. Кнопка «Найти источники» НЕ запускает интернет-поиск автоматически — только ставит запрос в очередь. Найденные кандидаты требуют одобрения администратора и проверки до использования в RAG.
+            </div>
+          </div>
           <Card>
             <CardContent className="p-0">
               <Table>
@@ -431,6 +549,7 @@ function LegalKnowledgePage() {
                   <TableRow>
                     <TableHead>Что искал AI</TableHead>
                     <TableHead>Тип</TableHead>
+                    <TableHead>Статья / №</TableHead>
                     <TableHead className="text-right">Запросов</TableHead>
                     <TableHead>Приоритет</TableHead>
                     <TableHead>Статус</TableHead>
@@ -441,58 +560,53 @@ function LegalKnowledgePage() {
                   {gaps.map((g) => (
                     <TableRow key={g.id}>
                       <TableCell className="max-w-md">
-                        <div className="text-xs font-medium">
-                          {g.guessed_title || g.guessed_article || g.guessed_document_number || "—"}
-                        </div>
-                        {g.query_text && (
-                          <div className="line-clamp-2 text-[10px] text-muted-foreground">{g.query_text}</div>
-                        )}
+                        <div className="text-xs font-medium">{g.guessed_title || g.guessed_article || g.guessed_document_number || "—"}</div>
+                        {g.query_text && <div className="line-clamp-2 text-[10px] text-muted-foreground">{g.query_text}</div>}
+                        {g.context && <div className="line-clamp-2 text-[10px] text-muted-foreground/80">контекст: {g.context}</div>}
                       </TableCell>
                       <TableCell className="text-xs">{g.missing_source_type}</TableCell>
+                      <TableCell className="text-xs">
+                        {g.guessed_article ?? "—"}
+                        <div className="text-[10px] text-muted-foreground">{g.guessed_document_number ?? ""}</div>
+                      </TableCell>
                       <TableCell className="text-right text-xs">{g.request_count}</TableCell>
                       <TableCell>
-                        <Badge variant={g.priority === "high" ? "destructive" : g.priority === "medium" ? "secondary" : "outline"}>
-                          {g.priority}
-                        </Badge>
+                        <Badge variant={g.priority === "high" ? "destructive" : g.priority === "medium" ? "secondary" : "outline"}>{g.priority}</Badge>
                       </TableCell>
-                      <TableCell>
-                        <StatusBadge status={g.status} />
-                      </TableCell>
+                      <TableCell><StatusBadge status={g.status} /></TableCell>
                       <TableCell className="space-x-1 whitespace-nowrap">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            toast.info(
-                              "Ручной поиск источника. Автоматический интернет-поиск отключён. Используйте официальные ресурсы и загрузите подтверждённый документ в базу.",
-                            )
-                          }
-                        >
-                          Найти источник
+                        <Button size="sm" variant="outline" onClick={() => void handleExternalSearch(g)}>
+                          <Search size={12} /> Найти источники
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => void handleGap(g.id, { status: "in_progress" })}>
-                          В работу
-                        </Button>
-                        <Button size="sm" onClick={() => void handleGap(g.id, { status: "resolved" })}>
-                          Загружено
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => void handleGap(g.id, { status: "dismissed" })}>
-                          Отклонить
-                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => void handleGap(g.id, { status: "in_progress" })}>В работу</Button>
+                        <Button size="sm" onClick={() => void handleGap(g.id, { status: "resolved" })}>Загружено</Button>
+                        <Button size="sm" variant="ghost" onClick={() => void handleGap(g.id, { status: "dismissed" })}>Отклонить</Button>
                       </TableCell>
                     </TableRow>
                   ))}
                   {gaps.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-xs text-muted-foreground">
-                        Нет gap-запросов.
-                      </TableCell>
-                    </TableRow>
+                    <TableRow><TableCell colSpan={7} className="text-center text-xs text-muted-foreground">Нет рекомендаций.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-sm">Кандидаты найденных источников (UI-заготовка)</CardTitle></CardHeader>
+            <CardContent>
+              <div className="rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                После запуска поиска здесь появятся карточки кандидатов: название, тип, номер, дата, орган, источник публикации, URL, уровень доверия, статус (not_loaded / pending_approval / approved / rejected). На текущем этапе автоматическая загрузка отключена — карточки требуют одобрения администратора.
+              </div>
+              <div className="mt-3 grid gap-2 md:grid-cols-3 text-[11px]">
+                <div className="rounded-md border p-2"><div className="font-medium">Высокое доверие</div><div className="text-muted-foreground">pravo.gov.ru, nalog.gov.ru, minfin.gov.ru, vsrf.ru, sudrf.ru, kad.arbitr.ru, cbr.ru, government.ru, kremlin.ru, rosreestr.gov.ru, fas.gov.ru</div></div>
+                <div className="rounded-md border p-2"><div className="font-medium">Среднее доверие</div><div className="text-muted-foreground">consultant.ru, garant.ru</div></div>
+                <div className="rounded-md border p-2"><div className="font-medium">Низкое доверие</div><div className="text-muted-foreground">любые иные сайты</div></div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         </TabsContent>
 
         <TabsContent value="verification" className="space-y-3">
