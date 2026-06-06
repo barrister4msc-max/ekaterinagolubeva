@@ -29,6 +29,7 @@ import {
   sendTelegramMessageFn,
 } from "@/lib/admin-inbox.functions";
 import { useAuth } from "@/hooks/use-auth";
+import { GeneratedDocumentsBlock } from "@/components/crm/generated-documents-block";
 
 export const Route = createFileRoute("/workspace/crm")({
   validateSearch: (search: Record<string, unknown>): { lead?: string } => ({
@@ -759,6 +760,7 @@ function LeadDrawer({
   setActiveTab: (t: "overview" | "cases" | "inbox" | "documents" | "compliance" | "tasks" | "timeline") => void;
   onClose: () => void;
 }) {
+const { session } = useAuth();
 const [documents, setDocuments] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
 const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -1241,6 +1243,7 @@ await supabase
         {activeTab === "inbox" && <LeadInbox leadId={lead.id} />}
         {activeTab === "cases" && <LeadCases leadId={lead.id} />}
 {activeTab === "documents" && (
+     <>
      <section className="mt-8 rounded-3xl border bg-white p-6">
   <div className="flex items-center justify-between gap-3">
     <div className="flex items-center gap-2">
@@ -1755,6 +1758,12 @@ const review = legalReviewsByDocumentId[doc.id];
 </div>
        
 </section>
+<GeneratedDocumentsBlock
+  leadId={lead.id}
+  crmLeadId={lead.source_crm_lead_id ?? null}
+  userId={session?.user?.id ?? null}
+/>
+</>
 )}
         {activeTab === "compliance" && (
   <section className="mt-8 rounded-3xl border bg-white p-6">
