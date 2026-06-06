@@ -649,3 +649,31 @@ export const lkRequestExternalSearch = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// 9) External search request by free-form query (used from Sources Classifier
+// when there is no gap_id yet). UI/queue only — no automatic web fetch.
+export const lkRequestExternalSearchByQuery = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        query: z.string().min(1).max(500),
+        missing_source_type: z.string().max(100).optional().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { error } = await supabaseAdmin.from("legal_source_verification_logs").insert({
+      source_kind: (data.missing_source_type as any) ?? "other",
+      source_id: null,
+      source_ref: null,
+      source_title: `Внешняя проверка: ${data.query.slice(0, 200)}`,
+      requested_by: userId,
+      status: "pending",
+      result_summary: "Очередь внешней проверки (без автоматического интернет-поиска)",
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
