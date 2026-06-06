@@ -1451,6 +1451,7 @@ export type Database = {
           sort_order: number
           template_key: string
           title: string
+          updated_at: string
         }
         Insert: {
           category: string
@@ -1461,6 +1462,7 @@ export type Database = {
           sort_order?: number
           template_key: string
           title: string
+          updated_at?: string
         }
         Update: {
           category?: string
@@ -1471,6 +1473,7 @@ export type Database = {
           sort_order?: number
           template_key?: string
           title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1639,34 +1642,52 @@ export type Database = {
       }
       generated_legal_documents: {
         Row: {
+          category: string | null
           content: string | null
           created_at: string
+          created_by: string | null
+          crm_lead_id: string | null
           id: string
           lead_id: string | null
+          metadata: Json
           source_document_id: string | null
           status: string
+          template_id: string | null
           template_key: string
           title: string
+          updated_at: string
         }
         Insert: {
+          category?: string | null
           content?: string | null
           created_at?: string
+          created_by?: string | null
+          crm_lead_id?: string | null
           id?: string
           lead_id?: string | null
+          metadata?: Json
           source_document_id?: string | null
           status?: string
+          template_id?: string | null
           template_key: string
           title: string
+          updated_at?: string
         }
         Update: {
+          category?: string | null
           content?: string | null
           created_at?: string
+          created_by?: string | null
+          crm_lead_id?: string | null
           id?: string
           lead_id?: string | null
+          metadata?: Json
           source_document_id?: string | null
           status?: string
+          template_id?: string | null
           template_key?: string
           title?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -1674,6 +1695,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_legal_documents_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
             referencedColumns: ["id"]
           },
         ]
