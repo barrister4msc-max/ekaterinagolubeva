@@ -249,7 +249,7 @@ export const lkCreateGapRequest = createServerFn({ method: "POST" })
     await assertAdmin(supabase, userId);
     const { error } = await supabase.from("legal_source_gap_requests").insert({
       query_text: data.query_text,
-      missing_source_type: data.missing_source_type ?? null,
+      missing_source_type: data.missing_source_type ?? "unknown",
       guessed_title: data.guessed_title ?? null,
       guessed_article: data.guessed_article ?? null,
       guessed_document_number: data.guessed_document_number ?? null,
