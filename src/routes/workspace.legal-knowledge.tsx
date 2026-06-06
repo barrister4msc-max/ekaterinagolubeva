@@ -270,10 +270,10 @@ function LegalKnowledgePage() {
         <TabsContent value="dashboard" className="space-y-4">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
-              { label: "Всего норм", value: dash?.counts.laws ?? "—", icon: ShieldCheck },
-              { label: "Всего чанков", value: dash?.counts.chunks ?? "—", icon: ShieldCheck },
+              { label: "Подтверждённые источники", value: dash?.counts.confirmedSources ?? "—", icon: CheckCircle2 },
+              { label: "Требуют проверки", value: dash?.counts.onReviewSources ?? "—", icon: AlertTriangle },
+              { label: "Отсутствующие источники", value: dash?.counts.missingSources ?? "—", icon: ShieldQuestion },
               { label: "Использований за 30 дн.", value: dash?.counts.usage30d ?? "—", icon: CheckCircle2 },
-              { label: "Проверок в очереди", value: dash?.counts.verificationPending ?? "—", icon: Clock },
             ].map((s) => (
               <Card key={s.label}>
                 <CardHeader className="pb-2">
@@ -281,6 +281,22 @@ function LegalKnowledgePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-semibold">{s.value}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {[
+              { label: "Всего норм в локальной базе", value: dash?.counts.laws ?? "—" },
+              { label: "Всего чанков", value: dash?.counts.chunks ?? "—" },
+              { label: "Проверок в очереди", value: dash?.counts.verificationPending ?? "—" },
+            ].map((s) => (
+              <Card key={s.label}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">{s.label}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">{s.value}</div>
                 </CardContent>
               </Card>
             ))}
