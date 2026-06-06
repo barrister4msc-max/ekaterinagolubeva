@@ -677,3 +677,95 @@ export const lkRequestExternalSearchByQuery = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// 10) Bulk JSON upload — creates one knowledge_chunk row per item, all sharing a source_group_id.
+const BulkItem = z.object({
+  title: z.string().min(1).max(500),
+  source_type: z.string().max(100).optional().nullable(),
+  document_number: z.string().max(200).optional().nullable(),
+  article: z.string().max(200).optional().nullable(),
+  document_date: z.string().max(50).optional().nullable(),
+  edition_date: z.string().max(50).optional().nullable(),
+  source_url: z.string().max(1000).optional().nullable(),
+  content: z.string().min(1).max(500_000),
+});
+
+export const lkBulkCreateSources = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ items: z.array(BulkItem).min(1).max(500) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const groupId = crypto.randomUUID();
+    const uploadedAt = new Date().toISOString();
+    const total = data.items.length;
+
+    const rows = data.items.map((it, idx) => {
+      const trust = trustLevelOf(it.source_url ?? null);
+      return {
+        title: it.title,
+        content: it.content,
+        category: "law_batch",
+        source_type: "manual_source",
+        is_active: true,
+        embedding: null,
+        metadata: {
+          source_group_id: groupId,
+          source_type: it.source_type ?? "other",
+          title: it.title,
+          article: it.article ?? null,
+          document_number: it.document_number ?? null,
+          document_date: it.document_date ?? null,
+          edition_date: it.edition_date ?? null,
+          source_url: it.source_url ?? null,
+          import_status: "pending",
+          verification_status: "needs_review",
+          official_status: "unverified",
+          trust_level: trust,
+          ingest_mode: "batch_json",
+          chunk_index: idx,
+          chunks_total: total,
+          is_source_head: true,
+          uploaded_at: uploadedAt,
+          uploaded_by: userId,
+        },
+      };
+    });
+
+    const { error } = await supabaseAdmin.from("legal_knowledge_chunks").insert(rows);
+    if (error) throw new Error(error.message);
+    return { ok: true, source_group_id: groupId, count: total };
+  });
+
+// 11) Approve an entire batch (or any source group) — sets official_verified + completed
+export const lkApproveBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ source_group_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data: chunks, error: fErr } = await supabaseAdmin
+      .from("legal_knowledge_chunks")
+      .select("id, metadata")
+      .eq("source_type", "manual_source")
+      .eq("metadata->>source_group_id", data.source_group_id);
+    if (fErr) throw new Error(fErr.message);
+    if (!chunks?.length) throw new Error("Партия не найдена");
+    for (const c of chunks) {
+      const merged = {
+        ...(c.metadata as Record<string, unknown>),
+        verification_status: "official_verified",
+        import_status: "completed",
+      };
+      const { error } = await supabaseAdmin
+        .from("legal_knowledge_chunks")
+        .update({ metadata: merged })
+        .eq("id", c.id);
+      if (error) throw new Error(error.message);
+    }
+    return { ok: true, updated: chunks.length };
+  });
+
