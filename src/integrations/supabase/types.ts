@@ -2925,6 +2925,144 @@ export type Database = {
           },
         ]
       }
+      legal_source_gap_requests: {
+        Row: {
+          context: string | null
+          created_at: string
+          guessed_article: string | null
+          guessed_document_number: string | null
+          guessed_title: string | null
+          id: string
+          last_requested_at: string
+          missing_source_type: string
+          priority: string
+          query_text: string | null
+          request_count: number
+          source_lead_id: string | null
+          source_review_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          guessed_article?: string | null
+          guessed_document_number?: string | null
+          guessed_title?: string | null
+          id?: string
+          last_requested_at?: string
+          missing_source_type: string
+          priority?: string
+          query_text?: string | null
+          request_count?: number
+          source_lead_id?: string | null
+          source_review_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          guessed_article?: string | null
+          guessed_document_number?: string | null
+          guessed_title?: string | null
+          id?: string
+          last_requested_at?: string
+          missing_source_type?: string
+          priority?: string
+          query_text?: string | null
+          request_count?: number
+          source_lead_id?: string | null
+          source_review_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      legal_source_usage_events: {
+        Row: {
+          article: string | null
+          created_at: string
+          document_id: string | null
+          id: string
+          lead_id: string | null
+          reason: string | null
+          review_id: string | null
+          source_id: string | null
+          source_kind: string
+          source_ref: string | null
+          verification_status: string
+        }
+        Insert: {
+          article?: string | null
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          lead_id?: string | null
+          reason?: string | null
+          review_id?: string | null
+          source_id?: string | null
+          source_kind: string
+          source_ref?: string | null
+          verification_status?: string
+        }
+        Update: {
+          article?: string | null
+          created_at?: string
+          document_id?: string | null
+          id?: string
+          lead_id?: string | null
+          reason?: string | null
+          review_id?: string | null
+          source_id?: string | null
+          source_kind?: string
+          source_ref?: string | null
+          verification_status?: string
+        }
+        Relationships: []
+      }
+      legal_source_verification_logs: {
+        Row: {
+          completed_at: string | null
+          external_url: string | null
+          id: string
+          requested_at: string
+          requested_by: string | null
+          result_summary: string | null
+          source_id: string | null
+          source_kind: string
+          source_ref: string | null
+          source_title: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          external_url?: string | null
+          id?: string
+          requested_at?: string
+          requested_by?: string | null
+          result_summary?: string | null
+          source_id?: string | null
+          source_kind: string
+          source_ref?: string | null
+          source_title?: string | null
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          external_url?: string | null
+          id?: string
+          requested_at?: string
+          requested_by?: string | null
+          result_summary?: string | null
+          source_id?: string | null
+          source_kind?: string
+          source_ref?: string | null
+          source_title?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       official_legal_sources: {
         Row: {
           base_url: string
@@ -4287,6 +4425,28 @@ export type Database = {
           source_name?: string | null
           source_type?: string | null
           title?: string | null
+        }
+        Relationships: []
+      }
+      v_legal_sources_catalog: {
+        Row: {
+          category: string | null
+          chunks_count: number | null
+          created_at: string | null
+          is_active: boolean | null
+          jurisdiction: string | null
+          last_verification_status: string | null
+          last_verified_at: string | null
+          practice_area: string | null
+          reference_number: string | null
+          source_checked_at: string | null
+          source_id: string | null
+          source_kind: string | null
+          source_name: string | null
+          source_url: string | null
+          title: string | null
+          updated_at: string | null
+          usage_count: number | null
         }
         Relationships: []
       }
