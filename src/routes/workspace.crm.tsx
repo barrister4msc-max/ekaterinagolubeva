@@ -1762,6 +1762,7 @@ const review = legalReviewsByDocumentId[doc.id];
   crmLeadId={lead.source_crm_lead_id ?? null}
   userId={session?.user?.id ?? null}
 />
+</>
 )}
         {activeTab === "compliance" && (
   <section className="mt-8 rounded-3xl border bg-white p-6">
