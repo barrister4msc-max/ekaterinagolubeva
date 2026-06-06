@@ -73,9 +73,11 @@ interface Props {
 export function SourcesClassifier({ items, leadId, reviewId }: Props) {
   const classify = useServerFn(lkClassifySources);
   const createGap = useServerFn(lkCreateGapRequest);
+  const externalSearch = useServerFn(lkRequestExternalSearchByQuery);
   const [matches, setMatches] = useState<Record<string, { matched: boolean; title?: string }>>({});
   const [loading, setLoading] = useState(false);
   const [requested, setRequested] = useState<Record<string, boolean>>({});
+  const [externalRequested, setExternalRequested] = useState<Record<string, boolean>>({});
 
   const normalized = useMemo(
     () =>
