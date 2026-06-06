@@ -179,3 +179,86 @@ export const lkDashboard = createServerFn({ method: "POST" })
       topGaps: gapsTop.data ?? [],
     };
   });
+
+export const lkClassifySources = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        items: z
+          .array(
+            z.object({
+              key: z.string(),
+              text: z.string().max(2000),
+            }),
+          )
+          .max(100),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const results: Record<string, { matched: boolean; title?: string; source_kind?: string; source_id?: string }> = {};
+    for (const item of data.items) {
+      const text = item.text.trim();
+      if (!text) {
+        results[item.key] = { matched: false };
+        continue;
+      }
+      // try several short tokens (first 60 chars) for ilike
+      const probe = text.slice(0, 80).replace(/[%_]/g, " ");
+      const { data: rows } = await supabase
+        .from("v_legal_sources_catalog")
+        .select("source_kind, source_id, title")
+        .ilike("title", `%${probe}%`)
+        .limit(1);
+      if (rows && rows.length > 0) {
+        results[item.key] = {
+          matched: true,
+          title: rows[0].title,
+          source_kind: rows[0].source_kind,
+          source_id: rows[0].source_id,
+        };
+      } else {
+        results[item.key] = { matched: false };
+      }
+    }
+    return { results };
+  });
+
+export const lkCreateGapRequest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        query_text: z.string().min(1).max(2000),
+        missing_source_type: z.string().max(100).optional().nullable(),
+        guessed_title: z.string().max(500).optional().nullable(),
+        guessed_article: z.string().max(200).optional().nullable(),
+        guessed_document_number: z.string().max(200).optional().nullable(),
+        context: z.string().max(4000).optional().nullable(),
+        priority: z.enum(["low", "medium", "high"]).optional(),
+        source_lead_id: z.string().uuid().optional().nullable(),
+        source_review_id: z.string().uuid().optional().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { error } = await supabase.from("legal_source_gap_requests").insert({
+      query_text: data.query_text,
+      missing_source_type: data.missing_source_type ?? null,
+      guessed_title: data.guessed_title ?? null,
+      guessed_article: data.guessed_article ?? null,
+      guessed_document_number: data.guessed_document_number ?? null,
+      context: data.context ?? null,
+      priority: data.priority ?? "medium",
+      status: "new",
+      source_lead_id: data.source_lead_id ?? null,
+      source_review_id: data.source_review_id ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
