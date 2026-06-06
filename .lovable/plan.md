@@ -1,71 +1,84 @@
-# Plan: Private Workspace + Admin Notifications
+## Цель
 
-## 1. Route restructure: `/admin` → `/workspace/*`
+Добавить в CRM изолированный раздел «База права / Legal Knowledge» для контроля каталога нормативных актов, судебной практики и писем разъяснений, плюс защиту от выдуманных норм в выводе AI-заключений. Существующие Edge Functions (`analyze-legal-query`, `legal-document-review-orchestrator`, `analyze-lead-document`) и таблицы (`legal_laws`, `legal_law_chunks`, `legal_knowledge_chunks`, `legal_document_reviews`) не трогаем.
 
-New file-based routes (TanStack flat naming):
+## Переиспользование схемы
+
+Существующие таблицы оставляем как есть и используем как «локальную базу источников»:
+- `legal_laws` + `legal_law_chunks` — нормативные акты (кодексы, законы);
+- `legal_knowledge_chunks` — методические материалы, обзоры, разъяснения;
+- `legal_regulatory_monitored_sources` — мониторинг актуальности;
+- `official_legal_sources`, `external_registry_sources` — реестр официальных источников.
+
+Дублей `legal_sources_catalog / legal_source_documents / legal_source_chunks` создавать не будем — каталог собирается из существующих таблиц через SQL-view `v_legal_sources_catalog`.
+
+## Новые таблицы (миграция)
+
+1. `legal_source_usage_events` — каждый факт использования источника AI-заключением: `source_kind` (law/law_chunk/knowledge_chunk/case/letter), `source_id`, `lead_id`, `review_id`, `document_id`, `article`, `reason`, `verification_status`, `created_at`.
+2. `legal_source_gap_requests` — пропуски: `query_text`, `missing_source_type`, `guessed_title`, `guessed_article`, `guessed_document_number`, `context`, `priority`, `status` (`new/in_progress/resolved/dismissed`), `request_count`, `last_requested_at`, `created_at`, `updated_at`.
+3. `legal_source_verification_logs` — очередь и история проверок: `source_kind`, `source_id`, `requested_by`, `status` (`pending/running/verified/outdated/failed`), `result_summary`, `external_url`, `requested_at`, `completed_at`.
+4. View `v_legal_sources_catalog` — объединяет `legal_laws`, `legal_knowledge_chunks` источники + статус актуальности из `legal_regulatory_monitored_sources` + счётчик chunks и usages.
+
+Все таблицы: RLS ON, `GRANT` для `authenticated` и `service_role`, политики через `is_admin_or_superadmin(auth.uid())` (полный доступ только админам/суперадминам).
+
+## Раздел «База права» в CRM
+
+Новый файл `src/routes/_authenticated/workspace.legal-knowledge.tsx` + пункт в навигации workspace. Внутри 4 вкладки:
+
+1. **Каталог источников** — таблица из `v_legal_sources_catalog`: тип, название, номер, дата принятия/редакции, источник, URL, статус актуальности, дата последней проверки, кол-во чанков, кол-во использований. Кнопка «Проверить актуальность» → insert в `legal_source_verification_logs` со `status=pending` + toast «Проверка поставлена в очередь».
+2. **Статистика** — топ статей/источников по `legal_source_usage_events`; топ отсутствующих по `legal_source_gap_requests`; разбивка по типам дел.
+3. **Что подгрузить** — список `legal_source_gap_requests` с приоритетом, кол-вом запросов, контекстом; действия: «Отметить решённым», «Сменить приоритет».
+4. **Журнал проверок** — `legal_source_verification_logs` с фильтром по статусу.
+
+UI — те же shadcn-компоненты (Card/Table/Tabs/Badge), стиль как существующий workspace.
+
+## Strict sources в выводе AI-заключений
+
+Изменения только на UI-слое чтения `legal_document_reviews` (Edge Functions не трогаем). В компоненте просмотра заключения (вкладка «Нормы права»):
+- Делим `legal_basis` на 3 блока: «Подтверждено локальной базой», «Требует внешней проверки», «Не найдено в базе» — на основании `verification_status` элемента и наличия `source_id` в наших таблицах.
+- Для каждого элемента проверяем через server fn `verifyLegalSources` (новый, в `src/lib/legal-knowledge.functions.ts`): для law/case/letter проверяет наличие в локальной базе по article/case_number/document_number и возвращает `verification_status`.
+- Элементы без `case_number` / `source_url` для судебной практики или без `document_number` / `document_date` для писем — автоматически в блок «Требует внешней проверки», независимо от того, что вернул AI.
+- При первом просмотре, неизвестные источники логируются как `legal_source_gap_requests` (insert или increment `request_count`).
+
+Это не меняет данные в `legal_document_reviews` и не трогает edge functions — только overlay классификации на стороне приложения.
+
+## Server functions (`src/lib/legal-knowledge.functions.ts`)
+
+Все защищены `requireSupabaseAuth` + проверка `is_admin_or_superadmin`:
+- `listSourcesCatalog({ filter })` — select из view.
+- `getSourceStats()` — агрегаты usage + gaps.
+- `listGapRequests({ status })`, `updateGapRequest({ id, status, priority })`.
+- `requestSourceVerification({ source_kind, source_id })` — insert в logs.
+- `logSourceUsage({...})`, `logSourceGap({...})` — вызываются из UI-просмотра заключения.
+- `verifySourcesForReview({ review_id })` — классифицирует `legal_basis` по локальной базе.
+
+## Архитектура файлов
 
 ```
-src/routes/
-  workspace.tsx                  → /workspace (layout: auth guard + warm beige shell + side nav)
-  workspace.login.tsx            → /workspace/login (magic link + email/password fallback)
-  workspace.dashboard.tsx        → /workspace/dashboard (KPIs: new leads, in-progress, urgent, recent activity)
-  workspace.leads.tsx            → /workspace/leads (existing LeadsAdmin component, lifted)
-  workspace.statistics.tsx       → /workspace/statistics (counts by category / urgency / status / week)
-  workspace.settings.tsx         → /workspace/settings (hero portrait controls — current admin.tsx content)
-  admin.tsx                      → keep file, replace body with redirect to /workspace/dashboard
-  login.tsx                      → redirect to /workspace/login (keep old URL working)
+supabase/migrations/<ts>_legal_knowledge_governance.sql
+src/lib/legal-knowledge.functions.ts
+src/routes/_authenticated/workspace.legal-knowledge.tsx
+src/components/legal-knowledge/catalog-table.tsx
+src/components/legal-knowledge/gap-requests-list.tsx
+src/components/legal-knowledge/usage-stats.tsx
+src/components/legal-knowledge/verification-logs.tsx
+src/components/legal-knowledge/sources-classifier.tsx  // используется в просмотре review
 ```
 
-The `workspace.tsx` parent renders:
-- left rail nav (Дашборд / Заявки / Статистика / Настройки / Выйти)
-- warm beige background (`bg-[oklch(0.97_0.012_75)]`), soft card surfaces, calm serif headings consistent with the public site
-- `<Outlet />`
-- redirects to `/workspace/login` if not authenticated, shows "доступ ограничен" if authenticated but not admin
+В существующем компоненте просмотра `legal_document_reviews` (вкладка «Нормы права») — заменяем плоский список на `<SourcesClassifier review={...} />`, без изменения данных и логики Edge Functions.
 
-## 2. Magic-link auth
+## Этапы реализации
 
-Update `workspace.login.tsx`:
-- Primary action: email input → `supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: <origin>/workspace/dashboard } })`
-- Secondary collapsible: email + password (existing flow) as fallback
-- After OTP request: "Письмо отправлено — проверьте почту"
+1. Миграция БД (3 таблицы + view + RLS + GRANTs).
+2. Server functions в `src/lib/legal-knowledge.functions.ts`.
+3. Маршрут `workspace.legal-knowledge.tsx` + ссылка в навигации workspace.
+4. Компонент `SourcesClassifier` и встройка в существующий просмотр заключения.
+5. Smoke-test: открыть страницу, проверить кнопку «Проверить актуальность», убедиться что существующий AI-анализ работает без изменений.
 
-## 3. Dashboard & Statistics
+## Что НЕ меняем
 
-- `dashboard`: 4 stat cards (новых / в работе / срочных / всего за 7 дней), latest 5 leads preview, link to full list
-- `statistics`: simple aggregations using existing `listLeadsFn` data, grouped client-side (by category, urgency, status, day-of-week)
+- Edge Functions `analyze-legal-query`, `legal-document-review-orchestrator`, `analyze-lead-document`, OCR.
+- Таблицы `lead_documents`, `legal_document_reviews`, `legal_laws`, `legal_law_chunks`, `legal_knowledge_chunks`.
+- Существующие вкладки и кнопки CRM.
 
-Both reuse `listLeadsFn`; no new server fn needed.
-
-## 4. Admin notifications on new lead
-
-Notifications fire inside the existing `finalizeLeadFn` (after successful insert) — non-blocking (errors logged, not thrown), so a failed notification never breaks the form submission.
-
-### a) Telegram
-- Use Telegram standard connector (`standard_connectors--connect` flow)
-- New helper `src/lib/notify.server.ts` with `sendTelegramNotification(lead)` → POSTs to `https://connector-gateway.lovable.dev/telegram/sendMessage`
-- Requires user to: connect Telegram, then set `TELEGRAM_ADMIN_CHAT_ID` secret (their personal chat id obtained via @userinfobot)
-- Message format: имя, телефон, категория, urgency, краткое summary, ссылка `https://<published>/workspace/leads`
-
-### b) Email (kat8980@Yandex.ru)
-- Requires Lovable Emails infrastructure:
-  1. set up email domain (user opens setup dialog → picks subdomain, adds NS records)
-  2. once setup completes, scaffold transactional template `new-lead-notification` (recipient hard-coded to `kat8980@yandex.ru`)
-  3. call `sendTransactionalEmail` from `finalizeLeadFn` with `idempotencyKey: new-lead-<lead.id>`
-- Until domain is verified, only Telegram notifications fire — email path no-ops gracefully
-
-## 5. Database & RLS
-No schema changes. New `TELEGRAM_ADMIN_CHAT_ID` secret added via `secrets--add_secret`.
-
-## 6. Execution order
-1. Create workspace layout + 4 child routes (lift existing LeadsAdmin + admin controls)
-2. Add magic-link login
-3. Redirect old `/admin` and `/login`
-4. Wire Telegram notification (connector + secret + finalizeLeadFn call)
-5. Trigger email-domain setup dialog → scaffold transactional template → wire email send
-6. Update `<header>` admin entry link to `/workspace/dashboard`
-
-## Technical notes
-- `workspace.tsx` uses `beforeLoad` for redirect — but auth state is in `localStorage`, hydration-sensitive; use `useAuth()` in the component (matches current `admin.tsx` pattern) to avoid SSR 401.
-- LeadsAdmin component reused as-is; admin.tsx file becomes a thin redirect via `Navigate to="/workspace/dashboard" replace`.
-- Telegram + email sends run with `Promise.allSettled` so neither blocks the lead insert response.
-- All warm-beige tokens added to `src/styles.css` as `--workspace-bg`, `--workspace-card`, `--workspace-border` for reuse.
+Strict-sources режим внутри edge functions (флаг `strict_sources`) — задел на следующий этап; сейчас strict-классификация реализуется на UI-слое поверх неизменного вывода AI.
