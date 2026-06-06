@@ -216,9 +216,9 @@ export const lkClassifySources = createServerFn({ method: "POST" })
       if (rows && rows.length > 0) {
         results[item.key] = {
           matched: true,
-          title: rows[0].title,
-          source_kind: rows[0].source_kind,
-          source_id: rows[0].source_id,
+          title: rows[0].title ?? undefined,
+          source_kind: rows[0].source_kind ?? undefined,
+          source_id: rows[0].source_id ?? undefined,
         };
       } else {
         results[item.key] = { matched: false };
