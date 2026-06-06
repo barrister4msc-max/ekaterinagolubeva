@@ -1724,9 +1724,19 @@ const review = legalReviewsByDocumentId[doc.id];
           <div className="mt-4 grid gap-3">
             {renderReviewList("Выводы", review.findings)}
             {renderReviewList("Нормы / основания", review.legal_basis)}
+            <SourcesClassifier
+              items={[
+                ...(Array.isArray(review.legal_basis) ? review.legal_basis : review.legal_basis ? [review.legal_basis] : []),
+                ...(Array.isArray((review as any).relevant_laws) ? (review as any).relevant_laws : (review as any).relevant_laws ? [(review as any).relevant_laws] : []),
+                ...(Array.isArray(review.verification_alerts) ? review.verification_alerts : review.verification_alerts ? [review.verification_alerts] : []),
+              ]}
+              leadId={lead.id}
+              reviewId={review.id}
+            />
             {renderReviewList("Рекомендации юриста", review.recommended_actions)}
             {renderReviewList("Алерты проверки", review.verification_alerts, true)}
           </div>
+
 
           <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-green-900">
             <span className="rounded-full bg-white px-2 py-1">
