@@ -24,6 +24,7 @@ import {
   lkRequestExternalSearch,
 } from "@/lib/legal-knowledge.functions";
 import { SourceUploadDialog } from "@/components/knowledge/source-upload-dialog";
+import { BulkSourceUploadDialog } from "@/components/knowledge/bulk-source-upload-dialog";
 import { recommendSourceFor } from "@/lib/recommended-source";
 
 
@@ -245,6 +246,7 @@ function LegalKnowledgePage() {
         </div>
         <div className="flex items-center gap-2">
           <SourceUploadDialog onCreated={() => void reload()} />
+          <BulkSourceUploadDialog onCreated={() => void reload()} />
           <Button variant="outline" size="sm" onClick={() => void reload()} disabled={loading}>
             <RefreshCw size={14} /> Обновить
           </Button>
