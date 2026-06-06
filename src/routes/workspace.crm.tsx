@@ -1479,7 +1479,7 @@ alert("AI анализ завершен");
         alert(error.message);
         return;
       }
-    alert("FRONT DOC ID: " + doc.id);
+    
       await supabase
         .from("lead_events")
         .insert({
