@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ShieldCheck, RefreshCw, Search, AlertTriangle, CheckCircle2, Clock } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ShieldCheck, RefreshCw, Search, AlertTriangle, CheckCircle2, Clock, Power, Send, ShieldQuestion } from "lucide-react";
 import {
   lkListCatalog,
   lkListGaps,
@@ -16,7 +17,14 @@ import {
   lkListVerifications,
   lkRequestVerification,
   lkDashboard,
+  lkListManualSources,
+  lkUpdateSource,
+  lkDeactivateSource,
+  lkQueueIndexation,
+  lkRequestExternalSearch,
 } from "@/lib/legal-knowledge.functions";
+import { SourceUploadDialog } from "@/components/knowledge/source-upload-dialog";
+
 
 export const Route = createFileRoute("/workspace/legal-knowledge")({
   head: () => ({ meta: [{ title: "База знаний — Workspace" }, { name: "robots", content: "noindex" }] }),
