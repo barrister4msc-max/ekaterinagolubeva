@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { lkClassifySources, lkCreateGapRequest } from "@/lib/legal-knowledge.functions";
+import {
+  lkClassifySources,
+  lkCreateGapRequest,
+  lkRequestExternalSearchByQuery,
+} from "@/lib/legal-knowledge.functions";
+import { recommendSourceFor } from "@/lib/recommended-source";
 
 type RawItem = any;
 
