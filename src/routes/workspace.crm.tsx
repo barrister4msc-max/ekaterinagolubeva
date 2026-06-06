@@ -1489,7 +1489,9 @@ alert("AI анализ завершен");
         });
 await loadDocuments();
       await loadEvents();
-      const { data: freshReview } = await supabase
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+
+const { data: freshReview } = await supabase
   .from("legal_document_reviews")
   .select("*")
   .eq("document_id", doc.id)
