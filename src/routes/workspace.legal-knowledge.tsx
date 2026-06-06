@@ -24,6 +24,7 @@ import {
   lkRequestExternalSearch,
 } from "@/lib/legal-knowledge.functions";
 import { SourceUploadDialog } from "@/components/knowledge/source-upload-dialog";
+import { BulkSourceUploadDialog } from "@/components/knowledge/bulk-source-upload-dialog";
 import { recommendSourceFor } from "@/lib/recommended-source";
 
 
