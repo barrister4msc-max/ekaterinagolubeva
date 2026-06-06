@@ -98,6 +98,16 @@ function StatusBadge({ status }: { status: string | null | undefined }) {
   return <Badge variant={m.v}>{m.label}</Badge>;
 }
 
+type ManualSourceRow = {
+  id: string;
+  title: string | null;
+  content: string;
+  category: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
+  metadata: Record<string, any> | null;
+};
+
 function LegalKnowledgePage() {
   const dashFn = useServerFn(lkDashboard);
   const catalogFn = useServerFn(lkListCatalog);
@@ -105,32 +115,51 @@ function LegalKnowledgePage() {
   const verifFn = useServerFn(lkListVerifications);
   const requestVerifFn = useServerFn(lkRequestVerification);
   const updateGapFn = useServerFn(lkUpdateGap);
+  const listSourcesFn = useServerFn(lkListManualSources);
+  const updateSourceFn = useServerFn(lkUpdateSource);
+  const deactivateSourceFn = useServerFn(lkDeactivateSource);
+  const queueIndexFn = useServerFn(lkQueueIndexation);
+  const externalSearchFn = useServerFn(lkRequestExternalSearch);
 
   const [dash, setDash] = useState<Awaited<ReturnType<typeof lkDashboard>> | null>(null);
   const [catalog, setCatalog] = useState<CatalogRow[]>([]);
   const [gaps, setGaps] = useState<GapRow[]>([]);
   const [verifs, setVerifs] = useState<VerifRow[]>([]);
+  const [sources, setSources] = useState<ManualSourceRow[]>([]);
   const [search, setSearch] = useState("");
+  const [srcSearch, setSrcSearch] = useState("");
+  const [srcType, setSrcType] = useState<string>("all");
+  const [srcVerif, setSrcVerif] = useState<string>("all");
+  const [srcImport, setSrcImport] = useState<string>("all");
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     try {
-      const [d, c, g, v] = await Promise.all([
+      const [d, c, g, v, s] = await Promise.all([
         dashFn(),
         catalogFn({ data: { search: search || undefined } }),
         gapsFn({ data: {} }),
         verifFn({ data: {} }),
+        listSourcesFn({
+          data: {
+            search: srcSearch || undefined,
+            source_type: srcType !== "all" ? (srcType as any) : undefined,
+            verification_status: srcVerif !== "all" ? srcVerif : undefined,
+            import_status: srcImport !== "all" ? (srcImport as any) : undefined,
+          },
+        }),
       ]);
       setDash(d as any);
       setCatalog((c as { rows: CatalogRow[] }).rows);
       setGaps((g as { rows: GapRow[] }).rows);
       setVerifs((v as { rows: VerifRow[] }).rows);
+      setSources((s as { rows: ManualSourceRow[] }).rows);
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [dashFn, catalogFn, gapsFn, verifFn, search]);
+  }, [dashFn, catalogFn, gapsFn, verifFn, listSourcesFn, search, srcSearch, srcType, srcVerif, srcImport]);
 
   useEffect(() => {
     void reload();
@@ -162,6 +191,46 @@ function LegalKnowledgePage() {
     }
   };
 
+  const handleQueue = async (groupId: string, title?: string | null) => {
+    try {
+      await queueIndexFn({ data: { source_group_id: groupId, title: title ?? undefined } });
+      toast.success("Источник поставлен в очередь на индексацию");
+      void reload();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleDeactivate = async (groupId: string) => {
+    try {
+      await deactivateSourceFn({ data: { source_group_id: groupId } });
+      toast.success("Источник деактивирован");
+      void reload();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleApproveSource = async (groupId: string) => {
+    try {
+      await updateSourceFn({ data: { source_group_id: groupId, patch: { verification_status: "official_verified", import_status: "completed" } } });
+      toast.success("Источник одобрен. Используется как подтверждённый.");
+      void reload();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleExternalSearch = async (g: GapRow) => {
+    try {
+      await externalSearchFn({ data: { gap_id: g.id, title: g.guessed_title ?? g.query_text ?? undefined } });
+      toast.success("Поиск источников поставлен в очередь");
+      void reload();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header className="flex items-center justify-between gap-4">
@@ -173,17 +242,29 @@ function LegalKnowledgePage() {
             источники локальной базы.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => void reload()} disabled={loading}>
-          <RefreshCw size={14} /> Обновить
-        </Button>
+        <div className="flex items-center gap-2">
+          <SourceUploadDialog onCreated={() => void reload()} />
+          <Button variant="outline" size="sm" onClick={() => void reload()} disabled={loading}>
+            <RefreshCw size={14} /> Обновить
+          </Button>
+        </div>
       </header>
+
+      <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+        <ShieldQuestion size={14} className="mt-0.5 text-amber-600" />
+        <div>
+          <b>Процесс:</b> Поиск источника → Просмотр → Одобрение администратором → Загрузка → Индексация → Проверка → Использование в RAG. Источник не используется в юридических заключениях, пока не одобрен администратором и не прошёл проверку.
+        </div>
+      </div>
 
       <Tabs defaultValue="dashboard">
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="catalog">Каталог норм</TabsTrigger>
-          <TabsTrigger value="gaps">Отсутствующие источники</TabsTrigger>
+          <TabsTrigger value="sources">Источники</TabsTrigger>
+          <TabsTrigger value="recommended">Рекомендованные</TabsTrigger>
           <TabsTrigger value="verification">Проверка актуальности</TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-4">
