@@ -74,10 +74,10 @@ export const lkUpdateGap = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
-    const patch: Record<string, unknown> = {};
+    const patch: { status?: "new" | "in_progress" | "resolved" | "dismissed"; priority?: "low" | "medium" | "high" } = {};
     if (data.status) patch.status = data.status;
     if (data.priority) patch.priority = data.priority;
-    if (Object.keys(patch).length === 0) return { ok: true };
+    if (!patch.status && !patch.priority) return { ok: true };
     const { error } = await supabase.from("legal_source_gap_requests").update(patch).eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
