@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { lkClassifySources, lkCreateGapRequest } from "@/lib/legal-knowledge.functions";
+import {
+  lkClassifySources,
+  lkCreateGapRequest,
+  lkRequestExternalSearchByQuery,
+} from "@/lib/legal-knowledge.functions";
+import { recommendSourceFor } from "@/lib/recommended-source";
 
 type RawItem = any;
 
@@ -68,9 +73,11 @@ interface Props {
 export function SourcesClassifier({ items, leadId, reviewId }: Props) {
   const classify = useServerFn(lkClassifySources);
   const createGap = useServerFn(lkCreateGapRequest);
+  const externalSearch = useServerFn(lkRequestExternalSearchByQuery);
   const [matches, setMatches] = useState<Record<string, { matched: boolean; title?: string }>>({});
   const [loading, setLoading] = useState(false);
   const [requested, setRequested] = useState<Record<string, boolean>>({});
+  const [externalRequested, setExternalRequested] = useState<Record<string, boolean>>({});
 
   const normalized = useMemo(
     () =>
@@ -187,7 +194,30 @@ export function SourcesClassifier({ items, leadId, reviewId }: Props) {
           {rows.length === 0 ? (
             <div className="opacity-60">—</div>
           ) : (
-            rows.map((r) => (
+            rows.map((r) => {
+              const f = itemFields(r.item);
+              const rec = recommendSourceFor({
+                type: f.type,
+                title: f.title,
+                article: f.article,
+                document_number: f.doc_number,
+                text: r.text,
+              });
+              const handleExternalCheck = async () => {
+                try {
+                  await externalSearch({
+                    data: {
+                      query: f.title || r.text.slice(0, 200),
+                      missing_source_type: f.type ?? null,
+                    },
+                  });
+                  setExternalRequested((s) => ({ ...s, [r.key]: true }));
+                  toast.success("Запрос на внешнюю проверку поставлен в очередь");
+                } catch (e: any) {
+                  toast.error(e?.message || "Не удалось поставить проверку");
+                }
+              };
+              return (
               <div key={r.key} className="rounded-lg bg-white/80 px-2 py-1.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 break-words text-foreground">{r.text}</div>
@@ -196,22 +226,44 @@ export function SourcesClassifier({ items, leadId, reviewId }: Props) {
                   </span>
                 </div>
                 {actionable && (
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <div className="text-[11px] text-muted-foreground">
-                      ⚠ Источник не подтверждён локальной базой. Требуется внешняя проверка.
+                  <>
+                    <div className="mt-2 rounded-md border border-dashed border-amber-300 bg-amber-50/50 p-2 text-[11px] text-amber-900">
+                      <div className="font-medium">
+                        Источник не подтверждён локальной базой знаний. Требуется внешняя проверка.
+                      </div>
+                      <div className="mt-1">
+                        Рекомендуемый источник: <b>{rec.authority}</b> — {rec.reason}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <a href={rec.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                          Открыть источник ({rec.domain})
+                        </a>
+                        <span className="rounded-full bg-amber-100 px-1.5 text-[10px]">доверие: {rec.trust}</span>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      disabled={requested[r.key]}
-                      onClick={() => handleCreateGap(r.key, r.item, r.text)}
-                      className="shrink-0 rounded-full border border-current px-2 py-0.5 text-[11px] hover:bg-white disabled:opacity-50"
-                    >
-                      {requested[r.key] ? "Запрос создан" : "Создать запрос на загрузку источника"}
-                    </button>
-                  </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={externalRequested[r.key]}
+                        onClick={handleExternalCheck}
+                        className="rounded-full border border-current px-2 py-0.5 text-[11px] hover:bg-white disabled:opacity-50"
+                      >
+                        {externalRequested[r.key] ? "Проверка поставлена" : "Проверить по внешним источникам"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={requested[r.key]}
+                        onClick={() => handleCreateGap(r.key, r.item, r.text)}
+                        className="rounded-full border border-current px-2 py-0.5 text-[11px] hover:bg-white disabled:opacity-50"
+                      >
+                        {requested[r.key] ? "Запрос создан" : "Создать запрос на загрузку источника"}
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

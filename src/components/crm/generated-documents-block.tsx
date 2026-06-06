@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown } from "lucide-react";
+import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown, ShieldAlert } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -96,6 +96,13 @@ export function GeneratedDocumentsBlock({
 
   const createFromTemplate = async (tpl: Template) => {
     if (creating) return;
+    if (
+      !confirm(
+        "Перед формированием документа убедитесь, что все ключевые источники в юридическом заключении подтверждены локальной базой или прошли внешнюю проверку и одобрены администратором.\n\nНеподтверждённые нормы, судебная практика и письма ФНС/Минфина не должны использоваться как установленный факт.\n\nПродолжить формирование документа?",
+      )
+    ) {
+      return;
+    }
     setCreating(true);
     try {
       const { data, error } = await supabase
@@ -220,6 +227,17 @@ export function GeneratedDocumentsBlock({
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+      </div>
+
+      <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+        <ShieldAlert size={14} className="mt-0.5" />
+        <div>
+          Документ можно формировать только на основе подтверждённых источников: <b>official_verified</b>,{" "}
+          <b>verified_local_source</b> или <b>externally_verified</b>, а также фактов из загруженных клиентом документов.
+          Если по ключевому вопросу источник не подтверждён — сначала откройте вкладку «Нормы права», классифицируйте
+          источники и одобрите внешние через раздел «База знаний». Неподтверждённые нормы, судебная практика, письма
+          ФНС/Минфина не должны попадать в финальный документ как установленный факт.
+        </div>
       </div>
 
       <div className="mt-6 space-y-3">

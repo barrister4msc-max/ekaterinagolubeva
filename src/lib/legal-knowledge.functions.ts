@@ -143,25 +143,42 @@ export const lkDashboard = createServerFn({ method: "POST" })
 
     const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
 
-    const [laws, lawChunks, knowledgeChunks, usage30, gapsTop, verifPending] = await Promise.all([
-      supabase.from("legal_laws").select("id", { count: "exact", head: true }),
-      supabase.from("legal_law_chunks").select("id", { count: "exact", head: true }),
-      supabase.from("legal_knowledge_chunks").select("id", { count: "exact", head: true }),
-      supabase
-        .from("legal_source_usage_events")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", since),
-      supabase
-        .from("legal_source_gap_requests")
-        .select("id, guessed_title, guessed_article, missing_source_type, request_count, priority, status")
-        .in("status", ["new", "in_progress"])
-        .order("request_count", { ascending: false })
-        .limit(20),
-      supabase
-        .from("legal_source_verification_logs")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "running"]),
-    ]);
+    const [laws, lawChunks, knowledgeChunks, usage30, gapsTop, verifPending, gapsOpen, confirmedManual, onReviewManual] =
+      await Promise.all([
+        supabase.from("legal_laws").select("id", { count: "exact", head: true }),
+        supabase.from("legal_law_chunks").select("id", { count: "exact", head: true }),
+        supabase.from("legal_knowledge_chunks").select("id", { count: "exact", head: true }),
+        supabase
+          .from("legal_source_usage_events")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", since),
+        supabase
+          .from("legal_source_gap_requests")
+          .select("id, guessed_title, guessed_article, missing_source_type, request_count, priority, status")
+          .in("status", ["new", "in_progress"])
+          .order("request_count", { ascending: false })
+          .limit(20),
+        supabase
+          .from("legal_source_verification_logs")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["pending", "running"]),
+        supabase
+          .from("legal_source_gap_requests")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["new", "in_progress"]),
+        supabaseAdmin
+          .from("legal_knowledge_chunks")
+          .select("id", { count: "exact", head: true })
+          .eq("source_type", "manual_source")
+          .eq("metadata->>is_source_head", "true")
+          .in("metadata->>verification_status", ["official_verified", "verified_local_source", "externally_verified"]),
+        supabaseAdmin
+          .from("legal_knowledge_chunks")
+          .select("id", { count: "exact", head: true })
+          .eq("source_type", "manual_source")
+          .eq("metadata->>is_source_head", "true")
+          .in("metadata->>verification_status", ["needs_review", "needs_external_verification"]),
+      ]);
 
     // Top used sources from catalog view (usage_count is denormalized there)
     const { data: topUsed } = await supabase
@@ -176,6 +193,9 @@ export const lkDashboard = createServerFn({ method: "POST" })
         chunks: (lawChunks.count ?? 0) + (knowledgeChunks.count ?? 0),
         usage30d: usage30.count ?? 0,
         verificationPending: verifPending.count ?? 0,
+        confirmedSources: (laws.count ?? 0) + (confirmedManual.count ?? 0),
+        onReviewSources: onReviewManual.count ?? 0,
+        missingSources: gapsOpen.count ?? 0,
       },
       topUsed: topUsed ?? [],
       topGaps: gapsTop.data ?? [],
@@ -625,6 +645,34 @@ export const lkRequestExternalSearch = createServerFn({ method: "POST" })
       requested_by: userId,
       status: "pending",
       result_summary: "Очередь поиска внешних источников (без автоматического интернет-поиска)",
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// 9) External search request by free-form query (used from Sources Classifier
+// when there is no gap_id yet). UI/queue only — no automatic web fetch.
+export const lkRequestExternalSearchByQuery = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        query: z.string().min(1).max(500),
+        missing_source_type: z.string().max(100).optional().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { error } = await supabaseAdmin.from("legal_source_verification_logs").insert({
+      source_kind: (data.missing_source_type as any) ?? "other",
+      source_id: null,
+      source_ref: null,
+      source_title: `Внешняя проверка: ${data.query.slice(0, 200)}`,
+      requested_by: userId,
+      status: "pending",
+      result_summary: "Очередь внешней проверки (без автоматического интернет-поиска)",
     });
     if (error) throw new Error(error.message);
     return { ok: true };

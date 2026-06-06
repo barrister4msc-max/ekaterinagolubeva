@@ -24,6 +24,7 @@ import {
   lkRequestExternalSearch,
 } from "@/lib/legal-knowledge.functions";
 import { SourceUploadDialog } from "@/components/knowledge/source-upload-dialog";
+import { recommendSourceFor } from "@/lib/recommended-source";
 
 
 export const Route = createFileRoute("/workspace/legal-knowledge")({
@@ -270,10 +271,10 @@ function LegalKnowledgePage() {
         <TabsContent value="dashboard" className="space-y-4">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
-              { label: "Всего норм", value: dash?.counts.laws ?? "—", icon: ShieldCheck },
-              { label: "Всего чанков", value: dash?.counts.chunks ?? "—", icon: ShieldCheck },
+              { label: "Подтверждённые источники", value: dash?.counts.confirmedSources ?? "—", icon: CheckCircle2 },
+              { label: "Требуют проверки", value: dash?.counts.onReviewSources ?? "—", icon: AlertTriangle },
+              { label: "Отсутствующие источники", value: dash?.counts.missingSources ?? "—", icon: ShieldQuestion },
               { label: "Использований за 30 дн.", value: dash?.counts.usage30d ?? "—", icon: CheckCircle2 },
-              { label: "Проверок в очереди", value: dash?.counts.verificationPending ?? "—", icon: Clock },
             ].map((s) => (
               <Card key={s.label}>
                 <CardHeader className="pb-2">
@@ -281,6 +282,22 @@ function LegalKnowledgePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-semibold">{s.value}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            {[
+              { label: "Всего норм в локальной базе", value: dash?.counts.laws ?? "—" },
+              { label: "Всего чанков", value: dash?.counts.chunks ?? "—" },
+              { label: "Проверок в очереди", value: dash?.counts.verificationPending ?? "—" },
+            ].map((s) => (
+              <Card key={s.label}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">{s.label}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl font-semibold">{s.value}</div>
                 </CardContent>
               </Card>
             ))}
@@ -557,12 +574,33 @@ function LegalKnowledgePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {gaps.map((g) => (
+                  {gaps.map((g) => {
+                    const rec = recommendSourceFor({
+                      type: g.missing_source_type,
+                      title: g.guessed_title,
+                      article: g.guessed_article,
+                      document_number: g.guessed_document_number,
+                      text: g.query_text,
+                    });
+                    return (
                     <TableRow key={g.id}>
                       <TableCell className="max-w-md">
                         <div className="text-xs font-medium">{g.guessed_title || g.guessed_article || g.guessed_document_number || "—"}</div>
                         {g.query_text && <div className="line-clamp-2 text-[10px] text-muted-foreground">{g.query_text}</div>}
                         {g.context && <div className="line-clamp-2 text-[10px] text-muted-foreground/80">контекст: {g.context}</div>}
+                        <div className="mt-2 rounded-md border border-dashed border-amber-300 bg-amber-50/40 p-2 text-[11px]">
+                          <div className="font-medium text-amber-900">Рекомендуемый источник: {rec.authority}</div>
+                          <div className="text-amber-900/80">{rec.reason}</div>
+                          <div className="mt-1 flex items-center gap-2">
+                            <Badge variant={rec.trust === "high" ? "default" : "secondary"}>доверие: {rec.trust}</Badge>
+                            <a href={rec.url} target="_blank" rel="noreferrer" className="text-primary underline">
+                              Открыть источник ({rec.domain})
+                            </a>
+                          </div>
+                          <div className="mt-1 text-[10px] text-muted-foreground">
+                            Запрещено автоматически загружать источник без подтверждения администратора.
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell className="text-xs">{g.missing_source_type}</TableCell>
                       <TableCell className="text-xs">
@@ -576,14 +614,15 @@ function LegalKnowledgePage() {
                       <TableCell><StatusBadge status={g.status} /></TableCell>
                       <TableCell className="space-x-1 whitespace-nowrap">
                         <Button size="sm" variant="outline" onClick={() => void handleExternalSearch(g)}>
-                          <Search size={12} /> Найти источники
+                          <Search size={12} /> Проверить по внешним источникам
                         </Button>
                         <Button size="sm" variant="outline" onClick={() => void handleGap(g.id, { status: "in_progress" })}>В работу</Button>
                         <Button size="sm" onClick={() => void handleGap(g.id, { status: "resolved" })}>Загружено</Button>
                         <Button size="sm" variant="ghost" onClick={() => void handleGap(g.id, { status: "dismissed" })}>Отклонить</Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {gaps.length === 0 && (
                     <TableRow><TableCell colSpan={7} className="text-center text-xs text-muted-foreground">Нет рекомендаций.</TableCell></TableRow>
                   )}
@@ -593,15 +632,15 @@ function LegalKnowledgePage() {
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-sm">Кандидаты найденных источников (UI-заготовка)</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">Доверенные домены для ручной проверки</CardTitle></CardHeader>
             <CardContent>
-              <div className="rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-                После запуска поиска здесь появятся карточки кандидатов: название, тип, номер, дата, орган, источник публикации, URL, уровень доверия, статус (not_loaded / pending_approval / approved / rejected). На текущем этапе автоматическая загрузка отключена — карточки требуют одобрения администратора.
-              </div>
-              <div className="mt-3 grid gap-2 md:grid-cols-3 text-[11px]">
+              <div className="grid gap-2 md:grid-cols-3 text-[11px]">
                 <div className="rounded-md border p-2"><div className="font-medium">Высокое доверие</div><div className="text-muted-foreground">pravo.gov.ru, nalog.gov.ru, minfin.gov.ru, vsrf.ru, sudrf.ru, kad.arbitr.ru, cbr.ru, government.ru, kremlin.ru, rosreestr.gov.ru, fas.gov.ru</div></div>
                 <div className="rounded-md border p-2"><div className="font-medium">Среднее доверие</div><div className="text-muted-foreground">consultant.ru, garant.ru</div></div>
                 <div className="rounded-md border p-2"><div className="font-medium">Низкое доверие</div><div className="text-muted-foreground">любые иные сайты</div></div>
+              </div>
+              <div className="mt-3 text-[11px] text-muted-foreground">
+                Схема: AI обнаружил пробел → создал gap request → система предложила официальный источник → администратор открыл его → одобрил загрузку → источник попадает в базу как needs_review → после индексации и проверки становится official_verified.
               </div>
             </CardContent>
           </Card>
