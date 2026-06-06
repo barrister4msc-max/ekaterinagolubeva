@@ -246,6 +246,7 @@ function LegalKnowledgePage() {
         </div>
         <div className="flex items-center gap-2">
           <SourceUploadDialog onCreated={() => void reload()} />
+          <BulkSourceUploadDialog onCreated={() => void reload()} />
           <Button variant="outline" size="sm" onClick={() => void reload()} disabled={loading}>
             <RefreshCw size={14} /> Обновить
           </Button>
