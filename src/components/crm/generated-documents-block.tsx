@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown } from "lucide-react";
+import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown, ShieldAlert } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -96,6 +96,13 @@ export function GeneratedDocumentsBlock({
 
   const createFromTemplate = async (tpl: Template) => {
     if (creating) return;
+    if (
+      !confirm(
+        "Перед формированием документа убедитесь, что все ключевые источники в юридическом заключении подтверждены локальной базой или прошли внешнюю проверку и одобрены администратором.\n\nНеподтверждённые нормы, судебная практика и письма ФНС/Минфина не должны использоваться как установленный факт.\n\nПродолжить формирование документа?",
+      )
+    ) {
+      return;
+    }
     setCreating(true);
     try {
       const { data, error } = await supabase
