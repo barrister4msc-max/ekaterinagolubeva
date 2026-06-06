@@ -143,25 +143,42 @@ export const lkDashboard = createServerFn({ method: "POST" })
 
     const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
 
-    const [laws, lawChunks, knowledgeChunks, usage30, gapsTop, verifPending] = await Promise.all([
-      supabase.from("legal_laws").select("id", { count: "exact", head: true }),
-      supabase.from("legal_law_chunks").select("id", { count: "exact", head: true }),
-      supabase.from("legal_knowledge_chunks").select("id", { count: "exact", head: true }),
-      supabase
-        .from("legal_source_usage_events")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", since),
-      supabase
-        .from("legal_source_gap_requests")
-        .select("id, guessed_title, guessed_article, missing_source_type, request_count, priority, status")
-        .in("status", ["new", "in_progress"])
-        .order("request_count", { ascending: false })
-        .limit(20),
-      supabase
-        .from("legal_source_verification_logs")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["pending", "running"]),
-    ]);
+    const [laws, lawChunks, knowledgeChunks, usage30, gapsTop, verifPending, gapsOpen, confirmedManual, onReviewManual] =
+      await Promise.all([
+        supabase.from("legal_laws").select("id", { count: "exact", head: true }),
+        supabase.from("legal_law_chunks").select("id", { count: "exact", head: true }),
+        supabase.from("legal_knowledge_chunks").select("id", { count: "exact", head: true }),
+        supabase
+          .from("legal_source_usage_events")
+          .select("id", { count: "exact", head: true })
+          .gte("created_at", since),
+        supabase
+          .from("legal_source_gap_requests")
+          .select("id, guessed_title, guessed_article, missing_source_type, request_count, priority, status")
+          .in("status", ["new", "in_progress"])
+          .order("request_count", { ascending: false })
+          .limit(20),
+        supabase
+          .from("legal_source_verification_logs")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["pending", "running"]),
+        supabase
+          .from("legal_source_gap_requests")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["new", "in_progress"]),
+        supabaseAdmin
+          .from("legal_knowledge_chunks")
+          .select("id", { count: "exact", head: true })
+          .eq("source_type", "manual_source")
+          .eq("metadata->>is_source_head", "true")
+          .in("metadata->>verification_status", ["official_verified", "verified_local_source", "externally_verified"]),
+        supabaseAdmin
+          .from("legal_knowledge_chunks")
+          .select("id", { count: "exact", head: true })
+          .eq("source_type", "manual_source")
+          .eq("metadata->>is_source_head", "true")
+          .in("metadata->>verification_status", ["needs_review", "needs_external_verification"]),
+      ]);
 
     // Top used sources from catalog view (usage_count is denormalized there)
     const { data: topUsed } = await supabase
@@ -176,6 +193,9 @@ export const lkDashboard = createServerFn({ method: "POST" })
         chunks: (lawChunks.count ?? 0) + (knowledgeChunks.count ?? 0),
         usage30d: usage30.count ?? 0,
         verificationPending: verifPending.count ?? 0,
+        confirmedSources: (laws.count ?? 0) + (confirmedManual.count ?? 0),
+        onReviewSources: onReviewManual.count ?? 0,
+        missingSources: gapsOpen.count ?? 0,
       },
       topUsed: topUsed ?? [],
       topGaps: gapsTop.data ?? [],
