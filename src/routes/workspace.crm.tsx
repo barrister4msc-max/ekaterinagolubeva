@@ -760,6 +760,7 @@ function LeadDrawer({
   setActiveTab: (t: "overview" | "cases" | "inbox" | "documents" | "compliance" | "tasks" | "timeline") => void;
   onClose: () => void;
 }) {
+const { session } = useAuth();
 const [documents, setDocuments] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
 const [previewUrl, setPreviewUrl] = useState<string | null>(null);
