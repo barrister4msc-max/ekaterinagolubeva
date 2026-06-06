@@ -29,6 +29,7 @@ import {
   sendTelegramMessageFn,
 } from "@/lib/admin-inbox.functions";
 import { useAuth } from "@/hooks/use-auth";
+import { GeneratedDocumentsBlock } from "@/components/crm/generated-documents-block";
 
 export const Route = createFileRoute("/workspace/crm")({
   validateSearch: (search: Record<string, unknown>): { lead?: string } => ({
