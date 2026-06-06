@@ -1441,6 +1441,39 @@ export type Database = {
           },
         ]
       }
+      document_templates: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          sort_order: number
+          template_key: string
+          title: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          template_key: string
+          title: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          template_key?: string
+          title?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           ai_detected_entities: Json
@@ -1603,6 +1636,47 @@ export type Database = {
           source_review_id?: string | null
         }
         Relationships: []
+      }
+      generated_legal_documents: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          lead_id: string | null
+          source_document_id: string | null
+          status: string
+          template_key: string
+          title: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          source_document_id?: string | null
+          status?: string
+          template_key: string
+          title: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          source_document_id?: string | null
+          status?: string
+          template_key?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_legal_documents_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lead_consents: {
         Row: {
