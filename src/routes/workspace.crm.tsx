@@ -1509,7 +1509,7 @@ if (freshReview) {
 setExpandedAnalysisId(doc.id);
 setAnalysisDoc(doc);
 } else {
-  alert("Заключение не найдено в legal_document_reviews после проверки");
+  alert("Заключение пока не найдено. Повторите через несколько секунд.");
   return;
 }
       alert(
