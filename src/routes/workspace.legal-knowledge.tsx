@@ -607,8 +607,6 @@ function LegalKnowledgePage() {
           </Card>
         </TabsContent>
 
-
-
         <TabsContent value="verification" className="space-y-3">
           <div className="flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
             <AlertTriangle size={14} className="mt-0.5" />
