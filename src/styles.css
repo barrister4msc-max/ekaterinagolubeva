@@ -460,40 +460,47 @@
 .workspace-glass [data-slot="card"],
 .workspace-glass .card-soft,
 .workspace-glass .workspace-card {
-  background: rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
-  color: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  color: rgba(255, 255, 255, 0.95);
 }
 
 /* shadcn Card composes via classes; cover those too */
 .workspace-glass .bg-card {
-  background: rgba(255, 255, 255, 0.14) !important;
-  backdrop-filter: blur(24px);
-  border-color: rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.88) !important;
+  background: rgba(255, 255, 255, 0.10) !important;
+  backdrop-filter: blur(26px);
+  -webkit-backdrop-filter: blur(26px);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.95) !important;
 }
 
 .workspace-glass .text-card-foreground {
-  color: rgba(255, 255, 255, 0.88) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
 }
 
-/* Tables */
+/* Tables — keep transparent, no milky white */
 .workspace-glass table {
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(255, 255, 255, 0.95);
+  background: transparent;
 }
 .workspace-glass thead th {
-  color: rgba(255, 255, 255, 0.72);
-  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: transparent;
 }
 .workspace-glass tbody tr {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.10);
   transition: background-color 0.2s ease;
 }
 .workspace-glass tbody tr:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
+}
+.workspace-glass tbody td {
+  background: transparent;
 }
 
 /* Inputs / textareas / selects */
@@ -520,23 +527,55 @@
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Sidebar */
-.workspace-sidebar {
-  background: rgba(10, 20, 30, 0.32);
-  backdrop-filter: blur(24px);
+/* Neutralize opaque utility backgrounds inside workspace */
+.workspace-glass .bg-background,
+.workspace-glass .bg-white,
+.workspace-glass .bg-muted,
+.workspace-glass .bg-muted\/50,
+.workspace-glass .bg-secondary,
+.workspace-glass .bg-popover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* CRM kanban columns (any element marked as kanban column or with bg-muted in CRM) */
+.workspace-glass [data-kanban-column],
+.workspace-glass .kanban-column {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  border-radius: 0.5rem;
+}
+
+/* Cards inside kanban columns */
+.workspace-glass [data-kanban-column] [data-slot="card"],
+.workspace-glass .kanban-column [data-slot="card"],
+.workspace-glass [data-kanban-card] {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+/* Sidebar — transparent glass, not dark */
+.workspace-sidebar {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 .workspace-nav-link {
   color: rgba(255, 255, 255, 0.78);
 }
 .workspace-nav-link:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.98);
 }
 .workspace-nav-link-active {
-  background: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.18) !important;
   color: rgba(255, 255, 255, 0.98) !important;
   font-weight: 500;
 }
+
 
