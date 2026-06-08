@@ -625,7 +625,7 @@ export const archiveMakeTemplate = createServerFn({ method: "POST" })
     if (e1) throw new Error(e1.message);
     if (!row) throw new Error("Элемент не найден");
     const md = {
-      ...(row.metadata ?? {}),
+      ...((row.metadata as Record<string, unknown>) ?? {}),
       use_in_generation: true,
       template_approved: true,
       approved_by: userId,
