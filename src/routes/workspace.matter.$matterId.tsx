@@ -30,6 +30,7 @@ import {
   archiveCreate,
   archiveDelete,
 } from "@/lib/lawyer-matters.functions";
+import { ZipUploadDialog } from "@/components/practice/zip-upload-dialog";
 
 export const Route = createFileRoute("/workspace/matter/$matterId")({
   head: () => ({ meta: [{ title: "Дело — Workspace" }, { name: "robots", content: "noindex" }] }),
@@ -778,10 +779,12 @@ function ArchiveTab({ matterId }: { matterId: string }) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-sm">Архив юриста</CardTitle>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button size="sm"><Plus size={14} /> Добавить</Button></DialogTrigger>
+        <div className="flex items-center gap-2">
+          <ZipUploadDialog onUploaded={reload} />
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild><Button size="sm"><Plus size={14} /> Добавить</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Новый элемент архива</DialogTitle><DialogDescription>Может быть связан с делом или быть самостоятельным.</DialogDescription></DialogHeader>
             <div className="grid gap-3">
@@ -818,6 +821,7 @@ function ArchiveTab({ matterId }: { matterId: string }) {
             <DialogFooter><Button onClick={submit}>Сохранить</Button></DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
