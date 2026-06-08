@@ -1482,49 +1482,91 @@ export type Database = {
           ai_detected_entities: Json
           ai_detected_risks: Json
           ai_summary: string | null
+          analysis_status: string
           client_id: string | null
           created_at: string
+          document_category: string | null
+          document_purpose: string | null
           document_type: string | null
           file_name: string | null
           id: string
+          is_archived: boolean
           lead_id: string | null
+          legal_basis: Json
           matter_id: string | null
+          metadata: Json
           mime_type: string | null
+          missing_documents: Json
           ocr_text: string | null
+          recommended_actions: Json
+          recommended_documents: Json
+          review_status: string
+          risk_level: string | null
           storage_path: string | null
+          title: string | null
           updated_at: string
+          upload_source: string
+          uploaded_by: string | null
         }
         Insert: {
           ai_detected_entities?: Json
           ai_detected_risks?: Json
           ai_summary?: string | null
+          analysis_status?: string
           client_id?: string | null
           created_at?: string
+          document_category?: string | null
+          document_purpose?: string | null
           document_type?: string | null
           file_name?: string | null
           id?: string
+          is_archived?: boolean
           lead_id?: string | null
+          legal_basis?: Json
           matter_id?: string | null
+          metadata?: Json
           mime_type?: string | null
+          missing_documents?: Json
           ocr_text?: string | null
+          recommended_actions?: Json
+          recommended_documents?: Json
+          review_status?: string
+          risk_level?: string | null
           storage_path?: string | null
+          title?: string | null
           updated_at?: string
+          upload_source?: string
+          uploaded_by?: string | null
         }
         Update: {
           ai_detected_entities?: Json
           ai_detected_risks?: Json
           ai_summary?: string | null
+          analysis_status?: string
           client_id?: string | null
           created_at?: string
+          document_category?: string | null
+          document_purpose?: string | null
           document_type?: string | null
           file_name?: string | null
           id?: string
+          is_archived?: boolean
           lead_id?: string | null
+          legal_basis?: Json
           matter_id?: string | null
+          metadata?: Json
           mime_type?: string | null
+          missing_documents?: Json
           ocr_text?: string | null
+          recommended_actions?: Json
+          recommended_documents?: Json
+          review_status?: string
+          risk_level?: string | null
           storage_path?: string | null
+          title?: string | null
           updated_at?: string
+          upload_source?: string
+          uploaded_by?: string | null
         }
         Relationships: [
           {
@@ -1702,6 +1744,225 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lawyer_archive_items: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          document_id: string | null
+          id: string
+          is_active: boolean
+          item_type: string
+          matter_id: string | null
+          metadata: Json
+          source_url: string | null
+          storage_path: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_id?: string | null
+          id?: string
+          is_active?: boolean
+          item_type?: string
+          matter_id?: string | null
+          metadata?: Json
+          source_url?: string | null
+          storage_path?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_id?: string | null
+          id?: string
+          is_active?: boolean
+          item_type?: string
+          matter_id?: string | null
+          metadata?: Json
+          source_url?: string | null
+          storage_path?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lawyer_archive_items_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lawyer_archive_items_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lawyer_document_actions: {
+        Row: {
+          action_type: string
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          document_id: string | null
+          generated_document_id: string | null
+          id: string
+          matter_id: string | null
+          metadata: Json
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_id?: string | null
+          generated_document_id?: string | null
+          id?: string
+          matter_id?: string | null
+          metadata?: Json
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_id?: string | null
+          generated_document_id?: string | null
+          id?: string
+          matter_id?: string | null
+          metadata?: Json
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lawyer_document_actions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lawyer_document_actions_generated_document_id_fkey"
+            columns: ["generated_document_id"]
+            isOneToOne: false
+            referencedRelation: "generated_legal_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lawyer_document_actions_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lawyer_matter_strategy: {
+        Row: {
+          ai_summary: string | null
+          client_position: string | null
+          court_practice: Json
+          created_at: string
+          created_by: string | null
+          facts: Json
+          id: string
+          legal_basis: Json
+          matter_id: string
+          next_steps: Json
+          opponent_position: string | null
+          recommended_documents: Json
+          risks: Json
+          strengths: Json
+          success_probability: string | null
+          updated_at: string
+          updated_by: string | null
+          weaknesses: Json
+        }
+        Insert: {
+          ai_summary?: string | null
+          client_position?: string | null
+          court_practice?: Json
+          created_at?: string
+          created_by?: string | null
+          facts?: Json
+          id?: string
+          legal_basis?: Json
+          matter_id: string
+          next_steps?: Json
+          opponent_position?: string | null
+          recommended_documents?: Json
+          risks?: Json
+          strengths?: Json
+          success_probability?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          weaknesses?: Json
+        }
+        Update: {
+          ai_summary?: string | null
+          client_position?: string | null
+          court_practice?: Json
+          created_at?: string
+          created_by?: string | null
+          facts?: Json
+          id?: string
+          legal_basis?: Json
+          matter_id?: string
+          next_steps?: Json
+          opponent_position?: string | null
+          recommended_documents?: Json
+          risks?: Json
+          strengths?: Json
+          success_probability?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          weaknesses?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lawyer_matter_strategy_matter_id_fkey"
+            columns: ["matter_id"]
+            isOneToOne: false
+            referencedRelation: "legal_matters"
             referencedColumns: ["id"]
           },
         ]
@@ -2567,48 +2828,66 @@ export type Database = {
       legal_matters: {
         Row: {
           ai_summary: string | null
+          archive_status: string
           client_id: string | null
           closed_at: string | null
           created_at: string
+          created_by: string | null
           description: string | null
           id: string
+          lawyer_notes: string | null
           lead_id: string | null
+          matter_number: string | null
           matter_type: string
+          metadata: Json
           opened_at: string | null
           priority: string
           risk_level: string | null
+          source_type: string
           status: string
           title: string | null
           updated_at: string
         }
         Insert: {
           ai_summary?: string | null
+          archive_status?: string
           client_id?: string | null
           closed_at?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
+          lawyer_notes?: string | null
           lead_id?: string | null
+          matter_number?: string | null
           matter_type: string
+          metadata?: Json
           opened_at?: string | null
           priority?: string
           risk_level?: string | null
+          source_type?: string
           status?: string
           title?: string | null
           updated_at?: string
         }
         Update: {
           ai_summary?: string | null
+          archive_status?: string
           client_id?: string | null
           closed_at?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
+          lawyer_notes?: string | null
           lead_id?: string | null
+          matter_number?: string | null
           matter_type?: string
+          metadata?: Json
           opened_at?: string | null
           priority?: string
           risk_level?: string | null
+          source_type?: string
           status?: string
           title?: string | null
           updated_at?: string
