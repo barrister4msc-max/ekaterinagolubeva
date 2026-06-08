@@ -781,7 +781,7 @@ function ArchiveTab({ matterId }: { matterId: string }) {
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-sm">Архив юриста</CardTitle>
         <div className="flex items-center gap-2">
-          <ZipUploadDialog onUploaded={load} />
+          <ZipUploadDialog onUploaded={reload} />
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button size="sm"><Plus size={14} /> Добавить</Button></DialogTrigger>
           <DialogContent>
