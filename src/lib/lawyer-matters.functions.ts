@@ -450,3 +450,284 @@ export const archiveDelete = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/* ===== Archive: practice / ZIP ===== */
+
+export const archivePracticeList = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        practice_area: z.string().max(50).optional(),
+        document_family: z.string().max(80).optional(),
+        document_role: z.string().max(50).optional(),
+        category: z.string().max(80).optional(),
+        item_type: z.string().max(50).optional(),
+        archive_batch_id: z.string().max(80).optional(),
+        only_in_generation: z.boolean().optional(),
+        search: z.string().max(200).optional(),
+        limit: z.number().int().min(1).max(1000).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    let q = supabase
+      .from("lawyer_archive_items")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(data.limit ?? 500);
+    if (data.category) q = q.eq("category", data.category);
+    if (data.item_type) q = q.eq("item_type", data.item_type);
+    if (data.practice_area) q = q.eq("metadata->>practice_area", data.practice_area);
+    if (data.document_family) q = q.eq("metadata->>document_family", data.document_family);
+    if (data.document_role) q = q.eq("metadata->>document_role", data.document_role);
+    if (data.archive_batch_id) q = q.eq("metadata->>archive_batch_id", data.archive_batch_id);
+    if (data.only_in_generation) q = q.eq("metadata->>use_in_generation", "true");
+    if (data.search) {
+      const s = data.search.replace(/[%_]/g, "");
+      q = q.ilike("title", `%${s}%`);
+    }
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return { rows: rows ?? [] };
+  });
+
+export const archiveBulkCreate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        archive_batch_id: z.string().trim().min(1).max(80),
+        items: z
+          .array(
+            z.object({
+              title: z.string().trim().min(1).max(300),
+              storage_path: z.string().trim().min(1).max(500),
+              original_filename: z.string().trim().min(1).max(300),
+              file_extension: z.string().trim().max(20),
+              file_size: z.number().int().nonnegative(),
+              mime_type: z.string().max(120).optional(),
+              category: z.string().max(80).optional(),
+              item_type: z.string().max(50).optional(),
+            }),
+          )
+          .min(1)
+          .max(500),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const rows = data.items.map((it) => ({
+      title: it.title,
+      item_type: it.item_type || "document",
+      category: it.category || "contracts_archive",
+      storage_path: it.storage_path,
+      created_by: userId,
+      metadata: {
+        original_filename: it.original_filename,
+        archive_batch_id: data.archive_batch_id,
+        file_extension: it.file_extension,
+        file_size: it.file_size,
+        mime_type: it.mime_type || null,
+        upload_source: "zip_archive",
+        use_in_generation: false,
+        use_in_rag: false,
+        requires_lawyer_approval: true,
+        classification_status: "pending",
+      },
+    }));
+    const { data: inserted, error } = await supabase
+      .from("lawyer_archive_items")
+      .insert(rows)
+      .select("*");
+    if (error) throw new Error(error.message);
+    return { rows: inserted ?? [] };
+  });
+
+export const archiveUpdate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        item_type: z.string().max(50).optional(),
+        category: z.string().max(80).optional(),
+        title: z.string().max(300).optional(),
+        matter_id: z.string().uuid().nullable().optional(),
+        metadata_patch: z.record(z.string(), z.any()).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data: row, error: e1 } = await supabase
+      .from("lawyer_archive_items")
+      .select("metadata")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!row) throw new Error("Элемент не найден");
+    const patch: Record<string, unknown> = {};
+    if (data.item_type !== undefined) patch.item_type = data.item_type;
+    if (data.category !== undefined) patch.category = data.category;
+    if (data.title !== undefined) patch.title = data.title;
+    if (data.matter_id !== undefined) patch.matter_id = data.matter_id;
+    if (data.metadata_patch) {
+      patch.metadata = { ...(row.metadata ?? {}), ...data.metadata_patch };
+    }
+    const { error } = await supabase.from("lawyer_archive_items").update(patch).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const archiveApproveStyle = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data: row, error: e1 } = await supabase
+      .from("lawyer_archive_items")
+      .select("metadata")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!row) throw new Error("Элемент не найден");
+    const md = {
+      ...(row.metadata ?? {}),
+      use_in_generation: true,
+      approved_by: userId,
+      approved_at: new Date().toISOString(),
+      approval_type: "style_reference",
+    };
+    const { error } = await supabase.from("lawyer_archive_items").update({ metadata: md }).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const archiveMakeTemplate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data: row, error: e1 } = await supabase
+      .from("lawyer_archive_items")
+      .select("metadata")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!row) throw new Error("Элемент не найден");
+    const md = {
+      ...(row.metadata ?? {}),
+      use_in_generation: true,
+      template_approved: true,
+      approved_by: userId,
+      approved_at: new Date().toISOString(),
+    };
+    const { error } = await supabase
+      .from("lawyer_archive_items")
+      .update({ item_type: "template", metadata: md })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const archiveAddToMatter = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid(), matter_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data: item, error: e1 } = await supabase
+      .from("lawyer_archive_items")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!item) throw new Error("Элемент не найден");
+    const md = item.metadata ?? {};
+    const { data: doc, error: e2 } = await supabase
+      .from("documents")
+      .insert({
+        matter_id: data.matter_id,
+        title: item.title,
+        file_name: md.original_filename || item.title,
+        mime_type: md.mime_type || null,
+        storage_path: item.storage_path,
+        document_type: md.document_family || null,
+        document_category: md.practice_area || item.category || null,
+        upload_source: "lawyer_archive",
+        uploaded_by: userId,
+        analysis_status: "pending",
+        review_status: "not_started",
+        metadata: { archive_item_id: item.id, source: "lawyer_archive" },
+      })
+      .select("id")
+      .single();
+    if (e2) throw new Error(e2.message);
+    await supabase
+      .from("lawyer_archive_items")
+      .update({ matter_id: data.matter_id, document_id: doc.id })
+      .eq("id", data.id);
+    return { document_id: doc.id };
+  });
+
+export const archiveBatchesList = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data, error } = await supabase
+      .from("lawyer_archive_items")
+      .select("metadata, created_at")
+      .eq("is_active", true)
+      .eq("metadata->>upload_source", "zip_archive")
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (error) throw new Error(error.message);
+    const map = new Map<string, { id: string; count: number; created_at: string }>();
+    for (const r of data ?? []) {
+      const id = (r.metadata as any)?.archive_batch_id;
+      if (!id) continue;
+      const cur = map.get(id);
+      if (cur) cur.count += 1;
+      else map.set(id, { id, count: 1, created_at: r.created_at as string });
+    }
+    return { batches: Array.from(map.values()) };
+  });
+
+export const archivePracticeStats = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data, error } = await supabase
+      .from("lawyer_archive_items")
+      .select("item_type, metadata")
+      .eq("is_active", true)
+      .limit(5000);
+    if (error) throw new Error(error.message);
+    const stats: Record<string, { total: number; gold: number; templates: number; unclassified: number; pending_approval: number }> = {};
+    const bump = (area: string) => {
+      if (!stats[area]) stats[area] = { total: 0, gold: 0, templates: 0, unclassified: 0, pending_approval: 0 };
+      return stats[area];
+    };
+    for (const r of data ?? []) {
+      const md = (r.metadata ?? {}) as any;
+      const area = md.practice_area || "other";
+      const s = bump(area);
+      s.total += 1;
+      if (md.document_role === "gold_reference") s.gold += 1;
+      if (r.item_type === "template" || md.template_approved) s.templates += 1;
+      if (!md.classification_status || md.classification_status === "pending") s.unclassified += 1;
+      if (md.requires_lawyer_approval && !md.approved_at) s.pending_approval += 1;
+    }
+    return { stats };
+  });
