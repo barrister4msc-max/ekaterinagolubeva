@@ -778,10 +778,12 @@ function ArchiveTab({ matterId }: { matterId: string }) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle className="text-sm">Архив юриста</CardTitle>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild><Button size="sm"><Plus size={14} /> Добавить</Button></DialogTrigger>
+        <div className="flex items-center gap-2">
+          <ZipUploadDialog onUploaded={load} />
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild><Button size="sm"><Plus size={14} /> Добавить</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Новый элемент архива</DialogTitle><DialogDescription>Может быть связан с делом или быть самостоятельным.</DialogDescription></DialogHeader>
             <div className="grid gap-3">
