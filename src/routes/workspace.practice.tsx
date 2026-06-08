@@ -17,7 +17,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Briefcase, FileText, Star, FolderArchive, Layers, ExternalLink, Trash2, Link2, Wand2, Sparkles, ShieldCheck } from "lucide-react";
+import { Briefcase, FileText, Star, FolderArchive, Layers, ExternalLink, Trash2, Link2, Wand2, Sparkles, ShieldCheck, Eraser, GraduationCap } from "lucide-react";
 import {
   archivePracticeList,
   archivePracticeStats,
@@ -26,9 +26,11 @@ import {
   archiveApproveStyle,
   archiveMakeTemplate,
   archiveAddToMatter,
+  archiveApproveTraining,
   matterList,
 } from "@/lib/lawyer-matters.functions";
 import { ZipUploadDialog } from "@/components/practice/zip-upload-dialog";
+import { AnonymizeDialog } from "@/components/practice/anonymize-dialog";
 
 export const Route = createFileRoute("/workspace/practice")({
   head: () => ({ meta: [{ title: "Практика Екатерины — Workspace" }, { name: "robots", content: "noindex" }] }),
