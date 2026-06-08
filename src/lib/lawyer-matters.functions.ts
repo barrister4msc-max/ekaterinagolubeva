@@ -296,11 +296,11 @@ export const strategyUpsert = createServerFn({ method: "POST" })
       if (v !== undefined) patch[k] = v;
     }
     if (existing?.id) {
-      const { error } = await supabase.from("lawyer_matter_strategy").update(patch).eq("id", existing.id);
+      const { error } = await (supabase.from("lawyer_matter_strategy") as any).update(patch).eq("id", existing.id);
       if (error) throw new Error(error.message);
     } else {
       patch.created_by = userId;
-      const { error } = await supabase.from("lawyer_matter_strategy").insert(patch);
+      const { error } = await (supabase.from("lawyer_matter_strategy") as any).insert(patch);
       if (error) throw new Error(error.message);
     }
     return { ok: true };
