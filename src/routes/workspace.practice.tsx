@@ -473,6 +473,13 @@ function PracticePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AnonymizeDialog
+        open={!!anonTarget}
+        onOpenChange={(o) => { if (!o) setAnonTarget(null); }}
+        item={anonTarget}
+        onCreated={reload}
+      />
     </div>
   );
 }
