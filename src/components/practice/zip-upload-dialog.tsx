@@ -80,7 +80,16 @@ export function ZipUploadDialog({ onUploaded }: { onUploaded?: () => void }) {
       }
 
       const batchId = `batch_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const items: Parameters<typeof bulkCreate>[0]["data"]["items"] = [];
+      const items: Array<{
+        title: string;
+        storage_path: string;
+        original_filename: string;
+        file_extension: string;
+        file_size: number;
+        mime_type?: string;
+        category?: string;
+        item_type?: string;
+      }> = [];
       let done = 0;
 
       for (const { path, entry } of entries) {
