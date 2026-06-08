@@ -579,9 +579,9 @@ export const archiveUpdate = createServerFn({ method: "POST" })
     if (data.title !== undefined) patch.title = data.title;
     if (data.matter_id !== undefined) patch.matter_id = data.matter_id;
     if (data.metadata_patch) {
-      patch.metadata = { ...(row.metadata ?? {}), ...data.metadata_patch };
+      patch.metadata = { ...((row.metadata as Record<string, unknown>) ?? {}), ...data.metadata_patch };
     }
-    const { error } = await supabase.from("lawyer_archive_items").update(patch).eq("id", data.id);
+    const { error } = await (supabase.from("lawyer_archive_items") as any).update(patch).eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
