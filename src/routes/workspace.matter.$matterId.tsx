@@ -820,6 +820,7 @@ function ArchiveTab({ matterId }: { matterId: string }) {
             <DialogFooter><Button onClick={submit}>Сохранить</Button></DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
