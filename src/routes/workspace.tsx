@@ -42,6 +42,7 @@ const nav = [
   { to: "/workspace/dashboard", label: "Дашборд", icon: LayoutDashboard },
   { to: "/workspace/leads", label: "Заявки", icon: Inbox },
   { to: "/workspace/crm", label: "CRM", icon: KanbanSquare },
+  { to: "/workspace/matters", label: "Дела", icon: Briefcase },
   { to: "/workspace/ai-podbor", label: "AI-подбор", icon: Building2 },
   { to: "/workspace/legal-knowledge", label: "База знаний", icon: BookOpen },
   { to: "/workspace/reviews", label: "Отзывы", icon: MessageSquareQuote },
