@@ -108,36 +108,37 @@ function WorkspaceLayout() {
       <div className="container-wide flex min-h-screen flex-col gap-8 py-8 md:flex-row md:gap-10 md:py-10">
         {/* Side rail */}
         <aside className="md:w-60 md:shrink-0">
-          <div className="rounded-lg border border-white/30 bg-white/10 p-5 shadow-[0_18px_60px_rgba(15,30,55,0.18)] backdrop-blur-sm md:sticky md:top-8">
+          <div className="workspace-sidebar rounded-lg p-5 md:sticky md:top-8">
             <Link to="/" className="block">
-              <div className="text-[10px] uppercase tracking-[0.28em] text-foreground/60">Workspace</div>
+              <div className="text-[10px] uppercase tracking-[0.28em] text-white/70">Workspace</div>
             </Link>
             <nav className="mt-6 flex flex-col gap-1">
               {nav.map((n) => (
                 <Link
                   key={n.to}
                   to={n.to}
-                  className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground/75 transition-colors hover:bg-secondary/50 hover:text-foreground"
-                  activeProps={{ className: "bg-secondary/70 text-foreground font-medium" }}
+                  className="workspace-nav-link flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors"
+                  activeProps={{ className: "workspace-nav-link-active" }}
                 >
                   <n.icon size={15} />
                   {n.label}
                 </Link>
               ))}
             </nav>
-            <div className="mt-6 border-t border-border/60 pt-4">
-              <a href="/" className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-primary">
+            <div className="mt-6 border-t border-white/15 pt-4">
+              <a href="/" className="flex items-center gap-2 px-3 py-2 text-xs text-white/70 hover:text-white">
                 <ArrowLeft size={12}/> На сайт
               </a>
               <button
                 onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/workspace/login" }))}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-destructive"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/70 hover:text-destructive"
               >
                 <LogOut size={12}/> Выйти
               </button>
             </div>
           </div>
         </aside>
+
 
         <main className="flex-1 min-w-0">
           <Outlet />
