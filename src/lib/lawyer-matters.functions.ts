@@ -652,7 +652,7 @@ export const archiveAddToMatter = createServerFn({ method: "POST" })
       .maybeSingle();
     if (e1) throw new Error(e1.message);
     if (!item) throw new Error("Элемент не найден");
-    const md = item.metadata ?? {};
+    const md = (item.metadata ?? {}) as Record<string, any>;
     const { data: doc, error: e2 } = await supabase
       .from("documents")
       .insert({
