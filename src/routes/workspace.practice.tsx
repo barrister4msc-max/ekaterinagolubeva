@@ -17,7 +17,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Briefcase, FileText, Star, FolderArchive, Layers, ExternalLink, Trash2, Link2, Wand2, Sparkles, ShieldCheck } from "lucide-react";
+import { Briefcase, FileText, Star, FolderArchive, Layers, ExternalLink, Trash2, Link2, Wand2, Sparkles, ShieldCheck, Eraser, GraduationCap } from "lucide-react";
 import {
   archivePracticeList,
   archivePracticeStats,
@@ -26,9 +26,11 @@ import {
   archiveApproveStyle,
   archiveMakeTemplate,
   archiveAddToMatter,
+  archiveApproveTraining,
   matterList,
 } from "@/lib/lawyer-matters.functions";
 import { ZipUploadDialog } from "@/components/practice/zip-upload-dialog";
+import { AnonymizeDialog } from "@/components/practice/anonymize-dialog";
 
 export const Route = createFileRoute("/workspace/practice")({
   head: () => ({ meta: [{ title: "Практика Екатерины — Workspace" }, { name: "robots", content: "noindex" }] }),
@@ -103,6 +105,7 @@ function PracticePage() {
   const approveStyle = useServerFn(archiveApproveStyle);
   const makeTemplate = useServerFn(archiveMakeTemplate);
   const addToMatter = useServerFn(archiveAddToMatter);
+  const approveTraining = useServerFn(archiveApproveTraining);
   const mList = useServerFn(matterList);
 
   const [items, setItems] = useState<ArchiveItem[]>([]);
@@ -111,6 +114,7 @@ function PracticePage() {
   const [familyFilter, setFamilyFilter] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("");
   const [search, setSearch] = useState("");
+  const [anonTarget, setAnonTarget] = useState<ArchiveItem | null>(null);
   const [statsMap, setStatsMap] = useState<Record<string, { total: number; gold: number; templates: number; unclassified: number; pending_approval: number }>>({});
   const [batchRows, setBatchRows] = useState<{ id: string; count: number; created_at: string }[]>([]);
   const [matters, setMatters] = useState<{ id: string; title: string | null; matter_number: string | null }[]>([]);
@@ -333,10 +337,21 @@ function PracticePage() {
                           <TableCell className="text-xs space-x-1">
                             {role && <Badge className={role.tone} variant="secondary">{role.l}</Badge>}
                             {it.item_type === "template" && <Badge variant="outline">Шаблон</Badge>}
+                            {md.is_anonymized && (
+                              <Badge className="bg-purple-100 text-purple-900" variant="secondary">
+                                Обезличено{md.anonymization_mode ? ` · ${md.anonymization_mode}` : ""}
+                              </Badge>
+                            )}
+                            {md.anonymization_status === "needs_review" && (
+                              <Badge className="bg-amber-100 text-amber-900" variant="secondary">Требует проверки</Badge>
+                            )}
                             {useGen ? (
                               <Badge className="bg-green-100 text-green-900" variant="secondary">Для генерации</Badge>
                             ) : (
                               <Badge variant="outline">Только архив</Badge>
+                            )}
+                            {md.can_use_for_training && (
+                              <Badge className="bg-blue-100 text-blue-900" variant="secondary">Для обучения</Badge>
                             )}
                             {md.classification_status === "pending" && <Badge variant="outline">Не классифицирован</Badge>}
                           </TableCell>
@@ -347,12 +362,33 @@ function PracticePage() {
                             <Button size="sm" variant="ghost" onClick={() => { setAttachOpen(it); setAttachMatterId(""); }} title="Привязать к делу">
                               <Link2 className="size-4" />
                             </Button>
+                            <Button size="sm" variant="ghost" onClick={() => setAnonTarget(it)} title="Обезличить">
+                              <Eraser className="size-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" onClick={() => handleMakeTemplate(it.id)} title="Сделать шаблоном">
                               <Wand2 className="size-4" />
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => handleApproveStyle(it.id)} title="Разрешить как стиль">
                               <ShieldCheck className="size-4" />
                             </Button>
+                            {md.is_anonymized && !md.can_use_for_training && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                title="Разрешить использовать как стиль/шаблон (для обучения)"
+                                onClick={async () => {
+                                  try {
+                                    await approveTraining({ data: { id: it.id } });
+                                    toast.success("Разрешено для обучения");
+                                    reload();
+                                  } catch (e: any) {
+                                    toast.error(e?.message ?? "Ошибка");
+                                  }
+                                }}
+                              >
+                                <GraduationCap className="size-4" />
+                              </Button>
+                            )}
                             <Button size="sm" variant="ghost" disabled title="Проанализировать (AI — следующий шаг)">
                               <Sparkles className="size-4" />
                             </Button>
@@ -360,6 +396,7 @@ function PracticePage() {
                               <Trash2 className="size-4" />
                             </Button>
                           </TableCell>
+
                         </TableRow>
                       );
                     })}
@@ -436,6 +473,13 @@ function PracticePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AnonymizeDialog
+        open={!!anonTarget}
+        onOpenChange={(o) => { if (!o) setAnonTarget(null); }}
+        item={anonTarget}
+        onCreated={reload}
+      />
     </div>
   );
 }
