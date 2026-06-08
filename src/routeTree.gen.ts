@@ -43,6 +43,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceStatisticsRouteImport } from './routes/workspace.statistics'
 import { Route as WorkspaceSettingsRouteImport } from './routes/workspace.settings'
 import { Route as WorkspaceReviewsRouteImport } from './routes/workspace.reviews'
+import { Route as WorkspaceMattersRouteImport } from './routes/workspace.matters'
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLegalKnowledgeRouteImport } from './routes/workspace.legal-knowledge'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
@@ -223,6 +224,11 @@ const WorkspaceReviewsRoute = WorkspaceReviewsRouteImport.update({
   path: '/reviews',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceMattersRoute = WorkspaceMattersRouteImport.update({
+  id: '/matters',
+  path: '/matters',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 const WorkspaceLoginRoute = WorkspaceLoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -310,6 +316,7 @@ export interface FileRoutesByFullPath {
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/matters': typeof WorkspaceMattersRoute
   '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
@@ -355,6 +362,7 @@ export interface FileRoutesByTo {
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/matters': typeof WorkspaceMattersRoute
   '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
@@ -401,6 +409,7 @@ export interface FileRoutesById {
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
+  '/workspace/matters': typeof WorkspaceMattersRoute
   '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
@@ -448,6 +457,7 @@ export interface FileRouteTypes {
     | '/workspace/leads'
     | '/workspace/legal-knowledge'
     | '/workspace/login'
+    | '/workspace/matters'
     | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
@@ -493,6 +503,7 @@ export interface FileRouteTypes {
     | '/workspace/leads'
     | '/workspace/legal-knowledge'
     | '/workspace/login'
+    | '/workspace/matters'
     | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
@@ -538,6 +549,7 @@ export interface FileRouteTypes {
     | '/workspace/leads'
     | '/workspace/legal-knowledge'
     | '/workspace/login'
+    | '/workspace/matters'
     | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
@@ -820,6 +832,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceReviewsRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/matters': {
+      id: '/workspace/matters'
+      path: '/matters'
+      fullPath: '/workspace/matters'
+      preLoaderRoute: typeof WorkspaceMattersRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/workspace/login': {
       id: '/workspace/login'
       path: '/login'
@@ -903,6 +922,7 @@ interface WorkspaceRouteChildren {
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
   WorkspaceLegalKnowledgeRoute: typeof WorkspaceLegalKnowledgeRoute
   WorkspaceLoginRoute: typeof WorkspaceLoginRoute
+  WorkspaceMattersRoute: typeof WorkspaceMattersRoute
   WorkspaceReviewsRoute: typeof WorkspaceReviewsRoute
   WorkspaceSettingsRoute: typeof WorkspaceSettingsRoute
   WorkspaceStatisticsRoute: typeof WorkspaceStatisticsRoute
@@ -915,6 +935,7 @@ const WorkspaceRouteChildren: WorkspaceRouteChildren = {
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
   WorkspaceLegalKnowledgeRoute: WorkspaceLegalKnowledgeRoute,
   WorkspaceLoginRoute: WorkspaceLoginRoute,
+  WorkspaceMattersRoute: WorkspaceMattersRoute,
   WorkspaceReviewsRoute: WorkspaceReviewsRoute,
   WorkspaceSettingsRoute: WorkspaceSettingsRoute,
   WorkspaceStatisticsRoute: WorkspaceStatisticsRoute,
