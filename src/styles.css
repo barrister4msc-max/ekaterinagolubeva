@@ -424,3 +424,119 @@
 
   .hairline { height: 1px; background-color: var(--color-border); }
 }
+
+/* ============================================================
+   Workspace — premium glassmorphism (scoped)
+   Applied via `.workspace-glass` wrapper on the workspace layout.
+   ============================================================ */
+.workspace-glass {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.workspace-glass h1,
+.workspace-glass h2,
+.workspace-glass h3,
+.workspace-glass h4,
+.workspace-glass h5,
+.workspace-glass h6 {
+  color: rgba(255, 255, 255, 0.96);
+  font-weight: 600;
+}
+
+.workspace-glass p,
+.workspace-glass label,
+.workspace-glass span,
+.workspace-glass li,
+.workspace-glass div {
+  color: inherit;
+}
+
+.workspace-glass .text-muted-foreground,
+.workspace-glass [class*="text-muted-foreground"] {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+/* Glass cards */
+.workspace-glass [data-slot="card"],
+.workspace-glass .card-soft,
+.workspace-glass .workspace-card {
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+/* shadcn Card composes via classes; cover those too */
+.workspace-glass .bg-card {
+  background: rgba(255, 255, 255, 0.14) !important;
+  backdrop-filter: blur(24px);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+.workspace-glass .text-card-foreground {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+/* Tables */
+.workspace-glass table {
+  color: rgba(255, 255, 255, 0.88);
+}
+.workspace-glass thead th {
+  color: rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.workspace-glass tbody tr {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.10);
+  transition: background-color 0.2s ease;
+}
+.workspace-glass tbody tr:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Inputs / textareas / selects */
+.workspace-glass input:not([type="checkbox"]):not([type="radio"]),
+.workspace-glass textarea,
+.workspace-glass select,
+.workspace-glass [data-slot="select-trigger"] {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.20);
+  color: rgba(255, 255, 255, 0.96);
+}
+.workspace-glass input::placeholder,
+.workspace-glass textarea::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Borders */
+.workspace-glass .border,
+.workspace-glass .border-t,
+.workspace-glass .border-b,
+.workspace-glass .border-l,
+.workspace-glass .border-r,
+.workspace-glass .border-border {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Sidebar */
+.workspace-sidebar {
+  background: rgba(10, 20, 30, 0.32);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+.workspace-nav-link {
+  color: rgba(255, 255, 255, 0.78);
+}
+.workspace-nav-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.96);
+}
+.workspace-nav-link-active {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: rgba(255, 255, 255, 0.98) !important;
+  font-weight: 500;
+}
+
