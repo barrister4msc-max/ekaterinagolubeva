@@ -7,20 +7,21 @@ import workspaceBg from "@/assets/workspace-bg-wave.jpg.asset.json";
 
 const bgStyle: React.CSSProperties = {
   backgroundImage: `url(${workspaceBg.url})`,
-  backgroundSize: "cover",
-  backgroundPosition: "center center",
+  backgroundSize: "75%",
+  backgroundPosition: "120% 60%",
   backgroundRepeat: "no-repeat",
   backgroundAttachment: "fixed",
+  backgroundColor: "#0a1420",
 };
 
 const bgOverlayStyle: React.CSSProperties = {
   background:
-    "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 50%, rgba(10,20,35,0.10) 100%)",
+    "linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25))",
 };
 
 function WorkspaceBackground({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-transparent">
+    <div className="workspace-glass relative min-h-screen overflow-x-hidden bg-transparent">
       <div aria-hidden="true" className="fixed inset-0 z-0" style={bgStyle} />
       <div aria-hidden="true" className="fixed inset-0 z-0" style={bgOverlayStyle} />
       <div className="relative z-10 min-h-screen">{children}</div>
