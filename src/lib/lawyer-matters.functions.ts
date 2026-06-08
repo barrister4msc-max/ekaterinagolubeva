@@ -703,6 +703,120 @@ export const archiveBatchesList = createServerFn({ method: "POST" })
     return { batches: Array.from(map.values()) };
   });
 
+/* ===== Anonymization ===== */
+
+export const archiveCreateAnonymized = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        original_archive_item_id: z.string().uuid(),
+        mode: z.enum(["soft", "strict", "full"]),
+        storage_path: z.string().trim().min(1).max(500),
+        title: z.string().trim().min(1).max(300),
+        anonymization_status: z.enum(["completed", "needs_review", "failed"]),
+        entities_summary: z
+          .array(
+            z.object({
+              kind: z.string().max(40),
+              count: z.number().int().nonnegative(),
+            }),
+          )
+          .max(200)
+          .optional(),
+        entities_total: z.number().int().nonnegative().optional(),
+        preview: z.string().max(20000).optional(),
+        original_length: z.number().int().nonnegative().optional(),
+        anonymized_length: z.number().int().nonnegative().optional(),
+        note: z.string().max(2000).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data: src, error: e1 } = await supabase
+      .from("lawyer_archive_items")
+      .select("*")
+      .eq("id", data.original_archive_item_id)
+      .maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!src) throw new Error("Исходный элемент архива не найден");
+    const srcMd = (src.metadata ?? {}) as Record<string, any>;
+    const metadata: Record<string, any> = {
+      ...srcMd,
+      original_filename: `${(srcMd.original_filename || src.title || "document").replace(/\.[^.]+$/, "")}.anonymized.txt`,
+      file_extension: "txt",
+      mime_type: "text/plain",
+      upload_source: "anonymizer",
+      original_archive_item_id: src.id,
+      is_anonymized: true,
+      anonymization_mode: data.mode,
+      anonymization_status: data.anonymization_status,
+      anonymization_entities: data.entities_summary ?? [],
+      anonymization_entities_total: data.entities_total ?? 0,
+      anonymization_preview: data.preview ?? null,
+      anonymization_original_length: data.original_length ?? null,
+      anonymization_length: data.anonymized_length ?? null,
+      anonymized_by: userId,
+      anonymized_at: new Date().toISOString(),
+      anonymization_note: data.note ?? null,
+      // Reset usage flags — must be re-approved on the anonymized copy.
+      use_in_generation: false,
+      use_in_rag: false,
+      can_use_for_training: false,
+      template_approved: false,
+      approved_at: null,
+      approved_by: null,
+      requires_lawyer_approval: true,
+      classification_status: srcMd.classification_status ?? "pending",
+    };
+    const { data: inserted, error } = await supabase
+      .from("lawyer_archive_items")
+      .insert({
+        title: data.title,
+        item_type: "document",
+        category: "anonymized",
+        storage_path: data.storage_path,
+        matter_id: src.matter_id,
+        created_by: userId,
+        metadata,
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return { item: inserted };
+  });
+
+export const archiveApproveTraining = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data: row, error: e1 } = await supabase
+      .from("lawyer_archive_items")
+      .select("metadata")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!row) throw new Error("Элемент не найден");
+    const md = {
+      ...((row.metadata as Record<string, unknown>) ?? {}),
+      can_use_for_training: true,
+      use_in_generation: true,
+      approval_type: "style_reference",
+      approved_by: userId,
+      approved_at: new Date().toISOString(),
+    };
+    const { error } = await supabase
+      .from("lawyer_archive_items")
+      .update({ metadata: md })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const archivePracticeStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
