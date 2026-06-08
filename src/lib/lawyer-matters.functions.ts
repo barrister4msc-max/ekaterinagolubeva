@@ -600,7 +600,7 @@ export const archiveApproveStyle = createServerFn({ method: "POST" })
     if (e1) throw new Error(e1.message);
     if (!row) throw new Error("Элемент не найден");
     const md = {
-      ...(row.metadata ?? {}),
+      ...((row.metadata as Record<string, unknown>) ?? {}),
       use_in_generation: true,
       approved_by: userId,
       approved_at: new Date().toISOString(),
