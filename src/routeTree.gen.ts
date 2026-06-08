@@ -52,6 +52,7 @@ import { Route as WorkspaceCrmRouteImport } from './routes/workspace.crm'
 import { Route as WorkspaceAiPodborRouteImport } from './routes/workspace.ai-podbor'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
+import { Route as WorkspaceMatterMatterIdRouteImport } from './routes/workspace.matter.$matterId'
 import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
@@ -269,6 +270,11 @@ const AdminReviewsRoute = AdminReviewsRouteImport.update({
   path: '/reviews',
   getParentRoute: () => AdminRoute,
 } as any)
+const WorkspaceMatterMatterIdRoute = WorkspaceMatterMatterIdRouteImport.update({
+  id: '/matter/$matterId',
+  path: '/matter/$matterId',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
 const ApiPublicWebhooksTelegramRoute =
   ApiPublicWebhooksTelegramRouteImport.update({
     id: '/api/public/webhooks/telegram',
@@ -320,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
 }
 export interface FileRoutesByTo {
@@ -366,6 +373,7 @@ export interface FileRoutesByTo {
   '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
 }
 export interface FileRoutesById {
@@ -413,6 +421,7 @@ export interface FileRoutesById {
   '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
 }
 export interface FileRouteTypes {
@@ -461,6 +470,7 @@ export interface FileRouteTypes {
     | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -507,6 +517,7 @@ export interface FileRouteTypes {
     | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
   id:
     | '__root__'
@@ -553,6 +564,7 @@ export interface FileRouteTypes {
     | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
   fileRoutesById: FileRoutesById
 }
@@ -895,6 +907,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminReviewsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/workspace/matter/$matterId': {
+      id: '/workspace/matter/$matterId'
+      path: '/matter/$matterId'
+      fullPath: '/workspace/matter/$matterId'
+      preLoaderRoute: typeof WorkspaceMatterMatterIdRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/api/public/webhooks/telegram': {
       id: '/api/public/webhooks/telegram'
       path: '/api/public/webhooks/telegram'
@@ -926,6 +945,7 @@ interface WorkspaceRouteChildren {
   WorkspaceReviewsRoute: typeof WorkspaceReviewsRoute
   WorkspaceSettingsRoute: typeof WorkspaceSettingsRoute
   WorkspaceStatisticsRoute: typeof WorkspaceStatisticsRoute
+  WorkspaceMatterMatterIdRoute: typeof WorkspaceMatterMatterIdRoute
 }
 
 const WorkspaceRouteChildren: WorkspaceRouteChildren = {
@@ -939,6 +959,7 @@ const WorkspaceRouteChildren: WorkspaceRouteChildren = {
   WorkspaceReviewsRoute: WorkspaceReviewsRoute,
   WorkspaceSettingsRoute: WorkspaceSettingsRoute,
   WorkspaceStatisticsRoute: WorkspaceStatisticsRoute,
+  WorkspaceMatterMatterIdRoute: WorkspaceMatterMatterIdRoute,
 }
 
 const WorkspaceRouteWithChildren = WorkspaceRoute._addFileChildren(
