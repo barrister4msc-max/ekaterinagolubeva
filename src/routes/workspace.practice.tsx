@@ -105,6 +105,7 @@ function PracticePage() {
   const approveStyle = useServerFn(archiveApproveStyle);
   const makeTemplate = useServerFn(archiveMakeTemplate);
   const addToMatter = useServerFn(archiveAddToMatter);
+  const approveTraining = useServerFn(archiveApproveTraining);
   const mList = useServerFn(matterList);
 
   const [items, setItems] = useState<ArchiveItem[]>([]);
@@ -113,6 +114,7 @@ function PracticePage() {
   const [familyFilter, setFamilyFilter] = useState<string>("");
   const [roleFilter, setRoleFilter] = useState<string>("");
   const [search, setSearch] = useState("");
+  const [anonTarget, setAnonTarget] = useState<ArchiveItem | null>(null);
   const [statsMap, setStatsMap] = useState<Record<string, { total: number; gold: number; templates: number; unclassified: number; pending_approval: number }>>({});
   const [batchRows, setBatchRows] = useState<{ id: string; count: number; created_at: string }[]>([]);
   const [matters, setMatters] = useState<{ id: string; title: string | null; matter_number: string | null }[]>([]);
