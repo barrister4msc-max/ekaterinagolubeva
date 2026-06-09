@@ -181,11 +181,7 @@ export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
         });
         const txt = await resp.text();
         if (resp.ok) {
-          try {
-            aiAnalysis = JSON.parse(txt);
-          } catch {
-            aiAnalysis = txt;
-          }
+          aiAnalysis = txt;
         } else {
           orchestratorError = `intake-orchestrator ${resp.status}: ${txt.slice(0, 500)}`;
           console.error("[site-assistant]", orchestratorError);
