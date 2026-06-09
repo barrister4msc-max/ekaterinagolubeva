@@ -141,6 +141,28 @@ export function AiChatDialog({ open, onClose }: { open: boolean; onClose: () => 
         </div>
 
         <form onSubmit={submit} className="border-t border-border/60 bg-background/60 p-3">
+          <label className="mb-2 flex cursor-pointer items-start gap-2 text-[11px] leading-snug text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => {
+                setConsent(e.target.checked);
+                if (e.target.checked) setConsentError(false);
+              }}
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-primary"
+            />
+            <span>
+              Я согласен(на) на обработку персональных данных и принимаю{" "}
+              <Link to="/privacy" onClick={onClose} className="text-primary underline underline-offset-2">Политику конфиденциальности</Link>
+              {" "}и{" "}
+              <Link to="/consent" onClick={onClose} className="text-primary underline underline-offset-2">Согласие на обработку персональных данных</Link>.
+            </span>
+          </label>
+          {consentError && (
+            <div className="mb-2 text-[11px] text-destructive">
+              Для отправки сообщения необходимо согласие на обработку персональных данных.
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <textarea
               value={input}
