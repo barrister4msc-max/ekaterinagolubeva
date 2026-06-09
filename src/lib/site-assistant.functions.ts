@@ -13,7 +13,7 @@ const InputSchema = z.object({
 });
 
 const CHANNEL_NAME = "Website AI Assistant";
-const CHANNEL_TYPE = "site";
+const CHANNEL_TYPE = "website";
 
 export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => InputSchema.parse(data))
