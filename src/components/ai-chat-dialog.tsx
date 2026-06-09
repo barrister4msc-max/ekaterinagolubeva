@@ -3,11 +3,33 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import ReactMarkdown from "react-markdown";
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { Send, X, Sparkles } from "lucide-react";
+import { submitSiteAssistantIntake } from "@/lib/site-assistant.functions";
+
+const CONSENT_TEXT =
+  "Я согласен(на) на обработку персональных данных и принимаю Политику конфиденциальности.";
+
+function getSessionId(): string {
+  if (typeof window === "undefined") return "ssr";
+  const KEY = "site-assistant-session-id";
+  let id = window.localStorage.getItem(KEY);
+  if (!id) {
+    id =
+      (typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `s-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`).replace(/[^a-zA-Z0-9_-]/g, "");
+    window.localStorage.setItem(KEY, id);
+  }
+  return id;
+}
 
 export function AiChatDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [input, setInput] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [consentError, setConsentError] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const submitIntake = useServerFn(submitSiteAssistantIntake);
 
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
@@ -32,7 +54,26 @@ export function AiChatDialog({ open, onClose }: { open: boolean; onClose: () => 
     e.preventDefault();
     const text = input.trim();
     if (!text || isLoading) return;
+    if (!consent) {
+      setConsentError(true);
+      return;
+    }
+    setConsentError(false);
     setInput("");
+
+    // Log intake to CRM (fire-and-forget)
+    void submitIntake({
+      data: {
+        text,
+        sessionId: getSessionId(),
+        consent: true,
+        consentText: CONSENT_TEXT,
+        pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+      },
+    }).catch((err) => {
+      console.error("[site-assistant] intake log failed", err);
+    });
+
     await sendMessage({ text });
   };
 
@@ -100,6 +141,28 @@ export function AiChatDialog({ open, onClose }: { open: boolean; onClose: () => 
         </div>
 
         <form onSubmit={submit} className="border-t border-border/60 bg-background/60 p-3">
+          <label className="mb-2 flex cursor-pointer items-start gap-2 text-[11px] leading-snug text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(e) => {
+                setConsent(e.target.checked);
+                if (e.target.checked) setConsentError(false);
+              }}
+              className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-primary"
+            />
+            <span>
+              Я согласен(на) на обработку персональных данных и принимаю{" "}
+              <Link to="/privacy" onClick={onClose} className="text-primary underline underline-offset-2">Политику конфиденциальности</Link>
+              {" "}и{" "}
+              <Link to="/consent" onClick={onClose} className="text-primary underline underline-offset-2">Согласие на обработку персональных данных</Link>.
+            </span>
+          </label>
+          {consentError && (
+            <div className="mb-2 text-[11px] text-destructive">
+              Для отправки сообщения необходимо согласие на обработку персональных данных.
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <textarea
               value={input}
