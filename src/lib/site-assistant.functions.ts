@@ -101,8 +101,12 @@ export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
         })
         .select("id")
         .single();
-      if (clientErr || !client) return { ok: false as const, error: clientErr?.message ?? "client insert failed" };
+      if (clientErr || !client) {
+        console.error("[site-assistant] crm_clients insert failed", clientErr);
+        return { ok: false as const, error: clientErr?.message ?? "client insert failed" };
+      }
       clientId = client.id;
+      console.log("[site-assistant] crm_clients inserted", clientId);
 
       // Create crm_lead
       const { data: lead, error: leadErr } = await supabaseAdmin
@@ -117,8 +121,12 @@ export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
         })
         .select("id")
         .single();
-      if (leadErr || !lead) return { ok: false as const, error: leadErr?.message ?? "lead insert failed" };
+      if (leadErr || !lead) {
+        console.error("[site-assistant] crm_leads insert failed", leadErr);
+        return { ok: false as const, error: leadErr?.message ?? "lead insert failed" };
+      }
       leadId = lead.id;
+      console.log("[site-assistant] crm_leads inserted", leadId);
 
       // Create conversation
       const { data: convo, error: convoErr } = await supabaseAdmin
@@ -132,8 +140,12 @@ export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
         })
         .select("id")
         .single();
-      if (convoErr || !convo) return { ok: false as const, error: convoErr?.message ?? "conversation insert failed" };
+      if (convoErr || !convo) {
+        console.error("[site-assistant] communication_conversations insert failed", convoErr);
+        return { ok: false as const, error: convoErr?.message ?? "conversation insert failed" };
+      }
       conversationId = convo.id;
+      console.log("[site-assistant] communication_conversations inserted", conversationId);
     }
 
     // 3) Insert communication_message
@@ -165,8 +177,11 @@ export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
       .single();
 
     if (msgErr || !messageInsert) {
+      console.error("[site-assistant] communication_messages insert failed", msgErr);
       return { ok: false as const, error: msgErr?.message ?? "message insert failed" };
     }
+    console.log("[site-assistant] communication_messages inserted", messageInsert.id);
+
 
     await supabaseAdmin
       .from("communication_conversations")
