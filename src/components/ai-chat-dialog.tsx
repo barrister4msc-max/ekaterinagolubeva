@@ -61,18 +61,23 @@ export function AiChatDialog({ open, onClose }: { open: boolean; onClose: () => 
     setConsentError(false);
     setInput("");
 
-    // Log intake to CRM (fire-and-forget)
-    void submitIntake({
-      data: {
-        text,
-        sessionId: getSessionId(),
-        consent: true,
-        consentText: CONSENT_TEXT,
-        pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
-      },
-    }).catch((err) => {
-      console.error("[site-assistant] intake log failed", err);
-    });
+    // Log intake to CRM (await to surface errors, but never block sendMessage)
+    console.log("[site-assistant] calling submitSiteAssistantIntake", { sessionId: getSessionId(), textLen: text.length });
+    try {
+      const res = await submitIntake({
+        data: {
+          text,
+          sessionId: getSessionId(),
+          consent: true,
+          consentText: CONSENT_TEXT,
+          pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+        },
+      });
+      console.log("[site-assistant] submitSiteAssistantIntake result", res);
+    } catch (err) {
+      console.error("[site-assistant] submitSiteAssistantIntake threw", err);
+    }
+
 
     await sendMessage({ text });
   };
