@@ -44,22 +44,11 @@ export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
       }
     }
 
-    // 2) Find existing conversation for this session, otherwise create client+lead+conversation
+    // 2) Find existing conversation for this session via raw_payload on prior messages
     let conversationId: string;
     let clientId: string;
     let leadId: string;
 
-    const { data: existingConvo } = await supabaseAdmin
-      .from("communication_conversations")
-      .select("id, crm_client_id, crm_lead_id")
-      .eq("channel_id", channelId)
-      .contains("ai_extracted_entities" as never, {})
-      .limit(1)
-      .maybeSingle()
-      .then((r) => r)
-      .catch(() => ({ data: null as null }));
-
-    // Session-based lookup via raw_payload on messages
     let foundConvo: { id: string; crm_client_id: string | null; crm_lead_id: string | null } | null = null;
     {
       const { data: msgs } = await supabaseAdmin
@@ -70,13 +59,21 @@ export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
         .order("created_at", { ascending: false })
         .limit(1);
       if (msgs && msgs.length > 0) {
-        const c = (msgs[0] as unknown as { communication_conversations: { id: string; crm_client_id: string | null; crm_lead_id: string | null; channel_id: string } }).communication_conversations;
+        const row = msgs[0] as unknown as {
+          communication_conversations: {
+            id: string;
+            crm_client_id: string | null;
+            crm_lead_id: string | null;
+            channel_id: string;
+          };
+        };
+        const c = row.communication_conversations;
         if (c && c.channel_id === channelId) {
           foundConvo = { id: c.id, crm_client_id: c.crm_client_id, crm_lead_id: c.crm_lead_id };
         }
       }
     }
-    void existingConvo;
+
 
     if (foundConvo && foundConvo.crm_client_id && foundConvo.crm_lead_id) {
       conversationId = foundConvo.id;
