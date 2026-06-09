@@ -54,7 +54,26 @@ export function AiChatDialog({ open, onClose }: { open: boolean; onClose: () => 
     e.preventDefault();
     const text = input.trim();
     if (!text || isLoading) return;
+    if (!consent) {
+      setConsentError(true);
+      return;
+    }
+    setConsentError(false);
     setInput("");
+
+    // Log intake to CRM (fire-and-forget)
+    void submitIntake({
+      data: {
+        text,
+        sessionId: getSessionId(),
+        consent: true,
+        consentText: CONSENT_TEXT,
+        pageUrl: typeof window !== "undefined" ? window.location.href : undefined,
+      },
+    }).catch((err) => {
+      console.error("[site-assistant] intake log failed", err);
+    });
+
     await sendMessage({ text });
   };
 
