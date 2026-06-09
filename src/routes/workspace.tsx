@@ -7,11 +7,11 @@ import workspaceBg from "@/assets/workspace-bg-wave.jpg.asset.json";
 
 const bgStyle: React.CSSProperties = {
   backgroundImage: `url(${workspaceBg.url})`,
-  backgroundSize: "cover",
+  backgroundSize: "contain",
   backgroundPosition: "center center",
   backgroundRepeat: "no-repeat",
   backgroundAttachment: "fixed",
-  backgroundColor: "#0a1420",
+  backgroundColor: "#0d3a3f",
 };
 
 const bgOverlayStyle: React.CSSProperties = {
