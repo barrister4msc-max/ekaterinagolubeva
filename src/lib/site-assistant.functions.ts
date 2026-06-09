@@ -18,6 +18,12 @@ const CHANNEL_TYPE = "site";
 export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => InputSchema.parse(data))
   .handler(async ({ data }) => {
+    console.log("[site-assistant] handler start", {
+      sessionId: data.sessionId,
+      textLen: data.text.length,
+      hasUrl: !!process.env.SUPABASE_URL,
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const nowIso = new Date().toISOString();
     const displayName = data.name?.trim() || "Сайт / AI Assistant";
@@ -25,12 +31,13 @@ export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
     // 1) Find or create channel "Website AI Assistant"
     let channelId: string;
     {
-      const { data: existing } = await supabaseAdmin
+      const { data: existing, error: chSelErr } = await supabaseAdmin
         .from("communication_channels")
         .select("id")
         .eq("channel_type", CHANNEL_TYPE)
         .eq("name", CHANNEL_NAME)
         .maybeSingle();
+      if (chSelErr) console.error("[site-assistant] channel select error", chSelErr);
       if (existing) {
         channelId = existing.id;
       } else {
@@ -39,40 +46,43 @@ export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
           .insert({ channel_type: CHANNEL_TYPE, name: CHANNEL_NAME, is_active: true })
           .select("id")
           .single();
-        if (error || !created) return { ok: false as const, error: error?.message ?? "channel insert failed" };
+        if (error || !created) {
+          console.error("[site-assistant] channel insert failed", error);
+          return { ok: false as const, error: error?.message ?? "channel insert failed" };
+        }
         channelId = created.id;
       }
+      console.log("[site-assistant] channelId", channelId);
     }
 
-    // 2) Find existing conversation for this session via raw_payload on prior messages
+    // 2) Find existing conversation for this session via prior message raw_payload
     let conversationId: string;
     let clientId: string;
     let leadId: string;
 
     let foundConvo: { id: string; crm_client_id: string | null; crm_lead_id: string | null } | null = null;
     {
-      const { data: msgs } = await supabaseAdmin
+      const { data: msgs, error: msgSelErr } = await supabaseAdmin
         .from("communication_messages")
-        .select("conversation_id, raw_payload, communication_conversations!inner(id, crm_client_id, crm_lead_id, channel_id)")
+        .select("conversation_id, raw_payload")
         .eq("raw_payload->>session_id", data.sessionId)
         .eq("raw_payload->>source", "site_assistant")
         .order("created_at", { ascending: false })
         .limit(1);
-      if (msgs && msgs.length > 0) {
-        const row = msgs[0] as unknown as {
-          communication_conversations: {
-            id: string;
-            crm_client_id: string | null;
-            crm_lead_id: string | null;
-            channel_id: string;
-          };
-        };
-        const c = row.communication_conversations;
-        if (c && c.channel_id === channelId) {
-          foundConvo = { id: c.id, crm_client_id: c.crm_client_id, crm_lead_id: c.crm_lead_id };
+      if (msgSelErr) console.error("[site-assistant] prior-message select error", msgSelErr);
+      if (msgs && msgs.length > 0 && msgs[0].conversation_id) {
+        const { data: convo } = await supabaseAdmin
+          .from("communication_conversations")
+          .select("id, crm_client_id, crm_lead_id, channel_id")
+          .eq("id", msgs[0].conversation_id)
+          .maybeSingle();
+        if (convo && convo.channel_id === channelId) {
+          foundConvo = { id: convo.id, crm_client_id: convo.crm_client_id, crm_lead_id: convo.crm_lead_id };
         }
       }
+      console.log("[site-assistant] foundConvo", foundConvo);
     }
+
 
 
     if (foundConvo && foundConvo.crm_client_id && foundConvo.crm_lead_id) {
