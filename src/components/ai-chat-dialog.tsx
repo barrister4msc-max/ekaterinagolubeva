@@ -3,11 +3,33 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import ReactMarkdown from "react-markdown";
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { Send, X, Sparkles } from "lucide-react";
+import { submitSiteAssistantIntake } from "@/lib/site-assistant.functions";
+
+const CONSENT_TEXT =
+  "Я согласен(на) на обработку персональных данных и принимаю Политику конфиденциальности.";
+
+function getSessionId(): string {
+  if (typeof window === "undefined") return "ssr";
+  const KEY = "site-assistant-session-id";
+  let id = window.localStorage.getItem(KEY);
+  if (!id) {
+    id =
+      (typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `s-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`).replace(/[^a-zA-Z0-9_-]/g, "");
+    window.localStorage.setItem(KEY, id);
+  }
+  return id;
+}
 
 export function AiChatDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [input, setInput] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [consentError, setConsentError] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const submitIntake = useServerFn(submitSiteAssistantIntake);
 
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
