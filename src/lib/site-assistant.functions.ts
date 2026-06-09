@@ -164,7 +164,7 @@ export const submitSiteAssistantIntake = createServerFn({ method: "POST" })
       .eq("id", conversationId);
 
     // 4) Call existing Supabase Edge Function intake-orchestrator
-    let aiAnalysis: Record<string, unknown> | string | null = null;
+    let aiAnalysis: string | null = null;
     let orchestratorError: string | null = null;
     try {
       const supabaseUrl = process.env.SUPABASE_URL;
