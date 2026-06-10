@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Upload, Plus, Save, Sparkles, FileText, Trash2, FolderArchive } from "lucide-react";
+import { DocumentAIAnalysisPanel } from "@/components/document-ai-analysis-panel";
 import {
   matterGet,
   matterUpdate,
