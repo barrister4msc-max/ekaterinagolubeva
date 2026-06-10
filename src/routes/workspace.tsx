@@ -19,6 +19,10 @@ const bgOverlayStyle: React.CSSProperties = {
 };
 
 function WorkspaceBackground({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    document.body.classList.add("workspace-active");
+    return () => document.body.classList.remove("workspace-active");
+  }, []);
   return (
     <div className="workspace-glass relative min-h-screen overflow-x-hidden bg-transparent">
       <div aria-hidden="true" className="fixed inset-0 z-0" style={bgStyle} />
@@ -27,6 +31,7 @@ function WorkspaceBackground({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
 
 export const Route = createFileRoute("/workspace")({
   head: () => ({
