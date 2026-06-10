@@ -1383,74 +1383,18 @@ await supabase
     Открыть
   </button>
 
-  <button
-    disabled={analyzingId === doc.id}
-    onClick={async () => {
-      if (
-  doc.analysis_status === "completed" &&
-  expandedAnalysisId === doc.id
-) {
-  setExpandedAnalysisId(null);
-  return;
-}
-
-if (
-  doc.analysis_status === "completed" &&
-  expandedAnalysisId !== doc.id
-) {
-  setAnalysisDoc(doc);
-  setExpandedAnalysisId(doc.id);
-  return;
-}
-      try {
-        setAnalyzingId(doc.id);
-
-        const { error } = await supabase.functions.invoke(
-          "analyze-lead-document",
-          {
-            body: {
-  document_id: doc.id,
-  lead_id: lead.id,
-  crm_lead_id: lead.source_crm_lead_id ?? null,
-},
-          }
-        );
-
-        if (error) {
-          console.error(error);
-          alert(error.message);
-          return;
-        }
-await supabase
-  .from("lead_events")
-  .insert({
-    lead_id: lead.id,
-    type: "ai_analysis",
-    message: `AI анализ выполнен: ${doc.file_name}`,
-  });
-        const freshDocs = await loadDocuments();
-const freshDoc = freshDocs.find((d) => d.id === doc.id);
-
-if (freshDoc) {
-  setAnalysisDoc(freshDoc);
-  setExpandedAnalysisId(doc.id);
-}
-
-alert("AI анализ завершен");
-      } finally {
-        setAnalyzingId(null);
-      }
-    }}
-    className="rounded-xl border border-blue-200 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
-  >
-    {analyzingId === doc.id
-  ? "Анализ..."
-  : expandedAnalysisId === doc.id
-    ? "Скрыть AI анализ"
-    : doc.analysis_status === "completed"
-      ? "Посмотреть AI анализ"
-      : "Выполнить AI анализ"}
-  </button>
+  <div className="w-full">
+    <DocumentAIAnalysisPanel
+      documentId={doc.id}
+      sourceTable="lead_documents"
+      leadId={lead.id}
+      enableExternalSearch
+      enableDocumentRecommendations
+      onAnalysisComplete={() => {
+        void loadDocuments();
+      }}
+    />
+  </div>
 <button
   disabled={reviewingId === doc.id}
   onClick={async () => {
