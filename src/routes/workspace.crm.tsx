@@ -31,6 +31,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { GeneratedDocumentsBlock } from "@/components/crm/generated-documents-block";
 import { SourcesClassifier } from "@/components/crm/sources-classifier";
+import { DocumentAIAnalysisPanel } from "@/components/document-ai-analysis-panel";
 
 export const Route = createFileRoute("/workspace/crm")({
   validateSearch: (search: Record<string, unknown>): { lead?: string } => ({
@@ -1382,74 +1383,18 @@ await supabase
     Открыть
   </button>
 
-  <button
-    disabled={analyzingId === doc.id}
-    onClick={async () => {
-      if (
-  doc.analysis_status === "completed" &&
-  expandedAnalysisId === doc.id
-) {
-  setExpandedAnalysisId(null);
-  return;
-}
-
-if (
-  doc.analysis_status === "completed" &&
-  expandedAnalysisId !== doc.id
-) {
-  setAnalysisDoc(doc);
-  setExpandedAnalysisId(doc.id);
-  return;
-}
-      try {
-        setAnalyzingId(doc.id);
-
-        const { error } = await supabase.functions.invoke(
-          "analyze-lead-document",
-          {
-            body: {
-  document_id: doc.id,
-  lead_id: lead.id,
-  crm_lead_id: lead.source_crm_lead_id ?? null,
-},
-          }
-        );
-
-        if (error) {
-          console.error(error);
-          alert(error.message);
-          return;
-        }
-await supabase
-  .from("lead_events")
-  .insert({
-    lead_id: lead.id,
-    type: "ai_analysis",
-    message: `AI анализ выполнен: ${doc.file_name}`,
-  });
-        const freshDocs = await loadDocuments();
-const freshDoc = freshDocs.find((d) => d.id === doc.id);
-
-if (freshDoc) {
-  setAnalysisDoc(freshDoc);
-  setExpandedAnalysisId(doc.id);
-}
-
-alert("AI анализ завершен");
-      } finally {
-        setAnalyzingId(null);
-      }
-    }}
-    className="rounded-xl border border-blue-200 px-3 py-2 text-xs text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
-  >
-    {analyzingId === doc.id
-  ? "Анализ..."
-  : expandedAnalysisId === doc.id
-    ? "Скрыть AI анализ"
-    : doc.analysis_status === "completed"
-      ? "Посмотреть AI анализ"
-      : "Выполнить AI анализ"}
-  </button>
+  <div className="w-full">
+    <DocumentAIAnalysisPanel
+      documentId={doc.id}
+      sourceTable="lead_documents"
+      leadId={lead.id}
+      enableExternalSearch
+      enableDocumentRecommendations
+      onAnalysisComplete={() => {
+        void loadDocuments();
+      }}
+    />
+  </div>
 <button
   disabled={reviewingId === doc.id}
   onClick={async () => {
@@ -1581,77 +1526,7 @@ await supabase
 
 </div>
 
-{expandedAnalysisId === doc.id &&
- analysisDoc?.id === doc.id && (
-  <div className="mt-4 space-y-4 rounded-2xl border bg-secondary/20 p-4">
-    {(() => {
-      const a = analysisDoc.extracted_data?.structured_analysis || {};
-const review = legalReviewsByDocumentId[doc.id];
-      const renderList = (title: string, items: any, red = false) => {
-        const arr = Array.isArray(items) ? items : items ? [items] : [];
-
-        return (
-          <div className="rounded-xl border bg-white p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {title}
-            </div>
-
-            <div className="mt-2 space-y-1 text-xs leading-5 text-muted-foreground">
-              {arr.length > 0 ? (
-                arr.map((item: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className={`rounded-lg px-2 py-1 ${
-                      red ? "bg-red-50 text-red-700" : "bg-secondary/40"
-                    }`}
-                  >
-                    {typeof item === "string"
-                      ? item
-                      : Object.entries(item)
-                          .filter(([, v]) => v)
-                          .map(([k, v]) => `${k}: ${String(v)}`)
-                          .join(" · ")}
-                  </div>
-                ))
-              ) : (
-                <div>Не найдено</div>
-              )}
-            </div>
-          </div>
-        );
-      };
-
-      return (
-        <>
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-blue-900">
-              Краткое содержание
-            </div>
-
-            <div className="mt-2 text-sm leading-6 text-blue-950">
-              {a.short_summary ||
-                analysisDoc.ai_summary ||
-                "Краткое содержание пока не сформировано"}
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            {renderList("Категория", a.document_category)}
-            {renderList("Стороны", a.parties)}
-            {renderList("Физлица", a.persons)}
-            {renderList("Компании", a.companies)}
-            {renderList("Адреса", a.addresses)}
-            {renderList("Суммы", a.amounts)}
-            {renderList("Даты", a.dates)}
-            {renderList("Кадастровые номера", a.cad_numbers)}
-          </div>
-
-          <div className="grid gap-3">
-            {renderList("Юридические риски", a.legal_risks, true)}
-            {renderList("Что проверить юристу", a.missing_checks, true)}
-            {renderList("Рекомендации", a.recommended_actions)}
-          </div>
-          {expandedReviewId === doc.id &&
+{expandedReviewId === doc.id &&
  legalReviewsByDocumentId[doc.id] && (
   <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-4">
     {(() => {
@@ -1756,11 +1631,7 @@ const review = legalReviewsByDocumentId[doc.id];
     })()}
   </div>
 )}
-        </>
-      );
-    })()}
-  </div>
-)}
+
 
 </div>
 
