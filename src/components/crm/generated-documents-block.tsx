@@ -308,7 +308,44 @@ export function GeneratedDocumentsBlock({
               <ChevronDown size={14} />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="max-h-[70vh] w-80 overflow-y-auto">
+          <DropdownMenuContent align="end" className="max-h-[70vh] w-96 overflow-y-auto">
+            {aiCandidates.length > 0 && (
+              <>
+                <DropdownMenuLabel className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-violet-700">
+                  <Sparkles size={12} /> Рекомендовано AI
+                </DropdownMenuLabel>
+                {aiCandidates.map((c, i) => (
+                  <DropdownMenuItem
+                    key={`ai-${i}`}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleAICandidate(c);
+                    }}
+                    className="flex flex-col items-start gap-1"
+                  >
+                    <div className="flex w-full flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-medium">{c.title || c.document_type || "Документ"}</span>
+                      {c.readiness && (
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${READINESS_TONE[c.readiness] || "bg-neutral-100 text-neutral-700"}`}>
+                          {READINESS_LABEL[c.readiness] || c.readiness}
+                        </span>
+                      )}
+                      {c.priority && (
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${PRIORITY_TONE[c.priority] || "bg-neutral-100 text-neutral-700"}`}>
+                          {c.priority}
+                        </span>
+                      )}
+                    </div>
+                    {(c.document_type || c.recommended_strategy) && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {[c.document_type, c.recommended_strategy].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </>
+            )}
             {grouped.length === 0 ? (
               <div className="px-3 py-2 text-sm text-muted-foreground">Нет шаблонов</div>
             ) : (
