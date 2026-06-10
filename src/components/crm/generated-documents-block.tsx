@@ -105,12 +105,6 @@ export function GeneratedDocumentsBlock({
   const [templates, setTemplates] = useState<Template[]>([]);
   const [docs, setDocs] = useState<GeneratedDoc[]>([]);
   const [aiCandidates, setAiCandidates] = useState<AICandidate[]>([]);
-  leadId: string;
-  crmLeadId: string | null;
-  userId: string | null;
-}) {
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [docs, setDocs] = useState<GeneratedDoc[]>([]);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<GeneratedDoc | null>(null);
   const [editContent, setEditContent] = useState("");
