@@ -95,7 +95,16 @@ export function GeneratedDocumentsBlock({
   leadId,
   crmLeadId,
   userId,
+  matterId,
 }: {
+  leadId: string;
+  crmLeadId: string | null;
+  userId: string | null;
+  matterId?: string | null;
+}) {
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [docs, setDocs] = useState<GeneratedDoc[]>([]);
+  const [aiCandidates, setAiCandidates] = useState<AICandidate[]>([]);
   leadId: string;
   crmLeadId: string | null;
   userId: string | null;
