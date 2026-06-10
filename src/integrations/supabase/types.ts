@@ -1907,6 +1907,7 @@ export type Database = {
           id: string
           legal_basis: Json
           matter_id: string
+          metadata: Json
           next_steps: Json
           opponent_position: string | null
           recommended_documents: Json
@@ -1927,6 +1928,7 @@ export type Database = {
           id?: string
           legal_basis?: Json
           matter_id: string
+          metadata?: Json
           next_steps?: Json
           opponent_position?: string | null
           recommended_documents?: Json
@@ -1947,6 +1949,7 @@ export type Database = {
           id?: string
           legal_basis?: Json
           matter_id?: string
+          metadata?: Json
           next_steps?: Json
           opponent_position?: string | null
           recommended_documents?: Json

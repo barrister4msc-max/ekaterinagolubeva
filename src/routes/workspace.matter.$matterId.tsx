@@ -420,9 +420,11 @@ function StrategyTab({ matterId }: { matterId: string }) {
   const [weaknesses, setWeaknesses] = useState("");
   const [risks, setRisks] = useState("");
   const [legalBasis, setLegalBasis] = useState("");
+  const [legalBasisArr, setLegalBasisArr] = useState<any[]>([]);
   const [courtPractice, setCourtPractice] = useState("");
   const [recommendedDocs, setRecommendedDocs] = useState("");
   const [nextSteps, setNextSteps] = useState("");
+  const [metadata, setMetadata] = useState<any>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -435,15 +437,22 @@ function StrategyTab({ matterId }: { matterId: string }) {
           setOpponentPosition(s.opponent_position ?? "");
           setSuccessProb(s.success_probability ?? "");
           setAiSummary(s.ai_summary ?? "");
-          const j = (a: any) => (Array.isArray(a) ? a.join("\n") : "");
+          const j = (a: any) =>
+            Array.isArray(a)
+              ? a
+                  .map((x) => (typeof x === "string" ? x : x?.title || x?.text || JSON.stringify(x)))
+                  .join("\n")
+              : "";
           setFacts(j(s.facts));
           setStrengths(j(s.strengths));
           setWeaknesses(j(s.weaknesses));
           setRisks(j(s.risks));
           setLegalBasis(j(s.legal_basis));
+          setLegalBasisArr(Array.isArray(s.legal_basis) ? s.legal_basis : []);
           setCourtPractice(j(s.court_practice));
           setRecommendedDocs(j(s.recommended_documents));
           setNextSteps(j(s.next_steps));
+          setMetadata(s.metadata ?? null);
         }
       } catch (e: any) {
         toast.error(e?.message || "Ошибка");
@@ -452,6 +461,7 @@ function StrategyTab({ matterId }: { matterId: string }) {
       }
     })();
   }, [getFn, matterId]);
+
 
   const toArr = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
 
@@ -492,38 +502,119 @@ function StrategyTab({ matterId }: { matterId: string }) {
     </div>
   );
 
+  const md = metadata || {};
+  const unverified = Array.isArray(md.unverified_legal_basis) ? md.unverified_legal_basis : [];
+  const strategies = Array.isArray(md.strategies) ? md.strategies : [];
+  const rejectedNorms = Array.isArray(md.rejected_norms) ? md.rejected_norms : [];
+  const missingFacts = Array.isArray(md.missing_facts) ? md.missing_facts : [];
+  const missingLegalSources = Array.isArray(md.missing_legal_sources) ? md.missing_legal_sources : [];
+  const missingDocuments = Array.isArray(md.missing_documents) ? md.missing_documents : [];
+
+  const itemText = (x: any) => {
+    if (x == null) return "";
+    if (typeof x === "string") return x;
+    const t = x.title || x.name || x.norm || x.article || x.text || x.query || x.document_type || "";
+    const extras = [x.reason, x.why, x.purpose, x.note, x.status, x.source_type]
+      .filter(Boolean)
+      .join(" · ");
+    return [t, extras].filter(Boolean).join(" — ") || JSON.stringify(x);
+  };
+
+  const ReadList = ({ items, tone = "neutral" as "neutral" | "warn" | "danger" | "ok" }: { items: any[]; tone?: "neutral" | "warn" | "danger" | "ok" }) => {
+    if (!items || items.length === 0) return <div className="text-xs text-foreground/60">Нет данных</div>;
+    const cls =
+      tone === "warn"
+        ? "bg-amber-100/15 text-amber-100 border border-amber-300/30"
+        : tone === "danger"
+        ? "bg-red-500/15 text-red-200 border border-red-400/30"
+        : tone === "ok"
+        ? "bg-emerald-500/15 text-emerald-200 border border-emerald-400/30"
+        : "bg-white/[0.07] text-foreground/85 border border-white/15";
+    return (
+      <div className="space-y-1">
+        {items.map((it, i) => (
+          <div key={i} className={`rounded-lg px-2 py-1 text-xs leading-5 backdrop-blur ${cls}`}>
+            {itemText(it)}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const Block = ({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) => (
+    <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/75">{title}</div>
+      {hint && <div className="mt-1 text-[11px] text-foreground/60">{hint}</div>}
+      <div className="mt-2">{children}</div>
+    </div>
+  );
+
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-sm">Стратегия дела</CardTitle>
-        <Button size="sm" variant="outline" disabled title="AI-генерация будет подключена"><Sparkles size={14} /> Сформировать стратегию AI</Button>
-      </CardHeader>
-      <CardContent className="grid gap-3 md:grid-cols-2">
-        <F label="Позиция клиента" value={clientPosition} onChange={setClientPosition} />
-        <F label="Позиция оппонента" value={opponentPosition} onChange={setOpponentPosition} />
-        <F label="Факты (по строке)" value={facts} onChange={setFacts} rows={5} />
-        <F label="Правовое основание (по строке)" value={legalBasis} onChange={setLegalBasis} rows={5} />
-        <F label="Сильные стороны (по строке)" value={strengths} onChange={setStrengths} />
-        <F label="Слабые стороны (по строке)" value={weaknesses} onChange={setWeaknesses} />
-        <F label="Риски (по строке)" value={risks} onChange={setRisks} />
-        <F label="Судебная практика (по строке)" value={courtPractice} onChange={setCourtPractice} />
-        <F label="Рекомендуемые документы (по строке)" value={recommendedDocs} onChange={setRecommendedDocs} />
-        <F label="Следующие шаги (по строке)" value={nextSteps} onChange={setNextSteps} />
-        <div>
-          <Label className="text-xs">Вероятность успеха</Label>
-          <Input value={successProb} onChange={(e) => setSuccessProb(e.target.value)} placeholder="например, 70%" />
-        </div>
-        <div className="md:col-span-2">
-          <Label className="text-xs">AI-сводка</Label>
-          <Textarea rows={3} value={aiSummary} onChange={(e) => setAiSummary(e.target.value)} />
-        </div>
-        <div className="md:col-span-2">
-          <Button onClick={save} disabled={saving}><Save size={14} /> Сохранить</Button>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">AI-разбор стратегии</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          <Block title="Подтверждённое правовое основание" hint="lawyer_matter_strategy.legal_basis">
+            <ReadList items={legalBasisArr} tone="ok" />
+          </Block>
+          <Block title="Источники требуют проверки" hint="metadata.unverified_legal_basis">
+            <ReadList items={unverified} tone="warn" />
+          </Block>
+          <Block title="Варианты стратегии" hint="metadata.strategies">
+            <ReadList items={strategies} />
+          </Block>
+          <Block title="Отклонённые нормы" hint="metadata.rejected_norms">
+            <ReadList items={rejectedNorms} tone="danger" />
+          </Block>
+          <Block title="Недостающие факты" hint="metadata.missing_facts">
+            <ReadList items={missingFacts} tone="warn" />
+          </Block>
+          <Block title="Недостающие правовые источники" hint="metadata.missing_legal_sources">
+            <ReadList items={missingLegalSources} tone="warn" />
+          </Block>
+          <div className="md:col-span-2">
+            <Block title="Недостающие документы" hint="metadata.missing_documents">
+              <ReadList items={missingDocuments} tone="warn" />
+            </Block>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-sm">Стратегия дела</CardTitle>
+          <Button size="sm" variant="outline" disabled title="AI-генерация будет подключена"><Sparkles size={14} /> Сформировать стратегию AI</Button>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-2">
+          <F label="Позиция клиента" value={clientPosition} onChange={setClientPosition} />
+          <F label="Позиция оппонента" value={opponentPosition} onChange={setOpponentPosition} />
+          <F label="Факты (по строке)" value={facts} onChange={setFacts} rows={5} />
+          <F label="Правовое основание (по строке)" value={legalBasis} onChange={setLegalBasis} rows={5} />
+          <F label="Сильные стороны (по строке)" value={strengths} onChange={setStrengths} />
+          <F label="Слабые стороны (по строке)" value={weaknesses} onChange={setWeaknesses} />
+          <F label="Риски (по строке)" value={risks} onChange={setRisks} />
+          <F label="Судебная практика (по строке)" value={courtPractice} onChange={setCourtPractice} />
+          <F label="Документы к подготовке (по строке)" value={recommendedDocs} onChange={setRecommendedDocs} />
+          <F label="Следующие шаги (по строке)" value={nextSteps} onChange={setNextSteps} />
+          <div>
+            <Label className="text-xs">Вероятность успеха</Label>
+            <Input value={successProb} onChange={(e) => setSuccessProb(e.target.value)} placeholder="например, 70%" />
+          </div>
+          <div className="md:col-span-2">
+            <Label className="text-xs">AI-сводка</Label>
+            <Textarea rows={3} value={aiSummary} onChange={(e) => setAiSummary(e.target.value)} />
+          </div>
+          <div className="md:col-span-2">
+            <Button onClick={save} disabled={saving}><Save size={14} /> Сохранить</Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
+
 
 /* ===== Actions ===== */
 
