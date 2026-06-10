@@ -31,6 +31,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { GeneratedDocumentsBlock } from "@/components/crm/generated-documents-block";
 import { SourcesClassifier } from "@/components/crm/sources-classifier";
+import { DocumentAIAnalysisPanel } from "@/components/document-ai-analysis-panel";
 
 export const Route = createFileRoute("/workspace/crm")({
   validateSearch: (search: Record<string, unknown>): { lead?: string } => ({
