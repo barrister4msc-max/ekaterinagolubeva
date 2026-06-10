@@ -578,4 +578,160 @@
   font-weight: 500;
 }
 
+/* ============================================================
+   Workspace — portaled overlays (Dialog / Sheet / Drawer / Popover /
+   DropdownMenu / Select / HoverCard). These render inside <body> via
+   Radix portals, so `.workspace-glass` does not reach them. We toggle
+   `workspace-active` on <body> while inside /workspace/* routes and
+   style portaled overlays from there for a unified glass treatment.
+   ============================================================ */
+
+/* Soften the dark Radix overlay */
+body.workspace-active [data-radix-dialog-overlay],
+body.workspace-active [data-vaul-overlay] {
+  background: rgba(8, 24, 28, 0.55) !important;
+  backdrop-filter: blur(6px);
+}
+
+/* Dialog + Sheet content (both use @radix-ui/react-dialog → role="dialog") */
+body.workspace-active [role="dialog"][data-state],
+body.workspace-active [data-vaul-drawer] {
+  background: rgba(255, 255, 255, 0.20) !important;
+  backdrop-filter: blur(28px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+  border-radius: 20px !important;
+  color: rgba(255, 255, 255, 0.96);
+}
+
+/* Popper-based content: Popover, DropdownMenu, Select, HoverCard */
+body.workspace-active [data-radix-popper-content-wrapper] > * {
+  background: rgba(255, 255, 255, 0.18) !important;
+  backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.96);
+  border-radius: 14px !important;
+}
+
+/* Typography inside portaled overlays */
+body.workspace-active [role="dialog"][data-state] h1,
+body.workspace-active [role="dialog"][data-state] h2,
+body.workspace-active [role="dialog"][data-state] h3,
+body.workspace-active [role="dialog"][data-state] h4,
+body.workspace-active [role="dialog"][data-state] h5,
+body.workspace-active [role="dialog"][data-state] h6,
+body.workspace-active [data-vaul-drawer] h1,
+body.workspace-active [data-vaul-drawer] h2,
+body.workspace-active [data-vaul-drawer] h3,
+body.workspace-active [data-vaul-drawer] h4,
+body.workspace-active [data-radix-popper-content-wrapper] h1,
+body.workspace-active [data-radix-popper-content-wrapper] h2,
+body.workspace-active [data-radix-popper-content-wrapper] h3,
+body.workspace-active [data-radix-popper-content-wrapper] h4 {
+  color: rgba(255, 255, 255, 0.98);
+  font-weight: 600;
+}
+
+body.workspace-active [role="dialog"][data-state] .text-muted-foreground,
+body.workspace-active [role="dialog"][data-state] [class*="text-muted-foreground"],
+body.workspace-active [data-vaul-drawer] .text-muted-foreground,
+body.workspace-active [data-vaul-drawer] [class*="text-muted-foreground"],
+body.workspace-active [data-radix-popper-content-wrapper] .text-muted-foreground,
+body.workspace-active [data-radix-popper-content-wrapper] [class*="text-muted-foreground"] {
+  color: rgba(255, 255, 255, 0.80) !important;
+}
+
+/* Neutralize opaque white/card/muted backgrounds INSIDE overlays so nested
+   sections don't punch through the glass. */
+body.workspace-active [role="dialog"][data-state] .bg-background,
+body.workspace-active [role="dialog"][data-state] .bg-card,
+body.workspace-active [role="dialog"][data-state] .bg-white,
+body.workspace-active [role="dialog"][data-state] .bg-muted,
+body.workspace-active [role="dialog"][data-state] .bg-muted\/50,
+body.workspace-active [role="dialog"][data-state] .bg-secondary,
+body.workspace-active [role="dialog"][data-state] .bg-popover,
+body.workspace-active [data-vaul-drawer] .bg-background,
+body.workspace-active [data-vaul-drawer] .bg-card,
+body.workspace-active [data-vaul-drawer] .bg-white,
+body.workspace-active [data-vaul-drawer] .bg-muted,
+body.workspace-active [data-vaul-drawer] .bg-secondary,
+body.workspace-active [data-radix-popper-content-wrapper] .bg-background,
+body.workspace-active [data-radix-popper-content-wrapper] .bg-card,
+body.workspace-active [data-radix-popper-content-wrapper] .bg-white,
+body.workspace-active [data-radix-popper-content-wrapper] .bg-muted,
+body.workspace-active [data-radix-popper-content-wrapper] .bg-popover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+body.workspace-active [role="dialog"][data-state] [data-slot="card"],
+body.workspace-active [role="dialog"][data-state] .card-soft,
+body.workspace-active [data-vaul-drawer] [data-slot="card"] {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(18px);
+}
+
+/* Inputs inside overlays */
+body.workspace-active [role="dialog"][data-state] input:not([type="checkbox"]):not([type="radio"]),
+body.workspace-active [role="dialog"][data-state] textarea,
+body.workspace-active [role="dialog"][data-state] select,
+body.workspace-active [role="dialog"][data-state] [data-slot="select-trigger"],
+body.workspace-active [data-vaul-drawer] input:not([type="checkbox"]):not([type="radio"]),
+body.workspace-active [data-vaul-drawer] textarea {
+  background: rgba(255, 255, 255, 0.10) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+}
+body.workspace-active [role="dialog"][data-state] input::placeholder,
+body.workspace-active [role="dialog"][data-state] textarea::placeholder,
+body.workspace-active [data-vaul-drawer] input::placeholder,
+body.workspace-active [data-vaul-drawer] textarea::placeholder {
+  color: rgba(255, 255, 255, 0.55) !important;
+}
+
+/* Borders inside overlays */
+body.workspace-active [role="dialog"][data-state] .border,
+body.workspace-active [role="dialog"][data-state] .border-t,
+body.workspace-active [role="dialog"][data-state] .border-b,
+body.workspace-active [role="dialog"][data-state] .border-l,
+body.workspace-active [role="dialog"][data-state] .border-r,
+body.workspace-active [role="dialog"][data-state] .border-border,
+body.workspace-active [data-vaul-drawer] .border,
+body.workspace-active [data-vaul-drawer] .border-border,
+body.workspace-active [data-radix-popper-content-wrapper] .border,
+body.workspace-active [data-radix-popper-content-wrapper] .border-border {
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* Tables inside overlays */
+body.workspace-active [role="dialog"][data-state] table {
+  color: rgba(255, 255, 255, 0.95);
+  background: transparent;
+}
+body.workspace-active [role="dialog"][data-state] thead th {
+  color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 0.14);
+  background: transparent;
+}
+body.workspace-active [role="dialog"][data-state] tbody tr {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+body.workspace-active [role="dialog"][data-state] tbody tr:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Dropdown / Select / Menu items hover */
+body.workspace-active [data-radix-popper-content-wrapper] [role="menuitem"]:hover,
+body.workspace-active [data-radix-popper-content-wrapper] [role="option"]:hover,
+body.workspace-active [data-radix-popper-content-wrapper] [data-highlighted] {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: rgba(255, 255, 255, 0.98) !important;
+}
+
+
+
 
