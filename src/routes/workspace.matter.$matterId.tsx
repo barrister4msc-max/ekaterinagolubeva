@@ -362,6 +362,16 @@ function DocumentsTab({ matterId }: { matterId: string }) {
                     <TableCell>
                       <div className="flex items-center gap-2 text-sm"><FileText size={14} /> {d.title || d.file_name}</div>
                       <div className="text-xs text-muted-foreground">{d.mime_type}</div>
+                      <div className="mt-2">
+                        <DocumentAIAnalysisPanel
+                          documentId={d.id}
+                          sourceTable="documents"
+                          matterId={matterId}
+                          enableExternalSearch
+                          enableDocumentRecommendations
+                          onAnalysisComplete={() => void reload()}
+                        />
+                      </div>
                     </TableCell>
                     <TableCell><Badge variant="outline">{d.document_type || "—"}</Badge></TableCell>
                     <TableCell><Badge variant="secondary">{d.analysis_status}</Badge></TableCell>
@@ -382,7 +392,6 @@ function DocumentsTab({ matterId }: { matterId: string }) {
         <Card>
           <CardHeader><CardTitle className="text-sm">Что сделать с документом?</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" disabled title="AI-анализ — будет подключено"><Sparkles size={14} /> Выполнить AI-анализ</Button>
             <Button size="sm" variant="outline" disabled title="Будет подключено"><Sparkles size={14} /> Сформировать юридическое заключение</Button>
             <Button size="sm" variant="outline" disabled title="Уже привязано к делу">Добавить в дело</Button>
             <Button size="sm" variant="outline" disabled title="Будет подключено">Создать новое дело из документа</Button>
