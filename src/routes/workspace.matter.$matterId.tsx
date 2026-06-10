@@ -420,9 +420,11 @@ function StrategyTab({ matterId }: { matterId: string }) {
   const [weaknesses, setWeaknesses] = useState("");
   const [risks, setRisks] = useState("");
   const [legalBasis, setLegalBasis] = useState("");
+  const [legalBasisArr, setLegalBasisArr] = useState<any[]>([]);
   const [courtPractice, setCourtPractice] = useState("");
   const [recommendedDocs, setRecommendedDocs] = useState("");
   const [nextSteps, setNextSteps] = useState("");
+  const [metadata, setMetadata] = useState<any>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -435,15 +437,22 @@ function StrategyTab({ matterId }: { matterId: string }) {
           setOpponentPosition(s.opponent_position ?? "");
           setSuccessProb(s.success_probability ?? "");
           setAiSummary(s.ai_summary ?? "");
-          const j = (a: any) => (Array.isArray(a) ? a.join("\n") : "");
+          const j = (a: any) =>
+            Array.isArray(a)
+              ? a
+                  .map((x) => (typeof x === "string" ? x : x?.title || x?.text || JSON.stringify(x)))
+                  .join("\n")
+              : "";
           setFacts(j(s.facts));
           setStrengths(j(s.strengths));
           setWeaknesses(j(s.weaknesses));
           setRisks(j(s.risks));
           setLegalBasis(j(s.legal_basis));
+          setLegalBasisArr(Array.isArray(s.legal_basis) ? s.legal_basis : []);
           setCourtPractice(j(s.court_practice));
           setRecommendedDocs(j(s.recommended_documents));
           setNextSteps(j(s.next_steps));
+          setMetadata(s.metadata ?? null);
         }
       } catch (e: any) {
         toast.error(e?.message || "Ошибка");
@@ -452,6 +461,7 @@ function StrategyTab({ matterId }: { matterId: string }) {
       }
     })();
   }, [getFn, matterId]);
+
 
   const toArr = (s: string) => s.split("\n").map((x) => x.trim()).filter(Boolean);
 
