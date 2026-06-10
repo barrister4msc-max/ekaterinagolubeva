@@ -503,12 +503,17 @@ function StrategyTab({ matterId }: { matterId: string }) {
   );
 
   const md = metadata || {};
-  const unverified = Array.isArray(md.unverified_legal_basis) ? md.unverified_legal_basis : [];
-  const strategies = Array.isArray(md.strategies) ? md.strategies : [];
-  const rejectedNorms = Array.isArray(md.rejected_norms) ? md.rejected_norms : [];
-  const missingFacts = Array.isArray(md.missing_facts) ? md.missing_facts : [];
-  const missingLegalSources = Array.isArray(md.missing_legal_sources) ? md.missing_legal_sources : [];
-  const missingDocuments = Array.isArray(md.missing_documents) ? md.missing_documents : [];
+  const asArr = (v: any) => (Array.isArray(v) ? v : []);
+  const unverified = asArr(md.unverified_legal_basis);
+  const strategies = asArr(md.strategies);
+  const missingFacts = asArr(md.missing_facts);
+  const missingLegalSources = asArr(md.missing_legal_sources);
+  const missingDocuments = asArr(md.missing_documents);
+  const prohibited = asArr(md.prohibited_actions);
+  const evidenceMatrix = asArr(md.evidence_matrix);
+  const docCandidates = asArr(md.document_generation_candidates);
+  const readiness = md.case_readiness && typeof md.case_readiness === "object" ? md.case_readiness : null;
+  const recommended = md.recommended_strategy && typeof md.recommended_strategy === "object" ? md.recommended_strategy : null;
 
   const itemText = (x: any) => {
     if (x == null) return "";
@@ -541,13 +546,32 @@ function StrategyTab({ matterId }: { matterId: string }) {
     );
   };
 
-  const Block = ({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) => (
-    <div className="rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md">
+  const Block = ({ title, hint, children, className = "" }: { title: string; hint?: string; children: React.ReactNode; className?: string }) => (
+    <div className={`rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-md ${className}`}>
       <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/75">{title}</div>
       {hint && <div className="mt-1 text-[11px] text-foreground/60">{hint}</div>}
       <div className="mt-2">{children}</div>
     </div>
   );
+
+  const SubList = ({ label, items, tone = "neutral" as "neutral" | "warn" | "danger" | "ok" }: { label: string; items: any; tone?: "neutral" | "warn" | "danger" | "ok" }) => {
+    const arr = asArr(items);
+    if (arr.length === 0) return null;
+    return (
+      <div className="mt-2">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-foreground/60">{label}</div>
+        <div className="mt-1"><ReadList items={arr} tone={tone} /></div>
+      </div>
+    );
+  };
+
+  const readinessTone = (() => {
+    const lvl = String(readiness?.level || "").toLowerCase();
+    if (lvl === "high") return { wrap: "border-emerald-400/40 bg-emerald-500/15", text: "text-emerald-100" };
+    if (lvl === "medium") return { wrap: "border-amber-300/40 bg-amber-100/15", text: "text-amber-100" };
+    if (lvl === "low") return { wrap: "border-red-400/40 bg-red-500/15", text: "text-red-100" };
+    return { wrap: "border-white/15 bg-white/10", text: "text-foreground/85" };
+  })();
 
   return (
     <div className="space-y-4">
@@ -555,30 +579,234 @@ function StrategyTab({ matterId }: { matterId: string }) {
         <CardHeader>
           <CardTitle className="text-sm">AI-разбор стратегии</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
-          <Block title="Подтверждённое правовое основание" hint="lawyer_matter_strategy.legal_basis">
-            <ReadList items={legalBasisArr} tone="ok" />
-          </Block>
-          <Block title="Источники требуют проверки" hint="metadata.unverified_legal_basis">
-            <ReadList items={unverified} tone="warn" />
-          </Block>
+        <CardContent className="space-y-3">
+          {/* 1. Готовность дела */}
+          {readiness ? (
+            <div className={`rounded-2xl border p-4 backdrop-blur-md ${readinessTone.wrap}`}>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-foreground/75">Готовность дела</div>
+              <div className={`mt-2 flex items-baseline gap-3 ${readinessTone.text}`}>
+                {readiness.score != null && <div className="text-3xl font-semibold">{String(readiness.score)}</div>}
+                {readiness.level && <div className="text-xs uppercase tracking-wide opacity-90">уровень: {String(readiness.level)}</div>}
+              </div>
+              {readiness.explanation && (
+                <div className="mt-2 text-xs leading-5 text-foreground/85">{String(readiness.explanation)}</div>
+              )}
+            </div>
+          ) : (
+            <Block title="Готовность дела" hint="metadata.case_readiness">
+              <div className="text-xs text-foreground/60">Нет данных</div>
+            </Block>
+          )}
+
+          {/* 2. Рекомендуемая стратегия */}
+          {recommended && (
+            <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 backdrop-blur-md">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-100/90">Рекомендуемая стратегия</div>
+              <div className="mt-2 flex flex-wrap items-baseline gap-3">
+                {recommended.strategy_name && (
+                  <div className="text-base font-semibold text-foreground/95">{String(recommended.strategy_name)}</div>
+                )}
+                {recommended.confidence != null && (
+                  <div className="text-[11px] uppercase tracking-wide text-emerald-100/90">
+                    уверенность: {String(recommended.confidence)}
+                  </div>
+                )}
+              </div>
+              {recommended.why && <div className="mt-2 text-xs leading-5 text-foreground/85">{String(recommended.why)}</div>}
+              <SubList label="Условия" items={recommended.conditions} />
+            </div>
+          )}
+
+          {/* 3. Варианты стратегии */}
           <Block title="Варианты стратегии" hint="metadata.strategies">
-            <ReadList items={strategies} />
+            {strategies.length === 0 ? (
+              <div className="text-xs text-foreground/60">Нет данных</div>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2">
+                {strategies.map((st: any, i: number) => (
+                  <div key={i} className="rounded-xl border border-white/15 bg-white/[0.07] p-3 backdrop-blur">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <div className="text-sm font-semibold text-foreground/95">
+                        {st?.strategy_name || st?.name || `Стратегия ${i + 1}`}
+                      </div>
+                      {st?.probability != null && (
+                        <div className="text-[10px] uppercase tracking-wide text-foreground/70">
+                          вероятность: {String(st.probability)}
+                        </div>
+                      )}
+                    </div>
+                    {st?.goal && <div className="mt-1 text-xs text-foreground/80">Цель: {String(st.goal)}</div>}
+                    <SubList label="Плюсы" items={st?.pros} tone="ok" />
+                    <SubList label="Минусы" items={st?.cons} tone="warn" />
+                    <SubList label="Риски" items={st?.risks} tone="danger" />
+                    <SubList label="Обязательные документы" items={st?.required_documents} />
+                    <SubList label="Рекомендуемые документы" items={st?.recommended_documents} />
+                  </div>
+                ))}
+              </div>
+            )}
           </Block>
-          <Block title="Отклонённые нормы" hint="metadata.rejected_norms">
-            <ReadList items={rejectedNorms} tone="danger" />
+
+          {/* 4. Что нельзя делать */}
+          {prohibited.length > 0 && (
+            <Block title="Что нельзя делать" hint="metadata.prohibited_actions" className="border-red-400/30 bg-red-500/10">
+              <div className="space-y-2">
+                {prohibited.map((p: any, i: number) => {
+                  const lvl = String(p?.risk_level || "").toLowerCase();
+                  const tone =
+                    lvl === "high"
+                      ? "border-red-400/40 bg-red-500/15"
+                      : lvl === "medium"
+                      ? "border-amber-300/40 bg-amber-100/15"
+                      : "border-white/15 bg-white/[0.07]";
+                  return (
+                    <div key={i} className={`rounded-xl border p-3 text-xs backdrop-blur ${tone}`}>
+                      <div className="text-sm text-foreground/95">{String(p?.action || itemText(p))}</div>
+                      {p?.why_prohibited && (
+                        <div className="mt-1 text-foreground/80">Почему: {String(p.why_prohibited)}</div>
+                      )}
+                      {p?.applies_to_strategy && (
+                        <div className="mt-1 text-foreground/70">
+                          Применяется к: {Array.isArray(p.applies_to_strategy) ? p.applies_to_strategy.join(", ") : String(p.applies_to_strategy)}
+                        </div>
+                      )}
+                      {p?.risk_level && (
+                        <div className="mt-1 text-[10px] uppercase tracking-wide text-foreground/70">
+                          риск: {String(p.risk_level)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Block>
+          )}
+
+          {/* 5. Доказательственная матрица */}
+          <Block title="Доказательственная матрица" hint="metadata.evidence_matrix">
+            {evidenceMatrix.length === 0 ? (
+              <div className="text-xs text-foreground/70">
+                Доказательственная матрица будет сформирована после загрузки документов дела.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left text-xs">
+                  <thead className="text-[10px] uppercase tracking-wide text-foreground/65">
+                    <tr>
+                      <th className="p-2">Обстоятельство</th>
+                      <th className="p-2">Требуется</th>
+                      <th className="p-2">Есть</th>
+                      <th className="p-2">Статус</th>
+                      <th className="p-2">Важность</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {evidenceMatrix.map((row: any, i: number) => (
+                      <tr key={i} className="border-t border-white/10 align-top">
+                        <td className="p-2 text-foreground/90">{String(row?.circumstance || "")}</td>
+                        <td className="p-2 text-foreground/80">
+                          {Array.isArray(row?.required_evidence) ? row.required_evidence.join("; ") : String(row?.required_evidence || "")}
+                        </td>
+                        <td className="p-2 text-foreground/80">
+                          {Array.isArray(row?.available_evidence) ? row.available_evidence.join("; ") : String(row?.available_evidence || "")}
+                        </td>
+                        <td className="p-2 text-foreground/80">{String(row?.current_status || "")}</td>
+                        <td className="p-2 text-foreground/80">{String(row?.importance || "")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Block>
-          <Block title="Недостающие факты" hint="metadata.missing_facts">
-            <ReadList items={missingFacts} tone="warn" />
-          </Block>
-          <Block title="Недостающие правовые источники" hint="metadata.missing_legal_sources">
-            <ReadList items={missingLegalSources} tone="warn" />
-          </Block>
-          <div className="md:col-span-2">
+
+          {/* 6-10. Списки */}
+          <div className="grid gap-3 md:grid-cols-2">
+            <Block title="Недостающие факты" hint="metadata.missing_facts">
+              <ReadList items={missingFacts} tone="warn" />
+            </Block>
             <Block title="Недостающие документы" hint="metadata.missing_documents">
               <ReadList items={missingDocuments} tone="warn" />
             </Block>
+            <Block title="Недостающие правовые источники" hint="metadata.missing_legal_sources">
+              <ReadList items={missingLegalSources} tone="warn" />
+            </Block>
+            <Block title="Подтверждённые правовые основания" hint="lawyer_matter_strategy.legal_basis">
+              <ReadList items={legalBasisArr} tone="ok" />
+            </Block>
+            <div className="md:col-span-2">
+              <Block title="Источники требуют проверки" hint="metadata.unverified_legal_basis">
+                <ReadList items={unverified} tone="warn" />
+              </Block>
+            </div>
           </div>
+
+          {/* 11. Документы к формированию */}
+          <Block title="Документы к формированию" hint="metadata.document_generation_candidates">
+            {docCandidates.length === 0 ? (
+              <div className="text-xs text-foreground/60">Нет данных</div>
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2">
+                {docCandidates.map((d: any, i: number) => {
+                  const readinessVal = String(d?.readiness || "").toLowerCase();
+                  const notReady = readinessVal === "not_ready";
+                  const missingInputs = asArr(d?.missing_inputs);
+                  return (
+                    <div
+                      key={i}
+                      className={`rounded-xl border p-3 backdrop-blur ${
+                        notReady
+                          ? "border-amber-300/40 bg-amber-100/10"
+                          : "border-white/15 bg-white/[0.07]"
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <div className="text-sm font-semibold text-foreground/95">
+                          {d?.title || d?.document_type || `Документ ${i + 1}`}
+                        </div>
+                        {d?.priority && (
+                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-foreground/80">
+                            приоритет: {String(d.priority)}
+                          </span>
+                        )}
+                        {d?.readiness && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                              notReady ? "bg-amber-300/20 text-amber-100" : "bg-emerald-500/20 text-emerald-100"
+                            }`}
+                          >
+                            готовность: {String(d.readiness)}
+                          </span>
+                        )}
+                      </div>
+                      {d?.document_type && d?.title && (
+                        <div className="mt-1 text-[11px] text-foreground/70">Тип: {String(d.document_type)}</div>
+                      )}
+                      {d?.why_needed && (
+                        <div className="mt-1 text-xs text-foreground/80">Зачем: {String(d.why_needed)}</div>
+                      )}
+                      {d?.recommended_strategy && (
+                        <div className="mt-1 text-[11px] text-foreground/70">
+                          Стратегия: {String(d.recommended_strategy)}
+                        </div>
+                      )}
+                      {notReady && (
+                        <div className="mt-2 rounded-lg border border-amber-300/40 bg-amber-100/15 p-2 text-[11px] text-amber-100">
+                          Документ пока не готов к формированию.
+                          {missingInputs.length > 0 && (
+                            <> Не хватает: {missingInputs.map((m) => (typeof m === "string" ? m : itemText(m))).join("; ")}</>
+                          )}
+                        </div>
+                      )}
+                      {!notReady && missingInputs.length > 0 && (
+                        <SubList label="Недостающие входные данные" items={missingInputs} tone="warn" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Block>
         </CardContent>
       </Card>
 
