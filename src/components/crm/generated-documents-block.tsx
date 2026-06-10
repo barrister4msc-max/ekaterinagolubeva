@@ -137,10 +137,45 @@ export function GeneratedDocumentsBlock({
     setDocs((data as GeneratedDoc[]) || []);
   }, [leadId]);
 
+  const loadStrategy = useCallback(async () => {
+    let mid = matterId ?? null;
+    if (!mid) {
+      const { data: m } = await supabase
+        .from("legal_matters")
+        .select("id")
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      mid = (m as { id: string } | null)?.id ?? null;
+    }
+    if (!mid) {
+      setAiCandidates([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("lawyer_matter_strategy")
+      .select("metadata")
+      .eq("matter_id", mid)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error("loadStrategy", error);
+      return;
+    }
+    const meta = (data as { metadata: any } | null)?.metadata;
+    const cands = Array.isArray(meta?.document_generation_candidates)
+      ? (meta.document_generation_candidates as AICandidate[])
+      : [];
+    setAiCandidates(cands);
+  }, [leadId, matterId]);
+
   useEffect(() => {
     loadTemplates();
     loadDocs();
-  }, [loadTemplates, loadDocs]);
+    loadStrategy();
+  }, [loadTemplates, loadDocs, loadStrategy]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Template[]>();
