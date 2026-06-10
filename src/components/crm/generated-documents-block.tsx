@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown, ShieldAlert } from "lucide-react";
+import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown, ShieldAlert, Sparkles } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -10,6 +10,60 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+
+type AICandidate = {
+  title?: string;
+  document_type?: string;
+  why_needed?: string;
+  readiness?: string;
+  missing_inputs?: string[];
+  recommended_strategy?: string;
+  priority?: string;
+};
+
+const READINESS_LABEL: Record<string, string> = {
+  ready: "готов",
+  partial: "частично",
+  not_ready: "не готов",
+};
+
+const PRIORITY_TONE: Record<string, string> = {
+  high: "bg-red-100 text-red-700",
+  medium: "bg-amber-100 text-amber-700",
+  low: "bg-neutral-100 text-neutral-700",
+};
+
+const READINESS_TONE: Record<string, string> = {
+  ready: "bg-emerald-100 text-emerald-700",
+  partial: "bg-amber-100 text-amber-700",
+  not_ready: "bg-red-100 text-red-700",
+};
+
+function normalize(s: string | undefined | null): string {
+  return (s || "").toLowerCase().replace(/[^a-zа-я0-9]+/gi, " ").trim();
+}
+
+function findTemplateForCandidate(
+  candidate: AICandidate,
+  templates: Template[],
+): Template | null {
+  const candTitle = normalize(candidate.title);
+  const candType = normalize(candidate.document_type);
+  const needles = [candType, candTitle].filter(Boolean);
+  if (needles.length === 0) return null;
+
+  // 1. exact match on template_key or title
+  for (const t of templates) {
+    const tKey = normalize(t.template_key);
+    const tTitle = normalize(t.title);
+    const tCat = normalize(t.category);
+    if (needles.some((n) => n === tKey || n === tTitle)) return t;
+    if (needles.some((n) => n && (tKey.includes(n) || n.includes(tKey)))) return t;
+    if (needles.some((n) => n && (tTitle.includes(n) || n.includes(tTitle)))) return t;
+    if (candType && tCat && (tCat.includes(candType) || candType.includes(tCat))) return t;
+  }
+  return null;
+}
 
 type Template = {
   id: string;
@@ -41,13 +95,16 @@ export function GeneratedDocumentsBlock({
   leadId,
   crmLeadId,
   userId,
+  matterId,
 }: {
   leadId: string;
   crmLeadId: string | null;
   userId: string | null;
+  matterId?: string | null;
 }) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [docs, setDocs] = useState<GeneratedDoc[]>([]);
+  const [aiCandidates, setAiCandidates] = useState<AICandidate[]>([]);
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<GeneratedDoc | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -80,10 +137,45 @@ export function GeneratedDocumentsBlock({
     setDocs((data as GeneratedDoc[]) || []);
   }, [leadId]);
 
+  const loadStrategy = useCallback(async () => {
+    let mid = matterId ?? null;
+    if (!mid) {
+      const { data: m } = await supabase
+        .from("legal_matters")
+        .select("id")
+        .eq("lead_id", leadId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      mid = (m as { id: string } | null)?.id ?? null;
+    }
+    if (!mid) {
+      setAiCandidates([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("lawyer_matter_strategy")
+      .select("metadata")
+      .eq("matter_id", mid)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error("loadStrategy", error);
+      return;
+    }
+    const meta = (data as { metadata: any } | null)?.metadata;
+    const cands = Array.isArray(meta?.document_generation_candidates)
+      ? (meta.document_generation_candidates as AICandidate[])
+      : [];
+    setAiCandidates(cands);
+  }, [leadId, matterId]);
+
   useEffect(() => {
     loadTemplates();
     loadDocs();
-  }, [loadTemplates, loadDocs]);
+    loadStrategy();
+  }, [loadTemplates, loadDocs, loadStrategy]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Template[]>();
@@ -138,6 +230,25 @@ export function GeneratedDocumentsBlock({
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleAICandidate = (candidate: AICandidate) => {
+    const tpl = findTemplateForCandidate(candidate, templates);
+    if (!tpl) {
+      toast.error("Для этой рекомендации пока нет шаблона. Выберите ближайший шаблон из списка ниже.");
+      return;
+    }
+    if (candidate.readiness === "not_ready") {
+      const missing = (candidate.missing_inputs || []).filter(Boolean).join("; ") || "—";
+      if (
+        !confirm(
+          `Документ пока не готов к формированию. Не хватает: ${missing}. Сформировать предварительный черновик?`,
+        )
+      ) {
+        return;
+      }
+    }
+    createFromTemplate(tpl);
   };
 
   const deleteDoc = async (doc: GeneratedDoc) => {
@@ -197,7 +308,44 @@ export function GeneratedDocumentsBlock({
               <ChevronDown size={14} />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="max-h-[70vh] w-80 overflow-y-auto">
+          <DropdownMenuContent align="end" className="max-h-[70vh] w-96 overflow-y-auto">
+            {aiCandidates.length > 0 && (
+              <>
+                <DropdownMenuLabel className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-violet-700">
+                  <Sparkles size={12} /> Рекомендовано AI
+                </DropdownMenuLabel>
+                {aiCandidates.map((c, i) => (
+                  <DropdownMenuItem
+                    key={`ai-${i}`}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleAICandidate(c);
+                    }}
+                    className="flex flex-col items-start gap-1"
+                  >
+                    <div className="flex w-full flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-medium">{c.title || c.document_type || "Документ"}</span>
+                      {c.readiness && (
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${READINESS_TONE[c.readiness] || "bg-neutral-100 text-neutral-700"}`}>
+                          {READINESS_LABEL[c.readiness] || c.readiness}
+                        </span>
+                      )}
+                      {c.priority && (
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${PRIORITY_TONE[c.priority] || "bg-neutral-100 text-neutral-700"}`}>
+                          {c.priority}
+                        </span>
+                      )}
+                    </div>
+                    {(c.document_type || c.recommended_strategy) && (
+                      <span className="text-[11px] text-muted-foreground">
+                        {[c.document_type, c.recommended_strategy].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </>
+            )}
             {grouped.length === 0 ? (
               <div className="px-3 py-2 text-sm text-muted-foreground">Нет шаблонов</div>
             ) : (
