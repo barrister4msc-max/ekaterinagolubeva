@@ -1526,77 +1526,7 @@ await supabase
 
 </div>
 
-{expandedAnalysisId === doc.id &&
- analysisDoc?.id === doc.id && (
-  <div className="mt-4 space-y-4 rounded-2xl border bg-secondary/20 p-4">
-    {(() => {
-      const a = analysisDoc.extracted_data?.structured_analysis || {};
-const review = legalReviewsByDocumentId[doc.id];
-      const renderList = (title: string, items: any, red = false) => {
-        const arr = Array.isArray(items) ? items : items ? [items] : [];
-
-        return (
-          <div className="rounded-xl border bg-white p-3">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {title}
-            </div>
-
-            <div className="mt-2 space-y-1 text-xs leading-5 text-muted-foreground">
-              {arr.length > 0 ? (
-                arr.map((item: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className={`rounded-lg px-2 py-1 ${
-                      red ? "bg-red-50 text-red-700" : "bg-secondary/40"
-                    }`}
-                  >
-                    {typeof item === "string"
-                      ? item
-                      : Object.entries(item)
-                          .filter(([, v]) => v)
-                          .map(([k, v]) => `${k}: ${String(v)}`)
-                          .join(" · ")}
-                  </div>
-                ))
-              ) : (
-                <div>Не найдено</div>
-              )}
-            </div>
-          </div>
-        );
-      };
-
-      return (
-        <>
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <div className="text-[11px] font-semibold uppercase tracking-wide text-blue-900">
-              Краткое содержание
-            </div>
-
-            <div className="mt-2 text-sm leading-6 text-blue-950">
-              {a.short_summary ||
-                analysisDoc.ai_summary ||
-                "Краткое содержание пока не сформировано"}
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            {renderList("Категория", a.document_category)}
-            {renderList("Стороны", a.parties)}
-            {renderList("Физлица", a.persons)}
-            {renderList("Компании", a.companies)}
-            {renderList("Адреса", a.addresses)}
-            {renderList("Суммы", a.amounts)}
-            {renderList("Даты", a.dates)}
-            {renderList("Кадастровые номера", a.cad_numbers)}
-          </div>
-
-          <div className="grid gap-3">
-            {renderList("Юридические риски", a.legal_risks, true)}
-            {renderList("Что проверить юристу", a.missing_checks, true)}
-            {renderList("Рекомендации", a.recommended_actions)}
-          </div>
-          {expandedReviewId === doc.id &&
+{expandedReviewId === doc.id &&
  legalReviewsByDocumentId[doc.id] && (
   <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-4">
     {(() => {
@@ -1701,11 +1631,7 @@ const review = legalReviewsByDocumentId[doc.id];
     })()}
   </div>
 )}
-        </>
-      );
-    })()}
-  </div>
-)}
+
 
 </div>
 
