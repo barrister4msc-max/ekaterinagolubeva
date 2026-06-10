@@ -232,6 +232,25 @@ export function GeneratedDocumentsBlock({
     }
   };
 
+  const handleAICandidate = (candidate: AICandidate) => {
+    const tpl = findTemplateForCandidate(candidate, templates);
+    if (!tpl) {
+      toast.error("Для этой рекомендации пока нет шаблона. Выберите ближайший шаблон из списка ниже.");
+      return;
+    }
+    if (candidate.readiness === "not_ready") {
+      const missing = (candidate.missing_inputs || []).filter(Boolean).join("; ") || "—";
+      if (
+        !confirm(
+          `Документ пока не готов к формированию. Не хватает: ${missing}. Сформировать предварительный черновик?`,
+        )
+      ) {
+        return;
+      }
+    }
+    createFromTemplate(tpl);
+  };
+
   const deleteDoc = async (doc: GeneratedDoc) => {
     if (!confirm(`Удалить документ «${doc.title}»?`)) return;
     const { error } = await supabase
