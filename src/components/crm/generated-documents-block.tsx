@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown, ShieldAlert } from "lucide-react";
+import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown, ShieldAlert, Sparkles } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -10,6 +10,60 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+
+type AICandidate = {
+  title?: string;
+  document_type?: string;
+  why_needed?: string;
+  readiness?: string;
+  missing_inputs?: string[];
+  recommended_strategy?: string;
+  priority?: string;
+};
+
+const READINESS_LABEL: Record<string, string> = {
+  ready: "готов",
+  partial: "частично",
+  not_ready: "не готов",
+};
+
+const PRIORITY_TONE: Record<string, string> = {
+  high: "bg-red-100 text-red-700",
+  medium: "bg-amber-100 text-amber-700",
+  low: "bg-neutral-100 text-neutral-700",
+};
+
+const READINESS_TONE: Record<string, string> = {
+  ready: "bg-emerald-100 text-emerald-700",
+  partial: "bg-amber-100 text-amber-700",
+  not_ready: "bg-red-100 text-red-700",
+};
+
+function normalize(s: string | undefined | null): string {
+  return (s || "").toLowerCase().replace(/[^a-zа-я0-9]+/gi, " ").trim();
+}
+
+function findTemplateForCandidate(
+  candidate: AICandidate,
+  templates: Template[],
+): Template | null {
+  const candTitle = normalize(candidate.title);
+  const candType = normalize(candidate.document_type);
+  const needles = [candType, candTitle].filter(Boolean);
+  if (needles.length === 0) return null;
+
+  // 1. exact match on template_key or title
+  for (const t of templates) {
+    const tKey = normalize(t.template_key);
+    const tTitle = normalize(t.title);
+    const tCat = normalize(t.category);
+    if (needles.some((n) => n === tKey || n === tTitle)) return t;
+    if (needles.some((n) => n && (tKey.includes(n) || n.includes(tKey)))) return t;
+    if (needles.some((n) => n && (tTitle.includes(n) || n.includes(tTitle)))) return t;
+    if (candType && tCat && (tCat.includes(candType) || candType.includes(tCat))) return t;
+  }
+  return null;
+}
 
 type Template = {
   id: string;
