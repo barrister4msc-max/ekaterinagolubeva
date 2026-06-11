@@ -152,6 +152,7 @@ export function GeneratedDocumentsBlock({
         .maybeSingle();
       mid = (m as { id: string } | null)?.id ?? null;
     }
+    setResolvedMatterId(mid);
     if (!mid) {
       setAiCandidates([]);
       return;
