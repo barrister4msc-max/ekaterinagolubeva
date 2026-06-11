@@ -130,7 +130,7 @@ export function GeneratedDocumentsBlock({
   const loadDocs = useCallback(async () => {
     const { data, error } = await supabase
       .from("generated_legal_documents")
-      .select("id,title,category,status,content,template_key,created_at")
+      .select("id,title,category,status,content,template_key,created_at,metadata")
       .eq("lead_id", leadId)
       .order("created_at", { ascending: false });
     if (error) {
