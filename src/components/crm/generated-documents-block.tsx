@@ -466,8 +466,23 @@ export function GeneratedDocumentsBlock({
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">
                       {STATUS_LABEL[doc.status] || doc.status}
                     </span>
+                    {doc.metadata?.strategy_document_alignment?.generation_mode === "preliminary" && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
+                        Предварительный черновик
+                      </span>
+                    )}
                     <span>{new Date(doc.created_at).toLocaleString("ru-RU")}</span>
                   </div>
+                  {Array.isArray(doc.metadata?.missing_inputs) && doc.metadata.missing_inputs.length > 0 && (
+                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <div className="font-medium">Не хватает данных</div>
+                      <ul className="mt-1 list-disc pl-4">
+                        {doc.metadata.missing_inputs.map((m: string, i: number) => (
+                          <li key={i}>{m}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
