@@ -83,6 +83,7 @@ type GeneratedDoc = {
   content: string | null;
   template_key: string;
   created_at: string;
+  metadata?: any;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -106,6 +107,8 @@ export function GeneratedDocumentsBlock({
   const [docs, setDocs] = useState<GeneratedDoc[]>([]);
   const [aiCandidates, setAiCandidates] = useState<AICandidate[]>([]);
   const [creating, setCreating] = useState(false);
+  const [aiCreating, setAiCreating] = useState(false);
+  const [resolvedMatterId, setResolvedMatterId] = useState<string | null>(matterId ?? null);
   const [editing, setEditing] = useState<GeneratedDoc | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editTitle, setEditTitle] = useState("");
@@ -127,7 +130,7 @@ export function GeneratedDocumentsBlock({
   const loadDocs = useCallback(async () => {
     const { data, error } = await supabase
       .from("generated_legal_documents")
-      .select("id,title,category,status,content,template_key,created_at")
+      .select("id,title,category,status,content,template_key,created_at,metadata")
       .eq("lead_id", leadId)
       .order("created_at", { ascending: false });
     if (error) {
@@ -149,6 +152,7 @@ export function GeneratedDocumentsBlock({
         .maybeSingle();
       mid = (m as { id: string } | null)?.id ?? null;
     }
+    setResolvedMatterId(mid);
     if (!mid) {
       setAiCandidates([]);
       return;
@@ -232,12 +236,68 @@ export function GeneratedDocumentsBlock({
     }
   };
 
-  const handleAICandidate = (candidate: AICandidate) => {
-    const tpl = findTemplateForCandidate(candidate, templates);
-    if (!tpl) {
-      toast.error("Для этой рекомендации пока нет шаблона. Выберите ближайший шаблон из списка ниже.");
+  const invokeAIGeneration = async (candidate: AICandidate, force_preliminary: boolean) => {
+    if (aiCreating) return;
+    if (!resolvedMatterId) {
+      toast.error("Для AI-генерации нужно дело (matter). Создайте дело по этому лиду.");
       return;
     }
+    setAiCreating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-legal-document", {
+        body: {
+          matter_id: resolvedMatterId,
+          document_type: candidate.document_type,
+          document_title: candidate.title,
+          selected_strategy: candidate.recommended_strategy,
+          force_preliminary,
+        },
+      });
+      if (error) {
+        // supabase-js wraps non-2xx as FunctionsHttpError; try to get response body
+        const ctx: any = (error as any).context;
+        let status: number | undefined;
+        let payload: any = null;
+        try {
+          status = ctx?.status;
+          if (ctx && typeof ctx.json === "function") payload = await ctx.json();
+          else if (ctx && typeof ctx.text === "function") payload = JSON.parse(await ctx.text());
+        } catch { /* ignore */ }
+        if (status === 422) {
+          const msg = payload?.message || "Документ пока не готов к формированию.";
+          if (confirm(`${msg}\n\nСформировать только предварительный черновик?`)) {
+            setAiCreating(false);
+            return invokeAIGeneration(candidate, true);
+          }
+          return;
+        }
+        throw new Error(payload?.message || error.message || "Ошибка AI-генерации");
+      }
+      await loadDocs();
+      toast.success("AI-документ создан");
+      const newId = (data as any)?.document_id || (data as any)?.id;
+      if (newId) {
+        const { data: doc } = await supabase
+          .from("generated_legal_documents")
+          .select("id,title,category,status,content,template_key,created_at,metadata")
+          .eq("id", newId)
+          .maybeSingle();
+        if (doc) {
+          setEditing(doc as GeneratedDoc);
+          setEditTitle((doc as GeneratedDoc).title);
+          setEditContent((doc as GeneratedDoc).content || "");
+        }
+      }
+    } catch (e: any) {
+      console.error("generate-legal-document", e);
+      toast.error(e?.message || "Не удалось создать AI-документ");
+    } finally {
+      setAiCreating(false);
+    }
+  };
+
+  const handleAICandidate = (candidate: AICandidate) => {
+    const force_preliminary = candidate.readiness !== "ready";
     if (candidate.readiness === "not_ready") {
       const missing = (candidate.missing_inputs || []).filter(Boolean).join("; ") || "—";
       if (
@@ -248,7 +308,7 @@ export function GeneratedDocumentsBlock({
         return;
       }
     }
-    createFromTemplate(tpl);
+    invokeAIGeneration(candidate, force_preliminary);
   };
 
   const deleteDoc = async (doc: GeneratedDoc) => {
@@ -406,8 +466,23 @@ export function GeneratedDocumentsBlock({
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">
                       {STATUS_LABEL[doc.status] || doc.status}
                     </span>
+                    {doc.metadata?.strategy_document_alignment?.generation_mode === "preliminary" && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
+                        Предварительный черновик
+                      </span>
+                    )}
                     <span>{new Date(doc.created_at).toLocaleString("ru-RU")}</span>
                   </div>
+                  {Array.isArray(doc.metadata?.missing_inputs) && doc.metadata.missing_inputs.length > 0 && (
+                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <div className="font-medium">Не хватает данных</div>
+                      <ul className="mt-1 list-disc pl-4">
+                        {doc.metadata.missing_inputs.map((m: string, i: number) => (
+                          <li key={i}>{m}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
