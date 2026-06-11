@@ -83,6 +83,7 @@ type GeneratedDoc = {
   content: string | null;
   template_key: string;
   created_at: string;
+  metadata?: any;
 };
 
 const STATUS_LABEL: Record<string, string> = {
