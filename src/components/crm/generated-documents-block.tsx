@@ -107,6 +107,8 @@ export function GeneratedDocumentsBlock({
   const [docs, setDocs] = useState<GeneratedDoc[]>([]);
   const [aiCandidates, setAiCandidates] = useState<AICandidate[]>([]);
   const [creating, setCreating] = useState(false);
+  const [aiCreating, setAiCreating] = useState(false);
+  const [resolvedMatterId, setResolvedMatterId] = useState<string | null>(matterId ?? null);
   const [editing, setEditing] = useState<GeneratedDoc | null>(null);
   const [editContent, setEditContent] = useState("");
   const [editTitle, setEditTitle] = useState("");
