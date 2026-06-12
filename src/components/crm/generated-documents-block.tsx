@@ -553,7 +553,8 @@ const improveDocument = async (doc: GeneratedDoc) => {
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">
                       {STATUS_LABEL[doc.status] || doc.status}
                     </span>
-                    {doc.metadata?.strategy_document_alignment?.generation_mode === "preliminary" && (
+                    {(doc.metadata?.is_preliminary === true ||
+                      doc.metadata?.strategy_document_alignment?.generation_mode === "preliminary") && (
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
                         Предварительный черновик
                       </span>
