@@ -798,7 +798,211 @@ body.workspace-active [data-radix-popper-content-wrapper] [data-highlighted] {
   color: #ffffff !important;
 }
 
+/* ============================================================
+   Workspace — Override light Tailwind utility blocks (amber/red/blue/yellow tints)
+   Make them dark tinted glass with bright, readable text.
+   Covers: AI замечания, "Не хватает данных", preliminary disclaimer, badges.
+   ============================================================ */
 
+/* Light tinted block backgrounds → dark tinted glass */
+.workspace-glass .bg-amber-50,
+body.workspace-active [role="dialog"] .bg-amber-50,
+body.workspace-active [data-vaul-drawer] .bg-amber-50 {
+  background-color: rgba(140, 95, 30, 0.28) !important;
+  border-color: rgba(255, 200, 110, 0.35) !important;
+}
+.workspace-glass .bg-amber-100,
+body.workspace-active [role="dialog"] .bg-amber-100,
+body.workspace-active [data-vaul-drawer] .bg-amber-100 {
+  background-color: rgba(160, 110, 35, 0.38) !important;
+  border-color: rgba(255, 200, 110, 0.40) !important;
+}
+.workspace-glass .bg-yellow-50,
+.workspace-glass .bg-yellow-100,
+body.workspace-active [role="dialog"] .bg-yellow-50,
+body.workspace-active [role="dialog"] .bg-yellow-100 {
+  background-color: rgba(150, 120, 30, 0.32) !important;
+  border-color: rgba(255, 220, 110, 0.35) !important;
+}
+.workspace-glass .bg-red-50,
+.workspace-glass .bg-red-100,
+.workspace-glass .bg-rose-50,
+.workspace-glass .bg-rose-100,
+body.workspace-active [role="dialog"] .bg-red-50,
+body.workspace-active [role="dialog"] .bg-red-100 {
+  background-color: rgba(140, 40, 50, 0.32) !important;
+  border-color: rgba(255, 130, 140, 0.35) !important;
+}
+.workspace-glass .bg-blue-50,
+.workspace-glass .bg-blue-100,
+.workspace-glass .bg-sky-50,
+.workspace-glass .bg-sky-100,
+.workspace-glass .bg-indigo-50,
+body.workspace-active [role="dialog"] .bg-blue-50,
+body.workspace-active [role="dialog"] .bg-blue-100 {
+  background-color: rgba(40, 90, 150, 0.35) !important;
+  border-color: rgba(140, 190, 255, 0.35) !important;
+}
+.workspace-glass .bg-green-50,
+.workspace-glass .bg-green-100,
+.workspace-glass .bg-emerald-50,
+.workspace-glass .bg-emerald-100 {
+  background-color: rgba(40, 110, 80, 0.32) !important;
+  border-color: rgba(140, 220, 180, 0.35) !important;
+}
+.workspace-glass .bg-orange-50,
+.workspace-glass .bg-orange-100 {
+  background-color: rgba(160, 90, 30, 0.32) !important;
+  border-color: rgba(255, 180, 110, 0.35) !important;
+}
+.workspace-glass .bg-purple-50,
+.workspace-glass .bg-purple-100,
+.workspace-glass .bg-violet-50,
+.workspace-glass .bg-violet-100 {
+  background-color: rgba(90, 60, 150, 0.32) !important;
+  border-color: rgba(190, 160, 255, 0.35) !important;
+}
+.workspace-glass .bg-gray-50,
+.workspace-glass .bg-gray-100,
+.workspace-glass .bg-slate-50,
+.workspace-glass .bg-slate-100,
+.workspace-glass .bg-neutral-50,
+.workspace-glass .bg-neutral-100,
+.workspace-glass .bg-zinc-50,
+.workspace-glass .bg-zinc-100,
+.workspace-glass .bg-stone-50,
+.workspace-glass .bg-stone-100 {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
 
+/* Borders for the same light tints */
+.workspace-glass [class*="border-amber-2"],
+.workspace-glass [class*="border-amber-3"],
+.workspace-glass [class*="border-yellow-2"],
+.workspace-glass [class*="border-yellow-3"] {
+  border-color: rgba(255, 200, 110, 0.40) !important;
+}
+.workspace-glass [class*="border-red-2"],
+.workspace-glass [class*="border-red-3"],
+.workspace-glass [class*="border-rose-2"],
+.workspace-glass [class*="border-rose-3"] {
+  border-color: rgba(255, 130, 140, 0.40) !important;
+}
+.workspace-glass [class*="border-blue-2"],
+.workspace-glass [class*="border-blue-3"],
+.workspace-glass [class*="border-sky-2"],
+.workspace-glass [class*="border-sky-3"] {
+  border-color: rgba(140, 190, 255, 0.40) !important;
+}
+.workspace-glass [class*="border-green-2"],
+.workspace-glass [class*="border-emerald-2"] {
+  border-color: rgba(140, 220, 180, 0.40) !important;
+}
 
+/* Dark text on light tints → light tones for the dark glass version */
+.workspace-glass .text-amber-900,
+.workspace-glass .text-amber-800,
+.workspace-glass .text-amber-700,
+.workspace-glass .text-yellow-900,
+.workspace-glass .text-yellow-800,
+body.workspace-active [role="dialog"] .text-amber-900,
+body.workspace-active [role="dialog"] .text-amber-800,
+body.workspace-active [role="dialog"] .text-amber-700 {
+  color: rgba(255, 225, 165, 0.96) !important;
+}
+.workspace-glass .text-red-900,
+.workspace-glass .text-red-800,
+.workspace-glass .text-red-700,
+.workspace-glass .text-red-600,
+.workspace-glass .text-rose-900,
+.workspace-glass .text-rose-800,
+body.workspace-active [role="dialog"] .text-red-900,
+body.workspace-active [role="dialog"] .text-red-800,
+body.workspace-active [role="dialog"] .text-red-700 {
+  color: rgba(255, 175, 180, 0.96) !important;
+}
+.workspace-glass .text-blue-900,
+.workspace-glass .text-blue-800,
+.workspace-glass .text-blue-700,
+.workspace-glass .text-blue-600,
+.workspace-glass .text-sky-700,
+.workspace-glass .text-indigo-700,
+body.workspace-active [role="dialog"] .text-blue-900,
+body.workspace-active [role="dialog"] .text-blue-800,
+body.workspace-active [role="dialog"] .text-blue-700 {
+  color: rgba(170, 210, 255, 0.96) !important;
+}
+.workspace-glass .text-green-900,
+.workspace-glass .text-green-800,
+.workspace-glass .text-green-700,
+.workspace-glass .text-emerald-700 {
+  color: rgba(170, 235, 200, 0.96) !important;
+}
+.workspace-glass .text-orange-900,
+.workspace-glass .text-orange-800,
+.workspace-glass .text-orange-700 {
+  color: rgba(255, 200, 150, 0.96) !important;
+}
+.workspace-glass .text-purple-900,
+.workspace-glass .text-purple-800,
+.workspace-glass .text-purple-700,
+.workspace-glass .text-violet-700 {
+  color: rgba(215, 195, 255, 0.96) !important;
+}
+.workspace-glass .text-gray-900,
+.workspace-glass .text-gray-800,
+.workspace-glass .text-gray-700,
+.workspace-glass .text-slate-900,
+.workspace-glass .text-slate-800,
+.workspace-glass .text-slate-700,
+.workspace-glass .text-neutral-900,
+.workspace-glass .text-neutral-800,
+.workspace-glass .text-zinc-900,
+.workspace-glass .text-zinc-800,
+.workspace-glass .text-stone-900,
+.workspace-glass .text-stone-800,
+.workspace-glass .text-black {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+.workspace-glass .text-gray-600,
+.workspace-glass .text-gray-500,
+.workspace-glass .text-slate-600,
+.workspace-glass .text-slate-500,
+.workspace-glass .text-neutral-600,
+.workspace-glass .text-neutral-500,
+.workspace-glass .text-zinc-600,
+.workspace-glass .text-zinc-500 {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+/* Same overrides inside portaled overlays (dialogs/sheets/popovers/dropdowns) */
+body.workspace-active [role="dialog"] .text-gray-900,
+body.workspace-active [role="dialog"] .text-gray-800,
+body.workspace-active [role="dialog"] .text-gray-700,
+body.workspace-active [role="dialog"] .text-slate-900,
+body.workspace-active [role="dialog"] .text-slate-800,
+body.workspace-active [role="dialog"] .text-slate-700,
+body.workspace-active [role="dialog"] .text-black,
+body.workspace-active [data-vaul-drawer] .text-gray-900,
+body.workspace-active [data-vaul-drawer] .text-slate-900,
+body.workspace-active [data-vaul-drawer] .text-black,
+body.workspace-active [data-radix-popper-content-wrapper] .text-gray-900,
+body.workspace-active [data-radix-popper-content-wrapper] .text-slate-900,
+body.workspace-active [data-radix-popper-content-wrapper] .text-black {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+body.workspace-active [data-radix-popper-content-wrapper] .text-gray-600,
+body.workspace-active [data-radix-popper-content-wrapper] .text-gray-500,
+body.workspace-active [data-radix-popper-content-wrapper] .text-slate-600,
+body.workspace-active [data-radix-popper-content-wrapper] .text-slate-500 {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+/* Cream/parchment custom hex backgrounds — make them dark amber glass */
+.workspace-glass [class*="bg-[#f"],
+.workspace-glass [class*="bg-[#F"] {
+  background: rgba(8, 20, 30, 0.42) !important;
+  color: rgba(255, 235, 200, 0.96) !important;
+  border-color: rgba(255, 200, 120, 0.30) !important;
+}
 
