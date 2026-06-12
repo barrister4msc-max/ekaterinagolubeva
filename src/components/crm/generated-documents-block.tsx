@@ -130,10 +130,13 @@ const [reviewingId, setReviewingId] = useState<string | null>(null);
   }, []);
 
   const loadDocs = useCallback(async () => {
+    console.log("GeneratedDocumentsBlock params", { leadId, matterId, resolvedMatterId });
     if (!leadId && !resolvedMatterId) {
       setDocs([]);
+      setDocsLoading(false);
       return;
     }
+    setDocsLoading(true);
     const queries: PromiseLike<any>[] = [];
     if (leadId) {
       queries.push(
@@ -168,8 +171,11 @@ const [reviewingId, setReviewingId] = useState<string | null>(null);
       }
     }
     merged.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    console.log("Generated docs loaded", merged);
     setDocs(merged);
-  }, [leadId, resolvedMatterId]);
+    setDocsLoading(false);
+  }, [leadId, matterId, resolvedMatterId]);
+
 
   const loadStrategy = useCallback(async () => {
     let mid = matterId ?? null;
