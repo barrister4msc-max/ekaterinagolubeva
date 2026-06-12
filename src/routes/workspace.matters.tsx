@@ -21,11 +21,20 @@ export const Route = createFileRoute("/workspace/matters")({
 
 const MATTER_TYPES = [
   { v: "real_estate", l: "Недвижимость" },
-  { v: "rental", l: "Аренда" },
-  { v: "contracts", l: "Договоры" },
-  { v: "litigation", l: "Суд" },
+  { v: "housing", l: "Аренда / жильё" },
+  { v: "contract_review", l: "Договоры" },
+  { v: "court_dispute", l: "Суд" },
   { v: "tax", l: "Налоги" },
   { v: "corporate", l: "Корпоративное" },
+  { v: "compliance", l: "Compliance" },
+  { v: "family", l: "Семейное" },
+  { v: "inheritance", l: "Наследство" },
+  { v: "land", l: "Земельное" },
+  { v: "registration", l: "Регистрация" },
+  { v: "debt", l: "Взыскание долгов" },
+  { v: "consumer_dispute", l: "Потребительский спор" },
+  { v: "bankruptcy", l: "Банкротство" },
+  { v: "consultation", l: "Консультация" },
   { v: "other", l: "Иное" },
 ];
 const STATUSES = [
