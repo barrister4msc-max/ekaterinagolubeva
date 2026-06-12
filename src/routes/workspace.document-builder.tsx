@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText } from "lucide-react";
+import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText, AlertCircle } from "lucide-react";
 import {
   getTemplates,
   CATEGORY_LABELS,
@@ -12,6 +12,12 @@ import {
   type DocumentTemplate,
   type TemplateComplexity,
 } from "@/lib/document-templates";
+import {
+  getIntakeSchema,
+  createInitialIntakeState,
+  type IntakeState,
+} from "@/lib/document-intake-schemas";
+import { IntakeForm } from "@/components/document-builder/intake-form";
 
 export const Route = createFileRoute("/workspace/document-builder")({
   head: () => ({
@@ -34,6 +40,8 @@ function DocumentBuilderPage() {
   const [category, setCategory] = useState<string>("");
   const [complexity, setComplexity] = useState<"" | TemplateComplexity>("");
   const [selectedCode, setSelectedCode] = useState<string>("");
+  const [intake, setIntake] = useState<IntakeState | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   const { data: templates = [], isLoading, error } = useQuery({
     queryKey: ["document-templates"],
@@ -82,6 +90,37 @@ function DocumentBuilderPage() {
     [templates, selectedCode],
   );
 
+  // initialize / reset intake state when entering step 3
+  useEffect(() => {
+    if (step !== 3 || !selected) return;
+    const j = jurisdiction || selected.jurisdiction[0] || "RU";
+    const l = selected.languages[0] || "ru";
+    setIntake((prev) =>
+      prev && prev.templateCode === selected.code
+        ? prev
+        : createInitialIntakeState({
+            templateCode: selected.code,
+            category: selected.category,
+            jurisdiction: j,
+            language: l,
+          }),
+    );
+    setSubmitted(false);
+  }, [step, selected, jurisdiction]);
+
+  // load intake schema for the selected template
+  const intakeSchemaQuery = useQuery({
+    queryKey: [
+      "intake-schema",
+      selected?.code,
+      intake?.jurisdiction ?? null,
+      intake?.language ?? null,
+    ],
+    queryFn: () =>
+      selected ? getIntakeSchema(selected.code, intake?.jurisdiction, intake?.language) : Promise.resolve(null),
+    enabled: step === 3 && !!selected && !!intake,
+  });
+
   const resetAll = () => {
     setStep(1);
     setSearch("");
@@ -90,6 +129,8 @@ function DocumentBuilderPage() {
     setCategory("");
     setComplexity("");
     setSelectedCode("");
+    setIntake(null);
+    setSubmitted(false);
   };
 
   return (
@@ -307,35 +348,82 @@ function DocumentBuilderPage() {
       )}
 
       {/* STEP 3 */}
-      {step === 3 && selected && (
+      {step === 3 && selected && intake && (
         <section className="db-card p-7 space-y-6">
-          <div className="db-section-label">Шаг 3 · Подготовка документа</div>
-
-          <div>
-            <h2 className="font-display text-xl text-white">{selected.title}</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Шаблон выбран. На следующем этапе AI Intake запросит данные и подготовит проект документа.
-              Подключение генерации появится в следующем релизе.
-            </p>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <ReadyBlock title="Юрисдикция" value={selected.jurisdiction.map((j) => JURISDICTION_LABELS[j] ?? j).join(", ")} />
-            <ReadyBlock title="Язык" value={selected.languages.map((l) => LANGUAGE_LABELS[l] ?? l).join(", ")} />
-            <ReadyBlock title="Intake" value={selected.requires_intake ? "Требуется" : "Не требуется"} />
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <button type="button" onClick={() => setStep(2)} className="db-ghost">
-              <ArrowLeft size={14}/> Назад
-            </button>
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={resetAll} className="db-ghost">Сбросить</button>
-              <button type="button" className="db-cta" disabled title="AI Intake появится на следующем этапе">
-                Начать подготовку документа
-              </button>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="db-section-label">Шаг 3 · Опросник</div>
+              <h2 className="mt-2 font-display text-xl text-white">{selected.title}</h2>
+              <p className="mt-1 text-xs text-white/55">{selected.code}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <SmallSelect
+                label="Юрисдикция"
+                value={intake.jurisdiction}
+                onChange={(v) => setIntake({ ...intake, jurisdiction: v })}
+                options={selected.jurisdiction.map((j) => ({ value: j, label: JURISDICTION_LABELS[j] ?? j }))}
+              />
+              <SmallSelect
+                label="Язык"
+                value={intake.language}
+                onChange={(v) => setIntake({ ...intake, language: v })}
+                options={selected.languages.map((l) => ({ value: l, label: LANGUAGE_LABELS[l] ?? l }))}
+              />
             </div>
           </div>
+
+          {intakeSchemaQuery.isLoading && (
+            <div className="flex items-center gap-2 text-sm text-white/70">
+              <Loader2 size={14} className="animate-spin" /> Загрузка опросника…
+            </div>
+          )}
+          {intakeSchemaQuery.error && (
+            <div className="db-warning">Не удалось загрузить опросник. Попробуйте позже.</div>
+          )}
+
+          {!intakeSchemaQuery.isLoading && !intakeSchemaQuery.error && !intakeSchemaQuery.data && (
+            <div className="db-empty">
+              <div className="db-icon"><AlertCircle size={18} /></div>
+              <div>
+                <div className="text-sm font-medium text-white">Для данного шаблона опросник пока не настроен</div>
+                <p className="mt-1 text-xs text-white/65">
+                  Схема опроса для шаблона <span className="text-white/85">{selected.code}</span> ({JURISDICTION_LABELS[intake.jurisdiction] ?? intake.jurisdiction} / {LANGUAGE_LABELS[intake.language] ?? intake.language}) будет добавлена в реестр <span className="text-white/85">document_intake_schemas</span>.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {intakeSchemaQuery.data && !submitted && (
+            <IntakeForm
+              schema={intakeSchemaQuery.data}
+              state={intake}
+              onChange={setIntake}
+              onBack={() => setStep(2)}
+              onSubmit={() => setSubmitted(true)}
+            />
+          )}
+
+          {intakeSchemaQuery.data && submitted && (
+            <div className="db-ready">
+              <div className="db-info-label">Готово</div>
+              <div className="db-info-value">
+                Опросник заполнен. Данные подготовлены к передаче в AI генератор (следующий этап).
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button type="button" onClick={() => setSubmitted(false)} className="db-ghost">Изменить ответы</button>
+                <button type="button" onClick={resetAll} className="db-ghost">Новый документ</button>
+              </div>
+            </div>
+          )}
+
+          {!intakeSchemaQuery.data && (
+            <div className="flex items-center justify-between pt-2">
+              <button type="button" onClick={() => setStep(2)} className="db-ghost">
+                <ArrowLeft size={14}/> Назад
+              </button>
+              <button type="button" onClick={resetAll} className="db-ghost">Сбросить</button>
+            </div>
+          )}
         </section>
       )}
 
@@ -373,7 +461,40 @@ function DocumentBuilderPage() {
         .db-step { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); }
         .db-step-active { color: #0d1a22; background: linear-gradient(135deg, #e2c889, #c8a86b); border-color: rgba(214,188,120,0.70); }
         .db-step-done { color: #b6ecd1; background: rgba(102,187,156,0.12); border-color: rgba(102,187,156,0.35); }
+        .db-warning { border: 1px solid rgba(214,170,90,0.40); background: rgba(60,40,10,0.45); color: #f0d59c; padding: 12px 14px; border-radius: 10px; font-size: 13px; }
+        .db-empty { display: flex; align-items: flex-start; gap: 14px; border: 1px dashed rgba(255,255,255,0.18); border-radius: 14px; padding: 18px; background: rgba(8,18,26,0.40); }
+        .db-input { width: 100%; min-height: 38px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); color: rgba(255,255,255,0.92); padding: 8px 12px; font-size: 13px; outline: none; }
+        .db-input:focus { border-color: rgba(214,188,120,0.55); }
+        .db-input::placeholder { color: rgba(255,255,255,0.40); }
+        .db-suffix { display: grid; place-items: center; padding: 0 12px; border-radius: 10px; font-size: 12px; color: rgba(255,255,255,0.70); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); min-width: 56px; }
+        .db-field { display: flex; flex-direction: column; gap: 6px; }
+        .db-field-label { font-size: 12px; color: rgba(255,255,255,0.80); letter-spacing: 0.02em; }
+        .db-required { color: #f0b8b8; margin-left: 4px; }
+        .db-field-help { font-size: 11px; color: rgba(255,255,255,0.55); }
+        .db-field-error { font-size: 11px; color: #f0b8b8; }
+        .db-subcard { border: 1px solid rgba(255,255,255,0.10); background: rgba(8,18,26,0.45); border-radius: 12px; padding: 12px; }
+        .db-substepper { display: flex; flex-wrap: wrap; gap: 6px; }
+        .db-substep { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); }
+        .db-substep-active { color: #0d1a22; background: linear-gradient(135deg, #e2c889, #c8a86b); border-color: rgba(214,188,120,0.70); }
+        .db-substep-done { color: #b6ecd1; background: rgba(102,187,156,0.12); border-color: rgba(102,187,156,0.35); }
+        .db-uploader { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 10px; font-size: 12px; color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.25); cursor: pointer; }
+        .db-uploader:hover { background: rgba(255,255,255,0.10); }
+        .db-small-select { display: flex; flex-direction: column; gap: 3px; }
+        .db-small-select-label { font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
       `}</style>
+    </div>
+  );
+}
+
+function SmallSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: Array<{ value: string; label: string }> }) {
+  return (
+    <div className="db-small-select">
+      <span className="db-small-select-label">{label}</span>
+      <select className="db-select" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
     </div>
   );
 }
