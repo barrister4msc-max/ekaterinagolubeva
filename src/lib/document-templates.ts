@@ -78,6 +78,32 @@ export const CATEGORY_LABELS: Record<string, string> = {
   INTERNATIONAL_CORPORATE: "Международные корпоративные",
   COMPLIANCE: "Комплаенс и политики",
   LABOUR: "Трудовые",
+  FAMILY: "Семейные",
+  INHERITANCE: "Наследственные",
+  LAND: "Земельные",
+  BANKRUPTCY: "Банкротство",
+  CONSUMER: "Защита прав потребителей",
+  ENFORCEMENT: "Исполнительное производство",
+};
+
+export const PRACTICE_AREA_LABELS: Record<string, string> = {
+  general: "Общая практика",
+  contracts: "Договоры",
+  real_estate: "Недвижимость",
+  litigation: "Судебные споры",
+  tax: "Налоги",
+  corporate: "Корпоративное (РФ)",
+  international_corporate: "Международное корпоративное",
+  it: "IT / IP",
+  compliance: "Комплаенс",
+  labour: "Трудовое",
+  logistics: "Логистика",
+  family: "Семейное",
+  inheritance: "Наследственное",
+  land: "Земельное",
+  bankruptcy: "Банкротство",
+  consumer: "Защита прав потребителей",
+  enforcement: "Исполнительное производство",
 };
 
 export const JURISDICTION_LABELS: Record<string, string> = {
@@ -85,6 +111,13 @@ export const JURISDICTION_LABELS: Record<string, string> = {
   CY: "Кипр",
   IL: "Израиль",
   GE: "Грузия",
+};
+
+export const LANGUAGE_LABELS: Record<string, string> = {
+  ru: "Русский",
+  en: "Английский",
+  he: "Иврит",
+  ka: "Грузинский",
 };
 
 export const COMPLEXITY_LABELS: Record<TemplateComplexity, string> = {
