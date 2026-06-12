@@ -171,6 +171,7 @@ export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack
         <ReviewStep
           schema={schema}
           state={state}
+          template={template}
           missing={missing}
           onSetMode={setMode}
           onSetInstructions={setInstructions}
@@ -194,9 +195,9 @@ export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack
             onClick={() => onSubmit(state)}
             disabled={!validation.valid}
             className="db-cta"
-            title={!validation.valid ? "Заполните обязательные поля" : "Передать на подготовку"}
+            title={!validation.valid ? "Заполните обязательные поля" : "Сформировать черновик"}
           >
-            Передать на подготовку <ArrowRight size={14} />
+            <Sparkles size={14} /> Сформировать черновик документа
           </button>
         )}
       </div>
