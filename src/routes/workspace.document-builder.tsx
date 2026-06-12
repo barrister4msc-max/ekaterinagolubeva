@@ -431,27 +431,38 @@ function DocumentBuilderPage() {
           )}
 
           {intakeSchemaQuery.data && !submitted && (
-            <IntakeForm
-              schema={intakeSchemaQuery.data}
-              state={intake}
-              template={selected}
-              onChange={setIntake}
-              onBack={() => setStep(2)}
-              onSubmit={() => setSubmitted(true)}
-            />
+            <>
+              <IntakeForm
+                schema={intakeSchemaQuery.data}
+                state={intake}
+                template={selected}
+                onChange={setIntake}
+                onBack={() => setStep(2)}
+                onSubmit={handleGenerate}
+                availableModes={["standalone"]}
+                submitting={submitting}
+              />
+              {submitError && (
+                <div className="db-warning mt-4">Ошибка генерации: {submitError}</div>
+              )}
+            </>
           )}
 
-          {intakeSchemaQuery.data && submitted && (
+          {intakeSchemaQuery.data && submitted && generated && (
             <div className="db-ready space-y-3">
-              <div className="db-info-label">Черновик документа</div>
-              <div className="db-info-value">
-                Данные intake собраны и готовы для передачи в edge function <span className="text-white/70">generate-legal-document</span>.
-              </div>
-              <div className="text-sm text-white/75">
-                Генерация документа будет подключена на следующем этапе.
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button type="button" onClick={() => setSubmitted(false)} className="db-ghost">Изменить ответы</button>
+              <div className="db-info-label">Черновик документа создан</div>
+              <div className="db-info-value">{generated.document.title}</div>
+              <div className="text-xs text-white/55">ID: {generated.generated_document_id}</div>
+              {generated.generated.warnings && generated.generated.warnings.length > 0 && (
+                <ul className="mt-2 list-disc pl-5 text-xs text-amber-200/85 space-y-1">
+                  {generated.generated.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={openGeneratedDocument} className="db-cta">
+                  <FileText size={14} /> Открыть созданный документ
+                </button>
+                <button type="button" onClick={() => { setSubmitted(false); setGenerated(null); }} className="db-ghost">Изменить ответы</button>
                 <button type="button" onClick={resetAll} className="db-ghost">Новый документ</button>
               </div>
             </div>
