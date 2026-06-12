@@ -601,7 +601,7 @@ const improveDocument = async (doc: GeneratedDoc) => {
                   >
                     <Pencil size={12} /> Редактировать
                   </button>
-                                    <button
+                  <button
                     type="button"
                     disabled={reviewingId === doc.id}
                     onClick={() => reviewDocument(doc)}
@@ -610,6 +610,18 @@ const improveDocument = async (doc: GeneratedDoc) => {
                     <ShieldAlert size={12} />
                     {reviewingId === doc.id ? "Проверка..." : "AI проверка"}
                   </button>
+
+                  {doc.metadata?.review?.problems?.length > 0 && (
+                    <button
+                      type="button"
+                      disabled={improvingId === doc.id}
+                      onClick={() => improveDocument(doc)}
+                      className="flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                    >
+                      <Wand2 size={12} />
+                      {improvingId === doc.id ? "Исправляет..." : "Исправить AI"}
+                    </button>
+                  )}
 
                   <button
                     type="button"
