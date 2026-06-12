@@ -699,9 +699,7 @@ body.workspace-active [data-vaul-overlay] {
 
 /* Modal dialogs / sheets — deep tinted glass */
 body.workspace-active [role="dialog"][data-state],
-body.workspace-active [data-vaul-drawer],
-.workspace-glass aside[class*="bg-[oklch"],
-.workspace-glass [class*="bg-[oklch(0.98"] {
+body.workspace-active [data-vaul-drawer] {
   background: rgba(8, 20, 30, 0.58) !important;
   backdrop-filter: blur(35px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.20) !important;
