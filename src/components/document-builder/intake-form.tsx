@@ -491,6 +491,7 @@ function FileUploadInput({ value, onChange }: { value: unknown; onChange: (v: un
 function ReviewStep({
   schema,
   state,
+  template,
   missing,
   onSetMode,
   onSetInstructions,
@@ -500,6 +501,7 @@ function ReviewStep({
 }: {
   schema: DocumentIntakeSchema;
   state: IntakeState;
+  template: DocumentTemplate;
   missing: IntakeField[];
   onSetMode: (m: IntakeState["generationMode"]) => void;
   onSetInstructions: (s: string) => void;
@@ -512,6 +514,8 @@ function ReviewStep({
     { id: "matter_based", title: "На основе дела", desc: "Подтянуть материалы из дела" },
     { id: "hybrid", title: "Гибрид", desc: "Опросник + материалы дела" },
   ];
+
+  const warnings = schema.schema_json?.warnings ?? [];
 
   const onPickAttachments = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = Array.from(e.target.files ?? []);
