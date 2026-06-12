@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 /**
  * Architecture layer for the upcoming `generate-legal-document` edge function.
  *
