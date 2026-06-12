@@ -17,6 +17,7 @@ import {
   createInitialIntakeState,
   type IntakeState,
 } from "@/lib/document-intake-schemas";
+import { buildGenerateRequest, invokeGenerateLegalDocument, type GeneratedDocumentResult } from "@/lib/generate-legal-document";
 import { IntakeForm } from "@/components/document-builder/intake-form";
 
 export const Route = createFileRoute("/workspace/document-builder")({
