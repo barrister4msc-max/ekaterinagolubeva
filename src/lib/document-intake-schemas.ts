@@ -57,6 +57,10 @@ export type IntakeField = {
   options?: IntakeFieldOption[];
   min?: number;
   max?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  patternMessage?: string;
   currency?: string;
   multiline?: boolean;
   /** Free-form metadata for renderer / AI prompt. */
