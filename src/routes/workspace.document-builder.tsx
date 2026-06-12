@@ -487,6 +487,12 @@ function DocumentBuilderPage() {
         .db-small-select-label { font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
         .db-progress { height: 4px; width: 100%; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
         .db-progress-bar { height: 100%; background: linear-gradient(90deg, #c8a86b, #e2c889); transition: width 220ms ease; }
+        .db-json-block { border: 1px solid rgba(255,255,255,0.10); background: rgba(4,10,14,0.70); border-radius: 12px; overflow: hidden; }
+        .db-json-header { padding: 10px 14px; background: rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .db-json-pre { padding: 14px; font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.85); white-space: pre-wrap; word-break: break-word; overflow: auto; max-height: 420px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        .db-copy-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; font-size: 11px; color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; transition: all 160ms ease; }
+        .db-copy-btn:hover { background: rgba(255,255,255,0.10); color: #fff; }
+        .db-copy-btn-done { background: rgba(102,187,156,0.14); color: #b6ecd1; border-color: rgba(102,187,156,0.35); }
       `}</style>
     </div>
   );

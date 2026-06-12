@@ -23,53 +23,54 @@ import type {
 import type { DocumentTemplate } from "./document-templates";
 
 export type GenerateLegalDocumentRequest = {
+  template_code: string;
   template: {
     code: string;
     title: string;
     category: string;
-    subcategory: string | null;
     practice_area: string | null;
     complexity: DocumentTemplate["complexity"];
   };
   jurisdiction: string;
   language: string;
-  generationMode: GenerationMode;
-  answers: IntakeAnswers;
+  generation_mode: GenerationMode;
+  intake: IntakeAnswers;
   attachments: IntakeAttachment[];
-  specialInstructions: string;
-  /** Reserved for matter_based / hybrid modes. Empty for standalone. */
-  matterId?: string;
-  documentIds?: string[];
-  /** Carried along for traceability and prompt hints in the edge function. */
-  schemaRef?: { id: string; warnings?: string[] };
+  special_instructions: string;
+  schema: {
+    title: string;
+    required_fields: string[];
+    warnings: string[];
+  } | null;
 };
 
 export function buildGenerateRequest(
   template: DocumentTemplate,
   state: IntakeState,
   schema: DocumentIntakeSchema | null,
-  ctx?: { matterId?: string; documentIds?: string[] },
 ): GenerateLegalDocumentRequest {
   return {
+    template_code: template.code,
     template: {
       code: template.code,
       title: template.title,
       category: template.category,
-      subcategory: template.subcategory ?? null,
       practice_area: template.practice_area ?? null,
       complexity: template.complexity,
     },
     jurisdiction: state.jurisdiction,
     language: state.language,
-    generationMode: state.generationMode,
-    answers: state.answers,
+    generation_mode: state.generationMode,
+    intake: state.answers,
     attachments: state.attachments,
-    specialInstructions: state.specialInstructions,
-    matterId: ctx?.matterId,
-    documentIds: ctx?.documentIds,
-    schemaRef: schema
-      ? { id: schema.id, warnings: schema.schema_json?.warnings ?? [] }
-      : undefined,
+    special_instructions: state.specialInstructions,
+    schema: schema
+      ? {
+          title: schema.title,
+          required_fields: schema.required_fields ?? [],
+          warnings: schema.schema_json?.warnings ?? [],
+        }
+      : null,
   };
 }
 
