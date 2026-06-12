@@ -114,6 +114,7 @@ export function GeneratedDocumentsBlock({
   const [editTitle, setEditTitle] = useState("");
 const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [improvingId, setImprovingId] = useState<string | null>(null);
+  const [docsLoading, setDocsLoading] = useState(true);
   const loadTemplates = useCallback(async () => {
     const { data, error } = await supabase
       .from("document_templates")
@@ -129,10 +130,13 @@ const [reviewingId, setReviewingId] = useState<string | null>(null);
   }, []);
 
   const loadDocs = useCallback(async () => {
+    console.log("GeneratedDocumentsBlock params", { leadId, matterId, resolvedMatterId });
     if (!leadId && !resolvedMatterId) {
       setDocs([]);
+      setDocsLoading(false);
       return;
     }
+    setDocsLoading(true);
     const queries: PromiseLike<any>[] = [];
     if (leadId) {
       queries.push(
@@ -167,8 +171,11 @@ const [reviewingId, setReviewingId] = useState<string | null>(null);
       }
     }
     merged.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    console.log("Generated docs loaded", merged);
     setDocs(merged);
-  }, [leadId, resolvedMatterId]);
+    setDocsLoading(false);
+  }, [leadId, matterId, resolvedMatterId]);
+
 
   const loadStrategy = useCallback(async () => {
     let mid = matterId ?? null;
@@ -548,7 +555,11 @@ const improveDocument = async (doc: GeneratedDoc) => {
       </div>
 
       <div className="mt-6 space-y-3">
-        {docs.length === 0 ? (
+        {docsLoading ? (
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            Загрузка…
+          </div>
+        ) : docs.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
             Сформированных документов пока нет
           </div>
