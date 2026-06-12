@@ -48,6 +48,7 @@ import { Route as WorkspaceMattersRouteImport } from './routes/workspace.matters
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLegalKnowledgeRouteImport } from './routes/workspace.legal-knowledge'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
+import { Route as WorkspaceDocumentBuilderRouteImport } from './routes/workspace.document-builder'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
 import { Route as WorkspaceCrmRouteImport } from './routes/workspace.crm'
 import { Route as WorkspaceAiPodborRouteImport } from './routes/workspace.ai-podbor'
@@ -251,6 +252,12 @@ const WorkspaceLeadsRoute = WorkspaceLeadsRouteImport.update({
   path: '/leads',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceDocumentBuilderRoute =
+  WorkspaceDocumentBuilderRouteImport.update({
+    id: '/document-builder',
+    path: '/document-builder',
+    getParentRoute: () => WorkspaceRoute,
+  } as any)
 const WorkspaceDashboardRoute = WorkspaceDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -325,6 +332,7 @@ export interface FileRoutesByFullPath {
   '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
+  '/workspace/document-builder': typeof WorkspaceDocumentBuilderRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -373,6 +381,7 @@ export interface FileRoutesByTo {
   '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
+  '/workspace/document-builder': typeof WorkspaceDocumentBuilderRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -422,6 +431,7 @@ export interface FileRoutesById {
   '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
+  '/workspace/document-builder': typeof WorkspaceDocumentBuilderRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -472,6 +482,7 @@ export interface FileRouteTypes {
     | '/workspace/ai-podbor'
     | '/workspace/crm'
     | '/workspace/dashboard'
+    | '/workspace/document-builder'
     | '/workspace/leads'
     | '/workspace/legal-knowledge'
     | '/workspace/login'
@@ -520,6 +531,7 @@ export interface FileRouteTypes {
     | '/workspace/ai-podbor'
     | '/workspace/crm'
     | '/workspace/dashboard'
+    | '/workspace/document-builder'
     | '/workspace/leads'
     | '/workspace/legal-knowledge'
     | '/workspace/login'
@@ -568,6 +580,7 @@ export interface FileRouteTypes {
     | '/workspace/ai-podbor'
     | '/workspace/crm'
     | '/workspace/dashboard'
+    | '/workspace/document-builder'
     | '/workspace/leads'
     | '/workspace/legal-knowledge'
     | '/workspace/login'
@@ -891,6 +904,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceLeadsRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/document-builder': {
+      id: '/workspace/document-builder'
+      path: '/document-builder'
+      fullPath: '/workspace/document-builder'
+      preLoaderRoute: typeof WorkspaceDocumentBuilderRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/workspace/dashboard': {
       id: '/workspace/dashboard'
       path: '/dashboard'
@@ -957,6 +977,7 @@ interface WorkspaceRouteChildren {
   WorkspaceAiPodborRoute: typeof WorkspaceAiPodborRoute
   WorkspaceCrmRoute: typeof WorkspaceCrmRoute
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
+  WorkspaceDocumentBuilderRoute: typeof WorkspaceDocumentBuilderRoute
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
   WorkspaceLegalKnowledgeRoute: typeof WorkspaceLegalKnowledgeRoute
   WorkspaceLoginRoute: typeof WorkspaceLoginRoute
@@ -972,6 +993,7 @@ const WorkspaceRouteChildren: WorkspaceRouteChildren = {
   WorkspaceAiPodborRoute: WorkspaceAiPodborRoute,
   WorkspaceCrmRoute: WorkspaceCrmRoute,
   WorkspaceDashboardRoute: WorkspaceDashboardRoute,
+  WorkspaceDocumentBuilderRoute: WorkspaceDocumentBuilderRoute,
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
   WorkspaceLegalKnowledgeRoute: WorkspaceLegalKnowledgeRoute,
   WorkspaceLoginRoute: WorkspaceLoginRoute,
