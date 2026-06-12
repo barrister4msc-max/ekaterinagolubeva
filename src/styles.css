@@ -610,18 +610,20 @@
 
 .workspace-glass .ai-problems,
 .workspace-glass [data-ai-problems] {
-  background: rgba(110, 40, 50, 0.25) !important;
-  border: 1px solid rgba(200, 120, 130, 0.30) !important;
+  background: rgba(42, 12, 18, 0.68) !important;
+  border: 1px solid rgba(255, 145, 155, 0.34) !important;
   border-radius: 16px;
-  color: rgba(255, 235, 235, 0.92);
+  color: rgba(255, 238, 240, 0.97);
+  backdrop-filter: blur(24px) saturate(135%);
 }
 
 .workspace-glass .ai-missing,
 .workspace-glass [data-ai-missing] {
-  background: rgba(130, 90, 30, 0.25) !important;
-  border: 1px solid rgba(255, 210, 120, 0.30) !important;
+  background: rgba(46, 30, 10, 0.68) !important;
+  border: 1px solid rgba(255, 210, 120, 0.34) !important;
   border-radius: 16px;
-  color: rgba(255, 245, 220, 0.95);
+  color: rgba(255, 244, 218, 0.97);
+  backdrop-filter: blur(24px) saturate(135%);
 }
 
 /* Sidebar — transparent glass */
@@ -813,14 +815,16 @@ body.workspace-active [data-radix-popper-content-wrapper] [data-highlighted] {
 .workspace-glass .bg-amber-50,
 body.workspace-active [role="dialog"] .bg-amber-50,
 body.workspace-active [data-vaul-drawer] .bg-amber-50 {
-  background-color: rgba(140, 95, 30, 0.28) !important;
+  background: rgba(46, 30, 10, 0.68) !important;
   border-color: rgba(255, 200, 110, 0.35) !important;
+  backdrop-filter: blur(22px) saturate(135%);
 }
 .workspace-glass .bg-amber-100,
 body.workspace-active [role="dialog"] .bg-amber-100,
 body.workspace-active [data-vaul-drawer] .bg-amber-100 {
-  background-color: rgba(160, 110, 35, 0.38) !important;
+  background: rgba(58, 38, 12, 0.72) !important;
   border-color: rgba(255, 200, 110, 0.40) !important;
+  backdrop-filter: blur(22px) saturate(135%);
 }
 .workspace-glass .bg-yellow-50,
 .workspace-glass .bg-yellow-100,
