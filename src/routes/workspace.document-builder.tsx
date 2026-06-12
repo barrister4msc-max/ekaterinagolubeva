@@ -541,6 +541,9 @@ function DocumentBuilderPage() {
         .db-copy-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; font-size: 11px; color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; transition: all 160ms ease; }
         .db-copy-btn:hover { background: rgba(255,255,255,0.10); color: #fff; }
         .db-copy-btn-done { background: rgba(102,187,156,0.14); color: #b6ecd1; border-color: rgba(102,187,156,0.35); }
+        .db-mode-badge { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; background: linear-gradient(135deg, rgba(214,188,120,0.22), rgba(214,188,120,0.10)); border: 1px solid rgba(214,188,120,0.55); }
+        .db-mode-badge-label { font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(214,188,120,0.85); }
+        .db-mode-badge-value { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: #f5e2a5; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
       `}</style>
     </div>
   );
