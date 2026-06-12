@@ -73,6 +73,8 @@ export type IntakeStep = {
 export type IntakeSchemaJson = {
   version?: string;
   steps: IntakeStep[];
+  /** Optional advisory warnings shown on the final preview. */
+  warnings?: string[];
 };
 
 export type DocumentIntakeSchema = {

@@ -397,6 +397,7 @@ function DocumentBuilderPage() {
             <IntakeForm
               schema={intakeSchemaQuery.data}
               state={intake}
+              template={selected}
               onChange={setIntake}
               onBack={() => setStep(2)}
               onSubmit={() => setSubmitted(true)}
@@ -404,10 +405,13 @@ function DocumentBuilderPage() {
           )}
 
           {intakeSchemaQuery.data && submitted && (
-            <div className="db-ready">
-              <div className="db-info-label">Готово</div>
+            <div className="db-ready space-y-3">
+              <div className="db-info-label">Черновик документа</div>
               <div className="db-info-value">
-                Опросник заполнен. Данные подготовлены к передаче в AI генератор (следующий этап).
+                Данные intake собраны и готовы для передачи в edge function <span className="text-white/70">generate-legal-document</span>.
+              </div>
+              <div className="text-sm text-white/75">
+                Генерация документа будет подключена на следующем этапе.
               </div>
               <div className="mt-3 flex gap-2">
                 <button type="button" onClick={() => setSubmitted(false)} className="db-ghost">Изменить ответы</button>
@@ -481,6 +485,8 @@ function DocumentBuilderPage() {
         .db-uploader:hover { background: rgba(255,255,255,0.10); }
         .db-small-select { display: flex; flex-direction: column; gap: 3px; }
         .db-small-select-label { font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
+        .db-progress { height: 4px; width: 100%; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+        .db-progress-bar { height: 100%; background: linear-gradient(90deg, #c8a86b, #e2c889); transition: width 220ms ease; }
       `}</style>
     </div>
   );

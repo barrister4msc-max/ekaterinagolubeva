@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Upload, Sparkles, AlertTriangle } from "lucide-react";
 import {
   type DocumentIntakeSchema,
   type IntakeField,
@@ -9,16 +9,25 @@ import {
   validateIntake,
   getMissingRequiredFields,
 } from "@/lib/document-intake-schemas";
+import {
+  CATEGORY_LABELS,
+  COMPLEXITY_LABELS,
+  JURISDICTION_LABELS,
+  LANGUAGE_LABELS,
+  PRACTICE_AREA_LABELS,
+  type DocumentTemplate,
+} from "@/lib/document-templates";
 
 type Props = {
   schema: DocumentIntakeSchema;
   state: IntakeState;
+  template: DocumentTemplate;
   onChange: (next: IntakeState) => void;
   onSubmit: (state: IntakeState) => void;
   onBack: () => void;
 };
 
-export function IntakeForm({ schema, state, onChange, onSubmit, onBack }: Props) {
+export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack }: Props) {
   const steps = schema.schema_json?.steps ?? [];
   const [stepIdx, setStepIdx] = useState(0);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -74,17 +83,40 @@ export function IntakeForm({ schema, state, onChange, onSubmit, onBack }: Props)
     setTouched(next);
   };
 
+  const markAllTouched = () => {
+    const next: Record<string, boolean> = { ...touched };
+    for (const s of steps) for (const f of s.fields) next[f.key] = true;
+    setTouched(next);
+  };
+
   const handleNext = () => {
-    if (!isReview) {
-      markTouchedForStep(currentStep);
-      const hasErrInStep = currentStep.fields.some((f) => issuesByField.get(f.key));
-      if (hasErrInStep) return;
+    if (isReview) return;
+    markTouchedForStep(currentStep);
+    const hasErrInStep = currentStep.fields.some((f) => issuesByField.get(f.key));
+    if (hasErrInStep) return;
+    // About to enter the review step → enforce full validation
+    const nextIdx = stepIdx + 1;
+    if (nextIdx >= steps.length && !validation.valid) {
+      markAllTouched();
+      return;
     }
     goNext();
   };
 
+  const progressPct = Math.round(((stepIdx + 1) / totalSteps) * 100);
+  const currentTitle = isReview ? "Предпросмотр подготовки документа" : currentStep.title;
+
   return (
     <div className="space-y-6">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/60">
+          <span>Шаг {Math.min(stepIdx + 1, totalSteps)} из {totalSteps}</span>
+          <span className="text-white/85 normal-case tracking-normal text-xs">{currentTitle}</span>
+          <span>{progressPct}%</span>
+        </div>
+        <div className="db-progress"><div className="db-progress-bar" style={{ width: `${progressPct}%` }} /></div>
+      </div>
+
       <div className="db-substepper">
         {steps.map((s, i) => {
           const status = i === stepIdx ? "active" : i < stepIdx ? "done" : "idle";
@@ -97,9 +129,15 @@ export function IntakeForm({ schema, state, onChange, onSubmit, onBack }: Props)
         })}
         <div className={`db-substep ${isReview ? "db-substep-active" : ""}`}>
           <span style={{ fontWeight: 600 }}>{steps.length + 1}</span>
-          <span>Проверка</span>
+          <span>Предпросмотр</span>
         </div>
       </div>
+
+      {!isReview && missing.length > 0 && stepIdx === steps.length - 1 && (
+        <div className="db-warning">
+          Для перехода к предпросмотру заполните: {missing.map((m) => m.label).join(", ")}.
+        </div>
+      )}
 
       {!isReview && (
         <div className="space-y-5">
@@ -133,6 +171,7 @@ export function IntakeForm({ schema, state, onChange, onSubmit, onBack }: Props)
         <ReviewStep
           schema={schema}
           state={state}
+          template={template}
           missing={missing}
           onSetMode={setMode}
           onSetInstructions={setInstructions}
@@ -156,9 +195,9 @@ export function IntakeForm({ schema, state, onChange, onSubmit, onBack }: Props)
             onClick={() => onSubmit(state)}
             disabled={!validation.valid}
             className="db-cta"
-            title={!validation.valid ? "Заполните обязательные поля" : "Передать на подготовку"}
+            title={!validation.valid ? "Заполните обязательные поля" : "Сформировать черновик"}
           >
-            Передать на подготовку <ArrowRight size={14} />
+            <Sparkles size={14} /> Сформировать черновик документа
           </button>
         )}
       </div>
@@ -452,6 +491,7 @@ function FileUploadInput({ value, onChange }: { value: unknown; onChange: (v: un
 function ReviewStep({
   schema,
   state,
+  template,
   missing,
   onSetMode,
   onSetInstructions,
@@ -461,6 +501,7 @@ function ReviewStep({
 }: {
   schema: DocumentIntakeSchema;
   state: IntakeState;
+  template: DocumentTemplate;
   missing: IntakeField[];
   onSetMode: (m: IntakeState["generationMode"]) => void;
   onSetInstructions: (s: string) => void;
@@ -473,6 +514,8 @@ function ReviewStep({
     { id: "matter_based", title: "На основе дела", desc: "Подтянуть материалы из дела" },
     { id: "hybrid", title: "Гибрид", desc: "Опросник + материалы дела" },
   ];
+
+  const warnings = schema.schema_json?.warnings ?? [];
 
   const onPickAttachments = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = Array.from(e.target.files ?? []);
@@ -489,6 +532,34 @@ function ReviewStep({
 
   return (
     <div className="space-y-5">
+      <div className="db-subcard">
+        <div className="db-section-label">Предпросмотр подготовки документа</div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <PreviewRow label="Шаблон" value={`${template.title}`} hint={template.code} />
+          <PreviewRow label="Категория" value={CATEGORY_LABELS[template.category] ?? template.category} hint={template.subcategory ?? undefined} />
+          <PreviewRow label="Область права" value={template.practice_area ? (PRACTICE_AREA_LABELS[template.practice_area] ?? template.practice_area) : "—"} />
+          <PreviewRow label="Сложность" value={COMPLEXITY_LABELS[template.complexity]} />
+          <PreviewRow label="Юрисдикция" value={JURISDICTION_LABELS[state.jurisdiction] ?? state.jurisdiction} />
+          <PreviewRow label="Язык" value={LANGUAGE_LABELS[state.language] ?? state.language} />
+          <PreviewRow label="Режим генерации" value={modes.find((m) => m.id === state.generationMode)?.title ?? state.generationMode} />
+          <PreviewRow label="Файлы" value={state.attachments.length > 0 ? `${state.attachments.length} файл(а/ов)` : "—"} />
+        </div>
+      </div>
+
+      {warnings.length > 0 && (
+        <div className="db-warning">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <div>
+              <div className="font-medium">Важно учесть:</div>
+              <ul className="mt-1 list-disc pl-5 space-y-1">
+                {warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="db-section-label">Режим генерации</div>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
@@ -568,6 +639,17 @@ function ReviewStep({
 // ---------------------------------------------------------------------------
 // utils
 // ---------------------------------------------------------------------------
+
+function PreviewRow({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="db-info">
+      <div className="db-info-label">{label}</div>
+      <div className="db-info-value">{value || "—"}</div>
+      {hint && <div className="mt-1 text-[11px] text-white/50">{hint}</div>}
+    </div>
+  );
+}
+
 
 function asStr(v: unknown): string {
   if (v === null || v === undefined) return "";
