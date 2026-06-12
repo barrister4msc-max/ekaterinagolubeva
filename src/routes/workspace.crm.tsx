@@ -1125,11 +1125,11 @@ onDrop={(e) => e.preventDefault()}
     >
       <aside
         onClick={(e) => e.stopPropagation()}
-        className="h-full w-full max-w-2xl overflow-y-auto border-l border-border bg-[oklch(0.98_0.01_75)] p-8 shadow-[0_20px_80px_rgba(0,0,0,0.18)]"
+        className="h-full w-full max-w-2xl overflow-y-auto rounded-l-[28px] border-l border-white/20 bg-[rgba(8,20,30,0.62)] p-8 text-white shadow-[0_30px_90px_rgba(0,0,0,0.46)] backdrop-blur-[36px]"
       >
         <div className="flex items-start justify-between gap-6">
           <div>
-            <div className="mb-4 inline-flex rounded-full border bg-white px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+            <div className="mb-4 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/70">
               Legal dossier
             </div>
             <h2 className="font-display text-4xl">
@@ -1140,10 +1140,10 @@ onDrop={(e) => e.preventDefault()}
               <span className={`rounded-full px-3 py-1 text-xs ${priorityClass(lead.priority)}`}>
                 {lead.priority ?? "normal"}
               </span>
-              <span className="rounded-full bg-white px-3 py-1 text-xs text-muted-foreground">
+              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-white/75">
                 {fmtDate(lead.created_at)}
               </span>
-              <span className="rounded-full bg-white px-3 py-1 text-xs text-muted-foreground">
+              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-white/75">
                 {lead.phone}
               </span>
             </div>
@@ -1181,16 +1181,16 @@ await supabase
     onClose();
     window.location.reload();
   }}
-  className="rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm text-red-600 shadow-sm hover:bg-red-50"
+  className="rounded-2xl border border-red-300/35 bg-red-950/45 px-4 py-3 text-sm text-red-100 shadow-[0_12px_34px_rgba(0,0,0,0.24)] hover:bg-red-900/55"
 >
   Архивировать
 </button>
-          <button onClick={onClose} className="rounded-2xl border bg-white p-3 shadow-sm hover:bg-secondary" aria-label="Закрыть">
+          <button onClick={onClose} className="rounded-2xl border border-white/20 bg-white/10 p-3 text-white shadow-sm hover:bg-white/15" aria-label="Закрыть">
             <X size={18} />
           </button>
         </div>
 
-        <div className="mt-8 flex flex-wrap gap-2 rounded-2xl border bg-white p-2">
+        <div className="mt-8 flex flex-wrap gap-2 rounded-2xl border border-white/15 bg-white/8 p-2 backdrop-blur-xl">
           {([
   ["overview", "Overview"],
   ["cases", "Cases"],
@@ -1205,8 +1205,8 @@ await supabase
     onClick={() => setActiveTab(tab)}
     className={`rounded-xl px-4 py-2 text-sm hover:bg-secondary ${
       activeTab === tab
-        ? "bg-neutral-950 text-white"
-        : "text-muted-foreground"
+        ? "bg-white/18 text-white shadow-[0_10px_26px_rgba(0,0,0,0.20)]"
+        : "text-white/72"
     }`}
   >
     {label}
