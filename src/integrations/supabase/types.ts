@@ -2666,6 +2666,63 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_document_templates: {
+        Row: {
+          category: string
+          code: string
+          complexity: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          jurisdiction: string[]
+          languages: string[]
+          metadata: Json
+          practice_area: string | null
+          requires_intake: boolean
+          sort_order: number
+          subcategory: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          code: string
+          complexity?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          jurisdiction?: string[]
+          languages?: string[]
+          metadata?: Json
+          practice_area?: string | null
+          requires_intake?: boolean
+          sort_order?: number
+          subcategory?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          code?: string
+          complexity?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          jurisdiction?: string[]
+          languages?: string[]
+          metadata?: Json
+          practice_area?: string | null
+          requires_intake?: boolean
+          sort_order?: number
+          subcategory?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       legal_knowledge_chunks: {
         Row: {
           category: string | null
