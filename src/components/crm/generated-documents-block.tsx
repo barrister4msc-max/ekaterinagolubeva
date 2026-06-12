@@ -521,12 +521,25 @@ const reviewDocument = async (doc: GeneratedDoc) => {
   </>
 )}
                   </div>
-                  {Array.isArray(doc.metadata?.missing_inputs) && doc.metadata.missing_inputs.length > 0 && (
+                                    {Array.isArray(doc.metadata?.missing_inputs) && doc.metadata.missing_inputs.length > 0 && (
                     <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                       <div className="font-medium">Не хватает данных</div>
                       <ul className="mt-1 list-disc pl-4">
                         {doc.metadata.missing_inputs.map((m: string, i: number) => (
                           <li key={i}>{m}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {doc.metadata?.review?.problems?.length > 0 && (
+                    <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+                      <div className="font-medium">Замечания AI</div>
+                      <ul className="mt-1 list-disc pl-4">
+                        {doc.metadata.review.problems.map((p: any, i: number) => (
+                          <li key={i}>
+                            [{p.severity}] {p.problem}
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -547,6 +560,16 @@ const reviewDocument = async (doc: GeneratedDoc) => {
                   >
                     <Pencil size={12} /> Редактировать
                   </button>
+                                    <button
+                    type="button"
+                    disabled={reviewingId === doc.id}
+                    onClick={() => reviewDocument(doc)}
+                    className="flex items-center gap-1 rounded-lg border border-purple-200 px-3 py-1.5 text-xs text-purple-700 hover:bg-purple-50 disabled:opacity-60"
+                  >
+                    <ShieldAlert size={12} />
+                    {reviewingId === doc.id ? "Проверка..." : "AI проверка"}
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => deleteDoc(doc)}
