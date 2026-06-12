@@ -26,6 +26,8 @@ type Props = {
   onChange: (next: IntakeState) => void;
   onSubmit: (state: IntakeState) => void;
   onBack: () => void;
+  availableModes?: Array<IntakeState["generationMode"]>;
+  submitting?: boolean;
 };
 
 export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack }: Props) {
