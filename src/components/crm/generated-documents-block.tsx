@@ -132,7 +132,6 @@ const [reviewingId, setReviewingId] = useState<string | null>(null);
     const orFilters: string[] = [];
     if (leadId) orFilters.push(`lead_id.eq.${leadId}`);
     if (resolvedMatterId) {
-      orFilters.push(`matter_id.eq.${resolvedMatterId}`);
       orFilters.push(`metadata->>matter_id.eq.${resolvedMatterId}`);
     }
     let query = supabase
