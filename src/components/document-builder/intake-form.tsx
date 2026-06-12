@@ -710,6 +710,12 @@ function ReviewStep({
                 {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Скопировано" : "Скопировать JSON"}
               </button>
             </div>
+            <div className="px-4 pt-3">
+              <div className="db-mode-badge">
+                <span className="db-mode-badge-label">generation_mode</span>
+                <span className="db-mode-badge-value">{state.generationMode}</span>
+              </div>
+            </div>
             <pre className="db-json-pre">{jsonText}</pre>
           </div>
         )}
