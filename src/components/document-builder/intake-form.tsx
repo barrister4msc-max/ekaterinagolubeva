@@ -649,6 +649,34 @@ function ReviewStep({
           onChange={(e) => onSetInstructions(e.target.value)}
         />
       </div>
+
+      <div>
+        <div className="flex items-center justify-between">
+          <div className="db-section-label">Payload для Edge Function</div>
+          <button
+            type="button"
+            onClick={() => setShowJson((s) => !s)}
+            className="db-ghost"
+          >
+            {showJson ? "Скрыть JSON" : "Показать JSON запроса"}
+          </button>
+        </div>
+        {showJson && (
+          <div className="mt-3 db-json-block">
+            <div className="flex items-center justify-between db-json-header">
+              <span className="text-[11px] uppercase tracking-[0.18em] text-white/55">generate-legal-document payload</span>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className={`db-copy-btn ${copied ? "db-copy-btn-done" : ""}`}
+              >
+                {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Скопировано" : "Скопировать JSON"}
+              </button>
+            </div>
+            <pre className="db-json-pre">{jsonText}</pre>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
