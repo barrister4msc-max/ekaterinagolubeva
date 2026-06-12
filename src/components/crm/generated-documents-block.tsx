@@ -347,7 +347,36 @@ const [reviewingId, setReviewingId] = useState<string | null>(null);
     toast.success("Сохранено");
     setEditing(null);
   };
+const reviewDocument = async (doc: GeneratedDoc) => {
+  try {
+    setReviewingId(doc.id);
 
+    const { data, error } = await supabase.functions.invoke(
+      "review-generated-legal-document",
+      {
+        body: {
+          document_id: doc.id,
+        },
+      },
+    );
+
+    if (error) throw error;
+
+    await loadDocs();
+
+    toast.success(
+      `AI проверка завершена: ${data.review.overall_score}/100`,
+    );
+  } catch (error: any) {
+    console.error(error);
+
+    toast.error(
+      error.message || "Ошибка AI проверки",
+    );
+  } finally {
+    setReviewingId(null);
+  }
+};
   return (
     <section className="mt-6 rounded-3xl border bg-white p-6">
       <div className="flex items-center justify-between gap-3">
