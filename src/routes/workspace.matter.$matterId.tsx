@@ -32,6 +32,8 @@ import {
   archiveDelete,
 } from "@/lib/lawyer-matters.functions";
 import { ZipUploadDialog } from "@/components/practice/zip-upload-dialog";
+import { GeneratedDocumentsBlock } from "@/components/crm/generated-documents-block";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/workspace/matter/$matterId")({
   head: () => ({ meta: [{ title: "Дело — Workspace" }, { name: "robots", content: "noindex" }] }),
