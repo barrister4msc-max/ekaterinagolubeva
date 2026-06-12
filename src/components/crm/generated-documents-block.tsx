@@ -133,7 +133,7 @@ const [reviewingId, setReviewingId] = useState<string | null>(null);
       setDocs([]);
       return;
     }
-    const queries: Promise<any>[] = [];
+    const queries: PromiseLike<any>[] = [];
     if (leadId) {
       queries.push(
         supabase
