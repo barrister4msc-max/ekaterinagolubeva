@@ -74,17 +74,40 @@ export function IntakeForm({ schema, state, onChange, onSubmit, onBack }: Props)
     setTouched(next);
   };
 
+  const markAllTouched = () => {
+    const next: Record<string, boolean> = { ...touched };
+    for (const s of steps) for (const f of s.fields) next[f.key] = true;
+    setTouched(next);
+  };
+
   const handleNext = () => {
-    if (!isReview) {
-      markTouchedForStep(currentStep);
-      const hasErrInStep = currentStep.fields.some((f) => issuesByField.get(f.key));
-      if (hasErrInStep) return;
+    if (isReview) return;
+    markTouchedForStep(currentStep);
+    const hasErrInStep = currentStep.fields.some((f) => issuesByField.get(f.key));
+    if (hasErrInStep) return;
+    // About to enter the review step → enforce full validation
+    const nextIdx = stepIdx + 1;
+    if (nextIdx >= steps.length && !validation.valid) {
+      markAllTouched();
+      return;
     }
     goNext();
   };
 
+  const progressPct = Math.round(((stepIdx + 1) / totalSteps) * 100);
+  const currentTitle = isReview ? "Предпросмотр подготовки документа" : currentStep.title;
+
   return (
     <div className="space-y-6">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/60">
+          <span>Шаг {Math.min(stepIdx + 1, totalSteps)} из {totalSteps}</span>
+          <span className="text-white/85 normal-case tracking-normal text-xs">{currentTitle}</span>
+          <span>{progressPct}%</span>
+        </div>
+        <div className="db-progress"><div className="db-progress-bar" style={{ width: `${progressPct}%` }} /></div>
+      </div>
+
       <div className="db-substepper">
         {steps.map((s, i) => {
           const status = i === stepIdx ? "active" : i < stepIdx ? "done" : "idle";
@@ -97,9 +120,15 @@ export function IntakeForm({ schema, state, onChange, onSubmit, onBack }: Props)
         })}
         <div className={`db-substep ${isReview ? "db-substep-active" : ""}`}>
           <span style={{ fontWeight: 600 }}>{steps.length + 1}</span>
-          <span>Проверка</span>
+          <span>Предпросмотр</span>
         </div>
       </div>
+
+      {!isReview && missing.length > 0 && stepIdx === steps.length - 1 && (
+        <div className="db-warning">
+          Для перехода к предпросмотру заполните: {missing.map((m) => m.label).join(", ")}.
+        </div>
+      )}
 
       {!isReview && (
         <div className="space-y-5">
