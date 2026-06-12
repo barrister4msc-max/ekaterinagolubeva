@@ -531,13 +531,25 @@ function ReviewStep({
     }
   };
 
-  const modes: Array<{ id: IntakeState["generationMode"]; title: string; desc: string }> = [
-    { id: "standalone", title: "Самостоятельно", desc: "Только данные опросника" },
+  const allModes: Array<{ id: IntakeState["generationMode"]; title: string; desc: string }> = [
+    { id: "standalone", title: "Самостоятельно", desc: "Только данные опросника (без материалов дела)" },
     { id: "matter_based", title: "На основе дела", desc: "Подтянуть материалы из дела" },
     { id: "hybrid", title: "Гибрид", desc: "Опросник + материалы дела" },
   ];
+  const modes = availableModes && availableModes.length > 0
+    ? allModes.filter((m) => availableModes.includes(m.id))
+    : allModes;
 
   const warnings = schema.schema_json?.warnings ?? [];
+
+  // Governing law / dispute resolution sanity check
+  const governingLaw = String(answers.governing_law ?? "").toLowerCase();
+  const disputeResolution = String(answers.dispute_resolution ?? "").toLowerCase();
+  const jurisdictionMap: Record<string, string> = { ru: "russia", cy: "cyprus", il: "israel", ge: "georgia" };
+  const expectedLaw = jurisdictionMap[state.jurisdiction.toLowerCase()];
+  const lawMismatch = governingLaw && expectedLaw && governingLaw !== expectedLaw && governingLaw !== "other";
+  const englishForNonEnglish = governingLaw === "english" && expectedLaw && expectedLaw !== "english";
+  const londonMention = /(лондон|london|lcia)/i.test(disputeResolution) && expectedLaw && expectedLaw !== "english";
 
   const onPickAttachments = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = Array.from(e.target.files ?? []);
