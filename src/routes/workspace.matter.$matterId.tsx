@@ -1003,39 +1003,15 @@ function ActionsTab({ matterId }: { matterId: string }) {
 
 /* ===== Generated (read-only listing) ===== */
 
-function GeneratedTab({ matterId }: { matterId: string }) {
-  const listFn = useServerFn(actionList);
-  const [rows, setRows] = useState<Action[]>([]);
-  useEffect(() => {
-    void (async () => {
-      try {
-        const r: any = await listFn({ data: { matter_id: matterId } });
-        setRows(((r?.rows ?? []) as Action[]).filter((a) => a.generated_document_id));
-      } catch (e: any) {
-        toast.error(e?.message || "Ошибка");
-      }
-    })();
-  }, [listFn, matterId]);
-
+function GeneratedTab({ matterId, leadId }: { matterId: string; leadId: string | null }) {
+  const { user } = useAuth();
   return (
-    <Card>
-      <CardHeader><CardTitle className="text-sm">Сформированные документы</CardTitle></CardHeader>
-      <CardContent>
-        {rows.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Сформированных документов пока нет.</p>
-        ) : (
-          <ul className="space-y-2 text-sm">
-            {rows.map((a) => (
-              <li key={a.id} className="flex items-center gap-2 rounded border border-border bg-muted/20 px-3 py-2">
-                <FileText size={14} />
-                <span>{a.title}</span>
-                <Badge variant="outline" className="ml-auto">{a.status}</Badge>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+    <GeneratedDocumentsBlock
+      leadId={leadId ?? ""}
+      crmLeadId={null}
+      userId={user?.id ?? null}
+      matterId={matterId}
+    />
   );
 }
 
