@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown, ShieldAlert, Sparkles } from "lucide-react";
+import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown, ShieldAlert, Sparkles, Wand2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
