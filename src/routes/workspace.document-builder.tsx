@@ -461,7 +461,40 @@ function DocumentBuilderPage() {
         .db-step { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-radius: 999px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); }
         .db-step-active { color: #0d1a22; background: linear-gradient(135deg, #e2c889, #c8a86b); border-color: rgba(214,188,120,0.70); }
         .db-step-done { color: #b6ecd1; background: rgba(102,187,156,0.12); border-color: rgba(102,187,156,0.35); }
+        .db-warning { border: 1px solid rgba(214,170,90,0.40); background: rgba(60,40,10,0.45); color: #f0d59c; padding: 12px 14px; border-radius: 10px; font-size: 13px; }
+        .db-empty { display: flex; align-items: flex-start; gap: 14px; border: 1px dashed rgba(255,255,255,0.18); border-radius: 14px; padding: 18px; background: rgba(8,18,26,0.40); }
+        .db-input { width: 100%; min-height: 38px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); color: rgba(255,255,255,0.92); padding: 8px 12px; font-size: 13px; outline: none; }
+        .db-input:focus { border-color: rgba(214,188,120,0.55); }
+        .db-input::placeholder { color: rgba(255,255,255,0.40); }
+        .db-suffix { display: grid; place-items: center; padding: 0 12px; border-radius: 10px; font-size: 12px; color: rgba(255,255,255,0.70); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); min-width: 56px; }
+        .db-field { display: flex; flex-direction: column; gap: 6px; }
+        .db-field-label { font-size: 12px; color: rgba(255,255,255,0.80); letter-spacing: 0.02em; }
+        .db-required { color: #f0b8b8; margin-left: 4px; }
+        .db-field-help { font-size: 11px; color: rgba(255,255,255,0.55); }
+        .db-field-error { font-size: 11px; color: #f0b8b8; }
+        .db-subcard { border: 1px solid rgba(255,255,255,0.10); background: rgba(8,18,26,0.45); border-radius: 12px; padding: 12px; }
+        .db-substepper { display: flex; flex-wrap: wrap; gap: 6px; }
+        .db-substep { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.10); }
+        .db-substep-active { color: #0d1a22; background: linear-gradient(135deg, #e2c889, #c8a86b); border-color: rgba(214,188,120,0.70); }
+        .db-substep-done { color: #b6ecd1; background: rgba(102,187,156,0.12); border-color: rgba(102,187,156,0.35); }
+        .db-uploader { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 10px; font-size: 12px; color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.25); cursor: pointer; }
+        .db-uploader:hover { background: rgba(255,255,255,0.10); }
+        .db-small-select { display: flex; flex-direction: column; gap: 3px; }
+        .db-small-select-label { font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
       `}</style>
+    </div>
+  );
+}
+
+function SmallSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: Array<{ value: string; label: string }> }) {
+  return (
+    <div className="db-small-select">
+      <span className="db-small-select-label">{label}</span>
+      <select className="db-select" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>{o.label}</option>
+        ))}
+      </select>
     </div>
   );
 }
