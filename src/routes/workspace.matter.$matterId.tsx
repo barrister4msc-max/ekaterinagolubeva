@@ -158,7 +158,7 @@ function MatterDetailPage() {
           <ActionsTab matterId={matter.id} />
         </TabsContent>
         <TabsContent value="generated">
-          <GeneratedTab matterId={matter.id} />
+          <GeneratedTab matterId={matter.id} leadId={matter.lead_id} />
         </TabsContent>
         <TabsContent value="archive">
           <ArchiveTab matterId={matter.id} />
