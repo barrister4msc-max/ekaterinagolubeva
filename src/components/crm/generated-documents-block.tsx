@@ -555,7 +555,11 @@ const improveDocument = async (doc: GeneratedDoc) => {
       </div>
 
       <div className="mt-6 space-y-3">
-        {docs.length === 0 ? (
+        {docsLoading ? (
+          <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            Загрузка…
+          </div>
+        ) : docs.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
             Сформированных документов пока нет
           </div>
