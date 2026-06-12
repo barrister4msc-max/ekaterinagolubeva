@@ -378,6 +378,46 @@ const reviewDocument = async (doc: GeneratedDoc) => {
     setReviewingId(null);
   }
 };
+
+const improveDocument = async (doc: GeneratedDoc) => {
+  try {
+    setImprovingId(doc.id);
+
+    const { data, error } = await supabase.functions.invoke(
+      "improve-generated-legal-document",
+      {
+        body: {
+          document_id: doc.id,
+        },
+      },
+    );
+
+    if (error) throw error;
+
+    await loadDocs();
+
+    toast.success("Создана улучшенная версия документа");
+
+    const newId = (data as any)?.improved_document_id;
+    if (newId) {
+      const { data: newDoc } = await supabase
+        .from("generated_legal_documents")
+        .select("id,title,category,status,content,template_key,created_at,metadata")
+        .eq("id", newId)
+        .maybeSingle();
+      if (newDoc) {
+        setEditing(newDoc as GeneratedDoc);
+        setEditTitle((newDoc as GeneratedDoc).title);
+        setEditContent((newDoc as GeneratedDoc).content || "");
+      }
+    }
+  } catch (error: any) {
+    console.error(error);
+    toast.error(error.message || "Ошибка исправления документа");
+  } finally {
+    setImprovingId(null);
+  }
+};
   return (
     <section className="mt-6 rounded-3xl border bg-white p-6">
       <div className="flex items-center justify-between gap-3">
