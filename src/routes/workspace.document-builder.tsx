@@ -40,6 +40,8 @@ function DocumentBuilderPage() {
   const [category, setCategory] = useState<string>("");
   const [complexity, setComplexity] = useState<"" | TemplateComplexity>("");
   const [selectedCode, setSelectedCode] = useState<string>("");
+  const [intake, setIntake] = useState<IntakeState | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   const { data: templates = [], isLoading, error } = useQuery({
     queryKey: ["document-templates"],
