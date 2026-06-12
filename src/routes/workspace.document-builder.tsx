@@ -110,6 +110,8 @@ function DocumentBuilderPage() {
           }),
     );
     setSubmitted(false);
+    setSubmitError(null);
+    setGenerated(null);
   }, [step, selected, jurisdiction]);
 
   // load intake schema for the selected template
@@ -135,6 +137,37 @@ function DocumentBuilderPage() {
     setSelectedCode("");
     setIntake(null);
     setSubmitted(false);
+    setSubmitError(null);
+    setGenerated(null);
+  };
+
+  const handleGenerate = async (finalState: IntakeState) => {
+    if (!selected || !intakeSchemaQuery.data) return;
+    // In standalone builder there is no matter context — force standalone mode.
+    const safeState: IntakeState = { ...finalState, generationMode: "standalone" };
+    setIntake(safeState);
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const payload = buildGenerateRequest(selected, safeState, intakeSchemaQuery.data);
+      const result = await invokeGenerateLegalDocument(payload);
+      setGenerated(result);
+      setSubmitted(true);
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openGeneratedDocument = () => {
+    if (!generated) return;
+    const md = generated.generated.content || generated.document.content || "";
+    const title = generated.document.title || generated.generated.title || "document";
+    const blob = new Blob([`# ${title}\n\n${md}`], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   return (
