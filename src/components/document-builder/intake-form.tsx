@@ -532,6 +532,34 @@ function ReviewStep({
 
   return (
     <div className="space-y-5">
+      <div className="db-subcard">
+        <div className="db-section-label">Предпросмотр подготовки документа</div>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <PreviewRow label="Шаблон" value={`${template.title}`} hint={template.code} />
+          <PreviewRow label="Категория" value={CATEGORY_LABELS[template.category] ?? template.category} hint={template.subcategory ?? undefined} />
+          <PreviewRow label="Область права" value={template.practice_area ? (PRACTICE_AREA_LABELS[template.practice_area] ?? template.practice_area) : "—"} />
+          <PreviewRow label="Сложность" value={COMPLEXITY_LABELS[template.complexity]} />
+          <PreviewRow label="Юрисдикция" value={JURISDICTION_LABELS[state.jurisdiction] ?? state.jurisdiction} />
+          <PreviewRow label="Язык" value={LANGUAGE_LABELS[state.language] ?? state.language} />
+          <PreviewRow label="Режим генерации" value={modes.find((m) => m.id === state.generationMode)?.title ?? state.generationMode} />
+          <PreviewRow label="Файлы" value={state.attachments.length > 0 ? `${state.attachments.length} файл(а/ов)` : "—"} />
+        </div>
+      </div>
+
+      {warnings.length > 0 && (
+        <div className="db-warning">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <div>
+              <div className="font-medium">Важно учесть:</div>
+              <ul className="mt-1 list-disc pl-5 space-y-1">
+                {warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="db-section-label">Режим генерации</div>
         <div className="mt-3 grid gap-2 md:grid-cols-3">
