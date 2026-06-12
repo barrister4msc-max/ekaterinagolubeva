@@ -640,6 +640,17 @@ function ReviewStep({
 // utils
 // ---------------------------------------------------------------------------
 
+function PreviewRow({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="db-info">
+      <div className="db-info-label">{label}</div>
+      <div className="db-info-value">{value || "—"}</div>
+      {hint && <div className="mt-1 text-[11px] text-white/50">{hint}</div>}
+    </div>
+  );
+}
+
+
 function asStr(v: unknown): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "string") return v;
