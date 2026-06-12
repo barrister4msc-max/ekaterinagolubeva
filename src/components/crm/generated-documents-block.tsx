@@ -129,17 +129,34 @@ const [reviewingId, setReviewingId] = useState<string | null>(null);
   }, []);
 
   const loadDocs = useCallback(async () => {
-    const { data, error } = await supabase
+    const orFilters: string[] = [];
+    if (leadId) orFilters.push(`lead_id.eq.${leadId}`);
+    if (resolvedMatterId) {
+      orFilters.push(`metadata->>matter_id.eq.${resolvedMatterId}`);
+    }
+    let query = supabase
       .from("generated_legal_documents")
       .select("id,title,category,status,content,template_key,created_at,metadata")
-      .eq("lead_id", leadId)
       .order("created_at", { ascending: false });
+    if (orFilters.length > 0) {
+      query = query.or(orFilters.join(","));
+    } else {
+      setDocs([]);
+      return;
+    }
+    const { data, error } = await query;
     if (error) {
       console.error("loadGeneratedDocs", error);
       return;
     }
-    setDocs((data as GeneratedDoc[]) || []);
-  }, [leadId]);
+    const seen = new Set<string>();
+    const unique = ((data as GeneratedDoc[]) || []).filter((d) => {
+      if (seen.has(d.id)) return false;
+      seen.add(d.id);
+      return true;
+    });
+    setDocs(unique);
+  }, [leadId, resolvedMatterId]);
 
   const loadStrategy = useCallback(async () => {
     let mid = matterId ?? null;
@@ -536,7 +553,8 @@ const improveDocument = async (doc: GeneratedDoc) => {
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">
                       {STATUS_LABEL[doc.status] || doc.status}
                     </span>
-                    {doc.metadata?.strategy_document_alignment?.generation_mode === "preliminary" && (
+                    {(doc.metadata?.is_preliminary === true ||
+                      doc.metadata?.strategy_document_alignment?.generation_mode === "preliminary") && (
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
                         Предварительный черновик
                       </span>
