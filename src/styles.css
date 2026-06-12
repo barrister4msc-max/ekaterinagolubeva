@@ -535,7 +535,9 @@
 .workspace-glass .bg-muted\/50,
 .workspace-glass .bg-secondary,
 .workspace-glass .bg-popover {
-  background-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(8, 20, 30, 0.44) !important;
+  backdrop-filter: blur(24px) saturate(140%);
+  color: rgba(255, 255, 255, 0.95) !important;
 }
 
 /* Tabs — Radix Tabs primitives */
@@ -657,8 +659,10 @@ body.workspace-active [data-vaul-overlay] {
 
 /* Modal dialogs / sheets — deep tinted glass */
 body.workspace-active [role="dialog"][data-state],
-body.workspace-active [data-vaul-drawer] {
-  background: rgba(8, 20, 30, 0.45) !important;
+body.workspace-active [data-vaul-drawer],
+.workspace-glass aside[class*="bg-[oklch"],
+.workspace-glass [class*="bg-[oklch(0.98"] {
+  background: rgba(8, 20, 30, 0.58) !important;
   backdrop-filter: blur(35px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.20) !important;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
@@ -720,7 +724,8 @@ body.workspace-active [data-radix-popper-content-wrapper] .bg-card,
 body.workspace-active [data-radix-popper-content-wrapper] .bg-white,
 body.workspace-active [data-radix-popper-content-wrapper] .bg-muted,
 body.workspace-active [data-radix-popper-content-wrapper] .bg-popover {
-  background-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(8, 20, 30, 0.44) !important;
+  backdrop-filter: blur(22px) saturate(140%);
   color: rgba(255, 255, 255, 0.95) !important;
 }
 
