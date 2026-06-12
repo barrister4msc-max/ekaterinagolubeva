@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Upload, Sparkles, AlertTriangle } from "lucide-react";
 import {
   type DocumentIntakeSchema,
   type IntakeField,
@@ -9,16 +9,25 @@ import {
   validateIntake,
   getMissingRequiredFields,
 } from "@/lib/document-intake-schemas";
+import {
+  CATEGORY_LABELS,
+  COMPLEXITY_LABELS,
+  JURISDICTION_LABELS,
+  LANGUAGE_LABELS,
+  PRACTICE_AREA_LABELS,
+  type DocumentTemplate,
+} from "@/lib/document-templates";
 
 type Props = {
   schema: DocumentIntakeSchema;
   state: IntakeState;
+  template: DocumentTemplate;
   onChange: (next: IntakeState) => void;
   onSubmit: (state: IntakeState) => void;
   onBack: () => void;
 };
 
-export function IntakeForm({ schema, state, onChange, onSubmit, onBack }: Props) {
+export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack }: Props) {
   const steps = schema.schema_json?.steps ?? [];
   const [stepIdx, setStepIdx] = useState(0);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
