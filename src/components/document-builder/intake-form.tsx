@@ -181,6 +181,7 @@ export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack
           onAddAttachment={addAttachment}
           onRemoveAttachment={removeAttachment}
           answers={state.answers}
+          availableModes={availableModes}
         />
       )}
 
