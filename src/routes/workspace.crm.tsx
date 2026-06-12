@@ -1125,11 +1125,11 @@ onDrop={(e) => e.preventDefault()}
     >
       <aside
         onClick={(e) => e.stopPropagation()}
-        className="h-full w-full max-w-2xl overflow-y-auto rounded-l-[28px] border-l border-white/20 bg-[rgba(8,20,30,0.62)] p-8 text-white shadow-[0_30px_90px_rgba(0,0,0,0.46)] backdrop-blur-[36px]"
+        className="workspace-dossier-panel h-full w-full max-w-2xl overflow-y-auto rounded-l-[28px] border-l p-8"
       >
         <div className="flex items-start justify-between gap-6">
           <div>
-            <div className="mb-4 inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/70">
+            <div className="workspace-dossier-chip mb-4 inline-flex rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.18em]">
               Legal dossier
             </div>
             <h2 className="font-display text-4xl">
@@ -1140,10 +1140,10 @@ onDrop={(e) => e.preventDefault()}
               <span className={`rounded-full px-3 py-1 text-xs ${priorityClass(lead.priority)}`}>
                 {lead.priority ?? "normal"}
               </span>
-              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-white/75">
+              <span className="workspace-dossier-chip rounded-full border px-3 py-1 text-xs">
                 {fmtDate(lead.created_at)}
               </span>
-              <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-white/75">
+              <span className="workspace-dossier-chip rounded-full border px-3 py-1 text-xs">
                 {lead.phone}
               </span>
             </div>
@@ -1181,16 +1181,16 @@ await supabase
     onClose();
     window.location.reload();
   }}
-  className="rounded-2xl border border-red-300/35 bg-red-950/45 px-4 py-3 text-sm text-red-100 shadow-[0_12px_34px_rgba(0,0,0,0.24)] hover:bg-red-900/55"
+  className="workspace-dossier-danger rounded-2xl border px-4 py-3 text-sm"
 >
   Архивировать
 </button>
-          <button onClick={onClose} className="rounded-2xl border border-white/20 bg-white/10 p-3 text-white shadow-sm hover:bg-white/15" aria-label="Закрыть">
+          <button onClick={onClose} className="workspace-dossier-icon-button rounded-2xl border p-3 shadow-sm hover:bg-white/15" aria-label="Закрыть">
             <X size={18} />
           </button>
         </div>
 
-        <div className="mt-8 flex flex-wrap gap-2 rounded-2xl border border-white/15 bg-white/8 p-2 backdrop-blur-xl">
+        <div className="workspace-dossier-tabs mt-8 flex flex-wrap gap-2 rounded-2xl border p-2">
           {([
   ["overview", "Overview"],
   ["cases", "Cases"],
@@ -1205,8 +1205,8 @@ await supabase
     onClick={() => setActiveTab(tab)}
     className={`rounded-xl px-4 py-2 text-sm hover:bg-secondary ${
       activeTab === tab
-        ? "bg-white/18 text-white shadow-[0_10px_26px_rgba(0,0,0,0.20)]"
-        : "text-white/72"
+        ? "workspace-dossier-tab-active"
+        : "workspace-dossier-tab-idle"
     }`}
   >
     {label}
