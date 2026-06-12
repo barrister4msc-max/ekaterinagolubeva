@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, Upload, Sparkles, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy, Plus, Trash2, Upload, Sparkles, AlertTriangle } from "lucide-react";
 import {
   type DocumentIntakeSchema,
   type IntakeField,
@@ -17,6 +17,7 @@ import {
   PRACTICE_AREA_LABELS,
   type DocumentTemplate,
 } from "@/lib/document-templates";
+import { buildGenerateRequest } from "@/lib/generate-legal-document";
 
 type Props = {
   schema: DocumentIntakeSchema;
