@@ -90,6 +90,37 @@ function DocumentBuilderPage() {
     [templates, selectedCode],
   );
 
+  // initialize / reset intake state when entering step 3
+  useEffect(() => {
+    if (step !== 3 || !selected) return;
+    const j = jurisdiction || selected.jurisdiction[0] || "RU";
+    const l = selected.languages[0] || "ru";
+    setIntake((prev) =>
+      prev && prev.templateCode === selected.code
+        ? prev
+        : createInitialIntakeState({
+            templateCode: selected.code,
+            category: selected.category,
+            jurisdiction: j,
+            language: l,
+          }),
+    );
+    setSubmitted(false);
+  }, [step, selected, jurisdiction]);
+
+  // load intake schema for the selected template
+  const intakeSchemaQuery = useQuery({
+    queryKey: [
+      "intake-schema",
+      selected?.code,
+      intake?.jurisdiction ?? null,
+      intake?.language ?? null,
+    ],
+    queryFn: () =>
+      selected ? getIntakeSchema(selected.code, intake?.jurisdiction, intake?.language) : Promise.resolve(null),
+    enabled: step === 3 && !!selected && !!intake,
+  });
+
   const resetAll = () => {
     setStep(1);
     setSearch("");
@@ -98,6 +129,8 @@ function DocumentBuilderPage() {
     setCategory("");
     setComplexity("");
     setSelectedCode("");
+    setIntake(null);
+    setSubmitted(false);
   };
 
   return (
