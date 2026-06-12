@@ -129,33 +129,45 @@ const [reviewingId, setReviewingId] = useState<string | null>(null);
   }, []);
 
   const loadDocs = useCallback(async () => {
-    const orFilters: string[] = [];
-    if (leadId) orFilters.push(`lead_id.eq.${leadId}`);
-    if (resolvedMatterId) {
-      orFilters.push(`metadata->>matter_id.eq.${resolvedMatterId}`);
-    }
-    let query = supabase
-      .from("generated_legal_documents")
-      .select("id,title,category,status,content,template_key,created_at,metadata")
-      .order("created_at", { ascending: false });
-    if (orFilters.length > 0) {
-      query = query.or(orFilters.join(","));
-    } else {
+    if (!leadId && !resolvedMatterId) {
       setDocs([]);
       return;
     }
-    const { data, error } = await query;
-    if (error) {
-      console.error("loadGeneratedDocs", error);
-      return;
+    const queries: PromiseLike<any>[] = [];
+    if (leadId) {
+      queries.push(
+        supabase
+          .from("generated_legal_documents")
+          .select("id,title,category,status,content,template_key,created_at,metadata")
+          .eq("lead_id", leadId)
+          .order("created_at", { ascending: false }),
+      );
     }
+    if (resolvedMatterId) {
+      queries.push(
+        supabase
+          .from("generated_legal_documents")
+          .select("id,title,category,status,content,template_key,created_at,metadata")
+          .filter("metadata->>matter_id", "eq", resolvedMatterId)
+          .order("created_at", { ascending: false }),
+      );
+    }
+    const results = await Promise.all(queries);
     const seen = new Set<string>();
-    const unique = ((data as GeneratedDoc[]) || []).filter((d) => {
-      if (seen.has(d.id)) return false;
-      seen.add(d.id);
-      return true;
-    });
-    setDocs(unique);
+    const merged: GeneratedDoc[] = [];
+    for (const r of results) {
+      if (r.error) {
+        console.error("loadGeneratedDocs", r.error);
+        continue;
+      }
+      for (const d of (r.data as GeneratedDoc[]) || []) {
+        if (seen.has(d.id)) continue;
+        seen.add(d.id);
+        merged.push(d);
+      }
+    }
+    merged.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+    setDocs(merged);
   }, [leadId, resolvedMatterId]);
 
   const loadStrategy = useCallback(async () => {
@@ -557,6 +569,11 @@ const improveDocument = async (doc: GeneratedDoc) => {
                       doc.metadata?.strategy_document_alignment?.generation_mode === "preliminary") && (
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">
                         Предварительный черновик
+                      </span>
+                    )}
+                    {doc.metadata?.version != null && (
+                      <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-neutral-700">
+                        v{doc.metadata.version}
                       </span>
                     )}
                     <span>{new Date(doc.created_at).toLocaleString("ru-RU")}</span>
