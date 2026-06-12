@@ -348,35 +348,82 @@ function DocumentBuilderPage() {
       )}
 
       {/* STEP 3 */}
-      {step === 3 && selected && (
+      {step === 3 && selected && intake && (
         <section className="db-card p-7 space-y-6">
-          <div className="db-section-label">Шаг 3 · Подготовка документа</div>
-
-          <div>
-            <h2 className="font-display text-xl text-white">{selected.title}</h2>
-            <p className="mt-2 text-sm text-white/70">
-              Шаблон выбран. На следующем этапе AI Intake запросит данные и подготовит проект документа.
-              Подключение генерации появится в следующем релизе.
-            </p>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <ReadyBlock title="Юрисдикция" value={selected.jurisdiction.map((j) => JURISDICTION_LABELS[j] ?? j).join(", ")} />
-            <ReadyBlock title="Язык" value={selected.languages.map((l) => LANGUAGE_LABELS[l] ?? l).join(", ")} />
-            <ReadyBlock title="Intake" value={selected.requires_intake ? "Требуется" : "Не требуется"} />
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <button type="button" onClick={() => setStep(2)} className="db-ghost">
-              <ArrowLeft size={14}/> Назад
-            </button>
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={resetAll} className="db-ghost">Сбросить</button>
-              <button type="button" className="db-cta" disabled title="AI Intake появится на следующем этапе">
-                Начать подготовку документа
-              </button>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="db-section-label">Шаг 3 · Опросник</div>
+              <h2 className="mt-2 font-display text-xl text-white">{selected.title}</h2>
+              <p className="mt-1 text-xs text-white/55">{selected.code}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <SmallSelect
+                label="Юрисдикция"
+                value={intake.jurisdiction}
+                onChange={(v) => setIntake({ ...intake, jurisdiction: v })}
+                options={selected.jurisdiction.map((j) => ({ value: j, label: JURISDICTION_LABELS[j] ?? j }))}
+              />
+              <SmallSelect
+                label="Язык"
+                value={intake.language}
+                onChange={(v) => setIntake({ ...intake, language: v })}
+                options={selected.languages.map((l) => ({ value: l, label: LANGUAGE_LABELS[l] ?? l }))}
+              />
             </div>
           </div>
+
+          {intakeSchemaQuery.isLoading && (
+            <div className="flex items-center gap-2 text-sm text-white/70">
+              <Loader2 size={14} className="animate-spin" /> Загрузка опросника…
+            </div>
+          )}
+          {intakeSchemaQuery.error && (
+            <div className="db-warning">Не удалось загрузить опросник. Попробуйте позже.</div>
+          )}
+
+          {!intakeSchemaQuery.isLoading && !intakeSchemaQuery.error && !intakeSchemaQuery.data && (
+            <div className="db-empty">
+              <div className="db-icon"><AlertCircle size={18} /></div>
+              <div>
+                <div className="text-sm font-medium text-white">Для данного шаблона опросник пока не настроен</div>
+                <p className="mt-1 text-xs text-white/65">
+                  Схема опроса для шаблона <span className="text-white/85">{selected.code}</span> ({JURISDICTION_LABELS[intake.jurisdiction] ?? intake.jurisdiction} / {LANGUAGE_LABELS[intake.language] ?? intake.language}) будет добавлена в реестр <span className="text-white/85">document_intake_schemas</span>.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {intakeSchemaQuery.data && !submitted && (
+            <IntakeForm
+              schema={intakeSchemaQuery.data}
+              state={intake}
+              onChange={setIntake}
+              onBack={() => setStep(2)}
+              onSubmit={() => setSubmitted(true)}
+            />
+          )}
+
+          {intakeSchemaQuery.data && submitted && (
+            <div className="db-ready">
+              <div className="db-info-label">Готово</div>
+              <div className="db-info-value">
+                Опросник заполнен. Данные подготовлены к передаче в AI генератор (следующий этап).
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button type="button" onClick={() => setSubmitted(false)} className="db-ghost">Изменить ответы</button>
+                <button type="button" onClick={resetAll} className="db-ghost">Новый документ</button>
+              </div>
+            </div>
+          )}
+
+          {!intakeSchemaQuery.data && (
+            <div className="flex items-center justify-between pt-2">
+              <button type="button" onClick={() => setStep(2)} className="db-ghost">
+                <ArrowLeft size={14}/> Назад
+              </button>
+              <button type="button" onClick={resetAll} className="db-ghost">Сбросить</button>
+            </div>
+          )}
         </section>
       )}
 
