@@ -535,7 +535,9 @@
 .workspace-glass .bg-muted\/50,
 .workspace-glass .bg-secondary,
 .workspace-glass .bg-popover {
-  background-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(8, 20, 30, 0.44) !important;
+  backdrop-filter: blur(24px) saturate(140%);
+  color: rgba(255, 255, 255, 0.95) !important;
 }
 
 /* Tabs — Radix Tabs primitives */
@@ -608,18 +610,20 @@
 
 .workspace-glass .ai-problems,
 .workspace-glass [data-ai-problems] {
-  background: rgba(110, 40, 50, 0.25) !important;
-  border: 1px solid rgba(200, 120, 130, 0.30) !important;
+  background: rgba(42, 12, 18, 0.68) !important;
+  border: 1px solid rgba(255, 145, 155, 0.34) !important;
   border-radius: 16px;
-  color: rgba(255, 235, 235, 0.92);
+  color: rgba(255, 238, 240, 0.97);
+  backdrop-filter: blur(24px) saturate(135%);
 }
 
 .workspace-glass .ai-missing,
 .workspace-glass [data-ai-missing] {
-  background: rgba(130, 90, 30, 0.25) !important;
-  border: 1px solid rgba(255, 210, 120, 0.30) !important;
+  background: rgba(46, 30, 10, 0.68) !important;
+  border: 1px solid rgba(255, 210, 120, 0.34) !important;
   border-radius: 16px;
-  color: rgba(255, 245, 220, 0.95);
+  color: rgba(255, 244, 218, 0.97);
+  backdrop-filter: blur(24px) saturate(135%);
 }
 
 /* Sidebar — transparent glass */
@@ -644,6 +648,44 @@
   font-weight: 500;
 }
 
+/* CRM dossier drawer — custom overlay, not Radix Dialog */
+.workspace-dossier-panel {
+  background: rgba(8, 20, 30, 0.62) !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.20) !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(36px) saturate(140%);
+}
+.workspace-dossier-chip {
+  background: rgba(255, 255, 255, 0.10) !important;
+  color: rgba(255, 255, 255, 0.76) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+.workspace-dossier-tabs {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(22px) saturate(140%);
+}
+.workspace-dossier-tab-active {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.20);
+}
+.workspace-dossier-tab-idle {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+.workspace-dossier-danger {
+  background: rgba(70, 12, 18, 0.55) !important;
+  color: rgba(255, 235, 238, 0.96) !important;
+  border-color: rgba(255, 145, 155, 0.38) !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24);
+}
+.workspace-dossier-icon-button {
+  background: rgba(255, 255, 255, 0.10) !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.20) !important;
+}
+
 /* ============================================================
    Workspace — portaled overlays (Dialog / Sheet / Drawer / Popover /
    DropdownMenu / Select). Styled via body.workspace-active.
@@ -658,7 +700,7 @@ body.workspace-active [data-vaul-overlay] {
 /* Modal dialogs / sheets — deep tinted glass */
 body.workspace-active [role="dialog"][data-state],
 body.workspace-active [data-vaul-drawer] {
-  background: rgba(8, 20, 30, 0.45) !important;
+  background: rgba(8, 20, 30, 0.58) !important;
   backdrop-filter: blur(35px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.20) !important;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
@@ -720,7 +762,8 @@ body.workspace-active [data-radix-popper-content-wrapper] .bg-card,
 body.workspace-active [data-radix-popper-content-wrapper] .bg-white,
 body.workspace-active [data-radix-popper-content-wrapper] .bg-muted,
 body.workspace-active [data-radix-popper-content-wrapper] .bg-popover {
-  background-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(8, 20, 30, 0.44) !important;
+  backdrop-filter: blur(22px) saturate(140%);
   color: rgba(255, 255, 255, 0.95) !important;
 }
 
@@ -808,14 +851,16 @@ body.workspace-active [data-radix-popper-content-wrapper] [data-highlighted] {
 .workspace-glass .bg-amber-50,
 body.workspace-active [role="dialog"] .bg-amber-50,
 body.workspace-active [data-vaul-drawer] .bg-amber-50 {
-  background-color: rgba(140, 95, 30, 0.28) !important;
+  background: rgba(46, 30, 10, 0.68) !important;
   border-color: rgba(255, 200, 110, 0.35) !important;
+  backdrop-filter: blur(22px) saturate(135%);
 }
 .workspace-glass .bg-amber-100,
 body.workspace-active [role="dialog"] .bg-amber-100,
 body.workspace-active [data-vaul-drawer] .bg-amber-100 {
-  background-color: rgba(160, 110, 35, 0.38) !important;
+  background: rgba(58, 38, 12, 0.72) !important;
   border-color: rgba(255, 200, 110, 0.40) !important;
+  backdrop-filter: blur(22px) saturate(135%);
 }
 .workspace-glass .bg-yellow-50,
 .workspace-glass .bg-yellow-100,
