@@ -501,6 +501,25 @@ const reviewDocument = async (doc: GeneratedDoc) => {
                       </span>
                     )}
                     <span>{new Date(doc.created_at).toLocaleString("ru-RU")}</span>
+                    {doc.metadata?.review && (
+  <>
+    <span className="rounded-full bg-purple-100 px-2 py-0.5 text-purple-800">
+      AI: {doc.metadata.review.overall_score}/100
+    </span>
+
+    <span
+      className={`rounded-full px-2 py-0.5 ${
+        doc.metadata.review.ready_for_client
+          ? "bg-green-100 text-green-700"
+          : "bg-amber-100 text-amber-800"
+      }`}
+    >
+      {doc.metadata.review.ready_for_client
+        ? "Готов клиенту"
+        : "Требует проверки юриста"}
+    </span>
+  </>
+)}
                   </div>
                   {Array.isArray(doc.metadata?.missing_inputs) && doc.metadata.missing_inputs.length > 0 && (
                     <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
