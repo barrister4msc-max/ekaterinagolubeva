@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useNavigate, useLocation } from "@tansta
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, MessageSquareQuote, KanbanSquare, Building2, BookOpen, Briefcase, Library } from "lucide-react";
+import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, MessageSquareQuote, KanbanSquare, Building2, BookOpen, Briefcase, Library, FileSignature } from "lucide-react";
 import workspaceBg from "@/assets/workspace-bg-wave.jpg.asset.json";
 
 const bgStyle: React.CSSProperties = {
@@ -49,8 +49,9 @@ const nav = [
   { to: "/workspace/crm", label: "CRM", icon: KanbanSquare },
   { to: "/workspace/matters", label: "Дела", icon: Briefcase },
   { to: "/workspace/practice", label: "Практика", icon: Library },
-  { to: "/workspace/ai-podbor", label: "AI-подбор", icon: Building2 },
+  { to: "/workspace/document-builder", label: "Конструктор документов", icon: FileSignature },
   { to: "/workspace/legal-knowledge", label: "База знаний", icon: BookOpen },
+  { to: "/workspace/ai-podbor", label: "AI-подбор", icon: Building2 },
   { to: "/workspace/reviews", label: "Отзывы", icon: MessageSquareQuote },
   { to: "/workspace/statistics", label: "Статистика", icon: BarChart3 },
   { to: "/workspace/settings", label: "Настройки", icon: Settings },
