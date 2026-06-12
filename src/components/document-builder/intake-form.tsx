@@ -30,7 +30,7 @@ type Props = {
   submitting?: boolean;
 };
 
-export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack }: Props) {
+export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack, availableModes, submitting }: Props) {
   const steps = schema.schema_json?.steps ?? [];
   const [stepIdx, setStepIdx] = useState(0);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
