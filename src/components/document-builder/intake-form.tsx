@@ -510,6 +510,22 @@ function ReviewStep({
   onRemoveAttachment: (id: string) => void;
   answers: IntakeAnswers;
 }) {
+  const [showJson, setShowJson] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const payload = useMemo(() => buildGenerateRequest(template, state, schema), [template, state, schema]);
+  const jsonText = useMemo(() => JSON.stringify(payload, null, 2), [payload]);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(jsonText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
+
   const modes: Array<{ id: IntakeState["generationMode"]; title: string; desc: string }> = [
     { id: "standalone", title: "Самостоятельно", desc: "Только данные опросника" },
     { id: "matter_based", title: "На основе дела", desc: "Подтянуть материалы из дела" },
