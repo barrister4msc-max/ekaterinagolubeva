@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText } from "lucide-react";
+import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText, AlertCircle } from "lucide-react";
 import {
   getTemplates,
   CATEGORY_LABELS,
@@ -12,6 +12,12 @@ import {
   type DocumentTemplate,
   type TemplateComplexity,
 } from "@/lib/document-templates";
+import {
+  getIntakeSchema,
+  createInitialIntakeState,
+  type IntakeState,
+} from "@/lib/document-intake-schemas";
+import { IntakeForm } from "@/components/document-builder/intake-form";
 
 export const Route = createFileRoute("/workspace/document-builder")({
   head: () => ({
