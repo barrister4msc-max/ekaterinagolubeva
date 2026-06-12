@@ -614,6 +614,26 @@ function ReviewStep({
         </div>
       </div>
 
+      {(englishForNonEnglish || lawMismatch || londonMention) && (
+        <div className="db-warning">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <div className="font-medium">Проверьте Governing Law и Dispute Resolution</div>
+              {englishForNonEnglish && (
+                <div>Вы выбрали <b>English law</b>, при этом юрисдикция компании — <b>{JURISDICTION_LABELS[state.jurisdiction] ?? state.jurisdiction}</b>. По умолчанию это НЕ применяется. Подтвердите осознанный выбор или измените на местное право.</div>
+              )}
+              {lawMismatch && !englishForNonEnglish && (
+                <div>Применимое право (<b>{governingLaw}</b>) не совпадает с юрисдикцией (<b>{state.jurisdiction}</b>). Убедитесь, что это сознательное решение.</div>
+              )}
+              {londonMention && (
+                <div>В разделе «Разрешение споров» упомянуты <b>Лондон / LCIA</b>. Это не дефолт для не-английских компаний — подтвердите или замените на МКАС / локальный арбитраж.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="db-section-label">Сводка ответов</div>
         <div className="mt-3 db-subcard">
