@@ -157,6 +157,53 @@ export function DocumentAIAnalysisPanel({
     if (running) return;
     setRunning(true);
     try {
+      // Step 1. Ensure we have extracted text for `documents` rows.
+      if (sourceTable === "documents") {
+        const ocrLen = ((doc?.ocr_text as string) || "").length;
+        const meta = (doc?.metadata as Record<string, any>) || {};
+        const exStatus = meta.extraction_status as string | undefined;
+
+        if (exStatus === "unsupported_spreadsheet") {
+          toast.error("Таблица — нужен отдельный анализ");
+          return;
+        }
+        if (exStatus === "unsupported_presentation") {
+          toast.error("Презентация — нужен отдельный анализ");
+          return;
+        }
+
+        if (ocrLen < 50) {
+          const { data: ex, error: exErr } = await supabase.functions.invoke(
+            "extract-document-text",
+            { body: { document_id: documentId } },
+          );
+          if (exErr) {
+            console.error("[extract-document-text]", exErr);
+            toast.error(exErr.message || "Не удалось извлечь текст");
+            return;
+          }
+          const status = (ex as any)?.extraction_status as string | undefined;
+          const len = Number((ex as any)?.text_length || 0);
+          await loadDoc();
+          if (status === "ocr_required") {
+            toast.error("Нужен OCR / скан");
+            return;
+          }
+          if (status === "unsupported_spreadsheet") {
+            toast.error("Таблица — нужен отдельный анализ");
+            return;
+          }
+          if (status === "unsupported_presentation") {
+            toast.error("Презентация — нужен отдельный анализ");
+            return;
+          }
+          if (status === "failed" || len < 50) {
+            toast.error("Текст не извлечён");
+            return;
+          }
+        }
+      }
+
       const fn = sourceTable === "lead_documents" ? "analyze-lead-document" : "analyze-matter-document";
       const { error } = await supabase.functions.invoke(fn, {
         body: { document_id: documentId },
@@ -168,12 +215,7 @@ export function DocumentAIAnalysisPanel({
       }
       const fresh = await loadDoc();
       setExpanded(true);
-      if (sourceTable === "documents" && matterId) {
-        // touch lawyer_document_actions list — UI will reload
-        onAnalysisComplete?.();
-      } else {
-        onAnalysisComplete?.();
-      }
+      onAnalysisComplete?.();
       toast.success("AI-анализ готов");
       void fresh;
     } finally {
