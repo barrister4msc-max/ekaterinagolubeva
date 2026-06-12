@@ -114,6 +114,7 @@ export function GeneratedDocumentsBlock({
   const [editTitle, setEditTitle] = useState("");
 const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [improvingId, setImprovingId] = useState<string | null>(null);
+  const [docsLoading, setDocsLoading] = useState(true);
   const loadTemplates = useCallback(async () => {
     const { data, error } = await supabase
       .from("document_templates")
