@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown, ShieldAlert, Sparkles } from "lucide-react";
+import { FilePlus, FileText, Trash2, Pencil, ExternalLink, ChevronDown, ShieldAlert, Sparkles, Wand2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -113,6 +113,7 @@ export function GeneratedDocumentsBlock({
   const [editContent, setEditContent] = useState("");
   const [editTitle, setEditTitle] = useState("");
 const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [improvingId, setImprovingId] = useState<string | null>(null);
   const loadTemplates = useCallback(async () => {
     const { data, error } = await supabase
       .from("document_templates")
@@ -377,6 +378,46 @@ const reviewDocument = async (doc: GeneratedDoc) => {
     setReviewingId(null);
   }
 };
+
+const improveDocument = async (doc: GeneratedDoc) => {
+  try {
+    setImprovingId(doc.id);
+
+    const { data, error } = await supabase.functions.invoke(
+      "improve-generated-legal-document",
+      {
+        body: {
+          document_id: doc.id,
+        },
+      },
+    );
+
+    if (error) throw error;
+
+    await loadDocs();
+
+    toast.success("Создана улучшенная версия документа");
+
+    const newId = (data as any)?.improved_document_id;
+    if (newId) {
+      const { data: newDoc } = await supabase
+        .from("generated_legal_documents")
+        .select("id,title,category,status,content,template_key,created_at,metadata")
+        .eq("id", newId)
+        .maybeSingle();
+      if (newDoc) {
+        setEditing(newDoc as GeneratedDoc);
+        setEditTitle((newDoc as GeneratedDoc).title);
+        setEditContent((newDoc as GeneratedDoc).content || "");
+      }
+    }
+  } catch (error: any) {
+    console.error(error);
+    toast.error(error.message || "Ошибка исправления документа");
+  } finally {
+    setImprovingId(null);
+  }
+};
   return (
     <section className="mt-6 rounded-3xl border bg-white p-6">
       <div className="flex items-center justify-between gap-3">
@@ -560,7 +601,7 @@ const reviewDocument = async (doc: GeneratedDoc) => {
                   >
                     <Pencil size={12} /> Редактировать
                   </button>
-                                    <button
+                  <button
                     type="button"
                     disabled={reviewingId === doc.id}
                     onClick={() => reviewDocument(doc)}
@@ -569,6 +610,18 @@ const reviewDocument = async (doc: GeneratedDoc) => {
                     <ShieldAlert size={12} />
                     {reviewingId === doc.id ? "Проверка..." : "AI проверка"}
                   </button>
+
+                  {doc.metadata?.review?.problems?.length > 0 && (
+                    <button
+                      type="button"
+                      disabled={improvingId === doc.id}
+                      onClick={() => improveDocument(doc)}
+                      className="flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 disabled:opacity-60"
+                    >
+                      <Wand2 size={12} />
+                      {improvingId === doc.id ? "Исправляет..." : "Исправить AI"}
+                    </button>
+                  )}
 
                   <button
                     type="button"
