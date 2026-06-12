@@ -51,6 +51,7 @@ const nav = [
   { to: "/workspace/practice", label: "Практика", icon: Library },
   { to: "/workspace/document-builder", label: "Конструктор документов", icon: FileSignature },
   { to: "/workspace/legal-knowledge", label: "База знаний", icon: BookOpen },
+  { to: "/workspace/ai-podbor", label: "AI-подбор", icon: Building2 },
   { to: "/workspace/reviews", label: "Отзывы", icon: MessageSquareQuote },
   { to: "/workspace/statistics", label: "Статистика", icon: BarChart3 },
   { to: "/workspace/settings", label: "Настройки", icon: Settings },
