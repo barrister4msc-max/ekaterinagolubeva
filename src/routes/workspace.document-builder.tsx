@@ -43,6 +43,9 @@ function DocumentBuilderPage() {
   const [selectedCode, setSelectedCode] = useState<string>("");
   const [intake, setIntake] = useState<IntakeState | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [generated, setGenerated] = useState<GeneratedDocumentResult | null>(null);
 
   const { data: templates = [], isLoading, error } = useQuery({
     queryKey: ["document-templates"],
