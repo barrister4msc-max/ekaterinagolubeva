@@ -26,9 +26,11 @@ type Props = {
   onChange: (next: IntakeState) => void;
   onSubmit: (state: IntakeState) => void;
   onBack: () => void;
+  availableModes?: Array<IntakeState["generationMode"]>;
+  submitting?: boolean;
 };
 
-export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack }: Props) {
+export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack, availableModes, submitting }: Props) {
   const steps = schema.schema_json?.steps ?? [];
   const [stepIdx, setStepIdx] = useState(0);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -179,6 +181,7 @@ export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack
           onAddAttachment={addAttachment}
           onRemoveAttachment={removeAttachment}
           answers={state.answers}
+          availableModes={availableModes}
         />
       )}
 
@@ -194,11 +197,11 @@ export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack
           <button
             type="button"
             onClick={() => onSubmit(state)}
-            disabled={!validation.valid}
+            disabled={!validation.valid || submitting}
             className="db-cta"
             title={!validation.valid ? "Заполните обязательные поля" : "Сформировать черновик"}
           >
-            <Sparkles size={14} /> Сформировать черновик документа
+            <Sparkles size={14} /> {submitting ? "Генерация…" : "Сформировать черновик документа"}
           </button>
         )}
       </div>
@@ -499,6 +502,7 @@ function ReviewStep({
   onAddAttachment,
   onRemoveAttachment,
   answers,
+  availableModes,
 }: {
   schema: DocumentIntakeSchema;
   state: IntakeState;
@@ -509,6 +513,7 @@ function ReviewStep({
   onAddAttachment: (a: IntakeAttachment) => void;
   onRemoveAttachment: (id: string) => void;
   answers: IntakeAnswers;
+  availableModes?: Array<IntakeState["generationMode"]>;
 }) {
   const [showJson, setShowJson] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -526,13 +531,25 @@ function ReviewStep({
     }
   };
 
-  const modes: Array<{ id: IntakeState["generationMode"]; title: string; desc: string }> = [
-    { id: "standalone", title: "Самостоятельно", desc: "Только данные опросника" },
+  const allModes: Array<{ id: IntakeState["generationMode"]; title: string; desc: string }> = [
+    { id: "standalone", title: "Самостоятельно", desc: "Только данные опросника (без материалов дела)" },
     { id: "matter_based", title: "На основе дела", desc: "Подтянуть материалы из дела" },
     { id: "hybrid", title: "Гибрид", desc: "Опросник + материалы дела" },
   ];
+  const modes = availableModes && availableModes.length > 0
+    ? allModes.filter((m) => availableModes.includes(m.id))
+    : allModes;
 
   const warnings = schema.schema_json?.warnings ?? [];
+
+  // Governing law / dispute resolution sanity check
+  const governingLaw = String(answers.governing_law ?? "").toLowerCase();
+  const disputeResolution = String(answers.dispute_resolution ?? "").toLowerCase();
+  const jurisdictionMap: Record<string, string> = { ru: "russia", cy: "cyprus", il: "israel", ge: "georgia" };
+  const expectedLaw = jurisdictionMap[state.jurisdiction.toLowerCase()];
+  const lawMismatch = governingLaw && expectedLaw && governingLaw !== expectedLaw && governingLaw !== "other";
+  const englishForNonEnglish = governingLaw === "english" && expectedLaw && expectedLaw !== "english";
+  const londonMention = /(лондон|london|lcia)/i.test(disputeResolution) && expectedLaw && expectedLaw !== "english";
 
   const onPickAttachments = (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = Array.from(e.target.files ?? []);
@@ -596,6 +613,26 @@ function ReviewStep({
           })}
         </div>
       </div>
+
+      {(englishForNonEnglish || lawMismatch || londonMention) && (
+        <div className="db-warning">
+          <div className="flex items-start gap-2">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <div className="space-y-1">
+              <div className="font-medium">Проверьте Governing Law и Dispute Resolution</div>
+              {englishForNonEnglish && (
+                <div>Вы выбрали <b>English law</b>, при этом юрисдикция компании — <b>{JURISDICTION_LABELS[state.jurisdiction] ?? state.jurisdiction}</b>. По умолчанию это НЕ применяется. Подтвердите осознанный выбор или измените на местное право.</div>
+              )}
+              {lawMismatch && !englishForNonEnglish && (
+                <div>Применимое право (<b>{governingLaw}</b>) не совпадает с юрисдикцией (<b>{state.jurisdiction}</b>). Убедитесь, что это сознательное решение.</div>
+              )}
+              {londonMention && (
+                <div>В разделе «Разрешение споров» упомянуты <b>Лондон / LCIA</b>. Это не дефолт для не-английских компаний — подтвердите или замените на МКАС / локальный арбитраж.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div>
         <div className="db-section-label">Сводка ответов</div>
@@ -672,6 +709,12 @@ function ReviewStep({
               >
                 {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? "Скопировано" : "Скопировать JSON"}
               </button>
+            </div>
+            <div className="px-4 pt-3">
+              <div className="db-mode-badge">
+                <span className="db-mode-badge-label">generation_mode</span>
+                <span className="db-mode-badge-value">{state.generationMode}</span>
+              </div>
             </div>
             <pre className="db-json-pre">{jsonText}</pre>
           </div>

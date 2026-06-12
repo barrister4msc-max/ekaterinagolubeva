@@ -57,6 +57,10 @@ export type IntakeField = {
   options?: IntakeFieldOption[];
   min?: number;
   max?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  patternMessage?: string;
   currency?: string;
   multiline?: boolean;
   /** Free-form metadata for renderer / AI prompt. */
@@ -273,6 +277,22 @@ function validateField(field: IntakeField, value: unknown): string | null {
     case "date": {
       const s = String(value);
       if (Number.isNaN(Date.parse(s))) return "Некорректная дата";
+      return null;
+    }
+    case "text":
+    case "textarea": {
+      const s = String(value);
+      if (field.minLength !== undefined && s.trim().length < field.minLength) {
+        return `Минимум ${field.minLength} символов`;
+      }
+      if (field.pattern) {
+        try {
+          const re = new RegExp(field.pattern);
+          if (!re.test(s)) return field.patternMessage ?? "Неверный формат";
+        } catch {
+          // ignore broken pattern
+        }
+      }
       return null;
     }
     case "select": {

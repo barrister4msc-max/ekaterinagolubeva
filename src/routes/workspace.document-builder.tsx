@@ -17,6 +17,7 @@ import {
   createInitialIntakeState,
   type IntakeState,
 } from "@/lib/document-intake-schemas";
+import { buildGenerateRequest, invokeGenerateLegalDocument, type GeneratedDocumentResult } from "@/lib/generate-legal-document";
 import { IntakeForm } from "@/components/document-builder/intake-form";
 
 export const Route = createFileRoute("/workspace/document-builder")({
@@ -42,6 +43,9 @@ function DocumentBuilderPage() {
   const [selectedCode, setSelectedCode] = useState<string>("");
   const [intake, setIntake] = useState<IntakeState | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [generated, setGenerated] = useState<GeneratedDocumentResult | null>(null);
 
   const { data: templates = [], isLoading, error } = useQuery({
     queryKey: ["document-templates"],
@@ -106,6 +110,8 @@ function DocumentBuilderPage() {
           }),
     );
     setSubmitted(false);
+    setSubmitError(null);
+    setGenerated(null);
   }, [step, selected, jurisdiction]);
 
   // load intake schema for the selected template
@@ -131,6 +137,37 @@ function DocumentBuilderPage() {
     setSelectedCode("");
     setIntake(null);
     setSubmitted(false);
+    setSubmitError(null);
+    setGenerated(null);
+  };
+
+  const handleGenerate = async (finalState: IntakeState) => {
+    if (!selected || !intakeSchemaQuery.data) return;
+    // In standalone builder there is no matter context — force standalone mode.
+    const safeState: IntakeState = { ...finalState, generationMode: "standalone" };
+    setIntake(safeState);
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const payload = buildGenerateRequest(selected, safeState, intakeSchemaQuery.data);
+      const result = await invokeGenerateLegalDocument(payload);
+      setGenerated(result);
+      setSubmitted(true);
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openGeneratedDocument = () => {
+    if (!generated) return;
+    const md = generated.generated.content || generated.document.content || "";
+    const title = generated.document.title || generated.generated.title || "document";
+    const blob = new Blob([`# ${title}\n\n${md}`], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   return (
@@ -394,27 +431,38 @@ function DocumentBuilderPage() {
           )}
 
           {intakeSchemaQuery.data && !submitted && (
-            <IntakeForm
-              schema={intakeSchemaQuery.data}
-              state={intake}
-              template={selected}
-              onChange={setIntake}
-              onBack={() => setStep(2)}
-              onSubmit={() => setSubmitted(true)}
-            />
+            <>
+              <IntakeForm
+                schema={intakeSchemaQuery.data}
+                state={intake}
+                template={selected}
+                onChange={setIntake}
+                onBack={() => setStep(2)}
+                onSubmit={handleGenerate}
+                availableModes={["standalone"]}
+                submitting={submitting}
+              />
+              {submitError && (
+                <div className="db-warning mt-4">Ошибка генерации: {submitError}</div>
+              )}
+            </>
           )}
 
-          {intakeSchemaQuery.data && submitted && (
+          {intakeSchemaQuery.data && submitted && generated && (
             <div className="db-ready space-y-3">
-              <div className="db-info-label">Черновик документа</div>
-              <div className="db-info-value">
-                Данные intake собраны и готовы для передачи в edge function <span className="text-white/70">generate-legal-document</span>.
-              </div>
-              <div className="text-sm text-white/75">
-                Генерация документа будет подключена на следующем этапе.
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button type="button" onClick={() => setSubmitted(false)} className="db-ghost">Изменить ответы</button>
+              <div className="db-info-label">Черновик документа создан</div>
+              <div className="db-info-value">{generated.document.title}</div>
+              <div className="text-xs text-white/55">ID: {generated.generated_document_id}</div>
+              {generated.generated.warnings && generated.generated.warnings.length > 0 && (
+                <ul className="mt-2 list-disc pl-5 text-xs text-amber-200/85 space-y-1">
+                  {generated.generated.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={openGeneratedDocument} className="db-cta">
+                  <FileText size={14} /> Открыть созданный документ
+                </button>
+                <button type="button" onClick={() => { setSubmitted(false); setGenerated(null); }} className="db-ghost">Изменить ответы</button>
                 <button type="button" onClick={resetAll} className="db-ghost">Новый документ</button>
               </div>
             </div>
@@ -493,6 +541,9 @@ function DocumentBuilderPage() {
         .db-copy-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; font-size: 11px; color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; transition: all 160ms ease; }
         .db-copy-btn:hover { background: rgba(255,255,255,0.10); color: #fff; }
         .db-copy-btn-done { background: rgba(102,187,156,0.14); color: #b6ecd1; border-color: rgba(102,187,156,0.35); }
+        .db-mode-badge { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; background: linear-gradient(135deg, rgba(214,188,120,0.22), rgba(214,188,120,0.10)); border: 1px solid rgba(214,188,120,0.55); }
+        .db-mode-badge-label { font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(214,188,120,0.85); }
+        .db-mode-badge-value { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: #f5e2a5; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
       `}</style>
     </div>
   );

@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 /**
  * Architecture layer for the upcoming `generate-legal-document` edge function.
  *
@@ -74,15 +76,45 @@ export function buildGenerateRequest(
   };
 }
 
-/**
- * Placeholder invoker. Real implementation will call the
- * `generate-legal-document` Supabase Edge Function in the next stage.
- */
-export async function prepareDraft(
-  _payload: GenerateLegalDocumentRequest,
-): Promise<{ status: "deferred"; message: string }> {
-  return {
-    status: "deferred",
-    message: "Генерация документа будет подключена на следующем этапе.",
+export type GeneratedDocumentResult = {
+  generated_document_id: string;
+  document: {
+    id: string;
+    title: string;
+    content: string;
+    category: string | null;
+    status: string | null;
+    template_key: string | null;
+    metadata: Record<string, unknown> | null;
+    created_at: string;
   };
+  generated: {
+    content: string;
+    title: string;
+    document_type?: string;
+    language?: string;
+    is_preliminary?: boolean;
+    requires_local_lawyer_review?: boolean;
+    missing_inputs?: string[];
+    quality_notes?: string[];
+    warnings?: string[];
+  };
+};
+
+/**
+ * Calls the deployed `generate-legal-document-v2` edge function.
+ * Edge function code is NOT modified — we only invoke it from the client.
+ */
+export async function invokeGenerateLegalDocument(
+  payload: GenerateLegalDocumentRequest,
+): Promise<GeneratedDocumentResult> {
+  const { data, error } = await supabase.functions.invoke<GeneratedDocumentResult & { success?: boolean; error?: string }>(
+    "generate-legal-document-v2",
+    { body: payload },
+  );
+  if (error) throw error;
+  if (!data || data.success === false) {
+    throw new Error(data?.error ?? "Не удалось сгенерировать документ");
+  }
+  return data;
 }
