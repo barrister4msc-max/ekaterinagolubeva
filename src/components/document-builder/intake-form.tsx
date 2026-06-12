@@ -502,6 +502,7 @@ function ReviewStep({
   onAddAttachment,
   onRemoveAttachment,
   answers,
+  availableModes,
 }: {
   schema: DocumentIntakeSchema;
   state: IntakeState;
@@ -512,6 +513,7 @@ function ReviewStep({
   onAddAttachment: (a: IntakeAttachment) => void;
   onRemoveAttachment: (id: string) => void;
   answers: IntakeAnswers;
+  availableModes?: Array<IntakeState["generationMode"]>;
 }) {
   const [showJson, setShowJson] = useState(false);
   const [copied, setCopied] = useState(false);
