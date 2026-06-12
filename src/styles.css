@@ -648,6 +648,44 @@
   font-weight: 500;
 }
 
+/* CRM dossier drawer — custom overlay, not Radix Dialog */
+.workspace-dossier-panel {
+  background: rgba(8, 20, 30, 0.62) !important;
+  color: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.20) !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(36px) saturate(140%);
+}
+.workspace-dossier-chip {
+  background: rgba(255, 255, 255, 0.10) !important;
+  color: rgba(255, 255, 255, 0.76) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+.workspace-dossier-tabs {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  backdrop-filter: blur(22px) saturate(140%);
+}
+.workspace-dossier-tab-active {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.20);
+}
+.workspace-dossier-tab-idle {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+.workspace-dossier-danger {
+  background: rgba(70, 12, 18, 0.55) !important;
+  color: rgba(255, 235, 238, 0.96) !important;
+  border-color: rgba(255, 145, 155, 0.38) !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24);
+}
+.workspace-dossier-icon-button {
+  background: rgba(255, 255, 255, 0.10) !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.20) !important;
+}
+
 /* ============================================================
    Workspace — portaled overlays (Dialog / Sheet / Drawer / Popover /
    DropdownMenu / Select). Styled via body.workspace-active.
