@@ -197,11 +197,11 @@ export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack
           <button
             type="button"
             onClick={() => onSubmit(state)}
-            disabled={!validation.valid}
+            disabled={!validation.valid || submitting}
             className="db-cta"
             title={!validation.valid ? "Заполните обязательные поля" : "Сформировать черновик"}
           >
-            <Sparkles size={14} /> Сформировать черновик документа
+            <Sparkles size={14} /> {submitting ? "Генерация…" : "Сформировать черновик документа"}
           </button>
         )}
       </div>
