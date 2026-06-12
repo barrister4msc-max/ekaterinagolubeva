@@ -485,6 +485,8 @@ function DocumentBuilderPage() {
         .db-uploader:hover { background: rgba(255,255,255,0.10); }
         .db-small-select { display: flex; flex-direction: column; gap: 3px; }
         .db-small-select-label { font-size: 9.5px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
+        .db-progress { height: 4px; width: 100%; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+        .db-progress-bar { height: 100%; background: linear-gradient(90deg, #c8a86b, #e2c889); transition: width 220ms ease; }
       `}</style>
     </div>
   );
