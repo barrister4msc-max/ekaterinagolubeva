@@ -1,6 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { FileSignature, Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { FileSignature, Search, Loader2 } from "lucide-react";
+import {
+  getTemplates,
+  CATEGORY_LABELS,
+  JURISDICTION_LABELS,
+  COMPLEXITY_LABELS,
+  type DocumentTemplate,
+  type TemplateComplexity,
+} from "@/lib/document-templates";
 
 export const Route = createFileRoute("/workspace/document-builder")({
   head: () => ({
@@ -12,192 +21,64 @@ export const Route = createFileRoute("/workspace/document-builder")({
   component: DocumentBuilderPage,
 });
 
-const practiceAreas = [
-  "Недвижимость",
-  "Договоры",
-  "Судебные споры",
-  "Налоговые вопросы",
-  "Корпоративное право",
-  "Международное корпоративное право",
-  "Семейное право",
-  "Наследство",
-  "Земельные вопросы",
-  "Комплаенс",
-  "Другое",
-] as const;
-
-const jurisdictions = ["Россия", "Кипр", "Израиль", "Грузия", "Другая"] as const;
-
-type Category = { label: string; items: string[] };
-
-const categories: Category[] = [
-  {
-    label: "Общие юридические документы",
-    items: [
-      "Запрос документов и информации у клиента",
-      "Правовое заключение (Legal Opinion)",
-      "Аналитическая записка по делу",
-      "Юридическое исследование",
-      "Правовая позиция по спору",
-      "Меморандум юриста",
-      "Заключение по рискам",
-      "Due Diligence Report",
-      "Red Flag Report",
-      "Legal Checklist",
-      "План правовой защиты",
-      "Дорожная карта проекта",
-      "Правовой аудит",
-      "Юридическая справка",
-      "Заключение по перспективам судебного спора",
-    ],
-  },
-  {
-    label: "Общегражданские договоры",
-    items: [
-      "Договор оказания услуг",
-      "Договор подряда",
-      "Договор бытового подряда",
-      "Договор строительного подряда",
-      "Договор проектных работ",
-      "Договор НИОКР",
-      "Договор возмездного оказания услуг",
-      "Договор консультационных услуг",
-      "Договор аутсорсинга",
-      "Договор аутстаффинга",
-      "Договор агентский",
-      "Агентское соглашение",
-      "Договор поручения",
-      "Договор комиссии",
-      "Договор хранения",
-      "Договор перевозки",
-      "Договор транспортной экспедиции",
-      "Договор займа",
-      "Договор кредита",
-      "Договор уступки права требования (цессия)",
-      "Договор перевода долга",
-      "Договор поручительства",
-      "Договор независимой гарантии",
-      "Договор залога",
-      "Договор залога недвижимости (ипотеки)",
-      "Договор страхования",
-    ],
-  },
-  {
-    label: "Коммерческие договоры",
-    items: [
-      "Договор поставки",
-      "Договор поставки товаров",
-      "Договор дистрибуции",
-      "Дилерский договор",
-      "Договор купли-продажи товара",
-      "Договор купли-продажи бизнеса",
-      "Договор франчайзинга (коммерческой концессии)",
-      "Лицензионный договор",
-      "Сублицензионный договор",
-      "Договор коммерческого представительства",
-      "Договор совместной деятельности",
-      "Договор простого товарищества",
-      "Инвестиционное соглашение",
-      "Term Sheet",
-      "Letter of Intent (LOI)",
-    ],
-  },
-  {
-    label: "IT и интеллектуальная собственность",
-    items: [
-      "Договор разработки программного обеспечения",
-      "Договор технической поддержки",
-      "SaaS Agreement",
-      "Software License Agreement",
-      "End User License Agreement (EULA)",
-      "Договор сопровождения сайта",
-      "Договор разработки мобильного приложения",
-      "Договор внедрения IT-систем",
-      "Договор на разработку AI-решения",
-      "Договор обработки данных (DPA)",
-      "NDA",
-      "Соглашение о конфиденциальности",
-      "Соглашение о неразглашении коммерческой тайны",
-      "Соглашение о передаче исключительных прав",
-    ],
-  },
-  {
-    label: "Корпоративные",
-    items: [
-      "Корпоративный договор",
-      "Shareholders Agreement",
-      "Founders Agreement",
-      "Investment Agreement",
-      "Subscription Agreement",
-      "SAFE",
-      "Convertible Loan Agreement",
-      "Share Purchase Agreement",
-      "Option Agreement",
-      "Director Agreement",
-      "Решение единственного участника",
-      "Протокол общего собрания",
-      "Board Resolution",
-      "Shareholder Resolution",
-    ],
-  },
-  {
-    label: "Судебные",
-    items: [
-      "Исковое заявление",
-      "Отзыв на иск",
-      "Возражения",
-      "Ходатайство",
-      "Апелляционная жалоба",
-      "Кассационная жалоба",
-      "Заявление о выдаче судебного приказа",
-      "Заявление об отмене судебного приказа",
-      "Мировое соглашение",
-    ],
-  },
-  {
-    label: "Налоговые",
-    items: [
-      "Пояснения в ФНС",
-      "Ответ на требование ФНС",
-      "Возражения на акт налоговой проверки",
-      "Жалоба в УФНС",
-      "Заявление о зачёте / возврате налога",
-      "Правовое заключение по налоговым рискам",
-      "Запрос документов по налоговой проверке",
-    ],
-  },
-  {
-    label: "Недвижимость",
-    items: [
-      "Договор купли-продажи недвижимости",
-      "Договор аренды недвижимости",
-      "Дополнительное соглашение к договору аренды",
-      "Акт приёма-передачи",
-      "Соглашение о задатке",
-      "Соглашение об авансе",
-      "Протокол разногласий",
-      "Уведомление о расторжении договора аренды",
-      "Претензия по сделке с недвижимостью",
-      "Правовое заключение по проверке объекта",
-    ],
-  },
+const practiceAreaOptions = [
+  { value: "", label: "Все области" },
+  { value: "general", label: "Общая практика" },
+  { value: "contracts", label: "Договоры" },
+  { value: "real_estate", label: "Недвижимость" },
+  { value: "litigation", label: "Судебные споры" },
+  { value: "tax", label: "Налоги" },
+  { value: "corporate", label: "Корпоративное (РФ)" },
+  { value: "international_corporate", label: "Международное корпоративное" },
+  { value: "it", label: "IT / IP" },
+  { value: "compliance", label: "Комплаенс" },
+  { value: "labour", label: "Трудовое" },
+  { value: "logistics", label: "Логистика" },
 ];
 
+const jurisdictionOptions = ["", "RU", "CY", "IL", "GE"] as const;
+const complexityOptions: Array<"" | TemplateComplexity> = ["", "basic", "advanced", "expert"];
+
 function DocumentBuilderPage() {
-  const [practice, setPractice] = useState<string>("");
-  const [jurisdiction, setJurisdiction] = useState<string>("");
-  const [documentType, setDocumentType] = useState<string>("");
   const [search, setSearch] = useState("");
+  const [practice, setPractice] = useState("");
+  const [jurisdiction, setJurisdiction] = useState<string>("");
+  const [complexity, setComplexity] = useState<"" | TemplateComplexity>("");
+  const [selectedCode, setSelectedCode] = useState<string>("");
+
+  const { data: templates = [], isLoading, error } = useQuery({
+    queryKey: ["document-templates"],
+    queryFn: getTemplates,
+  });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return categories;
-    return categories
-      .map((c) => ({ ...c, items: c.items.filter((i) => i.toLowerCase().includes(q)) }))
-      .filter((c) => c.items.length > 0);
-  }, [search]);
+    return templates.filter((t) => {
+      if (practice && t.practice_area !== practice) return false;
+      if (jurisdiction && !t.jurisdiction.includes(jurisdiction)) return false;
+      if (complexity && t.complexity !== complexity) return false;
+      if (q) {
+        const hay = `${t.title} ${t.category} ${t.subcategory ?? ""} ${t.code}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [templates, search, practice, jurisdiction, complexity]);
 
-  const canContinue = practice && jurisdiction && documentType;
+  const grouped = useMemo(() => {
+    const map = new Map<string, DocumentTemplate[]>();
+    for (const t of filtered) {
+      const arr = map.get(t.category) ?? [];
+      arr.push(t);
+      map.set(t.category, arr);
+    }
+    return Array.from(map.entries());
+  }, [filtered]);
+
+  const selected = useMemo(
+    () => templates.find((t) => t.code === selectedCode) ?? null,
+    [templates, selectedCode],
+  );
 
   return (
     <div className="space-y-8">
@@ -209,89 +90,112 @@ function DocumentBuilderPage() {
           <div>
             <h1 className="font-display text-2xl text-white">Конструктор юридических документов</h1>
             <p className="mt-2 text-sm text-white/70">
-              Создание документов с нуля по выбранной области права и юрисдикции.
+              Единый реестр шаблонов: {templates.length} документов. Выберите шаблон, чтобы перейти к подготовке.
             </p>
           </div>
         </div>
       </header>
 
-      <section className="grid gap-5 md:grid-cols-2">
-        <div className="db-card p-6">
-          <div className="db-label">Область права</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {practiceAreas.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPractice(p)}
-                className={`db-chip ${practice === p ? "db-chip-active" : ""}`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="db-card p-6">
-          <div className="db-label">Юрисдикция</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {jurisdictions.map((j) => (
-              <button
-                key={j}
-                type="button"
-                onClick={() => setJurisdiction(j)}
-                className={`db-chip ${jurisdiction === j ? "db-chip-active" : ""}`}
-              >
-                {j}
-              </button>
-            ))}
-          </div>
-          {(jurisdiction === "Кипр" || jurisdiction === "Израиль" || jurisdiction === "Грузия") && (
-            <p className="mt-4 text-xs text-amber-200/90">
-              Для иностранной юрисдикции потребуется проверка локальным юристом соответствующей юрисдикции.
-            </p>
-          )}
-        </div>
-      </section>
-
       <section className="db-card p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="db-label">Категория документа</div>
+        <div className="grid gap-3 md:grid-cols-[1fr_auto_auto_auto]">
           <div className="relative">
             <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/50" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по документу…"
-              className="db-search pl-9"
+              placeholder="Поиск по названию, коду или категории…"
+              className="db-search w-full pl-9"
             />
           </div>
+          <select
+            value={practice}
+            onChange={(e) => setPractice(e.target.value)}
+            className="db-select"
+            aria-label="Область права"
+          >
+            {practiceAreaOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <select
+            value={jurisdiction}
+            onChange={(e) => setJurisdiction(e.target.value)}
+            className="db-select"
+            aria-label="Юрисдикция"
+          >
+            {jurisdictionOptions.map((j) => (
+              <option key={j} value={j}>{j ? JURISDICTION_LABELS[j] : "Все юрисдикции"}</option>
+            ))}
+          </select>
+          <select
+            value={complexity}
+            onChange={(e) => setComplexity(e.target.value as "" | TemplateComplexity)}
+            className="db-select"
+            aria-label="Сложность"
+          >
+            {complexityOptions.map((c) => (
+              <option key={c || "all"} value={c}>
+                {c ? COMPLEXITY_LABELS[c] : "Любая сложность"}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {documentType && (
+        {selected && (
           <div className="mt-4 rounded-md border border-white/15 bg-white/[0.06] px-3 py-2 text-sm text-white/90">
-            Выбрано: <span className="text-white">{documentType}</span>
+            Выбрано: <span className="text-white">{selected.title}</span>{" "}
+            <span className="text-white/50">· {selected.code}</span>
           </div>
         )}
 
-        <div className="mt-5 space-y-5">
-          {filtered.length === 0 && (
-            <div className="text-sm text-white/60">Ничего не найдено по запросу «{search}».</div>
+        <div className="mt-6 space-y-6">
+          {isLoading && (
+            <div className="flex items-center gap-2 text-sm text-white/70">
+              <Loader2 size={14} className="animate-spin" /> Загрузка реестра шаблонов…
+            </div>
           )}
-          {filtered.map((c) => (
-            <div key={c.label}>
-              <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">{c.label}</div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {c.items.map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setDocumentType(item)}
-                    className={`db-chip db-chip-sm ${documentType === item ? "db-chip-active" : ""}`}
-                  >
-                    {item}
-                  </button>
-                ))}
+          {error && (
+            <div className="text-sm text-rose-300">Не удалось загрузить шаблоны. Проверьте подключение.</div>
+          )}
+          {!isLoading && !error && filtered.length === 0 && (
+            <div className="text-sm text-white/60">Ничего не найдено по выбранным фильтрам.</div>
+          )}
+
+          {grouped.map(([cat, items]) => (
+            <div key={cat}>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
+                {CATEGORY_LABELS[cat] ?? cat}
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {items.map((t) => {
+                  const isSel = t.code === selectedCode;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setSelectedCode(t.code)}
+                      className={`db-tcard text-left ${isSel ? "db-tcard-active" : ""}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="text-sm font-medium text-white">{t.title}</div>
+                        <span className={`db-pill db-pill-${t.complexity}`}>
+                          {COMPLEXITY_LABELS[t.complexity]}
+                        </span>
+                      </div>
+                      {t.description && (
+                        <p className="mt-2 text-xs text-white/65 line-clamp-2">{t.description}</p>
+                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                        <span className="db-tag">{CATEGORY_LABELS[t.category] ?? t.category}</span>
+                        {t.jurisdiction.map((j) => (
+                          <span key={j} className="db-tag db-tag-juris">
+                            {JURISDICTION_LABELS[j] ?? j}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -299,11 +203,7 @@ function DocumentBuilderPage() {
       </section>
 
       <div className="flex justify-end">
-        <button
-          type="button"
-          disabled={!canContinue}
-          className="db-cta"
-        >
+        <button type="button" disabled={!selected} className="db-cta">
           Продолжить создание документа
         </button>
       </div>
@@ -325,37 +225,8 @@ function DocumentBuilderPage() {
           color: #d6bc78;
           border: 1px solid rgba(214, 188, 120, 0.30);
         }
-        .db-label {
-          font-size: 11px;
-          text-transform: uppercase;
-          letter-spacing: 0.22em;
-          color: rgba(255, 255, 255, 0.65);
-        }
-        .db-chip {
-          padding: 7px 14px;
-          border-radius: 999px;
-          font-size: 13px;
-          line-height: 1;
-          color: rgba(255, 255, 255, 0.88);
-          background: rgba(255, 255, 255, 0.06);
-          border: 1px solid rgba(255, 255, 255, 0.14);
-          transition: all 160ms ease;
-          cursor: pointer;
-        }
-        .db-chip:hover {
-          background: rgba(255, 255, 255, 0.12);
-          border-color: rgba(255, 255, 255, 0.24);
-        }
-        .db-chip-sm { padding: 6px 12px; font-size: 12.5px; }
-        .db-chip-active {
-          background: rgba(214, 188, 120, 0.20);
-          border-color: rgba(214, 188, 120, 0.55);
-          color: #f4e3b8;
-        }
-        .db-search {
-          height: 36px;
-          width: 260px;
-          max-width: 100%;
+        .db-search, .db-select {
+          height: 38px;
           border-radius: 10px;
           background: rgba(255, 255, 255, 0.06);
           border: 1px solid rgba(255, 255, 255, 0.16);
@@ -365,7 +236,50 @@ function DocumentBuilderPage() {
           outline: none;
         }
         .db-search::placeholder { color: rgba(255, 255, 255, 0.45); }
-        .db-search:focus { border-color: rgba(214, 188, 120, 0.55); }
+        .db-search:focus, .db-select:focus { border-color: rgba(214, 188, 120, 0.55); }
+        .db-select { appearance: none; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.5) 50%), linear-gradient(135deg, rgba(255,255,255,0.5) 50%, transparent 50%); background-position: calc(100% - 14px) 17px, calc(100% - 9px) 17px; background-size: 5px 5px; background-repeat: no-repeat; }
+        .db-select option { background: #0c1a24; color: #fff; }
+        .db-tcard {
+          background: rgba(8, 18, 26, 0.55);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 14px;
+          padding: 14px 14px 12px;
+          transition: all 160ms ease;
+          cursor: pointer;
+        }
+        .db-tcard:hover {
+          background: rgba(12, 26, 36, 0.72);
+          border-color: rgba(214, 188, 120, 0.35);
+          transform: translateY(-1px);
+        }
+        .db-tcard-active {
+          border-color: rgba(214, 188, 120, 0.65);
+          background: rgba(40, 32, 14, 0.55);
+          box-shadow: 0 0 0 1px rgba(214, 188, 120, 0.25) inset;
+        }
+        .db-tag {
+          font-size: 10.5px;
+          padding: 3px 8px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.07);
+          color: rgba(255, 255, 255, 0.75);
+          border: 1px solid rgba(255, 255, 255, 0.10);
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+        .db-tag-juris { background: rgba(214, 188, 120, 0.12); color: #f0dca0; border-color: rgba(214, 188, 120, 0.30); }
+        .db-pill {
+          font-size: 10px;
+          padding: 3px 8px;
+          border-radius: 999px;
+          border: 1px solid transparent;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          white-space: nowrap;
+        }
+        .db-pill-basic { background: rgba(102, 187, 156, 0.14); color: #9be0c4; border-color: rgba(102, 187, 156, 0.35); }
+        .db-pill-advanced { background: rgba(120, 160, 220, 0.14); color: #b6d0f5; border-color: rgba(120, 160, 220, 0.35); }
+        .db-pill-expert { background: rgba(214, 120, 120, 0.14); color: #f0b8b8; border-color: rgba(214, 120, 120, 0.35); }
         .db-cta {
           padding: 12px 24px;
           border-radius: 12px;
