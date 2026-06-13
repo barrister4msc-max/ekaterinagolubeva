@@ -18,7 +18,10 @@ import {
   type DocumentTemplate,
 } from "@/lib/document-templates";
 import { buildGenerateRequest } from "@/lib/generate-legal-document";
-
+import {
+  createOrLoadIntakeSession,
+  saveIntakeAnswers,
+} from "@/lib/document-intake-storage";
 type Props = {
   schema: DocumentIntakeSchema;
   state: IntakeState;
