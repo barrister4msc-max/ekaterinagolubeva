@@ -1441,6 +1441,93 @@ export type Database = {
           },
         ]
       }
+      document_intake_ai_runs: {
+        Row: {
+          ai_result: Json | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          generated_document_id: string | null
+          hallucination_risk: string | null
+          id: string
+          input_snapshot: Json | null
+          legal_accuracy_score: number | null
+          model_name: string | null
+          needs_lawyer_review: boolean
+          problems: Json | null
+          recommendations: Json | null
+          required_fixes: Json | null
+          review_result: Json | null
+          review_status: string | null
+          run_type: string
+          session_id: string
+          source_verification_status: string | null
+          status: string
+          used_sources: Json | null
+        }
+        Insert: {
+          ai_result?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          generated_document_id?: string | null
+          hallucination_risk?: string | null
+          id?: string
+          input_snapshot?: Json | null
+          legal_accuracy_score?: number | null
+          model_name?: string | null
+          needs_lawyer_review?: boolean
+          problems?: Json | null
+          recommendations?: Json | null
+          required_fixes?: Json | null
+          review_result?: Json | null
+          review_status?: string | null
+          run_type?: string
+          session_id: string
+          source_verification_status?: string | null
+          status?: string
+          used_sources?: Json | null
+        }
+        Update: {
+          ai_result?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          generated_document_id?: string | null
+          hallucination_risk?: string | null
+          id?: string
+          input_snapshot?: Json | null
+          legal_accuracy_score?: number | null
+          model_name?: string | null
+          needs_lawyer_review?: boolean
+          problems?: Json | null
+          recommendations?: Json | null
+          required_fixes?: Json | null
+          review_result?: Json | null
+          review_status?: string | null
+          run_type?: string
+          session_id?: string
+          source_verification_status?: string | null
+          status?: string
+          used_sources?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_intake_ai_runs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "document_intake_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_intake_ai_runs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_document_drafts_dashboard"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       document_intake_answers: {
         Row: {
           confidence: number | null
@@ -1498,6 +1585,13 @@ export type Database = {
             referencedRelation: "document_intake_sessions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "document_intake_answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "v_document_drafts_dashboard"
+            referencedColumns: ["session_id"]
+          },
         ]
       }
       document_intake_schemas: {
@@ -1553,13 +1647,18 @@ export type Database = {
           ai_recommended_action: string | null
           ai_risk_level: string | null
           ai_summary: string | null
+          analysis_iteration: number
+          archived_at: string | null
           client_id: string | null
           created_at: string
           created_by: string | null
           document_id: string | null
+          generated_document_id: string | null
           id: string
           jurisdiction: string
           language: string
+          last_ai_analysis_at: string | null
+          last_opened_at: string | null
           lead_id: string | null
           matter_id: string | null
           reviewed_at: string | null
@@ -1567,19 +1666,25 @@ export type Database = {
           source_type: string
           status: string
           template_code: string
+          title: string | null
           updated_at: string
         }
         Insert: {
           ai_recommended_action?: string | null
           ai_risk_level?: string | null
           ai_summary?: string | null
+          analysis_iteration?: number
+          archived_at?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
           document_id?: string | null
+          generated_document_id?: string | null
           id?: string
           jurisdiction?: string
           language?: string
+          last_ai_analysis_at?: string | null
+          last_opened_at?: string | null
           lead_id?: string | null
           matter_id?: string | null
           reviewed_at?: string | null
@@ -1587,19 +1692,25 @@ export type Database = {
           source_type?: string
           status?: string
           template_code: string
+          title?: string | null
           updated_at?: string
         }
         Update: {
           ai_recommended_action?: string | null
           ai_risk_level?: string | null
           ai_summary?: string | null
+          analysis_iteration?: number
+          archived_at?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
           document_id?: string | null
+          generated_document_id?: string | null
           id?: string
           jurisdiction?: string
           language?: string
+          last_ai_analysis_at?: string | null
+          last_opened_at?: string | null
           lead_id?: string | null
           matter_id?: string | null
           reviewed_at?: string | null
@@ -1607,6 +1718,7 @@ export type Database = {
           source_type?: string
           status?: string
           template_code?: string
+          title?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1854,54 +1966,96 @@ export type Database = {
       }
       generated_legal_documents: {
         Row: {
+          ai_review_status: string | null
+          archived_at: string | null
           category: string | null
           content: string | null
           created_at: string
           created_by: string | null
           crm_lead_id: string | null
           id: string
+          intake_session_id: string | null
+          lawyer_approved_at: string | null
+          lawyer_approved_by: string | null
           lead_id: string | null
           metadata: Json
+          parent_document_id: string | null
           source_document_id: string | null
           status: string
           template_id: string | null
           template_key: string
           title: string
           updated_at: string
+          version_number: number
         }
         Insert: {
+          ai_review_status?: string | null
+          archived_at?: string | null
           category?: string | null
           content?: string | null
           created_at?: string
           created_by?: string | null
           crm_lead_id?: string | null
           id?: string
+          intake_session_id?: string | null
+          lawyer_approved_at?: string | null
+          lawyer_approved_by?: string | null
           lead_id?: string | null
           metadata?: Json
+          parent_document_id?: string | null
           source_document_id?: string | null
           status?: string
           template_id?: string | null
           template_key: string
           title: string
           updated_at?: string
+          version_number?: number
         }
         Update: {
+          ai_review_status?: string | null
+          archived_at?: string | null
           category?: string | null
           content?: string | null
           created_at?: string
           created_by?: string | null
           crm_lead_id?: string | null
           id?: string
+          intake_session_id?: string | null
+          lawyer_approved_at?: string | null
+          lawyer_approved_by?: string | null
           lead_id?: string | null
           metadata?: Json
+          parent_document_id?: string | null
           source_document_id?: string | null
           status?: string
           template_id?: string | null
           template_key?: string
           title?: string
           updated_at?: string
+          version_number?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_generated_legal_documents_intake_session"
+            columns: ["intake_session_id"]
+            isOneToOne: false
+            referencedRelation: "document_intake_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_generated_legal_documents_intake_session"
+            columns: ["intake_session_id"]
+            isOneToOne: false
+            referencedRelation: "v_document_drafts_dashboard"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "fk_generated_legal_documents_parent_document"
+            columns: ["parent_document_id"]
+            isOneToOne: false
+            referencedRelation: "generated_legal_documents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "generated_legal_documents_lead_id_fkey"
             columns: ["lead_id"]
@@ -4840,6 +4994,48 @@ export type Database = {
       }
     }
     Views: {
+      v_document_drafts_dashboard: {
+        Row: {
+          ai_review_status: string | null
+          ai_runs_count: number | null
+          analysis_iteration: number | null
+          archived_at: string | null
+          client_id: string | null
+          created_at: string | null
+          document_id: string | null
+          generated_document_id: string | null
+          generated_document_status: string | null
+          generated_document_title: string | null
+          last_ai_analysis_at: string | null
+          last_ai_run_at: string | null
+          last_hallucination_risk: string | null
+          last_legal_accuracy_score: number | null
+          last_needs_lawyer_review: boolean | null
+          last_opened_at: string | null
+          last_problems: Json | null
+          last_recommendations: Json | null
+          last_required_fixes: Json | null
+          last_review_status: string | null
+          lawyer_approved_at: string | null
+          lead_id: string | null
+          matter_id: string | null
+          session_id: string | null
+          source_document_file_name: string | null
+          source_document_risk_level: string | null
+          source_document_title: string | null
+          source_document_type: string | null
+          source_type: string | null
+          status: string | null
+          template_code: string | null
+          template_description: string | null
+          template_metadata: Json | null
+          template_title: string | null
+          title: string | null
+          updated_at: string | null
+          version_number: number | null
+        }
+        Relationships: []
+      }
       v_legal_regulatory_alerts_dashboard: {
         Row: {
           ai_impact_analysis: Json | null
