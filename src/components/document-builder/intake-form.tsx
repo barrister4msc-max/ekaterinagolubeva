@@ -126,6 +126,7 @@ export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack
       clientId: intakeContext?.clientId ?? null,
       leadId: intakeContext?.leadId ?? null,
       documentId: intakeContext?.documentId ?? null,
+      draftKey: intakeSessionId,
       templateCode: state.templateCode,
       jurisdiction: state.jurisdiction,
       language: state.language,
