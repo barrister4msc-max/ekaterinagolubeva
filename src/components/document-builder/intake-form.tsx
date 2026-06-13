@@ -22,6 +22,13 @@ import {
   createOrLoadIntakeSession,
   saveIntakeAnswers,
 } from "@/lib/document-intake-storage";
+type IntakeContext = {
+  matterId?: string | null;
+  clientId?: string | null;
+  leadId?: string | null;
+  documentId?: string | null;
+};
+
 type Props = {
   schema: DocumentIntakeSchema;
   state: IntakeState;
@@ -31,6 +38,7 @@ type Props = {
   onBack: () => void;
   availableModes?: Array<IntakeState["generationMode"]>;
   submitting?: boolean;
+  intakeContext?: IntakeContext;
 };
 
 export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack, availableModes, submitting }: Props) {
