@@ -28,19 +28,44 @@ export async function createOrLoadIntakeSession(params: {
   jurisdiction?: string;
   language?: string;
 }) {
-  const query = supabase
+  let existing: DocumentIntakeSession | null = null;
+
+if (params.documentId) {
+  const { data, error } = await supabase
     .from("document_intake_sessions")
     .select("*")
     .eq("template_code", params.templateCode)
+    .eq("document_id", params.documentId)
     .maybeSingle();
 
-  if (params.documentId) query.eq("document_id", params.documentId);
-  else if (params.matterId) query.eq("matter_id", params.matterId);
+  if (error) throw error;
+  existing = data as DocumentIntakeSession | null;
+} else if (params.matterId) {
+  const { data, error } = await supabase
+    .from("document_intake_sessions")
+    .select("*")
+    .eq("template_code", params.templateCode)
+    .eq("matter_id", params.matterId)
+    .is("document_id", null)
+    .maybeSingle();
 
-  const { data: existing, error: findError } = await query;
+  if (error) throw error;
+  existing = data as DocumentIntakeSession | null;
+} else if (params.leadId) {
+  const { data, error } = await supabase
+    .from("document_intake_sessions")
+    .select("*")
+    .eq("template_code", params.templateCode)
+    .eq("lead_id", params.leadId)
+    .is("matter_id", null)
+    .is("document_id", null)
+    .maybeSingle();
 
-  if (findError) throw findError;
-  if (existing) return existing as DocumentIntakeSession;
+  if (error) throw error;
+  existing = data as DocumentIntakeSession | null;
+}
+
+if (existing) return existing;
 
   const { data, error } = await supabase
     .from("document_intake_sessions")
