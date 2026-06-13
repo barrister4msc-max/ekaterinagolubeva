@@ -117,7 +117,35 @@ const [intakeSessionId, setIntakeSessionId] = useState<string | null>(null);
     }
     goNext();
   };
+  const handleSaveDraft = async () => {
+  try {
+    setIsSavingDraft(true);
 
+    const session = await createOrLoadIntakeSession({
+      matterId: intakeContext?.matterId ?? null,
+      clientId: intakeContext?.clientId ?? null,
+      leadId: intakeContext?.leadId ?? null,
+      documentId: intakeContext?.documentId ?? null,
+      templateCode: state.templateCode,
+      jurisdiction: state.jurisdiction,
+      language: state.language,
+    });
+
+    setIntakeSessionId(session.id);
+
+    await saveIntakeAnswers({
+      sessionId: session.id,
+      schema,
+      answers: state.answers,
+      valueSource: "manual",
+    });
+  } catch (e) {
+    console.error("Failed to save intake draft", e);
+    alert("Не удалось сохранить черновик опросника");
+  } finally {
+    setIsSavingDraft(false);
+  }
+};  
   const progressPct = Math.round(((stepIdx + 1) / totalSteps) * 100);
   const currentTitle = isReview ? "Предпросмотр подготовки документа" : currentStep.title;
 
