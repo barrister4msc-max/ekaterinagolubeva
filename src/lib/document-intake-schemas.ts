@@ -172,7 +172,7 @@ function mapRow(row: Record<string, unknown>): DocumentIntakeSchema {
     description: (row.description as string | null) ?? null,
     is_active: Boolean(row.is_active),
     required_fields: (row.required_fields as string[] | null) ?? [],
-    schema_json: ((row.schema_json as IntakeSchemaJson | null) ?? { steps: [] }),
+    schema_json: normalizeSchemaJson(row.schema_json as IntakeSchemaJson | null),
     sort_order: (row.sort_order as number) ?? 0,
     metadata: ((row.metadata as Record<string, unknown> | null) ?? {}),
   };
