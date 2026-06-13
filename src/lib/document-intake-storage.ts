@@ -24,6 +24,7 @@ export async function createOrLoadIntakeSession(params: {
   clientId?: string | null;
   leadId?: string | null;
   documentId?: string | null;
+  draftKey?: string | null;
   templateCode: string;
   jurisdiction?: string;
   language?: string;
