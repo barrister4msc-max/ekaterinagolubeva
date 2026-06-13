@@ -65,7 +65,19 @@ if (params.documentId) {
   if (error) throw error;
   existing = data as DocumentIntakeSession | null;
 }
+if (!existing && params.draftKey) {
+  const { data, error } = await supabase
+    .from("document_intake_sessions")
+    .select("*")
+    .eq("id", params.draftKey)
+    .eq("template_code", params.templateCode)
+    .eq("source_type", "builder")
+    .maybeSingle();
 
+  if (error) throw error;
+
+  existing = data as DocumentIntakeSession | null;
+}
 if (existing) return existing;
 
   const { data, error } = await supabase
