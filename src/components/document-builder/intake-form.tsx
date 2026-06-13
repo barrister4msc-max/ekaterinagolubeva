@@ -229,21 +229,33 @@ const [intakeSessionId, setIntakeSessionId] = useState<string | null>(null);
         <button type="button" onClick={goPrev} className="db-ghost">
           <ArrowLeft size={14} /> Назад
         </button>
-        {!isReview ? (
-          <button type="button" onClick={handleNext} className="db-cta">
-            Далее <ArrowRight size={14} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onSubmit(state)}
-            disabled={!validation.valid || submitting}
-            className="db-cta"
-            title={!validation.valid ? "Заполните обязательные поля" : "Сформировать черновик"}
-          >
-            <Sparkles size={14} /> {submitting ? "Генерация…" : "Сформировать черновик документа"}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+  <button
+    type="button"
+    onClick={handleSaveDraft}
+    disabled={isSavingDraft}
+    className="db-ghost"
+    title={intakeSessionId ? `Черновик: ${intakeSessionId}` : "Сохранить ответы опросника"}
+  >
+    {isSavingDraft ? "Сохраняю…" : "Сохранить черновик"}
+  </button>
+
+  {!isReview ? (
+    <button type="button" onClick={handleNext} className="db-cta">
+      Далее <ArrowRight size={14} />
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={() => onSubmit(state)}
+      disabled={!validation.valid || submitting}
+      className="db-cta"
+      title={!validation.valid ? "Заполните обязательные поля" : "Сформировать черновик"}
+    >
+      <Sparkles size={14} /> {submitting ? "Генерация…" : "Сформировать черновик документа"}
+    </button>
+  )}
+</div>
       </div>
     </div>
   );
