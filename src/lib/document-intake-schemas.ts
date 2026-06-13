@@ -148,7 +148,20 @@ export function createInitialIntakeState(params: {
 // ============================================================================
 
 const TABLE = "document_intake_schemas";
+function normalizeSchemaJson(raw: IntakeSchemaJson | null): IntakeSchemaJson {
+  const schema = raw ?? { steps: [] };
 
+  return {
+    ...schema,
+    steps: (schema.steps ?? []).map((step) => ({
+      ...step,
+      fields: (step.fields ?? []).map((field: any) => ({
+        ...field,
+        key: field.key ?? field.name,
+      })),
+    })),
+  };
+}
 function mapRow(row: Record<string, unknown>): DocumentIntakeSchema {
   return {
     id: row.id as string,
