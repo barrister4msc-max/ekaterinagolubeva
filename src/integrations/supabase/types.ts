@@ -1441,6 +1441,65 @@ export type Database = {
           },
         ]
       }
+      document_intake_answers: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          field_label: string | null
+          field_name: string
+          field_value: Json | null
+          id: string
+          is_verified: boolean
+          needs_review: boolean
+          session_id: string
+          source_document_id: string | null
+          source_page: number | null
+          source_quote: string | null
+          updated_at: string
+          value_source: string
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          field_label?: string | null
+          field_name: string
+          field_value?: Json | null
+          id?: string
+          is_verified?: boolean
+          needs_review?: boolean
+          session_id: string
+          source_document_id?: string | null
+          source_page?: number | null
+          source_quote?: string | null
+          updated_at?: string
+          value_source?: string
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          field_label?: string | null
+          field_name?: string
+          field_value?: Json | null
+          id?: string
+          is_verified?: boolean
+          needs_review?: boolean
+          session_id?: string
+          source_document_id?: string | null
+          source_page?: number | null
+          source_quote?: string | null
+          updated_at?: string
+          value_source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_intake_answers_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "document_intake_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_intake_schemas: {
         Row: {
           created_at: string
@@ -1485,6 +1544,69 @@ export type Database = {
           sort_order?: number
           template_code?: string
           title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      document_intake_sessions: {
+        Row: {
+          ai_recommended_action: string | null
+          ai_risk_level: string | null
+          ai_summary: string | null
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          document_id: string | null
+          id: string
+          jurisdiction: string
+          language: string
+          lead_id: string | null
+          matter_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_type: string
+          status: string
+          template_code: string
+          updated_at: string
+        }
+        Insert: {
+          ai_recommended_action?: string | null
+          ai_risk_level?: string | null
+          ai_summary?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          id?: string
+          jurisdiction?: string
+          language?: string
+          lead_id?: string | null
+          matter_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_type?: string
+          status?: string
+          template_code: string
+          updated_at?: string
+        }
+        Update: {
+          ai_recommended_action?: string | null
+          ai_risk_level?: string | null
+          ai_summary?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_id?: string | null
+          id?: string
+          jurisdiction?: string
+          language?: string
+          lead_id?: string | null
+          matter_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_type?: string
+          status?: string
+          template_code?: string
           updated_at?: string
         }
         Relationships: []
