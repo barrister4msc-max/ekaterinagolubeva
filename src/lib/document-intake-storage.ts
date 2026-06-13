@@ -53,7 +53,11 @@ export async function createOrLoadIntakeSession(params: {
       jurisdiction: params.jurisdiction ?? "RU",
       language: params.language ?? "ru",
       status: "draft",
-      source_type: "lawyer_upload",
+      source_type:
+  params.documentId ? "document" :
+  params.matterId ? "matter" :
+  params.leadId ? "lead" :
+  "builder",
     })
     .select("*")
     .single();
