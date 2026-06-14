@@ -147,28 +147,42 @@ function AIHistoryPage() {
 
 
 
-          <JsonSection
-            title="Проблемы"
-            data={run.problems}
-          />
+                    <div className="grid grid-cols-3 gap-4">
+            <InfoCard
+              title="Проблем"
+              value={String(
+                Array.isArray(run.problems) ? run.problems.length : 0
+              )}
+            />
 
+            <InfoCard
+              title="Исправлений"
+              value={String(
+                Array.isArray(run.required_fixes)
+                  ? run.required_fixes.length
+                  : 0
+              )}
+            />
 
-          <JsonSection
-            title="Обязательные исправления"
-            data={run.required_fixes}
-          />
+            <InfoCard
+              title="Рекомендаций"
+              value={String(
+                Array.isArray(run.recommendations)
+                  ? run.recommendations.length
+                  : 0
+              )}
+            />
+          </div>
 
-
-          <JsonSection
-            title="Рекомендации AI"
-            data={run.recommendations}
-          />
-
-
-          <JsonSection
-            title="Источники"
-            data={run.used_sources}
-          />
+          <Link
+            to="/workspace/document-drafts/$sessionId/ai-review"
+            params={{
+              sessionId,
+            }}
+            className="inline-flex items-center rounded-md border px-3 py-2 text-sm"
+          >
+            Открыть AI заключение →
+          </Link>
 
         </div>
 
