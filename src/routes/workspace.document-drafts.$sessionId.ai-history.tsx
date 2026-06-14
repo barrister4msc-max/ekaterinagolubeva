@@ -56,15 +56,22 @@ function AIHistoryPage() {
   return (
     <div className="p-6 space-y-6">
 
-      <div>
-        <h1 className="text-3xl font-bold">
-          История AI-анализов
-        </h1>
+      <div className="space-y-3">
+  <h1 className="text-3xl font-bold">
+    История AI-анализов
+  </h1>
 
-        <p className="text-muted-foreground">
-          Все проверки документа и рекомендации AI
-        </p>
-      </div>
+  <p className="text-muted-foreground">
+    Все проверки документа и рекомендации AI
+  </p>
+
+  <Link
+    to="/workspace/document-drafts"
+    className="inline-flex items-center rounded-md border px-3 py-2 text-sm"
+  >
+    ← Назад к черновикам
+  </Link>
+</div>
 
 
       {runs?.length === 0 && (
