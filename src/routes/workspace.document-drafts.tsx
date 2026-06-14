@@ -89,6 +89,7 @@ function riskChipClass(risk: string | null) {
 
 function DocumentDraftsPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [openHistoryFor, setOpenHistoryFor] = useState<string | null>(null);
   const [rerunningId, setRerunningId] = useState<string | null>(null);
   const [openingDocId, setOpeningDocId] = useState<string | null>(null);
