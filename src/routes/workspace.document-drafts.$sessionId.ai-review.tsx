@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute(
-  "/workspace/document-drafts/$sessionId/ai-review",
+  "/workspace/document-drafts/$sessionId/ai-review"
 )({
   component: AIReviewPage,
 });
