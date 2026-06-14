@@ -319,7 +319,7 @@ function DocumentDraftsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => rerunAi(d.session_id)}
+                  onClick={() => rerunAi(d)}
                   disabled={rerunningId === d.session_id}
                   className={BTN}
                 >
