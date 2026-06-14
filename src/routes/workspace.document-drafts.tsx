@@ -147,28 +147,48 @@ function DocumentDraftsPage() {
     }
   };
 
-  const rerunAi = async (sessionId: string) => {
-    setRerunningId(sessionId);
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "generate-legal-document-v2",
-        { body: { session_id: sessionId, run_type: "rerun" } },
-      );
-      if (error) throw error;
-      if ((data as any)?.success === false) {
-        throw new Error((data as any)?.error ?? "Ошибка повторного анализа");
-      }
-      toast.success("Повторный AI-анализ запущен");
-      queryClient.invalidateQueries({ queryKey: ["document-drafts"] });
-      if (openHistoryFor === sessionId) {
-        queryClient.invalidateQueries({ queryKey: ["ai-runs", sessionId] });
-      }
-    } catch (e: any) {
-      toast.error(e?.message ?? "Не удалось запустить AI-анализ");
-    } finally {
-      setRerunningId(null);
+  const rerunAi = async (draft: DraftRow) => {
+  if (!draft.generated_document_id) {
+    toast.error("У черновика нет связанного документа");
+    return;
+  }
+
+  setRerunningId(draft.session_id);
+
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "review-generated-legal-document",
+      {
+        body: {
+          document_id: draft.generated_document_id,
+          generated_document_id: draft.generated_document_id,
+          session_id: draft.session_id,
+          run_type: "manual_review",
+        },
+      },
+    );
+
+    if (error) throw error;
+
+    if ((data as any)?.success === false) {
+      throw new Error((data as any)?.error ?? "Ошибка AI-review");
     }
-  };
+
+    toast.success("AI-review выполнен");
+
+    await queryClient.invalidateQueries({ queryKey: ["document-drafts"] });
+
+    if (openHistoryFor === draft.session_id) {
+      await queryClient.invalidateQueries({
+        queryKey: ["ai-runs", draft.session_id],
+      });
+    }
+  } catch (e: any) {
+    toast.error(e?.message ?? "Не удалось выполнить AI-review");
+  } finally {
+    setRerunningId(null);
+  }
+};
 
   return (
     <div className="space-y-6">
