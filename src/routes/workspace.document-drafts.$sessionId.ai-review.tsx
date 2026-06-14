@@ -48,7 +48,7 @@ function AIReviewPage() {
     : [];
 
   return (
-    <div className="space-y-3">
+    <div className="p-6 space-y-6">
   <h1 className="text-3xl font-bold">AI юридическое заключение</h1>
   <p className="text-muted-foreground">
     Подробное обоснование рисков, проблем и рекомендаций AI.
