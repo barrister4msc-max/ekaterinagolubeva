@@ -5157,6 +5157,10 @@ export type Database = {
       }
     }
     Functions: {
+      archive_document_intake_session: {
+        Args: { p_session_id: string }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -5204,6 +5208,10 @@ export type Database = {
           similarity: number
           title: string
         }[]
+      }
+      restore_document_intake_session: {
+        Args: { p_session_id: string }
+        Returns: undefined
       }
     }
     Enums: {
