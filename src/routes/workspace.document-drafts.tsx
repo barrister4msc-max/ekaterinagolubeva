@@ -310,14 +310,19 @@ function DocumentDraftsPage() {
                   Открыть документ
                 </button>
                 <button
-                  type="button"
-                  onClick={() =>
-                    setOpenHistoryFor(isOpenHistory ? null : d.session_id)
-                  }
-                  className={BTN}
-                >
-                  <History size={12} /> История AI
-                </button>
+  type="button"
+  onClick={() =>
+    navigate({
+      to: "/workspace/document-drafts/$sessionId/ai-history",
+      params: {
+        sessionId: d.session_id,
+      },
+    })
+  }
+  className={BTN}
+>
+  <History size={12} /> История AI
+</button>
                 <button
                   type="button"
                   onClick={() => rerunAi(d)}
