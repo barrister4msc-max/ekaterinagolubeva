@@ -91,7 +91,22 @@ function riskChipClass(risk: string | null) {
   if (risk === "low") return "bg-emerald-500/15 text-emerald-100";
   return "bg-white/10 text-foreground/80";
 }
+function DocumentDraftsPage() {
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
 
+  const isDetailRoute =
+    /\/workspace\/document-drafts\/[^/]+\/(ai-history|ai-review)$/.test(
+      pathname,
+    );
+
+  if (isDetailRoute) {
+    return <Outlet />;
+  }
+
+  return <DocumentDraftsList />;
+}
 function DocumentDraftsList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
