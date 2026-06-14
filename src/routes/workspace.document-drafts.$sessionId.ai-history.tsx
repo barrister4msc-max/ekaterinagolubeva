@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 
 export const Route = createFileRoute(
-  "/workspace/document-drafts/$sessionId/ai-history",
+  "/workspace/document-drafts/$sessionId/ai-history"
 )({
   component: AIHistoryPage,
 });
