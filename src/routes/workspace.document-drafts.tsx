@@ -174,10 +174,7 @@ function DocumentDraftsPage() {
       throw new Error((data as any)?.error ?? "Ошибка AI-review");
     }
 
-    toast({
-  title: "AI-review выполнен",
-  description: "Результат анализа сохранён в истории AI.",
-});
+    toast.success("AI-review выполнен: результат сохранён");
 
     await queryClient.invalidateQueries({ queryKey: ["document-drafts"] });
 
