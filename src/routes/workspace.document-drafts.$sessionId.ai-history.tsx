@@ -258,45 +258,4 @@ function BadgeRisk({
 
 
 
-function JsonSection({
-  title,
-  data,
-}: {
-  title:string;
-  data:any;
-}) {
 
-
-  if (!data) return null;
-
-
-  return (
-
-    <div>
-
-      <h3 className="font-semibold mb-2">
-        {title}
-      </h3>
-
-
-      <pre
-        className="
-          text-sm
-          p-4
-          rounded-lg
-          overflow-auto
-          bg-muted
-        "
-      >
-        {JSON.stringify(
-          data,
-          null,
-          2
-        )}
-      </pre>
-
-
-    </div>
-
-  );
-}
