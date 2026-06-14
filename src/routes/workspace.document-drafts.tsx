@@ -92,7 +92,7 @@ function riskChipClass(risk: string | null) {
   return "bg-white/10 text-foreground/80";
 }
 
-function DocumentDraftsPage() {
+function DocumentDraftsList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [openHistoryFor, setOpenHistoryFor] = useState<string | null>(null);
