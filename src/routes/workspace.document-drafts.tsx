@@ -324,6 +324,20 @@ function DocumentDraftsPage() {
   <History size={12} /> История AI
 </button>
                 <button
+  type="button"
+  onClick={() =>
+    navigate({
+      to: "/workspace/document-drafts/$sessionId/ai-review",
+      params: {
+        sessionId: d.session_id,
+      },
+    })
+  }
+  className={BTN}
+>
+  <Sparkles size={12} /> AI заключение
+</button>
+                <button
                   type="button"
                   onClick={() => rerunAi(d)}
                   disabled={rerunningId === d.session_id}
