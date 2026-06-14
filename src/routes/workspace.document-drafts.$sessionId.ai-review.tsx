@@ -60,7 +60,7 @@ function AIReviewPage() {
   >
     ← Назад к черновикам
   </Link>
-</div>
+
 
       <section className="rounded-xl border p-5 space-y-3">
         <h2 className="text-xl font-semibold">Итоговая оценка</h2>
