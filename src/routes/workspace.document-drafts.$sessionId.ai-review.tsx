@@ -48,13 +48,19 @@ function AIReviewPage() {
     : [];
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">AI юридическое заключение</h1>
-        <p className="text-muted-foreground">
-          Подробное обоснование рисков, проблем и рекомендаций AI.
-        </p>
-      </div>
+    <div className="space-y-3">
+  <h1 className="text-3xl font-bold">AI юридическое заключение</h1>
+  <p className="text-muted-foreground">
+    Подробное обоснование рисков, проблем и рекомендаций AI.
+  </p>
+
+  <Link
+    to="/workspace/document-drafts"
+    className="inline-flex items-center rounded-md border px-3 py-2 text-sm"
+  >
+    ← Назад к черновикам
+  </Link>
+</div>
 
       <section className="rounded-xl border p-5 space-y-3">
         <h2 className="text-xl font-semibold">Итоговая оценка</h2>
