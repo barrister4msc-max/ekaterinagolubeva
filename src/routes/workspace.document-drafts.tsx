@@ -350,7 +350,7 @@ function DocumentDraftsPage() {
                 </button>
               </div>
 
-              {isOpenHistory && <AiRunsHistory sessionId={d.session_id} />}
+              
             </article>
           );
         })}
