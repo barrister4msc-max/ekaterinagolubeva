@@ -56,6 +56,7 @@ import { Route as WorkspaceAiPodborRouteImport } from './routes/workspace.ai-pod
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as WorkspaceMatterMatterIdRouteImport } from './routes/workspace.matter.$matterId'
+import { Route as WorkspaceDocumentDraftsSessionIdAiHistoryRouteImport } from './routes/workspace.document-drafts.$sessionId.ai-history'
 import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
 
 const WorkspaceRoute = WorkspaceRouteImport.update({
@@ -294,6 +295,12 @@ const WorkspaceMatterMatterIdRoute = WorkspaceMatterMatterIdRouteImport.update({
   path: '/matter/$matterId',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceDocumentDraftsSessionIdAiHistoryRoute =
+  WorkspaceDocumentDraftsSessionIdAiHistoryRouteImport.update({
+    id: '/$sessionId/ai-history',
+    path: '/$sessionId/ai-history',
+    getParentRoute: () => WorkspaceDocumentDraftsRoute,
+  } as any)
 const ApiPublicWebhooksTelegramRoute =
   ApiPublicWebhooksTelegramRouteImport.update({
     id: '/api/public/webhooks/telegram',
@@ -339,7 +346,7 @@ export interface FileRoutesByFullPath {
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/document-builder': typeof WorkspaceDocumentBuilderRoute
-  '/workspace/document-drafts': typeof WorkspaceDocumentDraftsRoute
+  '/workspace/document-drafts': typeof WorkspaceDocumentDraftsRouteWithChildren
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -350,6 +357,7 @@ export interface FileRoutesByFullPath {
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
   '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
+  '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -389,7 +397,7 @@ export interface FileRoutesByTo {
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/document-builder': typeof WorkspaceDocumentBuilderRoute
-  '/workspace/document-drafts': typeof WorkspaceDocumentDraftsRoute
+  '/workspace/document-drafts': typeof WorkspaceDocumentDraftsRouteWithChildren
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -400,6 +408,7 @@ export interface FileRoutesByTo {
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
   '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
+  '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -440,7 +449,7 @@ export interface FileRoutesById {
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/document-builder': typeof WorkspaceDocumentBuilderRoute
-  '/workspace/document-drafts': typeof WorkspaceDocumentDraftsRoute
+  '/workspace/document-drafts': typeof WorkspaceDocumentDraftsRouteWithChildren
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -451,6 +460,7 @@ export interface FileRoutesById {
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
   '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
+  '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -503,6 +513,7 @@ export interface FileRouteTypes {
     | '/workspace/statistics'
     | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
+    | '/workspace/document-drafts/$sessionId/ai-history'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -553,6 +564,7 @@ export interface FileRouteTypes {
     | '/workspace/statistics'
     | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
+    | '/workspace/document-drafts/$sessionId/ai-history'
   id:
     | '__root__'
     | '/'
@@ -603,6 +615,7 @@ export interface FileRouteTypes {
     | '/workspace/statistics'
     | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
+    | '/workspace/document-drafts/$sessionId/ai-history'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -972,6 +985,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceMatterMatterIdRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/document-drafts/$sessionId/ai-history': {
+      id: '/workspace/document-drafts/$sessionId/ai-history'
+      path: '/$sessionId/ai-history'
+      fullPath: '/workspace/document-drafts/$sessionId/ai-history'
+      preLoaderRoute: typeof WorkspaceDocumentDraftsSessionIdAiHistoryRouteImport
+      parentRoute: typeof WorkspaceDocumentDraftsRoute
+    }
     '/api/public/webhooks/telegram': {
       id: '/api/public/webhooks/telegram'
       path: '/api/public/webhooks/telegram'
@@ -992,12 +1012,27 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface WorkspaceDocumentDraftsRouteChildren {
+  WorkspaceDocumentDraftsSessionIdAiHistoryRoute: typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
+}
+
+const WorkspaceDocumentDraftsRouteChildren: WorkspaceDocumentDraftsRouteChildren =
+  {
+    WorkspaceDocumentDraftsSessionIdAiHistoryRoute:
+      WorkspaceDocumentDraftsSessionIdAiHistoryRoute,
+  }
+
+const WorkspaceDocumentDraftsRouteWithChildren =
+  WorkspaceDocumentDraftsRoute._addFileChildren(
+    WorkspaceDocumentDraftsRouteChildren,
+  )
+
 interface WorkspaceRouteChildren {
   WorkspaceAiPodborRoute: typeof WorkspaceAiPodborRoute
   WorkspaceCrmRoute: typeof WorkspaceCrmRoute
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
   WorkspaceDocumentBuilderRoute: typeof WorkspaceDocumentBuilderRoute
-  WorkspaceDocumentDraftsRoute: typeof WorkspaceDocumentDraftsRoute
+  WorkspaceDocumentDraftsRoute: typeof WorkspaceDocumentDraftsRouteWithChildren
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
   WorkspaceLegalKnowledgeRoute: typeof WorkspaceLegalKnowledgeRoute
   WorkspaceLoginRoute: typeof WorkspaceLoginRoute
@@ -1014,7 +1049,7 @@ const WorkspaceRouteChildren: WorkspaceRouteChildren = {
   WorkspaceCrmRoute: WorkspaceCrmRoute,
   WorkspaceDashboardRoute: WorkspaceDashboardRoute,
   WorkspaceDocumentBuilderRoute: WorkspaceDocumentBuilderRoute,
-  WorkspaceDocumentDraftsRoute: WorkspaceDocumentDraftsRoute,
+  WorkspaceDocumentDraftsRoute: WorkspaceDocumentDraftsRouteWithChildren,
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
   WorkspaceLegalKnowledgeRoute: WorkspaceLegalKnowledgeRoute,
   WorkspaceLoginRoute: WorkspaceLoginRoute,
@@ -1068,13 +1103,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
