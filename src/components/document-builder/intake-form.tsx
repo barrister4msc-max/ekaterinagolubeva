@@ -47,6 +47,11 @@ export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [intakeSessionId, setIntakeSessionId] = useState<string | null>(null);
+  const [uploadedDocumentId, setUploadedDocumentId] = useState<string | null>(null);
+
+const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+
+const [isAiFilling, setIsAiFilling] = useState(false);
   const totalSteps = steps.length + 1; // +1 for review
 
   const requiredSet = useMemo(
