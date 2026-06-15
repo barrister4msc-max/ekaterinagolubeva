@@ -31,6 +31,7 @@ type ExtractionMethod =
   | "pdf_text"
   | "pdf_ocr_required"
   | "image_ocr_required"
+  | "gemini_fallback"
   | "none";
 
 const BUCKETS = ["lead-documents", "communication-attachments", "hero"];
