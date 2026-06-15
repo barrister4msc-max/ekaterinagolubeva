@@ -180,9 +180,7 @@ async function extractWithGeminiFallback(params: {
 
   const base64 = arrayBufferToBase64(params.buf);
 
-  const isPdf =
-    params.mimeType === "application/pdf" ||
-    params.fileName.toLowerCase().endsWith(".pdf");
+  
 
   const parts = [
   {
