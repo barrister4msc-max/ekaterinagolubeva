@@ -181,26 +181,18 @@ async function extractWithGeminiFallback(params: {
     params.mimeType === "application/pdf" ||
     params.fileName.toLowerCase().endsWith(".pdf");
 
-  const parts = isPdf
-    ? [
-        {
-          text:
-            "Ниже передан PDF-файл в base64. Извлеки весь читаемый текст из документа. Верни только plain text, без markdown и комментариев.\n\n" +
-            base64,
-        },
-      ]
-    : [
-        {
-          text:
-            "Извлеки весь читаемый текст из файла. Верни только plain text, без комментариев и markdown.",
-        },
-        {
-          inlineData: {
-            mimeType: params.mimeType || "application/octet-stream",
-            data: base64,
-          },
-        },
-      ];
+  const parts = [
+  {
+    text:
+      "Извлеки весь читаемый текст из файла. Верни только plain text, без markdown, комментариев и JSON.",
+  },
+  {
+    inline_data: {
+      mime_type: params.mimeType || "application/octet-stream",
+      data: base64,
+    },
+  },
+];
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
