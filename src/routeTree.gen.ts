@@ -48,14 +48,19 @@ import { Route as WorkspaceMattersRouteImport } from './routes/workspace.matters
 import { Route as WorkspaceLoginRouteImport } from './routes/workspace.login'
 import { Route as WorkspaceLegalKnowledgeRouteImport } from './routes/workspace.legal-knowledge'
 import { Route as WorkspaceLeadsRouteImport } from './routes/workspace.leads'
+import { Route as WorkspaceIntakesRouteImport } from './routes/workspace.intakes'
+import { Route as WorkspaceGeneratedDocumentsRouteImport } from './routes/workspace.generated-documents'
 import { Route as WorkspaceDocumentDraftsRouteImport } from './routes/workspace.document-drafts'
 import { Route as WorkspaceDocumentBuilderRouteImport } from './routes/workspace.document-builder'
 import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashboard'
 import { Route as WorkspaceCrmRouteImport } from './routes/workspace.crm'
+import { Route as WorkspaceArchiveRouteImport } from './routes/workspace.archive'
 import { Route as WorkspaceAiPodborRouteImport } from './routes/workspace.ai-podbor'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as WorkspaceMatterMatterIdRouteImport } from './routes/workspace.matter.$matterId'
+import { Route as WorkspaceGeneratedDocumentsDocumentIdVersionsRouteImport } from './routes/workspace.generated-documents.$documentId.versions'
+import { Route as WorkspaceGeneratedDocumentsDocumentIdReviseRouteImport } from './routes/workspace.generated-documents.$documentId.revise'
 import { Route as WorkspaceDocumentDraftsSessionIdAiReviewRouteImport } from './routes/workspace.document-drafts.$sessionId.ai-review'
 import { Route as WorkspaceDocumentDraftsSessionIdAiHistoryRouteImport } from './routes/workspace.document-drafts.$sessionId.ai-history'
 import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
@@ -255,6 +260,17 @@ const WorkspaceLeadsRoute = WorkspaceLeadsRouteImport.update({
   path: '/leads',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceIntakesRoute = WorkspaceIntakesRouteImport.update({
+  id: '/intakes',
+  path: '/intakes',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceGeneratedDocumentsRoute =
+  WorkspaceGeneratedDocumentsRouteImport.update({
+    id: '/generated-documents',
+    path: '/generated-documents',
+    getParentRoute: () => WorkspaceRoute,
+  } as any)
 const WorkspaceDocumentDraftsRoute = WorkspaceDocumentDraftsRouteImport.update({
   id: '/document-drafts',
   path: '/document-drafts',
@@ -274,6 +290,11 @@ const WorkspaceDashboardRoute = WorkspaceDashboardRouteImport.update({
 const WorkspaceCrmRoute = WorkspaceCrmRouteImport.update({
   id: '/crm',
   path: '/crm',
+  getParentRoute: () => WorkspaceRoute,
+} as any)
+const WorkspaceArchiveRoute = WorkspaceArchiveRouteImport.update({
+  id: '/archive',
+  path: '/archive',
   getParentRoute: () => WorkspaceRoute,
 } as any)
 const WorkspaceAiPodborRoute = WorkspaceAiPodborRouteImport.update({
@@ -296,6 +317,18 @@ const WorkspaceMatterMatterIdRoute = WorkspaceMatterMatterIdRouteImport.update({
   path: '/matter/$matterId',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceGeneratedDocumentsDocumentIdVersionsRoute =
+  WorkspaceGeneratedDocumentsDocumentIdVersionsRouteImport.update({
+    id: '/$documentId/versions',
+    path: '/$documentId/versions',
+    getParentRoute: () => WorkspaceGeneratedDocumentsRoute,
+  } as any)
+const WorkspaceGeneratedDocumentsDocumentIdReviseRoute =
+  WorkspaceGeneratedDocumentsDocumentIdReviseRouteImport.update({
+    id: '/$documentId/revise',
+    path: '/$documentId/revise',
+    getParentRoute: () => WorkspaceGeneratedDocumentsRoute,
+  } as any)
 const WorkspaceDocumentDraftsSessionIdAiReviewRoute =
   WorkspaceDocumentDraftsSessionIdAiReviewRouteImport.update({
     id: '/$sessionId/ai-review',
@@ -350,10 +383,13 @@ export interface FileRoutesByFullPath {
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
   '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
+  '/workspace/archive': typeof WorkspaceArchiveRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/document-builder': typeof WorkspaceDocumentBuilderRoute
   '/workspace/document-drafts': typeof WorkspaceDocumentDraftsRouteWithChildren
+  '/workspace/generated-documents': typeof WorkspaceGeneratedDocumentsRouteWithChildren
+  '/workspace/intakes': typeof WorkspaceIntakesRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -366,6 +402,8 @@ export interface FileRoutesByFullPath {
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
   '/workspace/document-drafts/$sessionId/ai-review': typeof WorkspaceDocumentDraftsSessionIdAiReviewRoute
+  '/workspace/generated-documents/$documentId/revise': typeof WorkspaceGeneratedDocumentsDocumentIdReviseRoute
+  '/workspace/generated-documents/$documentId/versions': typeof WorkspaceGeneratedDocumentsDocumentIdVersionsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -402,10 +440,13 @@ export interface FileRoutesByTo {
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
   '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
+  '/workspace/archive': typeof WorkspaceArchiveRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/document-builder': typeof WorkspaceDocumentBuilderRoute
   '/workspace/document-drafts': typeof WorkspaceDocumentDraftsRouteWithChildren
+  '/workspace/generated-documents': typeof WorkspaceGeneratedDocumentsRouteWithChildren
+  '/workspace/intakes': typeof WorkspaceIntakesRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -418,6 +459,8 @@ export interface FileRoutesByTo {
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
   '/workspace/document-drafts/$sessionId/ai-review': typeof WorkspaceDocumentDraftsSessionIdAiReviewRoute
+  '/workspace/generated-documents/$documentId/revise': typeof WorkspaceGeneratedDocumentsDocumentIdReviseRoute
+  '/workspace/generated-documents/$documentId/versions': typeof WorkspaceGeneratedDocumentsDocumentIdVersionsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -455,10 +498,13 @@ export interface FileRoutesById {
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
   '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
+  '/workspace/archive': typeof WorkspaceArchiveRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
   '/workspace/dashboard': typeof WorkspaceDashboardRoute
   '/workspace/document-builder': typeof WorkspaceDocumentBuilderRoute
   '/workspace/document-drafts': typeof WorkspaceDocumentDraftsRouteWithChildren
+  '/workspace/generated-documents': typeof WorkspaceGeneratedDocumentsRouteWithChildren
+  '/workspace/intakes': typeof WorkspaceIntakesRoute
   '/workspace/leads': typeof WorkspaceLeadsRoute
   '/workspace/legal-knowledge': typeof WorkspaceLegalKnowledgeRoute
   '/workspace/login': typeof WorkspaceLoginRoute
@@ -471,6 +517,8 @@ export interface FileRoutesById {
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
   '/workspace/document-drafts/$sessionId/ai-review': typeof WorkspaceDocumentDraftsSessionIdAiReviewRoute
+  '/workspace/generated-documents/$documentId/revise': typeof WorkspaceGeneratedDocumentsDocumentIdReviseRoute
+  '/workspace/generated-documents/$documentId/versions': typeof WorkspaceGeneratedDocumentsDocumentIdVersionsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -509,10 +557,13 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/api/chat'
     | '/workspace/ai-podbor'
+    | '/workspace/archive'
     | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/document-builder'
     | '/workspace/document-drafts'
+    | '/workspace/generated-documents'
+    | '/workspace/intakes'
     | '/workspace/leads'
     | '/workspace/legal-knowledge'
     | '/workspace/login'
@@ -525,6 +576,8 @@ export interface FileRouteTypes {
     | '/api/public/webhooks/telegram'
     | '/workspace/document-drafts/$sessionId/ai-history'
     | '/workspace/document-drafts/$sessionId/ai-review'
+    | '/workspace/generated-documents/$documentId/revise'
+    | '/workspace/generated-documents/$documentId/versions'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -561,10 +614,13 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/api/chat'
     | '/workspace/ai-podbor'
+    | '/workspace/archive'
     | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/document-builder'
     | '/workspace/document-drafts'
+    | '/workspace/generated-documents'
+    | '/workspace/intakes'
     | '/workspace/leads'
     | '/workspace/legal-knowledge'
     | '/workspace/login'
@@ -577,6 +633,8 @@ export interface FileRouteTypes {
     | '/api/public/webhooks/telegram'
     | '/workspace/document-drafts/$sessionId/ai-history'
     | '/workspace/document-drafts/$sessionId/ai-review'
+    | '/workspace/generated-documents/$documentId/revise'
+    | '/workspace/generated-documents/$documentId/versions'
   id:
     | '__root__'
     | '/'
@@ -613,10 +671,13 @@ export interface FileRouteTypes {
     | '/admin/reviews'
     | '/api/chat'
     | '/workspace/ai-podbor'
+    | '/workspace/archive'
     | '/workspace/crm'
     | '/workspace/dashboard'
     | '/workspace/document-builder'
     | '/workspace/document-drafts'
+    | '/workspace/generated-documents'
+    | '/workspace/intakes'
     | '/workspace/leads'
     | '/workspace/legal-knowledge'
     | '/workspace/login'
@@ -629,6 +690,8 @@ export interface FileRouteTypes {
     | '/api/public/webhooks/telegram'
     | '/workspace/document-drafts/$sessionId/ai-history'
     | '/workspace/document-drafts/$sessionId/ai-review'
+    | '/workspace/generated-documents/$documentId/revise'
+    | '/workspace/generated-documents/$documentId/versions'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -942,6 +1005,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceLeadsRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/intakes': {
+      id: '/workspace/intakes'
+      path: '/intakes'
+      fullPath: '/workspace/intakes'
+      preLoaderRoute: typeof WorkspaceIntakesRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/generated-documents': {
+      id: '/workspace/generated-documents'
+      path: '/generated-documents'
+      fullPath: '/workspace/generated-documents'
+      preLoaderRoute: typeof WorkspaceGeneratedDocumentsRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
     '/workspace/document-drafts': {
       id: '/workspace/document-drafts'
       path: '/document-drafts'
@@ -968,6 +1045,13 @@ declare module '@tanstack/react-router' {
       path: '/crm'
       fullPath: '/workspace/crm'
       preLoaderRoute: typeof WorkspaceCrmRouteImport
+      parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/archive': {
+      id: '/workspace/archive'
+      path: '/archive'
+      fullPath: '/workspace/archive'
+      preLoaderRoute: typeof WorkspaceArchiveRouteImport
       parentRoute: typeof WorkspaceRoute
     }
     '/workspace/ai-podbor': {
@@ -997,6 +1081,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/workspace/matter/$matterId'
       preLoaderRoute: typeof WorkspaceMatterMatterIdRouteImport
       parentRoute: typeof WorkspaceRoute
+    }
+    '/workspace/generated-documents/$documentId/versions': {
+      id: '/workspace/generated-documents/$documentId/versions'
+      path: '/$documentId/versions'
+      fullPath: '/workspace/generated-documents/$documentId/versions'
+      preLoaderRoute: typeof WorkspaceGeneratedDocumentsDocumentIdVersionsRouteImport
+      parentRoute: typeof WorkspaceGeneratedDocumentsRoute
+    }
+    '/workspace/generated-documents/$documentId/revise': {
+      id: '/workspace/generated-documents/$documentId/revise'
+      path: '/$documentId/revise'
+      fullPath: '/workspace/generated-documents/$documentId/revise'
+      preLoaderRoute: typeof WorkspaceGeneratedDocumentsDocumentIdReviseRouteImport
+      parentRoute: typeof WorkspaceGeneratedDocumentsRoute
     }
     '/workspace/document-drafts/$sessionId/ai-review': {
       id: '/workspace/document-drafts/$sessionId/ai-review'
@@ -1050,12 +1148,33 @@ const WorkspaceDocumentDraftsRouteWithChildren =
     WorkspaceDocumentDraftsRouteChildren,
   )
 
+interface WorkspaceGeneratedDocumentsRouteChildren {
+  WorkspaceGeneratedDocumentsDocumentIdReviseRoute: typeof WorkspaceGeneratedDocumentsDocumentIdReviseRoute
+  WorkspaceGeneratedDocumentsDocumentIdVersionsRoute: typeof WorkspaceGeneratedDocumentsDocumentIdVersionsRoute
+}
+
+const WorkspaceGeneratedDocumentsRouteChildren: WorkspaceGeneratedDocumentsRouteChildren =
+  {
+    WorkspaceGeneratedDocumentsDocumentIdReviseRoute:
+      WorkspaceGeneratedDocumentsDocumentIdReviseRoute,
+    WorkspaceGeneratedDocumentsDocumentIdVersionsRoute:
+      WorkspaceGeneratedDocumentsDocumentIdVersionsRoute,
+  }
+
+const WorkspaceGeneratedDocumentsRouteWithChildren =
+  WorkspaceGeneratedDocumentsRoute._addFileChildren(
+    WorkspaceGeneratedDocumentsRouteChildren,
+  )
+
 interface WorkspaceRouteChildren {
   WorkspaceAiPodborRoute: typeof WorkspaceAiPodborRoute
+  WorkspaceArchiveRoute: typeof WorkspaceArchiveRoute
   WorkspaceCrmRoute: typeof WorkspaceCrmRoute
   WorkspaceDashboardRoute: typeof WorkspaceDashboardRoute
   WorkspaceDocumentBuilderRoute: typeof WorkspaceDocumentBuilderRoute
   WorkspaceDocumentDraftsRoute: typeof WorkspaceDocumentDraftsRouteWithChildren
+  WorkspaceGeneratedDocumentsRoute: typeof WorkspaceGeneratedDocumentsRouteWithChildren
+  WorkspaceIntakesRoute: typeof WorkspaceIntakesRoute
   WorkspaceLeadsRoute: typeof WorkspaceLeadsRoute
   WorkspaceLegalKnowledgeRoute: typeof WorkspaceLegalKnowledgeRoute
   WorkspaceLoginRoute: typeof WorkspaceLoginRoute
@@ -1069,10 +1188,14 @@ interface WorkspaceRouteChildren {
 
 const WorkspaceRouteChildren: WorkspaceRouteChildren = {
   WorkspaceAiPodborRoute: WorkspaceAiPodborRoute,
+  WorkspaceArchiveRoute: WorkspaceArchiveRoute,
   WorkspaceCrmRoute: WorkspaceCrmRoute,
   WorkspaceDashboardRoute: WorkspaceDashboardRoute,
   WorkspaceDocumentBuilderRoute: WorkspaceDocumentBuilderRoute,
   WorkspaceDocumentDraftsRoute: WorkspaceDocumentDraftsRouteWithChildren,
+  WorkspaceGeneratedDocumentsRoute:
+    WorkspaceGeneratedDocumentsRouteWithChildren,
+  WorkspaceIntakesRoute: WorkspaceIntakesRoute,
   WorkspaceLeadsRoute: WorkspaceLeadsRoute,
   WorkspaceLegalKnowledgeRoute: WorkspaceLegalKnowledgeRoute,
   WorkspaceLoginRoute: WorkspaceLoginRoute,
