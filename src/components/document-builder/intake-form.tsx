@@ -22,6 +22,7 @@ import {
   createOrLoadIntakeSession,
   saveIntakeAnswers,
 } from "@/lib/document-intake-storage";
+import { supabase } from "@/integrations/supabase/client";
 type IntakeContext = {
   matterId?: string | null;
   clientId?: string | null;
