@@ -159,7 +159,69 @@ function extractPdfTextLayer(buf: ArrayBuffer): string {
   }
   return out.join(" ").replace(/\s+/g, " ").trim();
 }
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  let binary = "";
+  const bytes = new Uint8Array(buf);
 
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  return btoa(binary);
+}
+
+async function extractWithGeminiFallback(params: {
+  buf: ArrayBuffer;
+  mimeType: string;
+  fileName: string;
+}): Promise<string> {
+  if (!GEMINI_API_KEY) return "";
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text:
+                  "Извлеки весь читаемый текст из файла. Верни только plain text, без комментариев и markdown.",
+              },
+              {
+                inlineData: {
+                  mimeType: params.mimeType || "application/octet-stream",
+                  data: arrayBufferToBase64(params.buf),
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0,
+        },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    console.error(
+      "[extract-document-text] Gemini fallback failed",
+      await response.text(),
+    );
+    return "";
+  }
+
+  const data = await response.json();
+
+  return (
+    data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? ""
+  );
+}
 type Detected = {
   method: ExtractionMethod;
   kind:
