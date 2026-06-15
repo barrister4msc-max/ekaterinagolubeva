@@ -1,0 +1,1 @@
+ALTER VIEW public.v_document_drafts_dashboard SET (security_invoker = true);
