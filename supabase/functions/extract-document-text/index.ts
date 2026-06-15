@@ -362,10 +362,33 @@ Deno.serve(async (req) => {
         status = "failed";
         method = "none";
     }
-  } catch (e) {
+    } catch (e) {
     console.error("[extract-document-text] extraction error", e);
     status = "failed";
     text = "";
+  }
+
+  if (text.trim().length < 50 && downloaded?.buf) {
+    const fallbackText = await extractWithGeminiFallback({
+      buf: downloaded.buf,
+      mimeType: doc.mime_type || "application/octet-stream",
+      fileName: doc.file_name || "document",
+    });
+
+    if (fallbackText.trim().length >= 50) {
+      text = fallbackText.trim();
+      method = "gemini_fallback";
+      status = "completed";
+    } else if (detected.kind === "image" || detected.kind === "pdf") {
+      status = "ocr_required";
+      method =
+        detected.kind === "image"
+          ? "image_ocr_required"
+          : "pdf_ocr_required";
+    } else {
+      status = "failed";
+      method = "none";
+    }
   }
 
   const textLength = text.length;
