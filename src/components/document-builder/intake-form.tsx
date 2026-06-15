@@ -275,6 +275,53 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     event.target.value = "";
   }
 };
+  const handleAiFillFromDocument = async () => {
+  if (!intakeSessionId || !uploadedDocumentId) {
+    alert("Сначала загрузите документ");
+    return;
+  }
+
+  try {
+    setIsAiFilling(true);
+
+    const { error } = await supabase.functions.invoke(
+      "document-intake-ai-fill",
+      {
+        body: {
+          session_id: intakeSessionId,
+          document_id: uploadedDocumentId,
+        },
+      },
+    );
+
+    if (error) throw error;
+
+    const { data: answers, error: answersError } = await supabase
+      .from("document_intake_answers")
+      .select("field_name, field_value")
+      .eq("session_id", intakeSessionId);
+
+    if (answersError) throw answersError;
+
+    const nextAnswers = { ...state.answers };
+
+    for (const answer of answers ?? []) {
+      nextAnswers[answer.field_name] = answer.field_value;
+    }
+
+    onChange({
+      ...state,
+      answers: nextAnswers,
+    });
+
+    alert("AI заполнил поля из документа. Проверьте значения.");
+  } catch (e) {
+    console.error("AI fill failed", e);
+    alert("Не удалось заполнить поля из документа");
+  } finally {
+    setIsAiFilling(false);
+  }
+};
   const progressPct = Math.round(((stepIdx + 1) / totalSteps) * 100);
   const currentTitle = isReview ? "Предпросмотр подготовки документа" : currentStep.title;
 
