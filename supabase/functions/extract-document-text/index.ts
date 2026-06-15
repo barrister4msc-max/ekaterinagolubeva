@@ -15,7 +15,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 type ExtractionStatus =
   | "completed"
   | "ocr_required"
