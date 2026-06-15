@@ -185,6 +185,96 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     setIsSavingDraft(false);
   }
 };
+  const handleUploadDocument = async (
+  event: React.ChangeEvent<HTMLInputElement>,
+) => {
+  const file = event.target.files?.[0];
+
+  if (!file) return;
+
+  try {
+    setIsUploadingDocument(true);
+
+    const session = await createOrLoadIntakeSession({
+      matterId: intakeContext?.matterId ?? null,
+      clientId: intakeContext?.clientId ?? null,
+      leadId: intakeContext?.leadId ?? null,
+      documentId: intakeContext?.documentId ?? null,
+      draftKey: intakeSessionId,
+      templateCode: state.templateCode,
+      jurisdiction: state.jurisdiction,
+      language: state.language,
+    });
+
+    setIntakeSessionId(session.id);
+
+    const storagePath = `builder/${session.id}/${Date.now()}-${file.name}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("lead-documents")
+      .upload(storagePath, file, {
+        cacheControl: "3600",
+        upsert: false,
+        contentType: file.type || "application/octet-stream",
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data: documentRow, error: documentError } = await supabase
+      .from("documents")
+      .insert({
+        document_type: "builder_upload",
+        document_category: "document_builder",
+        document_purpose: "intake_auto_fill",
+        title: file.name,
+        file_name: file.name,
+        mime_type: file.type || "application/octet-stream",
+        storage_path: storagePath,
+        upload_source: "document_builder",
+        analysis_status: "uploaded",
+        review_status: "pending",
+        metadata: {
+          intake_session_id: session.id,
+          template_code: state.templateCode,
+          jurisdiction: state.jurisdiction,
+          language: state.language,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (documentError) throw documentError;
+
+    await supabase
+      .from("document_intake_sessions")
+      .update({
+        document_id: documentRow.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", session.id);
+
+    const { error: extractError } = await supabase.functions.invoke(
+      "extract-document-text",
+      {
+        body: {
+          document_id: documentRow.id,
+        },
+      },
+    );
+
+    if (extractError) throw extractError;
+
+    setUploadedDocumentId(documentRow.id);
+
+    alert("Документ загружен, текст извлечён. Теперь можно заполнить поля AI.");
+  } catch (e) {
+    console.error("Failed to upload/extract document", e);
+    alert("Не удалось загрузить документ или извлечь текст");
+  } finally {
+    setIsUploadingDocument(false);
+    event.target.value = "";
+  }
+};
   const progressPct = Math.round(((stepIdx + 1) / totalSteps) * 100);
   const currentTitle = isReview ? "Предпросмотр подготовки документа" : currentStep.title;
 
