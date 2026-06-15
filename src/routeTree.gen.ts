@@ -56,6 +56,7 @@ import { Route as WorkspaceAiPodborRouteImport } from './routes/workspace.ai-pod
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as WorkspaceMatterMatterIdRouteImport } from './routes/workspace.matter.$matterId'
+import { Route as WorkspaceDocumentDraftsSessionIdAiReviewRouteImport } from './routes/workspace.document-drafts.$sessionId.ai-review'
 import { Route as WorkspaceDocumentDraftsSessionIdAiHistoryRouteImport } from './routes/workspace.document-drafts.$sessionId.ai-history'
 import { Route as ApiPublicWebhooksTelegramRouteImport } from './routes/api/public/webhooks/telegram'
 
@@ -295,6 +296,12 @@ const WorkspaceMatterMatterIdRoute = WorkspaceMatterMatterIdRouteImport.update({
   path: '/matter/$matterId',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceDocumentDraftsSessionIdAiReviewRoute =
+  WorkspaceDocumentDraftsSessionIdAiReviewRouteImport.update({
+    id: '/$sessionId/ai-review',
+    path: '/$sessionId/ai-review',
+    getParentRoute: () => WorkspaceDocumentDraftsRoute,
+  } as any)
 const WorkspaceDocumentDraftsSessionIdAiHistoryRoute =
   WorkspaceDocumentDraftsSessionIdAiHistoryRouteImport.update({
     id: '/$sessionId/ai-history',
@@ -358,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
+  '/workspace/document-drafts/$sessionId/ai-review': typeof WorkspaceDocumentDraftsSessionIdAiReviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -409,6 +417,7 @@ export interface FileRoutesByTo {
   '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
+  '/workspace/document-drafts/$sessionId/ai-review': typeof WorkspaceDocumentDraftsSessionIdAiReviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -461,6 +470,7 @@ export interface FileRoutesById {
   '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
+  '/workspace/document-drafts/$sessionId/ai-review': typeof WorkspaceDocumentDraftsSessionIdAiReviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -514,6 +524,7 @@ export interface FileRouteTypes {
     | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
     | '/workspace/document-drafts/$sessionId/ai-history'
+    | '/workspace/document-drafts/$sessionId/ai-review'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -565,6 +576,7 @@ export interface FileRouteTypes {
     | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
     | '/workspace/document-drafts/$sessionId/ai-history'
+    | '/workspace/document-drafts/$sessionId/ai-review'
   id:
     | '__root__'
     | '/'
@@ -616,6 +628,7 @@ export interface FileRouteTypes {
     | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
     | '/workspace/document-drafts/$sessionId/ai-history'
+    | '/workspace/document-drafts/$sessionId/ai-review'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -985,6 +998,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceMatterMatterIdRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/document-drafts/$sessionId/ai-review': {
+      id: '/workspace/document-drafts/$sessionId/ai-review'
+      path: '/$sessionId/ai-review'
+      fullPath: '/workspace/document-drafts/$sessionId/ai-review'
+      preLoaderRoute: typeof WorkspaceDocumentDraftsSessionIdAiReviewRouteImport
+      parentRoute: typeof WorkspaceDocumentDraftsRoute
+    }
     '/workspace/document-drafts/$sessionId/ai-history': {
       id: '/workspace/document-drafts/$sessionId/ai-history'
       path: '/$sessionId/ai-history'
@@ -1014,12 +1034,15 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 interface WorkspaceDocumentDraftsRouteChildren {
   WorkspaceDocumentDraftsSessionIdAiHistoryRoute: typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
+  WorkspaceDocumentDraftsSessionIdAiReviewRoute: typeof WorkspaceDocumentDraftsSessionIdAiReviewRoute
 }
 
 const WorkspaceDocumentDraftsRouteChildren: WorkspaceDocumentDraftsRouteChildren =
   {
     WorkspaceDocumentDraftsSessionIdAiHistoryRoute:
       WorkspaceDocumentDraftsSessionIdAiHistoryRoute,
+    WorkspaceDocumentDraftsSessionIdAiReviewRoute:
+      WorkspaceDocumentDraftsSessionIdAiReviewRoute,
   }
 
 const WorkspaceDocumentDraftsRouteWithChildren =
@@ -1103,3 +1126,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
