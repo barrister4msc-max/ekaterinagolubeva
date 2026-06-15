@@ -34,7 +34,7 @@ type Props = {
   state: IntakeState;
   template: DocumentTemplate;
   onChange: (next: IntakeState) => void;
-  onSubmit: (state: IntakeState) => void;
+  onSubmit: (state: IntakeState, sessionId?: string | null) => void;
   onBack: () => void;
   availableModes?: Array<IntakeState["generationMode"]>;
   submitting?: boolean;
