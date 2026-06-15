@@ -139,8 +139,8 @@ function AIReviewPage() {
           <p className="text-muted-foreground">Нет рекомендаций.</p>
         ) : (
           <ul className="list-disc pl-6 space-y-1">
-            {recommendations.map((item: string, index: number) => (
-              <li key={index}>{item}</li>
+            {recommendations.map((item, index) => (
+              <li key={index}>{String(item)}</li>
             ))}
           </ul>
         )}
