@@ -19,9 +19,7 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 type ExtractionStatus =
   | "completed"
   | "ocr_required"
-  | "failed"
-  | "unsupported_spreadsheet"
-  | "unsupported_presentation";
+  | "failed";
 
 type ExtractionMethod =
   | "docx_xml"
@@ -351,7 +349,7 @@ Deno.serve(async (req) => {
       case "html":
         text = extractHtml(downloaded.buf);
         break;
-            case "pdf": {
+        case "pdf": {
         text = extractPdfTextLayer(downloaded.buf);
         break;
       }
