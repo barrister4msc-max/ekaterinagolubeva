@@ -306,7 +306,7 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     const nextAnswers = { ...state.answers };
 
     for (const answer of answers ?? []) {
-      nextAnswers[answer.field_name] = answer.field_value;
+      nextAnswers[answer.field_name as string] = answer.field_value;
     }
 
     onChange({
