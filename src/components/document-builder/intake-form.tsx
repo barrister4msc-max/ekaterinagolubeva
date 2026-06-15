@@ -285,7 +285,7 @@ export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack
               className="db-cta"
               title={!validation.valid ? "Заполните обязательные поля" : "Сформировать черновик"}
             >
-              <Sparkles size={14} /> {submitting ? "Генерация…" : "Сохранить черновик"}
+              <Sparkles size={14} /> {submitting ? "Генерация…" : "Сформировать черновик"}
             </button>
           )}
         </div>
