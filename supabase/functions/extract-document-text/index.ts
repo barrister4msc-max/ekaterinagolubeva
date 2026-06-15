@@ -173,7 +173,10 @@ async function extractWithGeminiFallback(params: {
   mimeType: string;
   fileName: string;
 }): Promise<string> {
-  if (!GEMINI_API_KEY) return "";
+  if (!GEMINI_API_KEY) {
+  console.error("[extract-document-text] GEMINI_API_KEY is missing");
+  return "";
+}
 
   const base64 = arrayBufferToBase64(params.buf);
 
