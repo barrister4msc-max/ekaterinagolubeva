@@ -358,8 +358,49 @@ const [isAiFilling, setIsAiFilling] = useState(false);
         </div>
       )}
 
-      {!isReview && (
+            {!isReview && (
         <div className="space-y-5">
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+            <div>
+              <div className="text-sm font-semibold text-white">
+                Документы для автозаполнения
+              </div>
+              <div className="text-xs text-white/60">
+                Загрузите PDF/DOCX/TXT/RTF/HTML — AI извлечёт текст и заполнит поля конструктора.
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="db-ghost cursor-pointer">
+                <Upload size={14} />
+                {isUploadingDocument ? "Загрузка…" : "Загрузить документ"}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.txt,.rtf,.html,.htm,.jpg,.jpeg,.png,.webp"
+                  onChange={handleUploadDocument}
+                  disabled={isUploadingDocument || isAiFilling}
+                />
+              </label>
+
+              <button
+                type="button"
+                className="db-cta"
+                onClick={handleAiFillFromDocument}
+                disabled={!uploadedDocumentId || isAiFilling}
+              >
+                <Sparkles size={14} />
+                {isAiFilling ? "AI заполняет…" : "AI заполнить поля"}
+              </button>
+
+              {uploadedDocumentId && (
+                <span className="text-xs text-white/60">
+                  Документ загружен
+                </span>
+              )}
+            </div>
+          </div>
+
           <div>
             <div className="db-section-label">{currentStep.title}</div>
             {currentStep.description && (
