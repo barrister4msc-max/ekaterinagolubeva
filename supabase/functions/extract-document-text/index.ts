@@ -351,18 +351,11 @@ Deno.serve(async (req) => {
       case "html":
         text = extractHtml(downloaded.buf);
         break;
-      case "pdf": {
+            case "pdf": {
         text = extractPdfTextLayer(downloaded.buf);
-        if (text.length < 100) {
-          text = "";
-          method = "pdf_ocr_required";
-          status = "ocr_required";
-        }
         break;
       }
       case "image":
-        method = "image_ocr_required";
-        status = "ocr_required";
         text = "";
         break;
       default:
