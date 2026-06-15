@@ -175,6 +175,33 @@ async function extractWithGeminiFallback(params: {
 }): Promise<string> {
   if (!GEMINI_API_KEY) return "";
 
+  const base64 = arrayBufferToBase64(params.buf);
+
+  const isPdf =
+    params.mimeType === "application/pdf" ||
+    params.fileName.toLowerCase().endsWith(".pdf");
+
+  const parts = isPdf
+    ? [
+        {
+          text:
+            "Ниже передан PDF-файл в base64. Извлеки весь читаемый текст из документа. Верни только plain text, без markdown и комментариев.\n\n" +
+            base64,
+        },
+      ]
+    : [
+        {
+          text:
+            "Извлеки весь читаемый текст из файла. Верни только plain text, без комментариев и markdown.",
+        },
+        {
+          inlineData: {
+            mimeType: params.mimeType || "application/octet-stream",
+            data: base64,
+          },
+        },
+      ];
+
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
     {
@@ -183,22 +210,7 @@ async function extractWithGeminiFallback(params: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text:
-                  "Извлеки весь читаемый текст из файла. Верни только plain text, без комментариев и markdown.",
-              },
-              {
-                inlineData: {
-                  mimeType: params.mimeType || "application/octet-stream",
-                  data: arrayBufferToBase64(params.buf),
-                },
-              },
-            ],
-          },
-        ],
+        contents: [{ parts }],
         generationConfig: {
           temperature: 0,
         },
@@ -216,9 +228,7 @@ async function extractWithGeminiFallback(params: {
 
   const data = await response.json();
 
-  return (
-    data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? ""
-  );
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
 }
 type Detected = {
   method: ExtractionMethod;
@@ -349,7 +359,7 @@ Deno.serve(async (req) => {
       case "html":
         text = extractHtml(downloaded.buf);
         break;
-        case "pdf": {
+      case "pdf": {
         text = extractPdfTextLayer(downloaded.buf);
         break;
       }
