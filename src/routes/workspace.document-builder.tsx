@@ -152,7 +152,11 @@ function DocumentBuilderPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const payload = buildGenerateRequest(selected, safeState, intakeSchemaQuery.data);
+      const payload = {
+  ...buildGenerateRequest(selected, safeState, intakeSchemaQuery.data),
+  session_id: sessionId,
+  intake_session_id: sessionId,
+};
       const result = await invokeGenerateLegalDocument(payload);
       setGenerated(result);
       setSubmitted(true);
