@@ -310,28 +310,7 @@ Deno.serve(async (req) => {
   const detected = detect(doc.mime_type || "", doc.file_name || "");
   const existingMeta = (doc.metadata || {}) as Record<string, any>;
 
-  // Unsupported types — mark and exit without downloading
-  if (detected.kind === "spreadsheet" || detected.kind === "presentation") {
-    const status: ExtractionStatus =
-      detected.kind === "spreadsheet"
-        ? "unsupported_spreadsheet"
-        : "unsupported_presentation";
-    const newMeta = {
-      ...existingMeta,
-      extraction_status: status,
-      extraction_method: "none" as ExtractionMethod,
-      extracted_at: new Date().toISOString(),
-      text_length: 0,
-    };
-    await supabase
-      .from("documents")
-      .update({
-        analysis_status: "needs_review",
-        metadata: newMeta,
-      })
-      .eq("id", documentId);
-    return json({ ok: true, extraction_status: status, text_length: 0 });
-  }
+  
 
   const downloaded = await downloadFile(supabase, doc.storage_path);
   if (!downloaded) {
