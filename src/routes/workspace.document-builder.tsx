@@ -141,7 +141,10 @@ function DocumentBuilderPage() {
     setGenerated(null);
   };
 
-  const handleGenerate = async (finalState: IntakeState) => {
+  const handleGenerate = async (
+  finalState: IntakeState,
+  sessionId?: string | null,
+) => {
     if (!selected || !intakeSchemaQuery.data) return;
     // In standalone builder there is no matter context — force standalone mode.
     const safeState: IntakeState = { ...finalState, generationMode: "standalone" };
