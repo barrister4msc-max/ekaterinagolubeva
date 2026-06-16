@@ -463,23 +463,23 @@ function RevisePage() {
                 </li>
               ))}
             </ul>
+          )}
           {revisionMaterials.length > 0 && (
-  <div className="space-y-2 rounded-xl border border-emerald-300/20 bg-emerald-400/10 p-3">
-    <div className="text-xs font-medium text-emerald-100">
-      Обработанные материалы
-    </div>
-    <ul className="space-y-1 text-xs text-emerald-50/90">
-      {revisionMaterials.map((m) => (
-        <li key={m.document_id} className="flex items-center justify-between gap-3">
-          <span className="truncate">{m.file_name}</span>
-          <span className="shrink-0 text-emerald-100/70">
-            OCR: {m.ocr_text_length} симв.
-          </span>
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
+            <div className="space-y-2 rounded-xl border border-emerald-300/20 bg-emerald-400/10 p-3">
+              <div className="text-xs font-medium text-emerald-100">
+                Обработанные материалы
+              </div>
+              <ul className="space-y-1 text-xs text-emerald-50/90">
+                {revisionMaterials.map((m) => (
+                  <li key={m.document_id} className="flex items-center justify-between gap-3">
+                    <span className="truncate">{m.file_name}</span>
+                    <span className="shrink-0 text-emerald-100/70">
+                      OCR: {m.ocr_text_length} симв.
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={runAnalysis} disabled={running} className={BTN_PRIMARY}>
