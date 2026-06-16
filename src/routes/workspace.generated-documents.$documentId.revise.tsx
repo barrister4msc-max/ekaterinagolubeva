@@ -529,30 +529,48 @@ function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
   const opts = normalized.lawyer_decision_options ?? [];
   const warns = normalized.warnings ?? [];
 
+  const mappedAction = sum.recommended_action
+    ? (RECOMMENDED_ACTION_MAP[sum.recommended_action] ?? sum.recommended_action)
+    : null;
+
   return (
     <div className="space-y-3">
-      <div className={`${GLASS} space-y-2 p-4`}>
-        <div className="flex items-center gap-2 text-sm text-white">
-          <Sparkles size={14} className="text-emerald-200" />
-          <h3 className="font-display">Итог пересмотра</h3>
-          <RiskBadge level={sum.overall_change_level} />
+      <div className={`${GLASS} space-y-3 p-5 ${summaryBorderClass(sum.overall_change_level)}`}>
+        <div className="flex items-center gap-2 text-base text-white">
+          <Sparkles size={16} className="text-emerald-200" />
+          <h3 className="font-display text-lg font-semibold">Итог пересмотра</h3>
+          <ChangeLevelBadge level={sum.overall_change_level} />
         </div>
         {sum.short_summary && (
-          <p className="text-sm text-foreground/85">{sum.short_summary}</p>
+          <p className="text-sm leading-relaxed text-white/90">{sum.short_summary}</p>
         )}
         {typeof sum.does_legal_position_change === "boolean" && (
-          <p className="text-sm text-foreground/85">
-            <span className="text-white/70">Меняется ли правовая позиция: </span>
+          <p className="text-sm text-white/90">
+            <span className="font-medium text-white/70">Меняется ли правовая позиция: </span>
             {sum.does_legal_position_change ? "да" : "нет"}
           </p>
         )}
-        {sum.recommended_action && (
-          <p className="text-sm text-foreground/85">
-            <span className="text-white/70">Рекомендация AI: </span>
-            {sum.recommended_action}
+        {mappedAction && (
+          <p className="text-sm text-white/90">
+            <span className="font-medium text-white/70">Рекомендация AI: </span>
+            {mappedAction}
           </p>
         )}
       </div>
+
+      {warns.length > 0 && (
+        <div className={`${GLASS} space-y-2 border-amber-300/30 p-5`}>
+          <div className="flex items-center gap-2 text-sm font-medium text-amber-100">
+            <AlertTriangle size={14} />
+            <h3 className="font-display">Предупреждения AI</h3>
+          </div>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-amber-50/90">
+            {warns.map((w, i) => (
+              <li key={i}>{itemToString(w)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <Section
         icon={<Sparkles size={14} className="text-emerald-200" />}
@@ -570,13 +588,13 @@ function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
         icon={<AlertTriangle size={14} className="text-red-200" />}
         title="Противоречия"
         items={normalized.contradictions}
-        emptyText="Противоречия не выявлены"
+        emptyText="Противоречий между новой информацией и текущей юридической позицией не обнаружено."
       />
       <Section
         icon={<FileWarning size={14} className="text-amber-200" />}
         title="Недостающие доказательства"
         items={normalized.missing_evidence}
-        emptyText="Недостающие доказательства не указаны"
+        emptyText="Дополнительных доказательств для пересмотра позиции не требуется."
       />
 
       {(lr.previous_law_assumptions?.length ||
@@ -626,19 +644,19 @@ function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
         icon={<CheckCircle2 size={14} className="text-emerald-200" />}
         title="Судебная практика: за позицию"
         items={cp.supporting}
-        emptyText="Судебная практика в поддержку позиции не указана"
+        emptyText="Дополнительная релевантная судебная практика не выявлена."
       />
       <Section
         icon={<AlertTriangle size={14} className="text-red-200" />}
         title="Судебная практика: против позиции"
         items={cp.opposing}
-        emptyText="Судебная практика против позиции не указана"
+        emptyText="Дополнительная релевантная судебная практика не выявлена."
       />
       <Section
         icon={<FileWarning size={14} className="text-amber-200" />}
         title="Судебная практика: противоречивая"
         items={cp.conflicting}
-        emptyText="Противоречивая судебная практика не указана"
+        emptyText="Дополнительная релевантная судебная практика не выявлена."
       />
 
       {(rc.previous_risk_level || rc.new_risk_level || rc.reason || rc.risk_factors?.length) && (
@@ -688,20 +706,6 @@ function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
                 <div className="font-medium text-white">{o.label ?? o.option ?? "—"}</div>
                 {o.reason && <div className="mt-1 text-foreground/80">{o.reason}</div>}
               </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {warns.length > 0 && (
-        <div className={`${GLASS} space-y-1 border-amber-300/30 p-4`}>
-          <div className="flex items-center gap-2 text-sm text-amber-100">
-            <AlertTriangle size={14} />
-            <h3 className="font-display">Предупреждения</h3>
-          </div>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-amber-50/90">
-            {warns.map((w, i) => (
-              <li key={i}>{itemToString(w)}</li>
             ))}
           </ul>
         </div>
