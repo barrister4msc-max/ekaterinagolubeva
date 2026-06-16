@@ -137,7 +137,7 @@ function DocumentBuilderPage() {
 
   const availableCategories = useMemo(() => {
     const set = new Set<string>();
-    for (const t of templates) set.add(t.category);
+    for (const t of sortedTemplates) set.add(t.category);
     return Array.from(set).sort();
   }, [templates]);
 
