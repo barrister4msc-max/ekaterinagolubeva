@@ -385,6 +385,12 @@ function RevisePage() {
     }
   };
 
+  const hasAnalysis = Boolean(
+    normalizeAnalysis(analysis) ??
+      normalizeAnalysis(doc?.metadata?.revision_analysis) ??
+      analysis,
+  );
+
   if (isLoading) {
     return (
       <div className={`${GLASS} flex items-center gap-2 p-6 text-sm text-foreground/80`}>
