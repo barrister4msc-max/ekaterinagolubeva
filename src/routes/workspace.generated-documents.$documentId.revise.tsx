@@ -163,13 +163,13 @@ function RevisePage() {
       if ((data as any)?.success === false) {
         throw new Error((data as any)?.error ?? "Ошибка AI-анализа");
       }
-      const payload =
-        (data as any)?.revision_analysis ??
-        (data as any)?.analysis ??
-        (data as any)?.result ??
-        (data as any) ??
-        {};
-      setAnalysis({ ...payload, raw: data });
+      const top = data as any;
+      // structured contract: revision_analysis lives at top-level when run_type matches
+      const structured =
+        top?.run_type === "revision_analysis"
+          ? top
+          : top?.revision_analysis ?? top?.analysis ?? top?.result ?? top ?? {};
+      setAnalysis({ ...structured, raw: data });
       setStep("analysis");
     } catch (e: any) {
       toast.error(e?.message ?? "Не удалось выполнить AI-анализ");
