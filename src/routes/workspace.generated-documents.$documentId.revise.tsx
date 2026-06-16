@@ -55,6 +55,51 @@ type DocRow = {
 };
 
 type Step = "materials" | "analysis" | "decision";
+type DecisionKind =
+  | "keep_current_version"
+  | "create_new_version"
+  | "request_more_documents"
+  | "defer_decision";
+
+const DECISION_TO_STATUS: Record<DecisionKind, string> = {
+  keep_current_version: "closed",
+  create_new_version: "closed",
+  request_more_documents: "waiting_for_materials",
+  defer_decision: "in_progress",
+};
+
+const DECISION_OPTIONS: Array<{
+  value: DecisionKind;
+  label: string;
+  hint: string;
+  icon: typeof ShieldCheck;
+}> = [
+  {
+    value: "keep_current_version",
+    label: "Оставить текущую версию актуальной",
+    hint: "Новые материалы не меняют правовую позицию.",
+    icon: ShieldCheck,
+  },
+  {
+    value: "create_new_version",
+    label: "Создать новую версию документа",
+    hint: "Будет создана новая версия на основе текущей. Комментарий обязателен.",
+    icon: GitBranch,
+  },
+  {
+    value: "request_more_documents",
+    label: "Запросить дополнительные материалы",
+    hint: "Перевести пересмотр в ожидание материалов. Комментарий обязателен.",
+    icon: FileWarning,
+  },
+  {
+    value: "defer_decision",
+    label: "Отложить решение",
+    hint: "Оставить пересмотр в работе и вернуться позже.",
+    icon: PauseCircle,
+  },
+];
+
 type RevisionMaterial = {
   document_id: string;
   file_name: string;
