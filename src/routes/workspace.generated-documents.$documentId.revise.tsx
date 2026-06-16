@@ -373,6 +373,7 @@ if (hasRawOnlyMaterials) {
           session_id: doc.intake_session_id,
           parent_document_id: doc.id,
           run_type: "revision_analysis",
+          revision_payload_version: "revise_ocr_v2_2026_06_17",
           revision_materials: revisionMaterialsForAI,
         },
       },
