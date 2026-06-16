@@ -275,15 +275,15 @@ function DocumentsList() {
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => openDoc(d.id)}
-                disabled={openingId === d.id}
+                onClick={() =>
+                  navigate({
+                    to: "/workspace/generated-documents/$documentId",
+                    params: { documentId: d.id },
+                  })
+                }
                 className={BTN}
               >
-                {openingId === d.id ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <ExternalLink size={12} />
-                )}
+                <ExternalLink size={12} />
                 Открыть документ
               </button>
               <button
