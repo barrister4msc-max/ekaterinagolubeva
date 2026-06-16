@@ -149,7 +149,7 @@ function DocumentBuilderPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return templates.filter((t) => {
+    return sortedTemplates.filter((t) => {
       if (jurisdiction && !t.jurisdiction.includes(jurisdiction)) return false;
       if (practiceArea && t.practice_area !== practiceArea) return false;
       if (category && t.category !== category) return false;
