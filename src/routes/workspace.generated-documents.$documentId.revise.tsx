@@ -9,6 +9,7 @@ import {
   FileWarning,
   GitBranch,
   Loader2,
+  PauseCircle,
   RefreshCcw,
   Scale,
   ShieldCheck,
@@ -54,6 +55,51 @@ type DocRow = {
 };
 
 type Step = "materials" | "analysis" | "decision";
+type DecisionKind =
+  | "keep_current_version"
+  | "create_new_version"
+  | "request_more_documents"
+  | "defer_decision";
+
+const DECISION_TO_STATUS: Record<DecisionKind, string> = {
+  keep_current_version: "closed",
+  create_new_version: "closed",
+  request_more_documents: "waiting_for_materials",
+  defer_decision: "in_progress",
+};
+
+const DECISION_OPTIONS: Array<{
+  value: DecisionKind;
+  label: string;
+  hint: string;
+  icon: typeof ShieldCheck;
+}> = [
+  {
+    value: "keep_current_version",
+    label: "Оставить текущую версию актуальной",
+    hint: "Новые материалы не меняют правовую позицию.",
+    icon: ShieldCheck,
+  },
+  {
+    value: "create_new_version",
+    label: "Создать новую версию документа",
+    hint: "Будет создана новая версия на основе текущей. Комментарий обязателен.",
+    icon: GitBranch,
+  },
+  {
+    value: "request_more_documents",
+    label: "Запросить дополнительные материалы",
+    hint: "Перевести пересмотр в ожидание материалов. Комментарий обязателен.",
+    icon: FileWarning,
+  },
+  {
+    value: "defer_decision",
+    label: "Отложить решение",
+    hint: "Оставить пересмотр в работе и вернуться позже.",
+    icon: PauseCircle,
+  },
+];
+
 type RevisionMaterial = {
   document_id: string;
   file_name: string;
@@ -189,7 +235,10 @@ function RevisePage() {
   const [revisionMaterials, setRevisionMaterials] = useState<RevisionMaterial[]>([]);
   const [running, setRunning] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [decision, setDecision] = useState<DecisionKind | null>(null);
+  const [lawyerComment, setLawyerComment] = useState("");
+  const [requestedMaterials, setRequestedMaterials] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const { data: doc, isLoading, error } = useQuery({
     queryKey: ["doc-for-revise", documentId],
@@ -338,50 +387,155 @@ function RevisePage() {
 };
  
 
-  const keepCurrent = () => {
-    toast.success("Текущая версия оставлена актуальной");
-    navigate({ to: "/workspace/generated-documents" });
-  };
+  const currentAnalysis = normalizeAnalysis(analysis) ?? normalizeAnalysis(doc?.metadata?.revision_analysis);
 
-  const createNewVersion = async () => {
-    if (!doc) return;
-    setCreating(true);
+  const commentRequired = decision === "create_new_version" || decision === "request_more_documents";
+  const canSubmit =
+    !!decision &&
+    !submitting &&
+    (!commentRequired || lawyerComment.trim().length > 0) &&
+    (decision !== "request_more_documents" || requestedMaterials.trim().length > 0);
+
+  const submitDecision = async () => {
+    if (!doc || !decision) return;
+    setSubmitting(true);
     try {
-      const nextVersion = (doc.version_number ?? 1) + 1;
-      const insertPayload: Record<string, any> = {
-        title: doc.title,
-        content: doc.content,
-        status: "draft",
-        ai_review_status: "pending",
-        parent_document_id: doc.id,
-        version_number: nextVersion,
-        template_key: doc.template_key,
-        template_id: doc.template_id,
-        category: doc.category,
-        intake_session_id: doc.intake_session_id,
-        lead_id: doc.lead_id,
-        crm_lead_id: doc.crm_lead_id,
-        metadata: {
-          ...(doc.metadata ?? {}),
-          revision_of: doc.id,
-          revision_analysis: analysis ?? null,
-        },
+      const { data: userRes } = await supabase.auth.getUser();
+      const userId = userRes?.user?.id ?? null;
+
+      const revisionStatus = DECISION_TO_STATUS[decision];
+      const sum = currentAnalysis?.revision_summary ?? {};
+      const rc = currentAnalysis?.risk_change ?? {};
+
+      // latest revision_analysis ai run
+      let basedOnAiRunId: string | null = null;
+      {
+        let q = supabase
+          .from("document_intake_ai_runs")
+          .select("id,created_at,generated_document_id,session_id")
+          .eq("run_type", "revision_analysis")
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (doc.intake_session_id) {
+          q = q.eq("session_id", doc.intake_session_id);
+        } else {
+          q = q.eq("generated_document_id", doc.id);
+        }
+        const { data: runRow } = await q.maybeSingle();
+        basedOnAiRunId = (runRow as any)?.id ?? null;
+      }
+
+      // next revision_number for this generated_document
+      let nextRevisionNumber = 1;
+      {
+        const { data: maxRow } = await supabase
+          .from("legal_document_revision_decisions")
+          .select("revision_number")
+          .eq("generated_document_id", doc.id)
+          .order("revision_number", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        nextRevisionNumber = ((maxRow as any)?.revision_number ?? 0) + 1;
+      }
+
+      // Create new document version if needed
+      let createdDocumentId: string | null = null;
+      if (decision === "create_new_version") {
+        const nextVersion = (doc.version_number ?? 1) + 1;
+        const insertPayload: Record<string, any> = {
+          title: doc.title,
+          content: doc.content,
+          status: "draft",
+          ai_review_status: "pending",
+          parent_document_id: doc.id,
+          version_number: nextVersion,
+          template_key: doc.template_key,
+          template_id: doc.template_id,
+          category: doc.category,
+          intake_session_id: doc.intake_session_id,
+          lead_id: doc.lead_id,
+          crm_lead_id: doc.crm_lead_id,
+          metadata: {
+            ...(doc.metadata ?? {}),
+            revision_of: doc.id,
+            revision_analysis: currentAnalysis ?? null,
+            created_from_revision: {
+              source_document_id: doc.id,
+              decision_reason: lawyerComment.trim(),
+              based_on_analysis_at: new Date().toISOString(),
+            },
+          },
+        };
+        const { data: created, error: createErr } = await supabase
+          .from("generated_legal_documents")
+          .insert(insertPayload as any)
+          .select("id")
+          .single();
+        if (createErr) throw createErr;
+        createdDocumentId = (created as any).id;
+      }
+
+      const decisionPayload: Record<string, any> = {
+        generated_document_id: doc.id,
+        created_document_id: createdDocumentId,
+        document_intake_session_id: doc.intake_session_id,
+        based_on_ai_run_id: basedOnAiRunId,
+        decision,
+        revision_status: revisionStatus,
+        revision_number: nextRevisionNumber,
+        ai_recommendation: sum.recommended_action ?? null,
+        change_level: sum.overall_change_level ?? null,
+        risk_level_before: rc.previous_risk_level ?? null,
+        risk_level_after: rc.new_risk_level ?? null,
+        lawyer_comment: lawyerComment.trim() || null,
+        requested_materials:
+          decision === "request_more_documents" ? requestedMaterials.trim() : null,
+        based_on_analysis: (currentAnalysis ?? {}) as any,
+        created_by: userId,
       };
-      const { data, error } = await supabase
-        .from("generated_legal_documents")
-        .insert(insertPayload as any)
-        .select("id")
+
+      const { data: decisionRow, error: decisionErr } = await supabase
+        .from("legal_document_revision_decisions")
+        .insert(decisionPayload as any)
+        .select("id,created_at")
         .single();
-      if (error) throw error;
-      toast.success(`Создана новая версия v${nextVersion}`);
-      navigate({
-        to: "/workspace/generated-documents/$documentId/versions",
-        params: { documentId: (data as any).id },
-      });
+      if (decisionErr) throw decisionErr;
+
+      // Update generated_legal_documents.metadata.latest_revision_decision
+      const decidedAt = (decisionRow as any)?.created_at ?? new Date().toISOString();
+      const latest = {
+        decision_id: (decisionRow as any).id,
+        decision,
+        revision_status: revisionStatus,
+        decided_at: decidedAt,
+        change_level: sum.overall_change_level ?? null,
+        ai_recommendation: sum.recommended_action ?? null,
+        created_document_id: createdDocumentId,
+      };
+      await supabase
+        .from("generated_legal_documents")
+        .update({
+          metadata: {
+            ...(doc.metadata ?? {}),
+            latest_revision_decision: latest,
+          },
+        } as any)
+        .eq("id", doc.id);
+
+      toast.success("Решение зафиксировано");
+
+      if (createdDocumentId) {
+        navigate({
+          to: "/workspace/generated-documents/$documentId/versions",
+          params: { documentId: createdDocumentId },
+        });
+      } else {
+        navigate({ to: "/workspace/generated-documents" });
+      }
     } catch (e: any) {
-      toast.error(e?.message ?? "Не удалось создать новую версию");
+      toast.error(e?.message ?? "Не удалось зафиксировать решение");
     } finally {
-      setCreating(false);
+      setSubmitting(false);
     }
   };
 
@@ -525,23 +679,83 @@ function RevisePage() {
 
       {step === "decision" && (
         <section className={`${GLASS} space-y-5 p-5`}>
-          <h2 className="font-display text-lg text-white">Шаг 3. Решение юриста</h2>
+          <h2 className="font-display text-lg text-white">Шаг 3. Решение по пересмотру</h2>
           <p className="text-sm text-foreground/80">
             Только юрист принимает решение. AI — это инструмент анализа, а не источник истины.
           </p>
+
           <div className="grid gap-3 md:grid-cols-2">
-            <button type="button" onClick={keepCurrent} className={BTN_NEUTRAL}>
-              <ShieldCheck size={14} />
-              Оставить текущую версию актуальной
+            {DECISION_OPTIONS.map((opt) => {
+              const Icon = opt.icon;
+              const active = decision === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setDecision(opt.value)}
+                  className={`flex items-start gap-3 rounded-xl border p-4 text-left text-sm transition ${
+                    active
+                      ? "border-emerald-300/50 bg-emerald-400/15 text-white"
+                      : "border-white/15 bg-white/5 text-foreground/85 hover:bg-white/10"
+                  }`}
+                >
+                  <Icon size={18} className={active ? "text-emerald-200" : "text-white/60"} />
+                  <div>
+                    <div className="font-medium text-white">{opt.label}</div>
+                    <div className="mt-1 text-xs text-foreground/70">{opt.hint}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {decision === "request_more_documents" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-white/80">
+                Какие материалы нужно запросить <span className="text-red-300">*</span>
+              </label>
+              <textarea
+                value={requestedMaterials}
+                onChange={(e) => setRequestedMaterials(e.target.value)}
+                rows={3}
+                placeholder="Опишите, какие документы или сведения нужно получить"
+                className="w-full rounded-lg border border-white/15 bg-white/5 p-3 text-sm text-white placeholder:text-white/40 focus:border-emerald-300/40 focus:outline-none"
+              />
+            </div>
+          )}
+
+          {decision && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-white/80">
+                Комментарий юриста
+                {commentRequired && <span className="text-red-300"> *</span>}
+              </label>
+              <textarea
+                value={lawyerComment}
+                onChange={(e) => setLawyerComment(e.target.value)}
+                rows={4}
+                placeholder={
+                  commentRequired
+                    ? "Обязательно опишите обоснование решения"
+                    : "Необязательно: добавьте пояснение"
+                }
+                className="w-full rounded-lg border border-white/15 bg-white/5 p-3 text-sm text-white placeholder:text-white/40 focus:border-emerald-300/40 focus:outline-none"
+              />
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2 pt-2">
+            <button type="button" onClick={() => setStep("analysis")} className={BTN}>
+              <ArrowLeft size={12} /> Назад к анализу
             </button>
             <button
               type="button"
-              onClick={createNewVersion}
-              disabled={creating}
+              onClick={submitDecision}
+              disabled={!canSubmit}
               className={BTN_PRIMARY}
             >
-              {creating ? <Loader2 size={14} className="animate-spin" /> : <GitBranch size={14} />}
-              Создать новую версию документа (v{(doc.version_number ?? 1) + 1})
+              {submitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+              Зафиксировать решение
             </button>
           </div>
         </section>
@@ -554,7 +768,7 @@ function StepBar({ step }: { step: Step }) {
   const steps: Array<{ id: Step; label: string }> = [
     { id: "materials", label: "1. Материалы" },
     { id: "analysis", label: "2. AI-анализ" },
-    { id: "decision", label: "3. Решение юриста" },
+    { id: "decision", label: "3. Решение по пересмотру" },
   ];
   return (
     <div className="flex flex-wrap gap-2">
