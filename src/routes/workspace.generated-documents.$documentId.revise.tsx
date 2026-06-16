@@ -217,7 +217,78 @@ function RevisePage() {
       }
     }
   }, [doc]);
+  const uploadAndExtractRevisionFiles = async (): Promise<RevisionMaterial[]> => {
+  if (!doc || files.length === 0) return revisionMaterials;
 
+  const uploaded: RevisionMaterial[] = [];
+
+  for (const file of files) {
+    const safeName = file.name.replace(/[^\p{L}\p{N}._-]+/gu, "_");
+    const storagePath = `revision/${doc.id}/${Date.now()}-${safeName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("lead-documents")
+      .upload(storagePath, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+
+    if (uploadError) throw uploadError;
+
+    const { data: insertedDoc, error: insertError } = await supabase
+      .from("documents")
+      .insert({
+        file_name: file.name,
+        mime_type: file.type || null,
+        storage_path: storagePath,
+        analysis_status: "uploaded",
+        review_status: "pending",
+        metadata: {
+          source: "revision_material",
+          generated_document_id: doc.id,
+          parent_document_id: doc.parent_document_id ?? doc.id,
+          template_code: doc.metadata?.template_code ?? doc.template_key ?? null,
+          intake_session_id: doc.intake_session_id ?? null,
+          original_file_name: file.name,
+        },
+      } as any)
+      .select("id,file_name,storage_path,mime_type")
+      .single();
+
+    if (insertError) throw insertError;
+
+    const { error: extractError } = await supabase.functions.invoke("extract-document-text", {
+      body: {
+        document_id: insertedDoc.id,
+      },
+    });
+
+    if (extractError) throw extractError;
+
+    const { data: extractedDoc, error: readError } = await supabase
+      .from("documents")
+      .select("id,file_name,storage_path,mime_type,ocr_text")
+      .eq("id", insertedDoc.id)
+      .single();
+
+    if (readError) throw readError;
+
+    uploaded.push({
+      document_id: extractedDoc.id,
+      file_name: extractedDoc.file_name,
+      storage_path: extractedDoc.storage_path,
+      mime_type: extractedDoc.mime_type,
+      size: file.size,
+      ocr_text: extractedDoc.ocr_text ?? null,
+      ocr_text_length: extractedDoc.ocr_text?.length ?? 0,
+    });
+  }
+
+  setRevisionMaterials((prev) => [...prev, ...uploaded]);
+  setFiles([]);
+
+  return [...revisionMaterials, ...uploaded];
+};  
   const runAnalysis = async () => {
     if (!doc) return;
     setRunning(true);
