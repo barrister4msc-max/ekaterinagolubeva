@@ -1596,10 +1596,13 @@ export type Database = {
       }
       document_intake_schemas: {
         Row: {
+          category: string | null
           created_at: string
           description: string | null
+          display_order: number | null
           id: string
           is_active: boolean
+          is_featured: boolean
           jurisdiction: string | null
           language: string
           metadata: Json
@@ -1611,10 +1614,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: string | null
           created_at?: string
           description?: string | null
+          display_order?: number | null
           id?: string
           is_active?: boolean
+          is_featured?: boolean
           jurisdiction?: string | null
           language?: string
           metadata?: Json
@@ -1626,10 +1632,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string | null
           created_at?: string
           description?: string | null
+          display_order?: number | null
           id?: string
           is_active?: boolean
+          is_featured?: boolean
           jurisdiction?: string | null
           language?: string
           metadata?: Json
@@ -2989,6 +2998,111 @@ export type Database = {
           verification_status?: string | null
         }
         Relationships: []
+      }
+      legal_document_revision_decisions: {
+        Row: {
+          ai_recommendation: string | null
+          based_on_ai_run_id: string | null
+          based_on_analysis: Json
+          change_level: string | null
+          created_at: string
+          created_by: string | null
+          created_document_id: string | null
+          decision: string
+          document_intake_session_id: string | null
+          generated_document_id: string
+          id: string
+          is_active: boolean
+          lawyer_comment: string | null
+          requested_materials: string | null
+          revision_number: number
+          revision_status: string
+          risk_level_after: string | null
+          risk_level_before: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          ai_recommendation?: string | null
+          based_on_ai_run_id?: string | null
+          based_on_analysis?: Json
+          change_level?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_document_id?: string | null
+          decision: string
+          document_intake_session_id?: string | null
+          generated_document_id: string
+          id?: string
+          is_active?: boolean
+          lawyer_comment?: string | null
+          requested_materials?: string | null
+          revision_number?: number
+          revision_status: string
+          risk_level_after?: string | null
+          risk_level_before?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          ai_recommendation?: string | null
+          based_on_ai_run_id?: string | null
+          based_on_analysis?: Json
+          change_level?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_document_id?: string | null
+          decision?: string
+          document_intake_session_id?: string | null
+          generated_document_id?: string
+          id?: string
+          is_active?: boolean
+          lawyer_comment?: string | null
+          requested_materials?: string | null
+          revision_number?: number
+          revision_status?: string
+          risk_level_after?: string | null
+          risk_level_before?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legal_document_revision_decisio_document_intake_session_id_fkey"
+            columns: ["document_intake_session_id"]
+            isOneToOne: false
+            referencedRelation: "document_intake_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_document_revision_decisio_document_intake_session_id_fkey"
+            columns: ["document_intake_session_id"]
+            isOneToOne: false
+            referencedRelation: "v_document_drafts_dashboard"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "legal_document_revision_decisions_based_on_ai_run_id_fkey"
+            columns: ["based_on_ai_run_id"]
+            isOneToOne: false
+            referencedRelation: "document_intake_ai_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_document_revision_decisions_created_document_id_fkey"
+            columns: ["created_document_id"]
+            isOneToOne: false
+            referencedRelation: "generated_legal_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_document_revision_decisions_generated_document_id_fkey"
+            columns: ["generated_document_id"]
+            isOneToOne: false
+            referencedRelation: "generated_legal_documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legal_document_templates: {
         Row: {
