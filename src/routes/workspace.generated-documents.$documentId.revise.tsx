@@ -385,6 +385,12 @@ function RevisePage() {
     }
   };
 
+  const hasAnalysis = Boolean(
+    normalizeAnalysis(analysis) ??
+      normalizeAnalysis(doc?.metadata?.revision_analysis) ??
+      analysis,
+  );
+
   if (isLoading) {
     return (
       <div className={`${GLASS} flex items-center gap-2 p-6 text-sm text-foreground/80`}>
@@ -505,7 +511,12 @@ function RevisePage() {
             <button type="button" onClick={() => setStep("materials")} className={BTN}>
               <ArrowLeft size={12} /> Назад к материалам
             </button>
-            <button type="button" onClick={() => setStep("decision")} className={BTN_PRIMARY}>
+            <button
+              type="button"
+              onClick={() => setStep("decision")}
+              disabled={!hasAnalysis}
+              className={BTN_PRIMARY}
+            >
               К решению юриста
             </button>
           </div>
