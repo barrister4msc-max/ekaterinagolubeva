@@ -511,7 +511,12 @@ function RevisePage() {
             <button type="button" onClick={() => setStep("materials")} className={BTN}>
               <ArrowLeft size={12} /> Назад к материалам
             </button>
-            <button type="button" onClick={() => setStep("decision")} className={BTN_PRIMARY}>
+            <button
+              type="button"
+              onClick={() => setStep("decision")}
+              disabled={!hasAnalysis}
+              className={BTN_PRIMARY}
+            >
               К решению юриста
             </button>
           </div>
