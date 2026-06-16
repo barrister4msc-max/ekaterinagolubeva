@@ -138,6 +138,40 @@ function normalizeCourtPractice(cp: any): { supporting: any[]; opposing: any[]; 
   return { supporting: [], opposing: [], conflicting: [] };
 }
 
+const CHANGE_LEVEL_MAP: Record<string, { text: string; color: string }> = {
+  none: { text: "Изменений не выявлено", color: "border-emerald-300/40 bg-emerald-400/20 text-emerald-50" },
+  low: { text: "Незначительное влияние на позицию", color: "border-sky-300/40 bg-sky-400/20 text-sky-50" },
+  medium: { text: "Требуется дополнительная юридическая оценка", color: "border-amber-300/40 bg-amber-400/20 text-amber-50" },
+  high: { text: "Существенное изменение правовой позиции", color: "border-red-300/40 bg-red-400/20 text-red-50" },
+};
+
+const RECOMMENDED_ACTION_MAP: Record<string, string> = {
+  keep_current_version: "Оставить текущую версию документа актуальной",
+  create_new_version: "Создать новую юридическую версию документа",
+  request_more_documents: "Запросить дополнительные материалы для анализа",
+};
+
+function summaryBorderClass(level?: string): string {
+  switch (level) {
+    case "none":
+      return "border-l-4 border-l-emerald-400/60";
+    case "low":
+      return "border-l-4 border-l-sky-400/60";
+    case "medium":
+      return "border-l-4 border-l-amber-400/60";
+    case "high":
+      return "border-l-4 border-l-red-400/60";
+    default:
+      return "border-l-4 border-l-white/20";
+  }
+}
+
+function ChangeLevelBadge({ level }: { level?: string }) {
+  if (!level) return null;
+  const mapped = CHANGE_LEVEL_MAP[level] ?? { text: level, color: "border-white/20 bg-white/10 text-foreground/80" };
+  return <Badge className={`text-[11px] ${mapped.color}`}>{mapped.text}</Badge>;
+}
+
 function RevisePage() {
   const { documentId } = Route.useParams();
   const navigate = useNavigate();
