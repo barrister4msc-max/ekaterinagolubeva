@@ -336,7 +336,7 @@ function RevisePage() {
     setRunning(false);
   }
 };
-  };
+ 
 
   const keepCurrent = () => {
     toast.success("Текущая версия оставлена актуальной");
