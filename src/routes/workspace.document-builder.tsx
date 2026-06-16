@@ -56,23 +56,23 @@ function DocumentBuilderPage() {
     queryKey: ["document-templates"],
     queryFn: getTemplates,
   });
-  const sortedTemplates = useMemo(() => {
-  return [...templates].sort((a, b) => {
-    if (a.is_featured !== b.is_featured) {
-      return a.is_featured ? -1 : 1;
-    }
+    const sortedTemplates = useMemo(() => {
+    return [...templates].sort((a, b) => {
+      if (a.is_featured !== b.is_featured) {
+        return a.is_featured ? -1 : 1;
+      }
 
-    if (a.category === "tax" && b.category !== "tax") return -1;
-    if (a.category !== "tax" && b.category === "tax") return 1;
+      if (a.category === "tax" && b.category !== "tax") return -1;
+      if (a.category !== "tax" && b.category === "tax") return 1;
 
-    const orderA = a.display_order ?? 1000;
-    const orderB = b.display_order ?? 1000;
+      const orderA = a.display_order ?? 1000;
+      const orderB = b.display_order ?? 1000;
 
-    if (orderA !== orderB) return orderA - orderB;
+      if (orderA !== orderB) return orderA - orderB;
 
-    return (a.title ?? "").localeCompare(b.title ?? "", "ru");
-  });
-}, [templates]);  
+      return (a.title ?? "").localeCompare(b.title ?? "", "ru");
+    });
+  }, [templates]); 
   // Restore intake session from ?sessionId=<id> (one-shot)
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -139,13 +139,13 @@ function DocumentBuilderPage() {
     const set = new Set<string>();
     for (const t of sortedTemplates) set.add(t.category);
     return Array.from(set).sort();
-  }, [templates]);
+  }, [sortedTemplates]);
 
   const availablePracticeAreas = useMemo(() => {
     const set = new Set<string>();
     for (const t of sortedTemplates) if (t.practice_area) set.add(t.practice_area);
     return Array.from(set).sort();
-  }, [templates]);
+  }, [sortedTemplates]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
