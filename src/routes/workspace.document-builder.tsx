@@ -143,7 +143,7 @@ function DocumentBuilderPage() {
 
   const availablePracticeAreas = useMemo(() => {
     const set = new Set<string>();
-    for (const t of templates) if (t.practice_area) set.add(t.practice_area);
+    for (const t of sortedTemplates) if (t.practice_area) set.add(t.practice_area);
     return Array.from(set).sort();
   }, [templates]);
 
