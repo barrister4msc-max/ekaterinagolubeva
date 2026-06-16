@@ -148,7 +148,7 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     });
   } catch (e) {
     console.error("Failed to save intake draft", e);
-    alert("Не удалось сохранить черновик опросника");
+    alert("Не удалось сохранить опросник");
   } finally {
     setIsSavingDraft(false);
   }
@@ -466,9 +466,9 @@ const [isAiFilling, setIsAiFilling] = useState(false);
               onClick={handleGenerateDraft}
               disabled={!validation.valid || submitting}
               className="db-cta"
-              title={!validation.valid ? "Заполните обязательные поля" : "Сформировать черновик"}
+              title={!validation.valid ? "Заполните обязательные поля" : "Сформировать документ"}
             >
-              <Sparkles size={14} /> {submitting ? "Генерация…" : "Сформировать черновик"}
+              <Sparkles size={14} /> {submitting ? "Генерация…" : "Сформировать документ"}
             </button>
           )}
         </div>
