@@ -49,6 +49,8 @@ function DocumentBuilderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [generated, setGenerated] = useState<GeneratedDocumentResult | null>(null);
+  const [restoredSessionId, setRestoredSessionId] = useState<string | null>(null);
+  const [sessionRestoring, setSessionRestoring] = useState(false);
 
   const { data: templates = [], isLoading, error } = useQuery({
     queryKey: ["document-templates"],
