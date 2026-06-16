@@ -54,11 +54,44 @@ type DocRow = {
 
 type Step = "materials" | "analysis" | "decision";
 
-type AnalysisResult = {
-  new_facts?: string[];
-  changed_facts?: string[];
-  contradictions?: string[];
-  missing_evidence?: string[];
+type StructuredAnalysis = {
+  run_type?: string;
+  revision_summary?: {
+    overall_change_level?: string;
+    does_legal_position_change?: boolean;
+    short_summary?: string;
+    recommended_action?: string;
+  };
+  new_facts?: any[];
+  changed_facts?: any[];
+  contradictions?: any[];
+  missing_evidence?: any[];
+  legal_reassessment?: {
+    previous_law_assumptions?: any[];
+    still_applicable_laws?: any[];
+    new_possible_laws?: any[];
+    alternative_legal_approaches?: any[];
+    why_position_changes_or_not?: string;
+  };
+  court_practice?: {
+    supporting?: any[];
+    opposing?: any[];
+    conflicting?: any[];
+  };
+  risk_change?: {
+    previous_risk_level?: string;
+    new_risk_level?: string;
+    reason?: string;
+    risk_factors?: any[];
+  };
+  opponent_arguments?: any[];
+  lawyer_decision_options?: Array<{ option?: string; label?: string; reason?: string }>;
+  warnings?: any[];
+  needs_lawyer_review?: boolean;
+};
+
+type AnalysisResult = StructuredAnalysis & {
+  // legacy/fallback shape
   legal_assessment?: {
     previous_norms?: string[];
     previous_reasoning?: string;
@@ -130,13 +163,13 @@ function RevisePage() {
       if ((data as any)?.success === false) {
         throw new Error((data as any)?.error ?? "Ошибка AI-анализа");
       }
-      const payload =
-        (data as any)?.revision_analysis ??
-        (data as any)?.analysis ??
-        (data as any)?.result ??
-        (data as any) ??
-        {};
-      setAnalysis({ ...payload, raw: data });
+      const top = data as any;
+      // structured contract: revision_analysis lives at top-level when run_type matches
+      const structured =
+        top?.run_type === "revision_analysis"
+          ? top
+          : top?.revision_analysis ?? top?.analysis ?? top?.result ?? top ?? {};
+      setAnalysis({ ...structured, raw: data });
       setStep("analysis");
     } catch (e: any) {
       toast.error(e?.message ?? "Не удалось выполнить AI-анализ");
@@ -357,6 +390,22 @@ function StepBar({ step }: { step: Step }) {
   );
 }
 
+function itemToString(it: any): string {
+  if (it == null) return "";
+  if (typeof it === "string") return it;
+  if (typeof it === "object") {
+    const text =
+      it.text ?? it.fact ?? it.description ?? it.title ?? it.summary ?? it.label ?? it.value;
+    const src = it.source ?? it.citation ?? it.quote;
+    const conf = it.confidence ?? it.verification_status;
+    const parts = [text ?? JSON.stringify(it)];
+    if (src) parts.push(`— ${typeof src === "string" ? src : JSON.stringify(src)}`);
+    if (conf) parts.push(`(${conf})`);
+    return parts.filter(Boolean).join(" ");
+  }
+  return String(it);
+}
+
 function Section({
   icon,
   title,
@@ -364,7 +413,7 @@ function Section({
 }: {
   icon: React.ReactNode;
   title: string;
-  items?: string[] | null;
+  items?: any[] | null;
 }) {
   if (!items || items.length === 0) return null;
   return (
@@ -375,10 +424,25 @@ function Section({
       </div>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-foreground/85">
         {items.map((s, i) => (
-          <li key={i}>{String(s)}</li>
+          <li key={i}>{itemToString(s)}</li>
         ))}
       </ul>
     </div>
+  );
+}
+
+function RiskBadge({ level }: { level?: string }) {
+  if (!level) return null;
+  const color =
+    level === "critical" || level === "high"
+      ? "border-red-300/40 bg-red-400/20 text-red-50"
+      : level === "medium"
+        ? "border-amber-300/40 bg-amber-400/20 text-amber-50"
+        : level === "low"
+          ? "border-emerald-300/40 bg-emerald-400/20 text-emerald-50"
+          : "border-white/20 bg-white/10 text-foreground/80";
+  return (
+    <span className={`rounded-full border px-2 py-0.5 text-[11px] ${color}`}>{level}</span>
   );
 }
 
@@ -390,6 +454,187 @@ function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
       </div>
     );
   }
+
+  const isStructured = analysis.run_type === "revision_analysis";
+
+  if (isStructured) {
+    const sum = analysis.revision_summary ?? {};
+    const lr = analysis.legal_reassessment ?? {};
+    const cp = analysis.court_practice ?? {};
+    const rc = analysis.risk_change ?? {};
+    const opts = analysis.lawyer_decision_options ?? [];
+    const warns = analysis.warnings ?? [];
+
+    return (
+      <div className="space-y-3">
+        <div className={`${GLASS} space-y-2 p-4`}>
+          <div className="flex items-center gap-2 text-sm text-white">
+            <Sparkles size={14} className="text-emerald-200" />
+            <h3 className="font-display">Итог пересмотра</h3>
+            <RiskBadge level={sum.overall_change_level} />
+          </div>
+          {sum.short_summary && (
+            <p className="text-sm text-foreground/85">{sum.short_summary}</p>
+          )}
+          {typeof sum.does_legal_position_change === "boolean" && (
+            <p className="text-sm text-foreground/85">
+              <span className="text-white/70">Меняется ли правовая позиция: </span>
+              {sum.does_legal_position_change ? "да" : "нет"}
+            </p>
+          )}
+          {sum.recommended_action && (
+            <p className="text-sm text-foreground/85">
+              <span className="text-white/70">Рекомендация AI: </span>
+              {sum.recommended_action}
+            </p>
+          )}
+        </div>
+
+        <Section
+          icon={<Sparkles size={14} className="text-emerald-200" />}
+          title="Новые факты"
+          items={analysis.new_facts}
+        />
+        <Section
+          icon={<RefreshCcw size={14} className="text-amber-200" />}
+          title="Изменённые факты"
+          items={analysis.changed_facts}
+        />
+        <Section
+          icon={<AlertTriangle size={14} className="text-red-200" />}
+          title="Противоречия"
+          items={analysis.contradictions}
+        />
+        <Section
+          icon={<FileWarning size={14} className="text-amber-200" />}
+          title="Недостающие доказательства"
+          items={analysis.missing_evidence}
+        />
+
+        {(lr.previous_law_assumptions?.length ||
+          lr.still_applicable_laws?.length ||
+          lr.new_possible_laws?.length ||
+          lr.alternative_legal_approaches?.length ||
+          lr.why_position_changes_or_not) && (
+          <div className={`${GLASS} space-y-2 p-4`}>
+            <div className="flex items-center gap-2 text-sm text-white">
+              <Scale size={14} />
+              <h3 className="font-display">Изменение правовой оценки</h3>
+            </div>
+            <Section
+              icon={<Scale size={14} className="text-white/70" />}
+              title="Применялись ранее"
+              items={lr.previous_law_assumptions}
+            />
+            <Section
+              icon={<CheckCircle2 size={14} className="text-emerald-200" />}
+              title="По-прежнему применимы"
+              items={lr.still_applicable_laws}
+            />
+            <Section
+              icon={<Sparkles size={14} className="text-sky-200" />}
+              title="Новые возможные нормы"
+              items={lr.new_possible_laws}
+            />
+            <Section
+              icon={<RefreshCcw size={14} className="text-amber-200" />}
+              title="Альтернативные правовые подходы"
+              items={lr.alternative_legal_approaches}
+            />
+            {lr.why_position_changes_or_not && (
+              <p className="text-sm text-foreground/85">
+                <span className="text-white/70">Почему позиция меняется/не меняется: </span>
+                {lr.why_position_changes_or_not}
+              </p>
+            )}
+          </div>
+        )}
+
+        <Section
+          icon={<CheckCircle2 size={14} className="text-emerald-200" />}
+          title="Судебная практика: за позицию"
+          items={cp.supporting}
+        />
+        <Section
+          icon={<AlertTriangle size={14} className="text-red-200" />}
+          title="Судебная практика: против позиции"
+          items={cp.opposing}
+        />
+        <Section
+          icon={<FileWarning size={14} className="text-amber-200" />}
+          title="Судебная практика: противоречивая"
+          items={cp.conflicting}
+        />
+
+        {(rc.previous_risk_level || rc.new_risk_level || rc.reason || rc.risk_factors?.length) && (
+          <div className={`${GLASS} space-y-2 p-4`}>
+            <div className="flex items-center gap-2 text-sm text-white">
+              <AlertTriangle size={14} />
+              <h3 className="font-display">Изменение рисков</h3>
+              <RiskBadge level={rc.previous_risk_level} />
+              <span className="text-white/50">→</span>
+              <RiskBadge level={rc.new_risk_level} />
+            </div>
+            {rc.reason && (
+              <p className="text-sm text-foreground/85">
+                <span className="text-white/70">Причина: </span>
+                {rc.reason}
+              </p>
+            )}
+            {rc.risk_factors?.length ? (
+              <ul className="list-disc space-y-1 pl-5 text-sm text-foreground/85">
+                {rc.risk_factors.map((f, i) => (
+                  <li key={i}>{itemToString(f)}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        )}
+
+        <Section
+          icon={<AlertTriangle size={14} className="text-red-200" />}
+          title="Аргументы оппонента"
+          items={analysis.opponent_arguments}
+        />
+
+        {opts.length > 0 && (
+          <div className={`${GLASS} space-y-2 p-4`}>
+            <div className="flex items-center gap-2 text-sm text-white">
+              <ShieldCheck size={14} />
+              <h3 className="font-display">Варианты решения юриста</h3>
+            </div>
+            <ul className="space-y-2 text-sm text-foreground/85">
+              {opts.map((o, i) => (
+                <li
+                  key={i}
+                  className="rounded-lg border border-white/10 bg-white/5 p-3"
+                >
+                  <div className="font-medium text-white">{o.label ?? o.option ?? "—"}</div>
+                  {o.reason && <div className="mt-1 text-foreground/80">{o.reason}</div>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {warns.length > 0 && (
+          <div className={`${GLASS} space-y-1 border-amber-300/30 p-4`}>
+            <div className="flex items-center gap-2 text-sm text-amber-100">
+              <AlertTriangle size={14} />
+              <h3 className="font-display">Предупреждения</h3>
+            </div>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-amber-50/90">
+              {warns.map((w, i) => (
+                <li key={i}>{itemToString(w)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Fallback: legacy/unstructured response
   const la = analysis.legal_assessment ?? {};
   const cl = analysis.case_law ?? {};
   const r = analysis.risks ?? {};

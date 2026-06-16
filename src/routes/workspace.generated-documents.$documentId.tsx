@@ -322,7 +322,7 @@ function DocumentDetailPage() {
       </div>
 
       {tab === "document" && (
-        <section className={`${GLASS} p-5 space-y-3`}>
+        <section className="space-y-3">
           {isApproved && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-xs text-amber-50">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
@@ -331,16 +331,23 @@ function DocumentDetailPage() {
               </span>
             </div>
           )}
-          <textarea
-            value={edited}
-            onChange={(e) => {
-              setEdited(e.target.value);
-              setDirty(true);
-            }}
-            readOnly={isApproved}
-            className="w-full min-h-[480px] rounded-lg border border-white/15 bg-black/30 p-4 font-mono text-sm text-foreground/90 outline-none focus:border-white/30"
-          />
-          <div className="flex flex-wrap gap-2">
+          <div className="mx-auto w-full max-w-[1000px] rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-black/10 sm:p-8">
+            <textarea
+              value={edited}
+              onChange={(e) => {
+                setEdited(e.target.value);
+                setDirty(true);
+              }}
+              readOnly={isApproved}
+              spellCheck={false}
+              style={{ fontSize: "15.5px", lineHeight: 1.75 }}
+              className="block w-full min-h-[640px] resize-y border-0 bg-white p-0 font-serif text-slate-900 outline-none placeholder:text-slate-400"
+            />
+            <p className="mt-4 border-t border-slate-200 pt-3 text-[11px] italic text-slate-500">
+              Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
+            </p>
+          </div>
+          <div className="mx-auto flex w-full max-w-[1000px] flex-wrap gap-2">
             <button
               type="button"
               onClick={() => saveEdits.mutate()}
