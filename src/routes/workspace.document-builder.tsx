@@ -56,7 +56,23 @@ function DocumentBuilderPage() {
     queryKey: ["document-templates"],
     queryFn: getTemplates,
   });
+  const sortedTemplates = useMemo(() => {
+  return [...templates].sort((a, b) => {
+    if (a.is_featured !== b.is_featured) {
+      return a.is_featured ? -1 : 1;
+    }
 
+    if (a.category === "tax" && b.category !== "tax") return -1;
+    if (a.category !== "tax" && b.category === "tax") return 1;
+
+    const orderA = a.display_order ?? 1000;
+    const orderB = b.display_order ?? 1000;
+
+    if (orderA !== orderB) return orderA - orderB;
+
+    return (a.title ?? "").localeCompare(b.title ?? "", "ru");
+  });
+}, [templates]);  
   // Restore intake session from ?sessionId=<id> (one-shot)
   useEffect(() => {
     if (typeof window === "undefined") return;
