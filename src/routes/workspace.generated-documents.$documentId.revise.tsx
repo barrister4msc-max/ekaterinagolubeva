@@ -54,11 +54,44 @@ type DocRow = {
 
 type Step = "materials" | "analysis" | "decision";
 
-type AnalysisResult = {
-  new_facts?: string[];
-  changed_facts?: string[];
-  contradictions?: string[];
-  missing_evidence?: string[];
+type StructuredAnalysis = {
+  run_type?: string;
+  revision_summary?: {
+    overall_change_level?: string;
+    does_legal_position_change?: boolean;
+    short_summary?: string;
+    recommended_action?: string;
+  };
+  new_facts?: any[];
+  changed_facts?: any[];
+  contradictions?: any[];
+  missing_evidence?: any[];
+  legal_reassessment?: {
+    previous_law_assumptions?: any[];
+    still_applicable_laws?: any[];
+    new_possible_laws?: any[];
+    alternative_legal_approaches?: any[];
+    why_position_changes_or_not?: string;
+  };
+  court_practice?: {
+    supporting?: any[];
+    opposing?: any[];
+    conflicting?: any[];
+  };
+  risk_change?: {
+    previous_risk_level?: string;
+    new_risk_level?: string;
+    reason?: string;
+    risk_factors?: any[];
+  };
+  opponent_arguments?: any[];
+  lawyer_decision_options?: Array<{ option?: string; label?: string; reason?: string }>;
+  warnings?: any[];
+  needs_lawyer_review?: boolean;
+};
+
+type AnalysisResult = StructuredAnalysis & {
+  // legacy/fallback shape
   legal_assessment?: {
     previous_norms?: string[];
     previous_reasoning?: string;
