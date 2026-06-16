@@ -290,35 +290,52 @@ function RevisePage() {
   return [...revisionMaterials, ...uploaded];
 };  
   const runAnalysis = async () => {
-    if (!doc) return;
-    setRunning(true);
-    setAnalysis(null);
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "review-generated-legal-document",
-        {
-          body: {
-            document_id: doc.id,
-            generated_document_id: doc.id,
-            session_id: doc.intake_session_id,
-            parent_document_id: doc.id,
-            run_type: "revision_analysis",
-            revision_materials: files.map((f) => ({ name: f.name, size: f.size, type: f.type })),
-          },
+  if (!doc) return;
+  setRunning(true);
+  setAnalysis(null);
+
+  try {
+    const materials = await uploadAndExtractRevisionFiles();
+
+    const revisionMaterialsForAI = materials.map((m) => ({
+      document_id: m.document_id,
+      file_name: m.file_name,
+      storage_path: m.storage_path,
+      mime_type: m.mime_type,
+      size: m.size,
+      ocr_text_length: m.ocr_text_length,
+      ocr_text: m.ocr_text,
+    }));
+
+    const { data, error } = await supabase.functions.invoke(
+      "review-generated-legal-document",
+      {
+        body: {
+          document_id: doc.id,
+          generated_document_id: doc.id,
+          session_id: doc.intake_session_id,
+          parent_document_id: doc.id,
+          run_type: "revision_analysis",
+          revision_materials: revisionMaterialsForAI,
         },
-      );
-      if (error) throw error;
-      if ((data as any)?.success === false) {
-        throw new Error((data as any)?.error ?? "Ошибка AI-анализа");
-      }
-      const normalized = normalizeAnalysis(data);
-      setAnalysis(normalized ?? (data as AnalysisResult));
-      setStep("analysis");
-    } catch (e: any) {
-      toast.error(e?.message ?? "Не удалось выполнить AI-анализ");
-    } finally {
-      setRunning(false);
+      },
+    );
+
+    if (error) throw error;
+
+    if ((data as any)?.success === false) {
+      throw new Error((data as any)?.error ?? "Ошибка AI-анализа");
     }
+
+    const normalized = normalizeAnalysis(data);
+    setAnalysis(normalized ?? (data as AnalysisResult));
+    setStep("analysis");
+  } catch (e: any) {
+    toast.error(e?.message ?? "Не удалось выполнить AI-анализ");
+  } finally {
+    setRunning(false);
+  }
+};
   };
 
   const keepCurrent = () => {
