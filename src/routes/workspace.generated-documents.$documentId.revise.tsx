@@ -186,6 +186,7 @@ function RevisePage() {
 
   const [step, setStep] = useState<Step>("materials");
   const [files, setFiles] = useState<File[]>([]);
+  const [revisionMaterials, setRevisionMaterials] = useState<RevisionMaterial[]>([]);
   const [running, setRunning] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [creating, setCreating] = useState(false);
