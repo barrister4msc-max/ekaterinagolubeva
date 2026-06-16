@@ -54,7 +54,15 @@ type DocRow = {
 };
 
 type Step = "materials" | "analysis" | "decision";
-
+type RevisionMaterial = {
+  document_id: string;
+  file_name: string;
+  storage_path: string;
+  mime_type: string | null;
+  size: number | null;
+  ocr_text: string | null;
+  ocr_text_length: number;
+};
 type StructuredAnalysis = {
   run_type?: string;
   revision_summary?: {
