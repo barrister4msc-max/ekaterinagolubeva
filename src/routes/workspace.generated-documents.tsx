@@ -86,7 +86,7 @@ function matchesFilter(d: DocRow, f: FilterId) {
 
 function GeneratedDocumentsPage() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isDetail = /\/workspace\/generated-documents\/[^/]+\/(versions|revise)$/.test(pathname);
+  const isDetail = /\/workspace\/generated-documents\/[^/]+(\/(versions|revise))?$/.test(pathname);
   if (isDetail) return <Outlet />;
   return <DocumentsList />;
 }

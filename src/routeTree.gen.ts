@@ -59,6 +59,7 @@ import { Route as WorkspaceAiPodborRouteImport } from './routes/workspace.ai-pod
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as WorkspaceMatterMatterIdRouteImport } from './routes/workspace.matter.$matterId'
+import { Route as WorkspaceGeneratedDocumentsDocumentIdRouteImport } from './routes/workspace.generated-documents.$documentId'
 import { Route as WorkspaceGeneratedDocumentsDocumentIdVersionsRouteImport } from './routes/workspace.generated-documents.$documentId.versions'
 import { Route as WorkspaceGeneratedDocumentsDocumentIdReviseRouteImport } from './routes/workspace.generated-documents.$documentId.revise'
 import { Route as WorkspaceDocumentDraftsSessionIdAiReviewRouteImport } from './routes/workspace.document-drafts.$sessionId.ai-review'
@@ -317,17 +318,23 @@ const WorkspaceMatterMatterIdRoute = WorkspaceMatterMatterIdRouteImport.update({
   path: '/matter/$matterId',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const WorkspaceGeneratedDocumentsDocumentIdRoute =
+  WorkspaceGeneratedDocumentsDocumentIdRouteImport.update({
+    id: '/$documentId',
+    path: '/$documentId',
+    getParentRoute: () => WorkspaceGeneratedDocumentsRoute,
+  } as any)
 const WorkspaceGeneratedDocumentsDocumentIdVersionsRoute =
   WorkspaceGeneratedDocumentsDocumentIdVersionsRouteImport.update({
-    id: '/$documentId/versions',
-    path: '/$documentId/versions',
-    getParentRoute: () => WorkspaceGeneratedDocumentsRoute,
+    id: '/versions',
+    path: '/versions',
+    getParentRoute: () => WorkspaceGeneratedDocumentsDocumentIdRoute,
   } as any)
 const WorkspaceGeneratedDocumentsDocumentIdReviseRoute =
   WorkspaceGeneratedDocumentsDocumentIdReviseRouteImport.update({
-    id: '/$documentId/revise',
-    path: '/$documentId/revise',
-    getParentRoute: () => WorkspaceGeneratedDocumentsRoute,
+    id: '/revise',
+    path: '/revise',
+    getParentRoute: () => WorkspaceGeneratedDocumentsDocumentIdRoute,
   } as any)
 const WorkspaceDocumentDraftsSessionIdAiReviewRoute =
   WorkspaceDocumentDraftsSessionIdAiReviewRouteImport.update({
@@ -398,6 +405,7 @@ export interface FileRoutesByFullPath {
   '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/workspace/generated-documents/$documentId': typeof WorkspaceGeneratedDocumentsDocumentIdRouteWithChildren
   '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
@@ -455,6 +463,7 @@ export interface FileRoutesByTo {
   '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/workspace/generated-documents/$documentId': typeof WorkspaceGeneratedDocumentsDocumentIdRouteWithChildren
   '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
@@ -513,6 +522,7 @@ export interface FileRoutesById {
   '/workspace/reviews': typeof WorkspaceReviewsRoute
   '/workspace/settings': typeof WorkspaceSettingsRoute
   '/workspace/statistics': typeof WorkspaceStatisticsRoute
+  '/workspace/generated-documents/$documentId': typeof WorkspaceGeneratedDocumentsDocumentIdRouteWithChildren
   '/workspace/matter/$matterId': typeof WorkspaceMatterMatterIdRoute
   '/api/public/webhooks/telegram': typeof ApiPublicWebhooksTelegramRoute
   '/workspace/document-drafts/$sessionId/ai-history': typeof WorkspaceDocumentDraftsSessionIdAiHistoryRoute
@@ -572,6 +582,7 @@ export interface FileRouteTypes {
     | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/workspace/generated-documents/$documentId'
     | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
     | '/workspace/document-drafts/$sessionId/ai-history'
@@ -629,6 +640,7 @@ export interface FileRouteTypes {
     | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/workspace/generated-documents/$documentId'
     | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
     | '/workspace/document-drafts/$sessionId/ai-history'
@@ -686,6 +698,7 @@ export interface FileRouteTypes {
     | '/workspace/reviews'
     | '/workspace/settings'
     | '/workspace/statistics'
+    | '/workspace/generated-documents/$documentId'
     | '/workspace/matter/$matterId'
     | '/api/public/webhooks/telegram'
     | '/workspace/document-drafts/$sessionId/ai-history'
@@ -1082,19 +1095,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceMatterMatterIdRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/workspace/generated-documents/$documentId': {
+      id: '/workspace/generated-documents/$documentId'
+      path: '/$documentId'
+      fullPath: '/workspace/generated-documents/$documentId'
+      preLoaderRoute: typeof WorkspaceGeneratedDocumentsDocumentIdRouteImport
+      parentRoute: typeof WorkspaceGeneratedDocumentsRoute
+    }
     '/workspace/generated-documents/$documentId/versions': {
       id: '/workspace/generated-documents/$documentId/versions'
-      path: '/$documentId/versions'
+      path: '/versions'
       fullPath: '/workspace/generated-documents/$documentId/versions'
       preLoaderRoute: typeof WorkspaceGeneratedDocumentsDocumentIdVersionsRouteImport
-      parentRoute: typeof WorkspaceGeneratedDocumentsRoute
+      parentRoute: typeof WorkspaceGeneratedDocumentsDocumentIdRoute
     }
     '/workspace/generated-documents/$documentId/revise': {
       id: '/workspace/generated-documents/$documentId/revise'
-      path: '/$documentId/revise'
+      path: '/revise'
       fullPath: '/workspace/generated-documents/$documentId/revise'
       preLoaderRoute: typeof WorkspaceGeneratedDocumentsDocumentIdReviseRouteImport
-      parentRoute: typeof WorkspaceGeneratedDocumentsRoute
+      parentRoute: typeof WorkspaceGeneratedDocumentsDocumentIdRoute
     }
     '/workspace/document-drafts/$sessionId/ai-review': {
       id: '/workspace/document-drafts/$sessionId/ai-review'
@@ -1148,17 +1168,32 @@ const WorkspaceDocumentDraftsRouteWithChildren =
     WorkspaceDocumentDraftsRouteChildren,
   )
 
-interface WorkspaceGeneratedDocumentsRouteChildren {
+interface WorkspaceGeneratedDocumentsDocumentIdRouteChildren {
   WorkspaceGeneratedDocumentsDocumentIdReviseRoute: typeof WorkspaceGeneratedDocumentsDocumentIdReviseRoute
   WorkspaceGeneratedDocumentsDocumentIdVersionsRoute: typeof WorkspaceGeneratedDocumentsDocumentIdVersionsRoute
 }
 
-const WorkspaceGeneratedDocumentsRouteChildren: WorkspaceGeneratedDocumentsRouteChildren =
+const WorkspaceGeneratedDocumentsDocumentIdRouteChildren: WorkspaceGeneratedDocumentsDocumentIdRouteChildren =
   {
     WorkspaceGeneratedDocumentsDocumentIdReviseRoute:
       WorkspaceGeneratedDocumentsDocumentIdReviseRoute,
     WorkspaceGeneratedDocumentsDocumentIdVersionsRoute:
       WorkspaceGeneratedDocumentsDocumentIdVersionsRoute,
+  }
+
+const WorkspaceGeneratedDocumentsDocumentIdRouteWithChildren =
+  WorkspaceGeneratedDocumentsDocumentIdRoute._addFileChildren(
+    WorkspaceGeneratedDocumentsDocumentIdRouteChildren,
+  )
+
+interface WorkspaceGeneratedDocumentsRouteChildren {
+  WorkspaceGeneratedDocumentsDocumentIdRoute: typeof WorkspaceGeneratedDocumentsDocumentIdRouteWithChildren
+}
+
+const WorkspaceGeneratedDocumentsRouteChildren: WorkspaceGeneratedDocumentsRouteChildren =
+  {
+    WorkspaceGeneratedDocumentsDocumentIdRoute:
+      WorkspaceGeneratedDocumentsDocumentIdRouteWithChildren,
   }
 
 const WorkspaceGeneratedDocumentsRouteWithChildren =
@@ -1249,13 +1284,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
