@@ -19,6 +19,9 @@ import {
 } from "@/lib/document-intake-schemas";
 import { buildGenerateRequest, invokeGenerateLegalDocument, type GeneratedDocumentResult } from "@/lib/generate-legal-document";
 import { IntakeForm } from "@/components/document-builder/intake-form";
+import { supabase } from "@/integrations/supabase/client";
+import { loadIntakeAnswers } from "@/lib/document-intake-storage";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/workspace/document-builder")({
   head: () => ({
@@ -46,11 +49,75 @@ function DocumentBuilderPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [generated, setGenerated] = useState<GeneratedDocumentResult | null>(null);
+  const [restoredSessionId, setRestoredSessionId] = useState<string | null>(null);
+  const [sessionRestoring, setSessionRestoring] = useState(false);
 
   const { data: templates = [], isLoading, error } = useQuery({
     queryKey: ["document-templates"],
     queryFn: getTemplates,
   });
+
+  // Restore intake session from ?sessionId=<id> (one-shot)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (templates.length === 0) return;
+    if (restoredSessionId) return;
+
+    const sessionId = new URLSearchParams(window.location.search).get("sessionId");
+    if (!sessionId) return;
+
+    let cancelled = false;
+    setSessionRestoring(true);
+
+    (async () => {
+      try {
+        const { data: session, error: sessionError } = await supabase
+          .from("document_intake_sessions")
+          .select("id, template_code, jurisdiction, language")
+          .eq("id", sessionId)
+          .maybeSingle();
+
+        if (sessionError) throw sessionError;
+        if (!session) {
+          toast.error("Опросник не найден или нет доступа");
+          return;
+        }
+
+        const template = templates.find((t) => t.code === session.template_code);
+        if (!template) {
+          toast.error("Шаблон опросника недоступен");
+          return;
+        }
+
+        const answers = await loadIntakeAnswers(session.id);
+        if (cancelled) return;
+
+        const baseState = createInitialIntakeState({
+          templateCode: template.code,
+          category: template.category,
+          jurisdiction: session.jurisdiction ?? template.jurisdiction[0] ?? "RU",
+          language: session.language ?? template.languages[0] ?? "ru",
+        });
+
+        setSelectedCode(template.code);
+        setJurisdiction(session.jurisdiction ?? "");
+        setIntake({ ...baseState, answers });
+        setRestoredSessionId(session.id);
+        setStep(3);
+        toast.success("Опросник загружен");
+      } catch (e) {
+        console.error("[document-builder] failed to restore session", e);
+        toast.error("Опросник не найден или нет доступа");
+      } finally {
+        if (!cancelled) setSessionRestoring(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [templates, restoredSessionId]);
+
 
   const availableCategories = useMemo(() => {
     const set = new Set<string>();
