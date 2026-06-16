@@ -160,7 +160,7 @@ function DocumentBuilderPage() {
       }
       return true;
     });
-  }, [templates, search, jurisdiction, practiceArea, category, complexity]);
+  }, [sortedTemplates, search, jurisdiction, practiceArea, category, complexity]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, DocumentTemplate[]>();
