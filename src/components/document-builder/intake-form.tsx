@@ -453,7 +453,7 @@ const [isAiFilling, setIsAiFilling] = useState(false);
             className="db-ghost"
             title={intakeSessionId ? `Черновик: ${intakeSessionId}` : "Сохранить ответы опросника"}
           >
-            {isSavingDraft ? "Сохраняю…" : "Сохранить черновик"}
+            {isSavingDraft ? "Сохраняю…" : "Сохранить опросник"}
           </button>
 
           {!isReview ? (
