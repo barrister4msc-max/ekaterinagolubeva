@@ -345,7 +345,15 @@ function RevisePage() {
 
   try {
     const materials = await uploadAndExtractRevisionFiles();
+    if (files.length > 0 && materials.length === 0) {
+  throw new Error("Файлы выбраны, но не были загружены и обработаны OCR");
+}
 
+const hasRawOnlyMaterials = materials.some((m) => !m.document_id || !m.ocr_text);
+
+if (hasRawOnlyMaterials) {
+  throw new Error("Материалы не готовы: нет document_id или ocr_text");
+}
     const revisionMaterialsForAI = materials.map((m) => ({
       document_id: m.document_id,
       file_name: m.file_name,
