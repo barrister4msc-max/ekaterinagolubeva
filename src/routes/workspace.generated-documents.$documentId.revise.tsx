@@ -87,7 +87,6 @@ type StructuredAnalysis = {
 };
 
 type AnalysisResult = StructuredAnalysis & {
-  // legacy/fallback shape
   revision_analysis?: StructuredAnalysis;
   analysis?: StructuredAnalysis;
   result?: StructuredAnalysis;
@@ -164,7 +163,6 @@ function RevisePage() {
     },
   });
 
-  // Load existing revision_analysis from document metadata on mount
   useEffect(() => {
     if (!doc) return;
     const saved = doc.metadata?.revision_analysis ?? doc.metadata?.ai_result;
@@ -654,91 +652,24 @@ function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
               >
                 <div className="font-medium text-white">{o.label ?? o.option ?? "—"}</div>
                 {o.reason && <div className="mt-1 text-foreground/80">{o.reason}</div>}
-              flex-col items-center gap-2 rounded-xl border border-dashed border-white/25 bg-white/5 p-8 text-sm text-foreground/80 hover:bg-white/10">
-            <Upload size={18} />
-            <span>Перетащите файлы сюда или нажмите для выбора</span>
-            <input
-              type="file"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                const list = Array.from(e.target.files ?? []);
-                setFiles((prev) => [...prev, ...list]);
-              }}
-            />
-          </label>
-          {files.length > 0 && (
-            <ul className="space-y-1 text-xs text-foreground/80">
-              {files.map((f, i) => (
-                <li
-                  key={`${f.name}-${i}`}
-                  className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-1.5"
-                >
-                  <span className="truncate">{f.name}</span>
-                  <button
-                    type="button"
-                    className="text-white/50 hover:text-white"
-                    onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                  >
-                    удалить
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={runAnalysis} disabled={running} className={BTN_PRIMARY}>
-              {running ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              Запустить AI-анализ изменений
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep("analysis")}
-              disabled={!analysis}
-              className={BTN}
-            >
-              К результатам анализа
-            </button>
-          </div>
-        </section>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
-      {step === "analysis" && (
-        <section className="space-y-4">
-          <AnalysisView analysis={analysis} />
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setStep("materials")} className={BTN}>
-              <ArrowLeft size={12} /> Назад к материалам
-            </button>
-            <button type="button" onClick={() => setStep("decision")} className={BTN_PRIMARY}>
-              К решению юриста
-            </button>
+      {warns.length > 0 && (
+        <div className={`${GLASS} space-y-1 border-amber-300/30 p-4`}>
+          <div className="flex items-center gap-2 text-sm text-amber-100">
+            <AlertTriangle size={14} />
+            <h3 className="font-display">Предупреждения</h3>
           </div>
-        </section>
-      )}
-
-      {step === "decision" && (
-        <section className={`${GLASS} space-y-5 p-5`}>
-          <h2 className="font-display text-lg text-white">Шаг 3. Решение юриста</h2>
-          <p className="text-sm text-foreground/80">
-            Только юрист принимает решение. AI — это инструмент анализа, а не источник истины.
-          </p>
-          <div className="grid gap-3 md:grid-cols-2">
-            <button type="button" onClick={keepCurrent} className={BTN_NEUTRAL}>
-              <ShieldCheck size={14} />
-              Оставить текущую версию актуальной
-            </button>
-            <button
-              type="button"
-              onClick={createNewVersion}
-              disabled={creating}
-              className={BTN_PRIMARY}
-            >
-              {creating ? <Loader2 size={14} className="animate-spin" /> : <GitBranch size={14} />}
-              Создать новую версию документа (v{(doc.version_number ?? 1) + 1})
-            </button>
-          </div>
-        </section>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-amber-50/90">
+            {warns.map((w, i) => (
+              <li key={i}>{itemToString(w)}</li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
