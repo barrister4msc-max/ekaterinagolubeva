@@ -173,8 +173,8 @@ function DocumentBuilderPage() {
   }, [filtered]);
 
   const selected = useMemo(
-    () => templates.find((t) => t.code === selectedCode) ?? null,
-    [templates, selectedCode],
+    () => sortedTemplates.find((t) => t.code === selectedCode) ?? null,
+[sortedTemplates, selectedCode],
   );
 
   // initialize / reset intake state when entering step 3
