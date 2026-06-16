@@ -15,6 +15,7 @@ import {
   Sparkles,
   Upload,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId/revise")({
