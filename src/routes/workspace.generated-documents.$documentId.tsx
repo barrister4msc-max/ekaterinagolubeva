@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -114,6 +114,10 @@ function pickScalar(meta: any, ...keys: string[]): any {
 function DocumentDetailPage() {
   const { documentId } = Route.useParams();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  if (/\/workspace\/generated-documents\/[^/]+\/(revise|versions)$/.test(pathname)) {
+    return <Outlet />;
+  }
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabId>("document");
   const [edited, setEdited] = useState<string>("");
@@ -457,13 +461,18 @@ function DocumentDetailPage() {
           <p className="text-sm text-foreground/80">
             Пересмотр запускает 3-шаговый цикл: материалы → анализ → решение.
           </p>
-          <Link
-            to="/workspace/generated-documents/$documentId/revise"
-            params={{ documentId: doc.id }}
+          <button
+            type="button"
+            onClick={() => {
+              navigate({
+                to: "/workspace/generated-documents/$documentId/revise",
+                params: { documentId },
+              });
+            }}
             className={BTN_AMBER}
           >
             <RefreshCcw size={12} /> Начать пересмотр
-          </Link>
+          </button>
           {/* EVIDENCE_LAYER: новые обстоятельства не переписывают историю, создаётся новый цикл */}
         </section>
       )}
