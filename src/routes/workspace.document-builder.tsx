@@ -56,7 +56,7 @@ function DocumentBuilderPage() {
     queryKey: ["document-templates"],
     queryFn: getTemplates,
   });
-    const sortedTemplates = useMemo(() => {
+      const sortedTemplates = useMemo(() => {
     return [...templates].sort((a, b) => {
       if (a.is_featured !== b.is_featured) {
         return a.is_featured ? -1 : 1;
@@ -139,13 +139,13 @@ function DocumentBuilderPage() {
     const set = new Set<string>();
     for (const t of sortedTemplates) set.add(t.category);
     return Array.from(set).sort();
-  }, [sortedTemplates]);
+    }, [sortedTemplates]);
 
   const availablePracticeAreas = useMemo(() => {
     const set = new Set<string>();
     for (const t of sortedTemplates) if (t.practice_area) set.add(t.practice_area);
     return Array.from(set).sort();
-  }, [sortedTemplates]);
+    }, [sortedTemplates]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -172,9 +172,9 @@ function DocumentBuilderPage() {
     return Array.from(map.entries());
   }, [filtered]);
 
-  const selected = useMemo(
+    const selected = useMemo(
     () => sortedTemplates.find((t) => t.code === selectedCode) ?? null,
-[sortedTemplates, selectedCode],
+    [sortedTemplates, selectedCode],
   );
 
   // initialize / reset intake state when entering step 3
