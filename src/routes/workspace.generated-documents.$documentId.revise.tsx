@@ -332,7 +332,7 @@ const storagePath = `revision/${doc.id}/${Date.now()}-${safeName}`;
   ocr_text: string | null;
 } | null = null;
 
-for (let attempt = 0; attempt < 15; attempt += 1) {
+for (let attempt = 0; attempt < 60; attempt += 1)
   const { data, error: readError } = await supabase
     .from("documents")
     .select("id,file_name,storage_path,mime_type,ocr_text")
