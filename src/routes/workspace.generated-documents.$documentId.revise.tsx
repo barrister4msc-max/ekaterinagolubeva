@@ -121,6 +121,11 @@ type StructuredAnalysis = {
   changed_facts?: any[];
   contradictions?: any[];
   missing_evidence?: any[];
+  required_fixes?: Array<{
+  priority?: string;
+  missing_item?: string;
+  why_needed?: string;
+}>;
   legal_reassessment?: {
     previous_law_assumptions?: any[];
     still_applicable_laws?: any[];
