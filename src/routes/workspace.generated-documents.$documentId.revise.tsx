@@ -406,12 +406,14 @@ if (hasRawOnlyMaterials) {
   } catch (e: any) {
   console.error("[revision] runAnalysis failed", e);
 
-  toast.error(
+  const message =
     e?.message ||
-      e?.error_description ||
-      e?.details ||
-      "Не удалось выполнить AI-анализ",
-  );
+    e?.error_description ||
+    e?.details ||
+    "Не удалось выполнить AI-анализ";
+
+  setAnalysisError(message);
+  toast.error(message);
 } finally {
   setRunning(false);
 }
