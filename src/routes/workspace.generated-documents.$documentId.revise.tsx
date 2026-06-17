@@ -168,15 +168,36 @@ type AnalysisResult = StructuredAnalysis & {
 
 function normalizeAnalysis(input: any): AnalysisResult | null {
   if (!input) return null;
+
   const obj = typeof input === "object" ? input : {};
+
   const nested =
     obj?.revision_analysis ??
     obj?.analysis?.revision_analysis ??
     obj?.result?.revision_analysis ??
     obj?.analysis ??
     obj?.result;
+
   const normalized = nested ?? obj;
-  return normalized as AnalysisResult;
+
+  const requiredFixes = Array.isArray(normalized?.required_fixes)
+    ? normalized.required_fixes.map((f: any) => ({
+        title: f?.missing_item ?? "",
+        description: f?.why_needed ?? "",
+        priority: f?.priority ?? "medium",
+      }))
+    : [];
+
+  return {
+    ...normalized,
+    missing_evidence: [
+      ...(Array.isArray(normalized?.missing_evidence)
+        ? normalized.missing_evidence
+        : []),
+
+      ...requiredFixes,
+    ],
+  } as AnalysisResult;
 }
 
 function normalizeCourtPractice(cp: any): { supporting: any[]; opposing: any[]; conflicting: any[] } {
