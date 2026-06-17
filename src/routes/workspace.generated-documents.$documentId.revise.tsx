@@ -344,6 +344,11 @@ function RevisePage() {
   setAnalysis(null);
 
   try {
+    console.log("[revision] runAnalysis start", {
+  documentId: doc.id,
+  filesCount: files.length,
+  revisionMaterialsCount: revisionMaterials.length,
+});
     const materials = await uploadAndExtractRevisionFiles();
     if (files.length > 0 && materials.length === 0) {
   throw new Error("Файлы выбраны, но не были загружены и обработаны OCR");
