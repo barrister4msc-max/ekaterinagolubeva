@@ -324,15 +324,16 @@ const storagePath = `revision/${doc.id}/${Date.now()}-${safeName}`;
 
     if (extractError) throw extractError;
 
-    let extractedDoc: {
-  id: string;
-  file_name: string;
-  storage_path: string;
-  mime_type: string | null;
-  ocr_text: string | null;
-} | null = null;
+    type ExtractedDoc = {
+      id: string;
+      file_name: string | null;
+      storage_path: string | null;
+      mime_type: string | null;
+      ocr_text: string | null;
+    };
+    let extractedDoc: ExtractedDoc | null = null;
 
-for (let attempt = 0; attempt < 60; attempt += 1)
+for (let attempt = 0; attempt < 60; attempt += 1) {
   const { data, error: readError } = await supabase
     .from("documents")
     .select("id,file_name,storage_path,mime_type,ocr_text")
@@ -342,7 +343,7 @@ for (let attempt = 0; attempt < 60; attempt += 1)
   if (readError) throw readError;
 
   if (data?.ocr_text && data.ocr_text.length > 10) {
-    extractedDoc = data;
+    extractedDoc = data as ExtractedDoc;
     break;
   }
 
