@@ -234,6 +234,7 @@ function RevisePage() {
   const [files, setFiles] = useState<File[]>([]);
   const [revisionMaterials, setRevisionMaterials] = useState<RevisionMaterial[]>([]);
   const [running, setRunning] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [decision, setDecision] = useState<DecisionKind | null>(null);
   const [lawyerComment, setLawyerComment] = useState("");
