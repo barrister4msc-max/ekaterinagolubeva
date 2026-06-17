@@ -1110,9 +1110,9 @@ const missingEvidenceCount = missingEvidence.length;
 </h3>
   </div>
 
-  {normalized.missing_evidence?.length ? (
+  {missingEvidence.length ? (
     <ul className="space-y-2 text-sm text-foreground/85">
-      {normalized.missing_evidence.map((item, i) => {
+      {missingEvidence.map((item, i) => {
         const title = evidenceTitle(item);
         const description = evidenceDescription(item);
         const priority =
