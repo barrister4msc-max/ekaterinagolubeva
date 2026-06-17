@@ -1021,7 +1021,15 @@ function evidenceDescription(item: any): string | null {
     null
   );
 }
-function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
+function AnalysisView({
+  analysis,
+  doc,
+}: {
+  analysis: AnalysisResult | null;
+  doc: DocRow | null;
+}) {
+  const navigate = useNavigate();
+  const [creatingRequest, setCreatingRequest] = useState(false);
   if (!analysis) {
     return (
       <div className={`${GLASS} p-5 text-sm text-foreground/80`}>
