@@ -350,6 +350,12 @@ function RevisePage() {
   revisionMaterialsCount: revisionMaterials.length,
 });
     const materials = await uploadAndExtractRevisionFiles();
+    console.log("[revision] materials ready", materials.map((m) => ({
+  document_id: m.document_id,
+  file_name: m.file_name,
+  ocr_text_length: m.ocr_text_length,
+  has_ocr_text: Boolean(m.ocr_text),
+})));
     if (files.length > 0 && materials.length === 0) {
   throw new Error("Файлы выбраны, но не были загружены и обработаны OCR");
 }
