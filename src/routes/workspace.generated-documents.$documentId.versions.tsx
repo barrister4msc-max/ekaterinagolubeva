@@ -65,14 +65,14 @@ function VersionsPage() {
       let rootId = documentId;
       while (currentId && !seen.has(currentId)) {
         seen.add(currentId);
-        const { data: row, error } = await supabase
+        const { data: row, error: rowError } = await supabase
           .from("generated_legal_documents")
           .select(
             "id,title,status,ai_review_status,version_number,parent_document_id,lawyer_approved_at,lawyer_approved_by,created_at,template_key",
           )
           .eq("id", currentId)
           .maybeSingle();
-        if (error) throw error;
+        if (rowError) throw rowError;
         if (!row) break;
         rootId = row.id;
         currentId = row.parent_document_id;
