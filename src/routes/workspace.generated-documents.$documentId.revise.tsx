@@ -364,13 +364,13 @@ if (!extractedDoc) {
 }
 
     uploaded.push({
-      document_id: extractedDoc.id,
-      file_name: extractedDoc.file_name ?? file.name,
-      storage_path: extractedDoc.storage_path ?? "",
-      mime_type: extractedDoc.mime_type ?? file.type,
+      document_id: extractedDoc!.id,
+      file_name: extractedDoc!.file_name ?? file.name,
+      storage_path: extractedDoc!.storage_path ?? "",
+      mime_type: extractedDoc!.mime_type ?? file.type,
       size: file.size,
-      ocr_text: extractedDoc.ocr_text ?? null,
-      ocr_text_length: extractedDoc.ocr_text?.length ?? 0,
+      ocr_text: extractedDoc!.ocr_text ?? null,
+      ocr_text_length: extractedDoc!.ocr_text?.length ?? 0,
     });
   }
   console.log(
