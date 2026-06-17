@@ -351,17 +351,26 @@ for (let attempt = 0; attempt < 60; attempt += 1) {
 }
 
 if (!extractedDoc) {
-  uploaded.push({
-    document_id: insertedDoc.id,
-    file_name: file.name,
-    storage_path: storagePath,
-    mime_type: file.type,
-    size: file.size,
-    ocr_text: null,
-    ocr_text_length: 0,
-  });
+  const { data: existingReadyDoc } = await supabase
+    .from("documents")
+    .select("id,file_name,storage_path,mime_type,ocr_text")
+    .eq("file_name", file.name)
+    .eq("is_archived", false)
+    .not("ocr_text", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  continue;
+  if (
+    existingReadyDoc?.ocr_text &&
+    existingReadyDoc.ocr_text.length > 10
+  ) {
+    extractedDoc = existingReadyDoc as ExtractedDoc;
+  }
+}
+
+if (!extractedDoc) {
+  throw new Error(`OCR не завершился для файла ${file.name}`);
 }
 
     uploaded.push({
