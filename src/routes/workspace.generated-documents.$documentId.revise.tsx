@@ -1039,7 +1039,22 @@ function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
   const opts = normalized.lawyer_decision_options ?? [];
   const warns = normalized.warnings ?? [];
   const missingEvidence = normalized.missing_evidence ?? [];
-const missingEvidenceCount = missingEvidence.length;  
+const missingEvidenceCount = missingEvidence.length; 
+  const documentRequestText =
+  missingEvidence.length > 0
+    ? [
+        "Для продолжения работы по делу просим предоставить следующие документы:",
+        "",
+        ...missingEvidence.map((item: any, index: number) => {
+          const title =
+            typeof item === "object"
+              ? item.title ?? item.missing_item ?? "Документ"
+              : String(item);
+
+          return `${index + 1}. ${title}`;
+        }),
+      ].join("\n")
+    : "";
   const mappedAction = sum.recommended_action
     ? (RECOMMENDED_ACTION_MAP[sum.recommended_action] ?? sum.recommended_action)
     : null;
@@ -1111,7 +1126,8 @@ const missingEvidenceCount = missingEvidence.length;
   </div>
 
   {missingEvidence.length ? (
-    <ul className="space-y-2 text-sm text-foreground/85">
+    <>
+  <ul className="space-y-2 text-sm text-foreground/85">
       {missingEvidence.map((item, i) => {
         const title = evidenceTitle(item);
         const description = evidenceDescription(item);
@@ -1147,6 +1163,16 @@ const missingEvidenceCount = missingEvidence.length;
         );
       })}
     </ul>
+      <div className="mt-3 flex gap-2">
+  <button
+    type="button"
+    className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white hover:bg-white/20"
+    onClick={() => navigator.clipboard.writeText(documentRequestText)}
+  >
+    Скопировать запрос документов
+  </button>
+</div>
+      </>
   ) : (
     <div className="text-sm text-foreground/70">
       Дополнительных доказательств для пересмотра позиции не требуется.
