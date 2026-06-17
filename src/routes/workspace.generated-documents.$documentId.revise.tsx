@@ -273,8 +273,17 @@ function RevisePage() {
   const uploaded: RevisionMaterial[] = [];
 
   for (const file of files) {
-    const safeName = file.name.replace(/[^\p{L}\p{N}._-]+/gu, "_");
-    const storagePath = `revision/${doc.id}/${Date.now()}-${safeName}`;
+    const rawExt = file.name.includes(".")
+  ? file.name.split(".").pop()
+  : "bin";
+
+const ext = String(rawExt || "bin")
+  .toLowerCase()
+  .replace(/[^a-z0-9]/g, "") || "bin";
+
+const safeName = `${crypto.randomUUID()}.${ext}`;
+
+const storagePath = `revision/${doc.id}/${Date.now()}-${safeName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("lead-documents")
