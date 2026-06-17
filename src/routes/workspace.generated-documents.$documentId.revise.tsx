@@ -342,7 +342,7 @@ for (let attempt = 0; attempt < 60; attempt += 1) {
   if (readError) throw readError;
 
   if (data?.ocr_text && data.ocr_text.length > 10) {
-    extractedDoc = data;
+    extractedDoc = data as typeof extractedDoc;
     break;
   }
 
