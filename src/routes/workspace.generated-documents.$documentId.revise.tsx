@@ -363,7 +363,15 @@ if (!extractedDoc) {
       ocr_text_length: extractedDoc.ocr_text?.length ?? 0,
     });
   }
-
+  console.log(
+  "REVISION_MATERIALS",
+  uploaded.map((m) => ({
+    document_id: m.document_id,
+    file_name: m.file_name,
+    ocr_text_length: m.ocr_text_length,
+    has_ocr_text: Boolean(m.ocr_text),
+  })),
+);  
   setRevisionMaterials((prev) => [...prev, ...uploaded]);
   setFiles([]);
 
