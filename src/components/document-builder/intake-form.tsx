@@ -208,7 +208,16 @@ const [isAiFilling, setIsAiFilling] = useState(false);
 
     setIntakeSessionId(session.id);
 
-    const storagePath = `builder/${session.id}/${Date.now()}-${file.name}`;
+    const rawExtension = file.name.includes(".")
+  ? file.name.split(".").pop()
+  : "bin";
+
+const extension =
+  String(rawExtension || "bin")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "") || "bin";
+
+const storagePath = `builder/${session.id}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
       .from("lead-documents")
