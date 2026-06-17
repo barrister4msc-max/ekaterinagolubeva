@@ -389,10 +389,17 @@ if (hasRawOnlyMaterials) {
     setAnalysis(normalized ?? (data as AnalysisResult));
     setStep("analysis");
   } catch (e: any) {
-    toast.error(e?.message ?? "Не удалось выполнить AI-анализ");
-  } finally {
-    setRunning(false);
-  }
+  console.error("[revision] runAnalysis failed", e);
+
+  toast.error(
+    e?.message ||
+      e?.error_description ||
+      e?.details ||
+      "Не удалось выполнить AI-анализ",
+  );
+} finally {
+  setRunning(false);
+}
 };
  
 
