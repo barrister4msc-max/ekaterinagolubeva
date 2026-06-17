@@ -1104,7 +1104,10 @@ const missingEvidenceCount = missingEvidence.length;
       <div className={`${GLASS} space-y-3 border-amber-300/30 p-5`}>
   <div className="flex items-center gap-2 text-sm font-medium text-amber-100">
     <FileWarning size={14} className="text-amber-200" />
-    <h3 className="font-display">Недостающие доказательства</h3>
+    <h3 className="font-display">
+  Недостающие доказательства
+  {missingEvidenceCount > 0 ? ` • ${missingEvidenceCount}` : ""}
+</h3>
   </div>
 
   {normalized.missing_evidence?.length ? (
