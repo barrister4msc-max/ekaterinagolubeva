@@ -1038,7 +1038,8 @@ function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
   const rc = normalized.risk_change ?? {};
   const opts = normalized.lawyer_decision_options ?? [];
   const warns = normalized.warnings ?? [];
-
+  const missingEvidence = normalized.missing_evidence ?? [];
+const missingEvidenceCount = missingEvidence.length;  
   const mappedAction = sum.recommended_action
     ? (RECOMMENDED_ACTION_MAP[sum.recommended_action] ?? sum.recommended_action)
     : null;
