@@ -374,7 +374,10 @@ if (hasRawOnlyMaterials) {
       ocr_text_length: m.ocr_text_length,
       ocr_text: m.ocr_text,
     }));
-
+    console.log("[revision] invoking review-generated-legal-document", {
+  revision_payload_version: "revise_ocr_v2_2026_06_17",
+  materialsCount: revisionMaterialsForAI.length,
+});
     const { data, error } = await supabase.functions.invoke(
       "review-generated-legal-document",
       {
