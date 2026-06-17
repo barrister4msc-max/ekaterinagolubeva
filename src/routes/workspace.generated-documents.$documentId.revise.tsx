@@ -673,6 +673,11 @@ if (hasRawOnlyMaterials) {
             </div>
           )}
           <div className="flex flex-wrap gap-2">
+            {analysisError && (
+  <div className="rounded-lg border border-red-500 p-3 text-red-300">
+    {analysisError}
+  </div>
+)}
             <button type="button" onClick={runAnalysis} disabled={running} className={BTN_PRIMARY}>
               {running ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
               Запустить AI-анализ изменений
