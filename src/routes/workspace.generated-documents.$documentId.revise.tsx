@@ -971,7 +971,56 @@ function RiskBadge({ level }: { level?: string }) {
     <span className={`rounded-full border px-2 py-0.5 text-[11px] ${color}`}>{level}</span>
   );
 }
+function priorityLabel(priority?: string) {
+  switch (priority) {
+    case "high":
+      return "Высокий";
+    case "medium":
+      return "Средний";
+    case "low":
+      return "Низкий";
+    default:
+      return priority || "Не указан";
+  }
+}
 
+function priorityClass(priority?: string) {
+  switch (priority) {
+    case "high":
+      return "border-red-300/40 bg-red-400/20 text-red-50";
+    case "medium":
+      return "border-amber-300/40 bg-amber-400/20 text-amber-50";
+    case "low":
+      return "border-emerald-300/40 bg-emerald-400/20 text-emerald-50";
+    default:
+      return "border-white/20 bg-white/10 text-white/80";
+  }
+}
+
+function evidenceTitle(item: any): string {
+  if (typeof item === "string") return item;
+
+  return (
+    item?.title ||
+    item?.missing_item ||
+    item?.fact ||
+    item?.document ||
+    item?.name ||
+    "Недостающее доказательство"
+  );
+}
+
+function evidenceDescription(item: any): string | null {
+  if (!item || typeof item !== "object") return null;
+
+  return (
+    item?.description ||
+    item?.why_needed ||
+    item?.reason ||
+    item?.comment ||
+    null
+  );
+}
 function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
   if (!analysis) {
     return (
