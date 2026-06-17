@@ -1169,7 +1169,7 @@ const missingEvidenceCount = missingEvidence.length;
     className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white hover:bg-white/20"
     onClick={() => navigator.clipboard.writeText(documentRequestText)}
   >
-    Скопировать запрос документов
+    Сформировать запрос документов
   </button>
 </div>
       </>
