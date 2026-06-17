@@ -1063,6 +1063,49 @@ const missingEvidenceCount = missingEvidence.length;
         }),
       ].join("\n")
     : "";
+  const createDocumentRequest = async () => {
+  if (!doc || !documentRequestText) return;
+
+  try {
+    setCreatingRequest(true);
+
+    const { data, error } = await supabase
+      .from("generated_legal_documents")
+      .insert({
+        title: `Запрос документов — ${doc.title ?? "документ"}`,
+        content: documentRequestText,
+        status: "draft",
+        category: "document_request",
+        template_key: "document_request_from_revision",
+        parent_document_id: doc.id,
+        intake_session_id: doc.intake_session_id,
+        lead_id: doc.lead_id,
+        crm_lead_id: doc.crm_lead_id,
+        metadata: {
+          source: "revision_required_fixes",
+          source_document_id: doc.id,
+          source_document_title: doc.title,
+          missing_evidence: missingEvidence,
+          created_from_revision: true,
+        },
+      } as any)
+      .select("id")
+      .single();
+
+    if (error) throw error;
+
+    toast.success("Запрос документов сформирован");
+
+    navigate({
+      to: `/workspace/generated-documents/${data.id}`,
+    });
+  } catch (e: any) {
+    console.error("Failed to create document request", e);
+    toast.error(e?.message ?? "Не удалось сформировать запрос документов");
+  } finally {
+    setCreatingRequest(false);
+  }
+};
   const mappedAction = sum.recommended_action
     ? (RECOMMENDED_ACTION_MAP[sum.recommended_action] ?? sum.recommended_action)
     : null;
