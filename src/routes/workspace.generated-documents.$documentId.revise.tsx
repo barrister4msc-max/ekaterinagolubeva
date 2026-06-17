@@ -324,13 +324,34 @@ const storagePath = `revision/${doc.id}/${Date.now()}-${safeName}`;
 
     if (extractError) throw extractError;
 
-    const { data: extractedDoc, error: readError } = await supabase
-      .from("documents")
-      .select("id,file_name,storage_path,mime_type,ocr_text")
-      .eq("id", insertedDoc.id)
-      .single();
+    let extractedDoc: {
+  id: string;
+  file_name: string;
+  storage_path: string;
+  mime_type: string | null;
+  ocr_text: string | null;
+} | null = null;
 
-    if (readError) throw readError;
+for (let attempt = 0; attempt < 15; attempt += 1) {
+  const { data, error: readError } = await supabase
+    .from("documents")
+    .select("id,file_name,storage_path,mime_type,ocr_text")
+    .eq("id", insertedDoc.id)
+    .single();
+
+  if (readError) throw readError;
+
+  if (data?.ocr_text && data.ocr_text.length > 10) {
+    extractedDoc = data;
+    break;
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+}
+
+if (!extractedDoc) {
+  throw new Error(`OCR не завершился для файла ${file.name}`);
+}
 
     uploaded.push({
       document_id: extractedDoc.id,
