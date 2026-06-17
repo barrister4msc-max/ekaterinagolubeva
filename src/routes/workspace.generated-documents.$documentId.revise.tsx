@@ -782,7 +782,7 @@ if (hasRawOnlyMaterials) {
 
       {step === "analysis" && (
         <section className="space-y-4">
-          <AnalysisView analysis={analysis} />
+          <AnalysisView analysis={analysis} doc={doc ?? null} />
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setStep("materials")} className={BTN}>
               <ArrowLeft size={12} /> Назад к материалам
