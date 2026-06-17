@@ -343,7 +343,7 @@ function RevisePage() {
   if (!doc) return;
   setRunning(true);
   setAnalysis(null);
-
+  setAnalysisError(null);  
   try {
     console.log("[revision] runAnalysis start", {
   documentId: doc.id,
