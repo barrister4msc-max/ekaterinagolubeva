@@ -1100,12 +1100,55 @@ function AnalysisView({ analysis }: { analysis: AnalysisResult | null }) {
         items={normalized.contradictions}
         emptyText="Противоречий между новой информацией и текущей юридической позицией не обнаружено."
       />
-      <Section
-        icon={<FileWarning size={14} className="text-amber-200" />}
-        title="Недостающие доказательства"
-        items={normalized.missing_evidence}
-        emptyText="Дополнительных доказательств для пересмотра позиции не требуется."
-      />
+      <div className={`${GLASS} space-y-3 border-amber-300/30 p-5`}>
+  <div className="flex items-center gap-2 text-sm font-medium text-amber-100">
+    <FileWarning size={14} className="text-amber-200" />
+    <h3 className="font-display">Недостающие доказательства</h3>
+  </div>
+
+  {normalized.missing_evidence?.length ? (
+    <ul className="space-y-2 text-sm text-foreground/85">
+      {normalized.missing_evidence.map((item, i) => {
+        const title = evidenceTitle(item);
+        const description = evidenceDescription(item);
+        const priority =
+          item && typeof item === "object" ? item.priority : undefined;
+
+        return (
+          <li
+            key={i}
+            className="rounded-lg border border-white/10 bg-white/5 p-3"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              {priority && (
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[11px] ${priorityClass(
+                    priority,
+                  )}`}
+                >
+                  Приоритет: {priorityLabel(priority)}
+                </span>
+              )}
+
+              <div className="font-medium text-white">{title}</div>
+            </div>
+
+            {description && (
+              <div className="mt-2 text-xs leading-relaxed text-white/70">
+                <span className="text-white/50">Зачем нужно: </span>
+                {description}
+              </div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  ) : (
+    <div className="text-sm text-foreground/70">
+      Дополнительных доказательств для пересмотра позиции не требуется.
+    </div>
+  )}
+</div>
 
       {(lr.previous_law_assumptions?.length ||
         lr.still_applicable_laws?.length ||
