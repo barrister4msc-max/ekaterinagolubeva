@@ -346,7 +346,7 @@ for (let attempt = 0; attempt < 60; attempt += 1)
     break;
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 }
 
 if (!extractedDoc) {
