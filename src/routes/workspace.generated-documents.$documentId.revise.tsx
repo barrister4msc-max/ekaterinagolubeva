@@ -1217,10 +1217,11 @@ const missingEvidenceCount = missingEvidence.length;
       <div className="mt-3 flex gap-2">
   <button
     type="button"
-    className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white hover:bg-white/20"
-    onClick={() => navigator.clipboard.writeText(documentRequestText)}
+    className="rounded-lg border border-emerald-300/40 bg-emerald-400/20 px-3 py-2 text-sm text-emerald-50 hover:bg-emerald-400/30 disabled:opacity-50"
+    disabled={creatingRequest}
+    onClick={createDocumentRequest}
   >
-    Сформировать запрос документов
+    {creatingRequest ? "Формируем..." : "Сформировать запрос документов"}
   </button>
 </div>
       </>
