@@ -351,7 +351,7 @@ function DocumentDetailPage() {
         fontSize: "16px",
         lineHeight: 1.6,
       }}
-      className="block min-h-[680px] w-full resize-none border-0 bg-white p-0 text-slate-950 outline-none placeholder:text-slate-400"
+      className="block min-h-[680px] w-full resize-none border-0 bg-white p-0 font-serif text-[16px] font-medium leading-relaxed text-black outline-none placeholder:text-slate-500"
       placeholder="Текст документа..."
     />
   </div>
