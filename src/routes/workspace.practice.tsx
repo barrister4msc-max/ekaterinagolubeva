@@ -112,6 +112,9 @@ function PracticePage() {
   const makeTemplate = useServerFn(archiveMakeTemplate);
   const addToMatter = useServerFn(archiveAddToMatter);
   const approveTraining = useServerFn(archiveApproveTraining);
+  const classifyFn = useServerFn(archiveClassify);
+  const sendToKbFn = useServerFn(archiveSendToKbQueue);
+  const getTextFn = useServerFn(archiveGetExtractedText);
   const mList = useServerFn(matterList);
 
   const [items, setItems] = useState<ArchiveItem[]>([]);
@@ -126,6 +129,9 @@ function PracticePage() {
   const [matters, setMatters] = useState<{ id: string; title: string | null; matter_number: string | null }[]>([]);
   const [attachOpen, setAttachOpen] = useState<ArchiveItem | null>(null);
   const [attachMatterId, setAttachMatterId] = useState("");
+  const [classifyTarget, setClassifyTarget] = useState<ArchiveItem | null>(null);
+  const [kbTarget, setKbTarget] = useState<ArchiveItem | null>(null);
+  const [textTarget, setTextTarget] = useState<{ title: string; extracted_text: string; redacted_text: string | null } | null>(null);
 
   const baseFilter = useMemo(() => {
     const f: Record<string, any> = {};
