@@ -1021,6 +1021,18 @@ function evidenceDescription(item: any): string | null {
     null
   );
 }
+function evidenceImpact(item: any): string {
+  if (!item || typeof item !== "object") return "";
+
+  return (
+    item.impact ??
+    item.legal_impact ??
+    item.affects ??
+    item.why_important ??
+    item.risk_if_missing ??
+    ""
+  );
+}
 function AnalysisView({
   analysis,
   doc,
