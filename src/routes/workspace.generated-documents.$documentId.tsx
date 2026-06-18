@@ -346,7 +346,7 @@ function DocumentDetailPage() {
               readOnly={isApproved}
               spellCheck={false}
               style={{ fontSize: "15.5px", lineHeight: 1.75 }}
-              className="block w-full min-h-[640px] resize-y border-0 bg-white p-0 font-serif text-slate-900 outline-none placeholder:text-slate-400"
+              className="block min-h-[360px] max-h-[520px] w-full resize-y border-0 bg-white p-0 font-serif text-slate-900 outline-none placeholder:text-slate-400"
             />
             <p className="mt-4 border-t border-slate-200 pt-3 text-[11px] italic text-slate-500">
               Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
