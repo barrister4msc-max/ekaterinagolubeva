@@ -1102,11 +1102,13 @@ const missingEvidenceCount = missingEvidence.length;
 
   try {
     setCreatingRequest(true);
-
+    const cleanSourceTitle = (doc.title ?? "документ")
+  .replace(/^(Запрос документов\s*—\s*)+/i, "")
+  .trim();
     const { data, error } = await supabase
       .from("generated_legal_documents")
       .insert({
-        title: `Запрос документов — ${doc.title ?? "документ"}`,
+        title: `Запрос документов — ${cleanSourceTitle || "документ"}`,
         content: documentRequestText,
         status: "draft",
         category: "document_request",
