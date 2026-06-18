@@ -26,6 +26,7 @@ import {
 import { SourceUploadDialog } from "@/components/knowledge/source-upload-dialog";
 import { BulkSourceUploadDialog } from "@/components/knowledge/bulk-source-upload-dialog";
 import { recommendSourceFor } from "@/lib/recommended-source";
+import { ImportQueueTab } from "@/components/knowledge/import-queue-tab";
 
 
 export const Route = createFileRoute("/workspace/legal-knowledge")({
@@ -265,10 +266,16 @@ function LegalKnowledgePage() {
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="catalog">Каталог норм</TabsTrigger>
           <TabsTrigger value="sources">Источники</TabsTrigger>
+          <TabsTrigger value="import-queue">Очередь импорта</TabsTrigger>
           <TabsTrigger value="recommended">Рекомендованные</TabsTrigger>
           <TabsTrigger value="verification">Проверка актуальности</TabsTrigger>
 
         </TabsList>
+
+        <TabsContent value="import-queue">
+          <ImportQueueTab />
+        </TabsContent>
+
 
         <TabsContent value="dashboard" className="space-y-4">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
