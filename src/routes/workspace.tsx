@@ -3,11 +3,11 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, MessageSquareQuote, KanbanSquare, Building2, BookOpen, Briefcase, Library, FileSignature, FileText, ClipboardList, Archive } from "lucide-react";
-import workspaceBg from "@/assets/workspace-bg-wave.jpg.asset.json";
+import workspaceBg from "@/assets/workspace-bg-wave-wide.jpg.asset.json";
 
 const bgStyle: React.CSSProperties = {
   backgroundImage: `url(${workspaceBg.url})`,
-  backgroundSize: "76%",
+  backgroundSize: "cover",
   backgroundPosition: "center center",
   backgroundRepeat: "no-repeat",
   backgroundAttachment: "fixed",
