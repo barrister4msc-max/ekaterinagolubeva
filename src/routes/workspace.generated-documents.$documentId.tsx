@@ -336,7 +336,7 @@ function DocumentDetailPage() {
               </span>
             </div>
           )}
-          <div className="mx-auto w-full max-w-[794px] bg-[#fffdf7] px-[64px] py-[72px] shadow-2xl ring-1 ring-black/10">
+          <div className="mx-auto w-full max-w-[794px] px-[64px] py-[72px] shadow-2xl ring-1 ring-black/10" style={{ backgroundColor: "#fffdf7" }}>
   <textarea
     value={edited}
     onChange={(e) => {
