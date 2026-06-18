@@ -346,11 +346,13 @@ function DocumentDetailPage() {
     readOnly={isApproved}
     spellCheck={false}
     style={{
-      fontFamily: '"Times New Roman", Times, serif',
-      fontSize: "16px",
-      lineHeight: 1.7,
-    }}
-    className="block min-h-[900px] w-full resize-none border-0 bg-[#fffdf7] p-0 text-black outline-none placeholder:text-slate-500"
+  fontFamily: '"Times New Roman", Times, serif',
+  fontSize: "16px",
+  lineHeight: 1.7,
+  backgroundColor: "#fffdf7",
+  color: "#111827",
+}}
+    className="block min-h-[900px] w-full resize-none border-0 p-0 outline-none placeholder:text-slate-500"
     placeholder="Текст документа..."
   />
 
