@@ -309,22 +309,22 @@ function DocumentDetailPage() {
       </header>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`rounded-full border px-3 py-1 text-xs transition ${
-              tab === t.id
-                ? "border-white/40 bg-white/20 text-white"
-                : "border-white/15 bg-white/5 text-foreground/80 hover:bg-white/10"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+<div className="sticky top-3 z-40 flex flex-wrap gap-2 rounded-2xl border border-white/15 bg-slate-950/75 p-3 shadow-2xl backdrop-blur-xl">
+  {TABS.map((t) => (
+    <button
+      key={t.id}
+      type="button"
+      onClick={() => setTab(t.id)}
+      className={`rounded-xl border px-4 py-2 text-sm font-semibold shadow-sm transition ${
+        tab === t.id
+          ? "border-emerald-300/60 bg-emerald-500/30 text-white"
+          : "border-white/20 bg-black/40 text-white/85 hover:border-white/35 hover:bg-white/15"
+      }`}
+    >
+      {t.label}
+    </button>
+  ))}
+</div>
 
       {tab === "document" && (
         <section className="relative space-y-3 pb-24">
