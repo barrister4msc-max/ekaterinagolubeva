@@ -336,7 +336,7 @@ function DocumentDetailPage() {
               </span>
             </div>
           )}
-          <div className="mx-auto w-full max-w-[794px] bg-white px-[64px] py-[72px] shadow-2xl ring-1 ring-black/10">
+          <div className="mx-auto w-full max-w-[794px] bg-[#fffdf7] px-[64px] py-[72px] shadow-2xl ring-1 ring-black/10">
   <textarea
     value={edited}
     onChange={(e) => {
@@ -350,7 +350,7 @@ function DocumentDetailPage() {
       fontSize: "16px",
       lineHeight: 1.7,
     }}
-    className="block min-h-[900px] w-full resize-none border-0 bg-white p-0 text-black outline-none placeholder:text-slate-500"
+    className="block min-h-[900px] w-full resize-none border-0 bg-[#fffdf7] p-0 text-black outline-none placeholder:text-slate-500"
     placeholder="Текст документа..."
   />
 
