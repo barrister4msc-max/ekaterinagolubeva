@@ -336,27 +336,25 @@ function DocumentDetailPage() {
               </span>
             </div>
           )}
-          <div className="mx-auto w-full max-w-[900px] rounded-3xl bg-slate-200/80 p-4 shadow-2xl ring-1 ring-white/20 sm:p-6">
-  <div className="mx-auto min-h-[780px] w-full max-w-[794px] rounded-sm bg-white px-[64px] py-[72px] shadow-xl ring-1 ring-black/10">
-    <textarea
-      value={edited}
-      onChange={(e) => {
-        setEdited(e.target.value);
-        setDirty(true);
-      }}
-      readOnly={isApproved}
-      spellCheck={false}
-      style={{
-        fontFamily: '"Times New Roman", Times, serif',
-        fontSize: "16px",
-        lineHeight: 1.6,
-      }}
-      className="block min-h-[680px] w-full resize-none border-0 bg-white p-0 font-serif text-[16px] font-medium leading-relaxed text-black outline-none placeholder:text-slate-500"
-      placeholder="Текст документа..."
-    />
-  </div>
+          <div className="mx-auto w-full max-w-[794px] bg-white px-[64px] py-[72px] shadow-2xl ring-1 ring-black/10">
+  <textarea
+    value={edited}
+    onChange={(e) => {
+      setEdited(e.target.value);
+      setDirty(true);
+    }}
+    readOnly={isApproved}
+    spellCheck={false}
+    style={{
+      fontFamily: '"Times New Roman", Times, serif',
+      fontSize: "16px",
+      lineHeight: 1.7,
+    }}
+    className="block min-h-[900px] w-full resize-none border-0 bg-white p-0 text-black outline-none placeholder:text-slate-500"
+    placeholder="Текст документа..."
+  />
 
-  <p className="mt-4 text-center text-[11px] italic text-slate-700">
+  <p className="mt-8 border-t border-slate-200 pt-3 text-center text-[11px] italic text-slate-500">
     Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
   </p>
 </div>
