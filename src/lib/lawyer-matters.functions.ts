@@ -862,10 +862,11 @@ export const archiveGetExtractedText = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!row) throw new Error("Элемент не найден");
     const md = (row.metadata ?? {}) as Record<string, any>;
+    // Per spec: extracted_text = coalesce(content, metadata->>'extracted_text')
     const extracted_text: string =
+      (typeof row.content === "string" && row.content) ||
       (typeof md.extracted_text === "string" && md.extracted_text) ||
       (typeof md.ocr_text === "string" && md.ocr_text) ||
-      (typeof row.content === "string" && row.content) ||
       "";
     return {
       id: row.id,
@@ -897,22 +898,28 @@ export const archiveClassify = createServerFn({ method: "POST" })
     await assertAdmin(supabase, userId);
     const { data: row, error: e1 } = await supabase
       .from("lawyer_archive_items")
-      .select("category, metadata")
+      .select("category, item_type, metadata")
       .eq("id", data.id)
       .maybeSingle();
     if (e1) throw new Error(e1.message);
     if (!row) throw new Error("Элемент не найден");
     const md = { ...((row.metadata as Record<string, any>) ?? {}) };
+    // Per spec: write practice_area / document_family / subcategory / document_type / role into metadata.
     if (data.practice_area !== undefined) md.practice_area = data.practice_area;
     if (data.document_family !== undefined) md.document_family = data.document_family;
     if (data.subcategory !== undefined) md.subcategory = data.subcategory;
     if (data.document_type !== undefined) md.document_type = data.document_type;
-    if (data.document_role !== undefined) md.document_role = data.document_role;
+    if (data.document_role !== undefined) {
+      md.role = data.document_role;
+      md.document_role = data.document_role; // backward compat for existing readers
+    }
     md.classification_status = "classified";
     md.classified_by = userId;
     md.classified_at = new Date().toISOString();
+    // Per spec: also update category column + item_type column from the selected document_type.
     const patch: Record<string, unknown> = { metadata: md };
     if (data.category !== undefined) patch.category = data.category;
+    if (data.document_type !== undefined) patch.item_type = data.document_type;
     const { error } = await (supabase.from("lawyer_archive_items") as any).update(patch).eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -924,8 +931,9 @@ export const archiveSendToKbQueue = createServerFn({ method: "POST" })
     z
       .object({
         archive_item_id: z.string().uuid(),
-        source_type: z.enum(["ekaterina_practice", "template", "memo"]),
-        category: z.string().trim().min(1).max(80),
+        // Optional overrides — merged into archive metadata, then final values are derived per spec.
+        source_type: z.enum(["ekaterina_practice", "template", "memo"]).optional(),
+        category: z.string().trim().min(1).max(80).optional(),
         subcategory: z.string().max(80).optional(),
         document_type: z.string().max(80).optional(),
         contains_personal_data: z.boolean().optional(),
@@ -949,51 +957,85 @@ export const archiveSendToKbQueue = createServerFn({ method: "POST" })
     if (e1) throw new Error(e1.message);
     if (!item) throw new Error("Элемент архива не найден");
 
-    const md = (item.metadata ?? {}) as Record<string, any>;
-    if (md.kb_queue_id) {
-      throw new Error("Этот документ уже отправлен в очередь импорта KB");
-    }
+    const mdIn = (item.metadata ?? {}) as Record<string, any>;
+    if (mdIn.kb_queue_id) throw new Error("Этот документ уже отправлен в очередь импорта KB");
+
+    // Merge user overrides into metadata so the archive row stays the source of truth.
+    const md: Record<string, any> = { ...mdIn };
+    if (data.subcategory !== undefined) md.subcategory = data.subcategory;
+    if (data.document_type !== undefined) md.document_type = data.document_type;
+    if (data.contains_personal_data !== undefined) md.contains_personal_data = data.contains_personal_data;
+    if (data.contains_passport_data !== undefined) md.contains_passport_data = data.contains_passport_data;
+    if (data.contains_bank_data !== undefined) md.contains_bank_data = data.contains_bank_data;
+    if (data.contains_signature !== undefined) md.contains_signature = data.contains_signature;
+    if (data.requires_redaction !== undefined) md.requires_redaction = data.requires_redaction;
+    if (data.redacted_text !== undefined) md.redacted_text = data.redacted_text;
+
+    // Spec-driven derived values (read columns + metadata; never assume nonexistent columns).
+    const archive_name: string | null =
+      (typeof md.archive_name === "string" && md.archive_name) ||
+      (typeof md.archive_batch_id === "string" ? md.archive_batch_id : null);
+    const original_file_name: string =
+      (typeof md.original_file_name === "string" && md.original_file_name) ||
+      (typeof md.original_filename === "string" && md.original_filename) ||
+      item.title;
+    const category: string = data.category ?? item.category ?? "";
+    const subcategory: string | null = (typeof md.subcategory === "string" && md.subcategory) || null;
+    const document_type: string =
+      (typeof md.document_type === "string" && md.document_type) || item.item_type || "other";
+    const role: string | null =
+      typeof md.role === "string"
+        ? md.role
+        : typeof md.document_role === "string"
+          ? md.document_role
+          : null;
+    const source_type =
+      data.source_type ??
+      (role === "template" ? "template" : role === "memo" ? "memo" : "ekaterina_practice");
 
     const extracted_text: string =
-      (typeof md.extracted_text === "string" && md.extracted_text) ||
-      (typeof md.ocr_text === "string" && md.ocr_text) ||
       (typeof item.content === "string" && item.content) ||
+      (typeof md.extracted_text === "string" && md.extracted_text) ||
       "";
+    const redacted_text: string | null = typeof md.redacted_text === "string" ? md.redacted_text : null;
 
-    const archive_batch_id: string | null =
-      typeof md.archive_batch_id === "string" ? md.archive_batch_id : null;
-    const original_file_name: string =
-      (typeof md.original_filename === "string" && md.original_filename) || item.title;
+    const contains_personal_data = !!md.contains_personal_data;
+    const contains_passport_data = !!md.contains_passport_data;
+    const contains_bank_data = !!md.contains_bank_data;
+    const requires_redaction = md.requires_redaction === undefined ? true : !!md.requires_redaction;
+
+    if (!category) throw new Error("Не выбрана категория");
+    if (contains_passport_data) throw new Error("Документ содержит паспортные данные — обезличьте перед отправкой в KB");
+    if (contains_bank_data) throw new Error("Документ содержит банковские данные — обезличьте перед отправкой в KB");
+    if (!extracted_text.trim()) throw new Error("Нет извлечённого текста — нечего отправлять в KB");
 
     const queueMetadata: Record<string, any> = {
       source_origin: "lawyer_archive",
       archive_item_id: item.id,
-      archive_batch_id,
       original_file_name,
-      category: data.category,
-      subcategory: data.subcategory ?? null,
-      document_type: data.document_type ?? null,
+      category,
+      subcategory,
+      document_type,
       confidential: true,
       client_data_removed: false,
       approved_by_lawyer: false,
       verification_status: "lawyer_review_required",
     };
 
-    const insertRow = {
-      archive_name: archive_batch_id,
+    const insertRow: Record<string, any> = {
+      archive_name,
       original_file_name,
       storage_path: item.storage_path,
-      source_type: data.source_type,
-      category: data.category,
-      subcategory: data.subcategory ?? null,
-      document_type: data.document_type ?? "other",
+      source_type,
+      category,
+      subcategory,
+      document_type,
       extracted_text: extracted_text || null,
-      redacted_text: data.redacted_text ?? null,
-      contains_personal_data: data.contains_personal_data ?? false,
-      contains_passport_data: data.contains_passport_data ?? false,
-      contains_bank_data: data.contains_bank_data ?? false,
-      contains_signature: data.contains_signature ?? false,
-      requires_redaction: data.requires_redaction ?? true,
+      redacted_text,
+      contains_personal_data,
+      contains_passport_data,
+      contains_bank_data,
+      requires_redaction,
       import_status: "ready_for_review",
       approved_by_lawyer: false,
       metadata: queueMetadata,
@@ -1010,7 +1052,7 @@ export const archiveSendToKbQueue = createServerFn({ method: "POST" })
     const newMd = {
       ...md,
       kb_queue_id: queued.id,
-      kb_queue_sent_at: new Date().toISOString(),
+      sent_to_kb_at: new Date().toISOString(),
       kb_queue_sent_by: userId,
     };
     await supabase
