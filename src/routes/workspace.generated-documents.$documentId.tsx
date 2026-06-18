@@ -114,10 +114,9 @@ function pickScalar(meta: any, ...keys: string[]): any {
 function DocumentDetailPage() {
   const { documentId } = Route.useParams();
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  if (/\/workspace\/generated-documents\/[^/]+\/(revise|versions)$/.test(pathname)) {
-    return <Outlet />;
-  }
+    const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isNestedRoute = /\/workspace\/generated-documents\/[^/]+\/(revise|versions)$/.test(pathname);
+
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabId>("document");
   const [edited, setEdited] = useState<string>("");
