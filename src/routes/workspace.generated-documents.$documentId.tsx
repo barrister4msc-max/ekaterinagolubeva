@@ -237,7 +237,9 @@ function DocumentDetailPage() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
-
+    if (isNestedRoute) {
+    return <Outlet />;
+  }  
   if (isLoading) {
     return (
       <div className={`${GLASS} flex items-center gap-2 p-6 text-sm text-foreground/80`}>
