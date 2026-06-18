@@ -26,6 +26,7 @@ import {
 import { SourceUploadDialog } from "@/components/knowledge/source-upload-dialog";
 import { BulkSourceUploadDialog } from "@/components/knowledge/bulk-source-upload-dialog";
 import { recommendSourceFor } from "@/lib/recommended-source";
+import { ImportQueueTab } from "@/components/knowledge/import-queue-tab";
 
 
 export const Route = createFileRoute("/workspace/legal-knowledge")({
