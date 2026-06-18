@@ -1194,8 +1194,9 @@ const missingEvidenceCount = missingEvidence.length;
       {missingEvidence.map((item, i) => {
         const title = evidenceTitle(item);
         const description = evidenceDescription(item);
-        const priority =
-          item && typeof item === "object" ? item.priority : undefined;
+  const impact = evidenceImpact(item);
+  const priority =
+  item && typeof item === "object" ? item.priority : undefined;
 
         return (
           <li
@@ -1222,6 +1223,12 @@ const missingEvidenceCount = missingEvidence.length;
                 {description}
               </div>
             )}
+            {impact && (
+  <div className="mt-2 rounded-lg border border-white/10 bg-black/10 p-2 text-xs leading-relaxed text-white/70">
+    <span className="text-white/50">На что влияет отсутствие: </span>
+    {impact}
+  </div>
+)}
           </li>
         );
       })}
