@@ -401,8 +401,25 @@ function PracticePage() {
                                 <GraduationCap className="size-4" />
                               </Button>
                             )}
-                            <Button size="sm" variant="ghost" disabled title="Проанализировать (AI — следующий шаг)">
-                              <Sparkles className="size-4" />
+                            <Button size="sm" variant="ghost" title="Посмотреть текст" onClick={async () => {
+                              try {
+                                const r: any = await getTextFn({ data: { id: it.id } });
+                                setTextTarget({ title: r.title, extracted_text: r.extracted_text || "", redacted_text: r.redacted_text });
+                              } catch (e: any) { toast.error(e?.message ?? "Ошибка"); }
+                            }}>
+                              <Eye className="size-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" title="Классифицировать" onClick={() => setClassifyTarget(it)}>
+                              <Tags className="size-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title={md.kb_queue_id ? "Уже отправлено в очередь KB" : "Отправить в KB (очередь)"}
+                              disabled={!!md.kb_queue_id}
+                              onClick={() => setKbTarget(it)}
+                            >
+                              <Send className="size-4" />
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => handleDelete(it.id)} title="Удалить">
                               <Trash2 className="size-4" />
