@@ -1063,16 +1063,38 @@ const missingEvidenceCount = missingEvidence.length;
   const documentRequestText =
   missingEvidence.length > 0
     ? [
+        "Запрос документов",
+        "",
+        `По документу: ${doc?.title ?? "документ"}`,
+        "",
         "Для продолжения работы по делу просим предоставить следующие документы:",
         "",
-        ...missingEvidence.map((item: any, index: number) => {
-          const title =
-            typeof item === "object"
-              ? item.title ?? item.missing_item ?? "Документ"
-              : String(item);
+        ...missingEvidence.flatMap((item: any, index: number) => {
+          const title = evidenceTitle(item);
+          const description = evidenceDescription(item);
+          const impact = evidenceImpact(item);
+          const priority =
+            item && typeof item === "object" ? item.priority : undefined;
 
-          return `${index + 1}. ${title}`;
+          const lines = [`${index + 1}. ${title}`];
+
+          if (priority) {
+            lines.push(`Приоритет: ${priorityLabel(priority)}`);
+          }
+
+          if (description) {
+            lines.push(`Зачем необходимо: ${description}`);
+          }
+
+          if (impact) {
+            lines.push(`При отсутствии: ${impact}`);
+          }
+
+          lines.push("");
+
+          return lines;
         }),
+        "После получения указанных материалов правовая позиция и проект документа могут быть уточнены.",
       ].join("\n")
     : "";
   const createDocumentRequest = async () => {
