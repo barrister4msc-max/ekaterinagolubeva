@@ -326,7 +326,7 @@ function DocumentDetailPage() {
   ))}
 </div>
 
-      {tab === "document" && (
+      <div className="rounded-3xl bg-white/10 p-8 backdrop-blur-sm">
         <section className="relative space-y-3 pb-24">
           {isApproved && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-xs text-amber-50">
