@@ -336,22 +336,30 @@ function DocumentDetailPage() {
               </span>
             </div>
           )}
-          <div className="mx-auto w-full max-w-[1000px] rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-black/10 sm:p-8">
-            <textarea
-              value={edited}
-              onChange={(e) => {
-                setEdited(e.target.value);
-                setDirty(true);
-              }}
-              readOnly={isApproved}
-              spellCheck={false}
-              style={{ fontSize: "15.5px", lineHeight: 1.75 }}
-              className="block min-h-[360px] max-h-[520px] w-full resize-y border-0 bg-white p-0 font-serif text-slate-900 outline-none placeholder:text-slate-400"
-            />
-            <p className="mt-4 border-t border-slate-200 pt-3 text-[11px] italic text-slate-500">
-              Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
-            </p>
-          </div>
+          <div className="mx-auto w-full max-w-[900px] rounded-3xl bg-slate-200/80 p-4 shadow-2xl ring-1 ring-white/20 sm:p-6">
+  <div className="mx-auto min-h-[780px] w-full max-w-[794px] rounded-sm bg-white px-[64px] py-[72px] shadow-xl ring-1 ring-black/10">
+    <textarea
+      value={edited}
+      onChange={(e) => {
+        setEdited(e.target.value);
+        setDirty(true);
+      }}
+      readOnly={isApproved}
+      spellCheck={false}
+      style={{
+        fontFamily: '"Times New Roman", Times, serif',
+        fontSize: "16px",
+        lineHeight: 1.6,
+      }}
+      className="block min-h-[680px] w-full resize-none border-0 bg-white p-0 text-slate-950 outline-none placeholder:text-slate-400"
+      placeholder="Текст документа..."
+    />
+  </div>
+
+  <p className="mt-4 text-center text-[11px] italic text-slate-700">
+    Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
+  </p>
+</div>
           <div className="sticky bottom-4 z-50 mx-auto mt-6 flex w-full max-w-[1000px] flex-wrap gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
             <button
               type="button"
