@@ -1048,6 +1048,87 @@ export type Database = {
           },
         ]
       }
+      court_case_import_queue: {
+        Row: {
+          archive_name: string | null
+          case_name: string | null
+          case_number: string | null
+          contains_personal_data: boolean
+          court_name: string | null
+          created_at: string
+          document_type: string | null
+          extracted_court_reasoning: string | null
+          extracted_legal_position: string | null
+          extracted_tax_authority_position: string | null
+          extracted_taxpayer_position: string | null
+          id: string
+          import_error: string | null
+          import_status: string
+          metadata: Json
+          ocr_text: string | null
+          original_file_name: string
+          page_number: number | null
+          practice_area: string | null
+          redacted_text: string | null
+          requires_redaction: boolean
+          storage_path: string | null
+          updated_at: string
+          volume_number: string | null
+        }
+        Insert: {
+          archive_name?: string | null
+          case_name?: string | null
+          case_number?: string | null
+          contains_personal_data?: boolean
+          court_name?: string | null
+          created_at?: string
+          document_type?: string | null
+          extracted_court_reasoning?: string | null
+          extracted_legal_position?: string | null
+          extracted_tax_authority_position?: string | null
+          extracted_taxpayer_position?: string | null
+          id?: string
+          import_error?: string | null
+          import_status?: string
+          metadata?: Json
+          ocr_text?: string | null
+          original_file_name: string
+          page_number?: number | null
+          practice_area?: string | null
+          redacted_text?: string | null
+          requires_redaction?: boolean
+          storage_path?: string | null
+          updated_at?: string
+          volume_number?: string | null
+        }
+        Update: {
+          archive_name?: string | null
+          case_name?: string | null
+          case_number?: string | null
+          contains_personal_data?: boolean
+          court_name?: string | null
+          created_at?: string
+          document_type?: string | null
+          extracted_court_reasoning?: string | null
+          extracted_legal_position?: string | null
+          extracted_tax_authority_position?: string | null
+          extracted_taxpayer_position?: string | null
+          id?: string
+          import_error?: string | null
+          import_status?: string
+          metadata?: Json
+          ocr_text?: string | null
+          original_file_name?: string
+          page_number?: number | null
+          practice_area?: string | null
+          redacted_text?: string | null
+          requires_redaction?: boolean
+          storage_path?: string | null
+          updated_at?: string
+          volume_number?: string | null
+        }
+        Relationships: []
+      }
       court_cases: {
         Row: {
           ai_summary: string | null
@@ -3197,6 +3278,87 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_knowledge_import_queue: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_lawyer: boolean
+          archive_name: string | null
+          category: string
+          contains_bank_data: boolean
+          contains_passport_data: boolean
+          contains_personal_data: boolean
+          contains_signature: boolean
+          created_at: string
+          document_type: string | null
+          extracted_text: string | null
+          id: string
+          import_error: string | null
+          import_status: string
+          imported_chunk_id: string | null
+          metadata: Json
+          original_file_name: string
+          redacted_text: string | null
+          requires_redaction: boolean
+          source_type: string
+          storage_path: string | null
+          subcategory: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_lawyer?: boolean
+          archive_name?: string | null
+          category?: string
+          contains_bank_data?: boolean
+          contains_passport_data?: boolean
+          contains_personal_data?: boolean
+          contains_signature?: boolean
+          created_at?: string
+          document_type?: string | null
+          extracted_text?: string | null
+          id?: string
+          import_error?: string | null
+          import_status?: string
+          imported_chunk_id?: string | null
+          metadata?: Json
+          original_file_name: string
+          redacted_text?: string | null
+          requires_redaction?: boolean
+          source_type?: string
+          storage_path?: string | null
+          subcategory?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_lawyer?: boolean
+          archive_name?: string | null
+          category?: string
+          contains_bank_data?: boolean
+          contains_passport_data?: boolean
+          contains_personal_data?: boolean
+          contains_signature?: boolean
+          created_at?: string
+          document_type?: string | null
+          extracted_text?: string | null
+          id?: string
+          import_error?: string | null
+          import_status?: string
+          imported_chunk_id?: string | null
+          metadata?: Json
+          original_file_name?: string
+          redacted_text?: string | null
+          requires_redaction?: boolean
+          source_type?: string
+          storage_path?: string | null
+          subcategory?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       legal_law_chunks: {
         Row: {
           article: string | null
@@ -3954,6 +4116,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      practice_import_queue: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_lawyer: boolean
+          archive_name: string | null
+          contains_bank_data: boolean
+          contains_passport_data: boolean
+          contains_personal_data: boolean
+          created_at: string
+          document_type: string | null
+          extracted_text: string | null
+          extracted_text_source: string | null
+          id: string
+          import_error: string | null
+          import_status: string
+          metadata: Json
+          original_file_name: string
+          practice_area: string | null
+          redacted_text: string | null
+          requires_redaction: boolean
+          storage_path: string | null
+          subcategory: string | null
+          target_source_type: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_lawyer?: boolean
+          archive_name?: string | null
+          contains_bank_data?: boolean
+          contains_passport_data?: boolean
+          contains_personal_data?: boolean
+          created_at?: string
+          document_type?: string | null
+          extracted_text?: string | null
+          extracted_text_source?: string | null
+          id?: string
+          import_error?: string | null
+          import_status?: string
+          metadata?: Json
+          original_file_name: string
+          practice_area?: string | null
+          redacted_text?: string | null
+          requires_redaction?: boolean
+          storage_path?: string | null
+          subcategory?: string | null
+          target_source_type?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          approved_by_lawyer?: boolean
+          archive_name?: string | null
+          contains_bank_data?: boolean
+          contains_passport_data?: boolean
+          contains_personal_data?: boolean
+          created_at?: string
+          document_type?: string | null
+          extracted_text?: string | null
+          extracted_text_source?: string | null
+          id?: string
+          import_error?: string | null
+          import_status?: string
+          metadata?: Json
+          original_file_name?: string
+          practice_area?: string | null
+          redacted_text?: string | null
+          requires_redaction?: boolean
+          storage_path?: string | null
+          subcategory?: string | null
+          target_source_type?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
