@@ -1102,7 +1102,13 @@ const missingEvidenceCount = missingEvidence.length;
 
   try {
     setCreatingRequest(true);
-    const cleanSourceTitle = (doc.title ?? "документ")
+    const sourceTitle =
+  doc.metadata?.source_document_title ||
+  doc.metadata?.original_document_title ||
+  doc.title ||
+  "документ";
+
+const cleanSourceTitle = String(sourceTitle)
   .replace(/^(Запрос документов\s*—\s*)+/i, "")
   .trim();
     const { data, error } = await supabase
