@@ -845,3 +845,178 @@ export const archivePracticeStats = createServerFn({ method: "POST" })
     }
     return { stats };
   });
+
+/* ===== Practice → KB import queue ===== */
+
+export const archiveGetExtractedText = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data: row, error } = await supabase
+      .from("lawyer_archive_items")
+      .select("id, title, storage_path, content, metadata")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("Элемент не найден");
+    const md = (row.metadata ?? {}) as Record<string, any>;
+    const extracted_text: string =
+      (typeof md.extracted_text === "string" && md.extracted_text) ||
+      (typeof md.ocr_text === "string" && md.ocr_text) ||
+      (typeof row.content === "string" && row.content) ||
+      "";
+    return {
+      id: row.id,
+      title: row.title,
+      storage_path: row.storage_path,
+      extracted_text,
+      redacted_text: typeof md.redacted_text === "string" ? md.redacted_text : null,
+      metadata: md,
+    };
+  });
+
+export const archiveClassify = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        practice_area: z.string().max(50).optional(),
+        document_family: z.string().max(80).optional(),
+        category: z.string().max(80).optional(),
+        subcategory: z.string().max(80).optional(),
+        document_type: z.string().max(80).optional(),
+        document_role: z.string().max(50).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data: row, error: e1 } = await supabase
+      .from("lawyer_archive_items")
+      .select("category, metadata")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!row) throw new Error("Элемент не найден");
+    const md = { ...((row.metadata as Record<string, any>) ?? {}) };
+    if (data.practice_area !== undefined) md.practice_area = data.practice_area;
+    if (data.document_family !== undefined) md.document_family = data.document_family;
+    if (data.subcategory !== undefined) md.subcategory = data.subcategory;
+    if (data.document_type !== undefined) md.document_type = data.document_type;
+    if (data.document_role !== undefined) md.document_role = data.document_role;
+    md.classification_status = "classified";
+    md.classified_by = userId;
+    md.classified_at = new Date().toISOString();
+    const patch: Record<string, unknown> = { metadata: md };
+    if (data.category !== undefined) patch.category = data.category;
+    const { error } = await (supabase.from("lawyer_archive_items") as any).update(patch).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const archiveSendToKbQueue = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        archive_item_id: z.string().uuid(),
+        source_type: z.enum(["ekaterina_practice", "template", "memo"]),
+        category: z.string().trim().min(1).max(80),
+        subcategory: z.string().max(80).optional(),
+        document_type: z.string().max(80).optional(),
+        contains_personal_data: z.boolean().optional(),
+        contains_passport_data: z.boolean().optional(),
+        contains_bank_data: z.boolean().optional(),
+        contains_signature: z.boolean().optional(),
+        requires_redaction: z.boolean().optional(),
+        redacted_text: z.string().max(500_000).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const { data: item, error: e1 } = await supabase
+      .from("lawyer_archive_items")
+      .select("id, title, storage_path, content, category, item_type, metadata")
+      .eq("id", data.archive_item_id)
+      .maybeSingle();
+    if (e1) throw new Error(e1.message);
+    if (!item) throw new Error("Элемент архива не найден");
+
+    const md = (item.metadata ?? {}) as Record<string, any>;
+    if (md.kb_queue_id) {
+      throw new Error("Этот документ уже отправлен в очередь импорта KB");
+    }
+
+    const extracted_text: string =
+      (typeof md.extracted_text === "string" && md.extracted_text) ||
+      (typeof md.ocr_text === "string" && md.ocr_text) ||
+      (typeof item.content === "string" && item.content) ||
+      "";
+
+    const archive_batch_id: string | null =
+      typeof md.archive_batch_id === "string" ? md.archive_batch_id : null;
+    const original_file_name: string =
+      (typeof md.original_filename === "string" && md.original_filename) || item.title;
+
+    const queueMetadata: Record<string, any> = {
+      source_origin: "lawyer_archive",
+      archive_item_id: item.id,
+      archive_batch_id,
+      original_file_name,
+      category: data.category,
+      subcategory: data.subcategory ?? null,
+      document_type: data.document_type ?? null,
+      confidential: true,
+      client_data_removed: false,
+      approved_by_lawyer: false,
+      verification_status: "lawyer_review_required",
+    };
+
+    const insertRow = {
+      archive_name: archive_batch_id,
+      original_file_name,
+      storage_path: item.storage_path,
+      source_type: data.source_type,
+      category: data.category,
+      subcategory: data.subcategory ?? null,
+      document_type: data.document_type ?? "other",
+      extracted_text: extracted_text || null,
+      redacted_text: data.redacted_text ?? null,
+      contains_personal_data: data.contains_personal_data ?? false,
+      contains_passport_data: data.contains_passport_data ?? false,
+      contains_bank_data: data.contains_bank_data ?? false,
+      contains_signature: data.contains_signature ?? false,
+      requires_redaction: data.requires_redaction ?? true,
+      import_status: "ready_for_review",
+      approved_by_lawyer: false,
+      metadata: queueMetadata,
+    };
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: queued, error: e2 } = await supabaseAdmin
+      .from("legal_knowledge_import_queue")
+      .insert(insertRow)
+      .select("id")
+      .single();
+    if (e2) throw new Error(e2.message);
+
+    const newMd = {
+      ...md,
+      kb_queue_id: queued.id,
+      kb_queue_sent_at: new Date().toISOString(),
+      kb_queue_sent_by: userId,
+    };
+    await supabase
+      .from("lawyer_archive_items")
+      .update({ metadata: newMd })
+      .eq("id", item.id);
+
+    return { ok: true, queue_id: queued.id };
+  });

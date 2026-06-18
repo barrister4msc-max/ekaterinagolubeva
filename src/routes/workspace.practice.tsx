@@ -17,7 +17,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Briefcase, FileText, Star, FolderArchive, Layers, ExternalLink, Trash2, Link2, Wand2, Sparkles, ShieldCheck, Eraser, GraduationCap } from "lucide-react";
+import { Briefcase, FileText, Star, FolderArchive, Layers, ExternalLink, Trash2, Link2, Wand2, ShieldCheck, Eraser, GraduationCap, Send, Tags, Eye } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import {
   archivePracticeList,
   archivePracticeStats,
@@ -27,6 +30,9 @@ import {
   archiveMakeTemplate,
   archiveAddToMatter,
   archiveApproveTraining,
+  archiveClassify,
+  archiveSendToKbQueue,
+  archiveGetExtractedText,
   matterList,
 } from "@/lib/lawyer-matters.functions";
 import { ZipUploadDialog } from "@/components/practice/zip-upload-dialog";
@@ -106,6 +112,9 @@ function PracticePage() {
   const makeTemplate = useServerFn(archiveMakeTemplate);
   const addToMatter = useServerFn(archiveAddToMatter);
   const approveTraining = useServerFn(archiveApproveTraining);
+  const classifyFn = useServerFn(archiveClassify);
+  const sendToKbFn = useServerFn(archiveSendToKbQueue);
+  const getTextFn = useServerFn(archiveGetExtractedText);
   const mList = useServerFn(matterList);
 
   const [items, setItems] = useState<ArchiveItem[]>([]);
@@ -120,6 +129,9 @@ function PracticePage() {
   const [matters, setMatters] = useState<{ id: string; title: string | null; matter_number: string | null }[]>([]);
   const [attachOpen, setAttachOpen] = useState<ArchiveItem | null>(null);
   const [attachMatterId, setAttachMatterId] = useState("");
+  const [classifyTarget, setClassifyTarget] = useState<ArchiveItem | null>(null);
+  const [kbTarget, setKbTarget] = useState<ArchiveItem | null>(null);
+  const [textTarget, setTextTarget] = useState<{ title: string; extracted_text: string; redacted_text: string | null } | null>(null);
 
   const baseFilter = useMemo(() => {
     const f: Record<string, any> = {};
@@ -389,8 +401,25 @@ function PracticePage() {
                                 <GraduationCap className="size-4" />
                               </Button>
                             )}
-                            <Button size="sm" variant="ghost" disabled title="Проанализировать (AI — следующий шаг)">
-                              <Sparkles className="size-4" />
+                            <Button size="sm" variant="ghost" title="Посмотреть текст" onClick={async () => {
+                              try {
+                                const r: any = await getTextFn({ data: { id: it.id } });
+                                setTextTarget({ title: r.title, extracted_text: r.extracted_text || "", redacted_text: r.redacted_text });
+                              } catch (e: any) { toast.error(e?.message ?? "Ошибка"); }
+                            }}>
+                              <Eye className="size-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" title="Классифицировать" onClick={() => setClassifyTarget(it)}>
+                              <Tags className="size-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title={md.kb_queue_id ? "Уже отправлено в очередь KB" : "Отправить в KB (очередь)"}
+                              disabled={!!md.kb_queue_id}
+                              onClick={() => setKbTarget(it)}
+                            >
+                              <Send className="size-4" />
                             </Button>
                             <Button size="sm" variant="ghost" onClick={() => handleDelete(it.id)} title="Удалить">
                               <Trash2 className="size-4" />
@@ -474,6 +503,47 @@ function PracticePage() {
         </DialogContent>
       </Dialog>
 
+      <ClassifyDialog
+        item={classifyTarget}
+        onClose={() => setClassifyTarget(null)}
+        onSaved={() => { setClassifyTarget(null); reload(); }}
+        save={async (patch) => {
+          if (!classifyTarget) return;
+          await classifyFn({ data: { id: classifyTarget.id, ...patch } });
+          toast.success("Классификация сохранена");
+        }}
+      />
+
+      <SendToKbDialog
+        item={kbTarget}
+        onClose={() => setKbTarget(null)}
+        onSent={() => { setKbTarget(null); reload(); }}
+        send={async (payload) => {
+          if (!kbTarget) return;
+          await sendToKbFn({ data: { archive_item_id: kbTarget.id, ...payload } });
+          toast.success("Отправлено в очередь импорта KB");
+        }}
+      />
+
+      <Dialog open={!!textTarget} onOpenChange={(o) => { if (!o) setTextTarget(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle>{textTarget?.title}</DialogTitle></DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-auto">
+            <div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Извлечённый текст</div>
+              <pre className="text-xs whitespace-pre-wrap bg-muted/40 p-3 rounded">{textTarget?.extracted_text || "(текст не извлечён)"}</pre>
+            </div>
+            {textTarget?.redacted_text && (
+              <div>
+                <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Обезличенный текст</div>
+                <pre className="text-xs whitespace-pre-wrap bg-muted/40 p-3 rounded">{textTarget.redacted_text}</pre>
+              </div>
+            )}
+          </div>
+          <DialogFooter><Button variant="ghost" onClick={() => setTextTarget(null)}>Закрыть</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <AnonymizeDialog
         open={!!anonTarget}
         onOpenChange={(o) => { if (!o) setAnonTarget(null); }}
@@ -481,5 +551,288 @@ function PracticePage() {
         onCreated={reload}
       />
     </div>
+  );
+}
+
+const KB_CATEGORIES = ["tax", "real_estate", "contracts", "court", "corporate", "compliance"];
+const KB_SOURCE_TYPES: { v: "ekaterina_practice" | "template" | "memo"; l: string }[] = [
+  { v: "ekaterina_practice", l: "Практика Екатерины" },
+  { v: "template", l: "Шаблон" },
+  { v: "memo", l: "Методология / памятка" },
+];
+const KB_DOCUMENT_TYPES = [
+  "legal_analysis", "legal_position", "contract_example", "contract_template",
+  "lease_agreement", "addendum", "act", "claim", "response_to_claim",
+  "termination_letter", "notice", "complaint", "objections",
+  "court_document", "court_decision", "due_diligence", "checklist", "memo", "other",
+];
+
+function ClassifyDialog({
+  item, onClose, onSaved, save,
+}: {
+  item: ArchiveItem | null;
+  onClose: () => void;
+  onSaved: () => void;
+  save: (patch: { practice_area?: string; document_family?: string; category?: string; subcategory?: string; document_type?: string; document_role?: string }) => Promise<void>;
+}) {
+  const [practiceArea, setPracticeArea] = useState("");
+  const [docFamily, setDocFamily] = useState("");
+  const [category, setCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
+  const [docType, setDocType] = useState("");
+  const [role, setRole] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!item) return;
+    const md = (item.metadata ?? {}) as any;
+    setPracticeArea(md.practice_area ?? "");
+    setDocFamily(md.document_family ?? "");
+    setCategory(item.category ?? md.category ?? "");
+    setSubcategory(md.subcategory ?? "");
+    setDocType(md.document_type ?? "");
+    setRole(md.document_role ?? "");
+  }, [item]);
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Классификация документа</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground truncate">{item?.title}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Направление практики</Label>
+              <Select value={practiceArea || "__none"} onValueChange={(v) => setPracticeArea(v === "__none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">—</SelectItem>
+                  {PRACTICE_AREAS.map((a) => <SelectItem key={a.v} value={a.v}>{a.l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Семейство документа</Label>
+              <Select value={docFamily || "__none"} onValueChange={(v) => setDocFamily(v === "__none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">—</SelectItem>
+                  {DOC_FAMILIES.map((a) => <SelectItem key={a.v} value={a.v}>{a.l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Категория KB</Label>
+              <Select value={category || "__none"} onValueChange={(v) => setCategory(v === "__none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">—</SelectItem>
+                  {KB_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Подкатегория</Label>
+              <Input value={subcategory} onChange={(e) => setSubcategory(e.target.value)} placeholder="например, lease_disputes" />
+            </div>
+            <div>
+              <Label className="text-xs">Тип документа</Label>
+              <Select value={docType || "__none"} onValueChange={(v) => setDocType(v === "__none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">—</SelectItem>
+                  {KB_DOCUMENT_TYPES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Качество</Label>
+              <Select value={role || "__none"} onValueChange={(v) => setRole(v === "__none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">—</SelectItem>
+                  {DOC_ROLES.map((r) => <SelectItem key={r.v} value={r.v}>{r.l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>Отмена</Button>
+          <Button
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await save({
+                  practice_area: practiceArea || undefined,
+                  document_family: docFamily || undefined,
+                  category: category || undefined,
+                  subcategory: subcategory || undefined,
+                  document_type: docType || undefined,
+                  document_role: role || undefined,
+                });
+                onSaved();
+              } catch (e: any) {
+                toast.error(e?.message ?? "Ошибка");
+              } finally {
+                setSaving(false);
+              }
+            }}
+          >Сохранить</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SendToKbDialog({
+  item, onClose, onSent, send,
+}: {
+  item: ArchiveItem | null;
+  onClose: () => void;
+  onSent: () => void;
+  send: (payload: {
+    source_type: "ekaterina_practice" | "template" | "memo";
+    category: string;
+    subcategory?: string;
+    document_type?: string;
+    contains_personal_data?: boolean;
+    contains_passport_data?: boolean;
+    contains_bank_data?: boolean;
+    contains_signature?: boolean;
+    requires_redaction?: boolean;
+    redacted_text?: string;
+  }) => Promise<void>;
+}) {
+  const [sourceType, setSourceType] = useState<"ekaterina_practice" | "template" | "memo">("ekaterina_practice");
+  const [category, setCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
+  const [docType, setDocType] = useState("");
+  const [hasPersonal, setHasPersonal] = useState(false);
+  const [hasPassport, setHasPassport] = useState(false);
+  const [hasBank, setHasBank] = useState(false);
+  const [hasSignature, setHasSignature] = useState(false);
+  const [requiresRedaction, setRequiresRedaction] = useState(true);
+  const [redactedText, setRedactedText] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!item) return;
+    const md = (item.metadata ?? {}) as any;
+    setSourceType(item.item_type === "template" ? "template" : "ekaterina_practice");
+    setCategory(item.category ?? md.category ?? "");
+    setSubcategory(md.subcategory ?? "");
+    setDocType(md.document_type ?? "");
+    setHasPersonal(false);
+    setHasPassport(false);
+    setHasBank(false);
+    setHasSignature(false);
+    setRequiresRedaction(true);
+    setRedactedText("");
+  }, [item]);
+
+  const blocked = hasPassport || hasBank;
+
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader><DialogTitle>Отправить в очередь импорта KB</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <p className="text-xs text-muted-foreground truncate">{item?.title}</p>
+          <p className="text-xs text-muted-foreground">
+            Документ попадёт в <code>legal_knowledge_import_queue</code> со статусом <b>ready_for_review</b>.
+            Одобрение и импорт в KB выполняются в разделе «База знаний → Очередь импорта».
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Тип источника</Label>
+              <Select value={sourceType} onValueChange={(v) => setSourceType(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {KB_SOURCE_TYPES.map((s) => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Категория</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger><SelectValue placeholder="Выберите" /></SelectTrigger>
+                <SelectContent>
+                  {KB_CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Подкатегория</Label>
+              <Input value={subcategory} onChange={(e) => setSubcategory(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Тип документа</Label>
+              <Select value={docType || "__none"} onValueChange={(v) => setDocType(v === "__none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">—</SelectItem>
+                  {KB_DOCUMENT_TYPES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <label className="flex items-center gap-2"><Checkbox checked={hasPersonal} onCheckedChange={(v) => setHasPersonal(!!v)} /> Персональные данные</label>
+            <label className="flex items-center gap-2"><Checkbox checked={hasPassport} onCheckedChange={(v) => setHasPassport(!!v)} /> Паспортные данные</label>
+            <label className="flex items-center gap-2"><Checkbox checked={hasBank} onCheckedChange={(v) => setHasBank(!!v)} /> Банковские данные</label>
+            <label className="flex items-center gap-2"><Checkbox checked={hasSignature} onCheckedChange={(v) => setHasSignature(!!v)} /> Подпись/печать</label>
+            <label className="flex items-center gap-2 col-span-2"><Checkbox checked={requiresRedaction} onCheckedChange={(v) => setRequiresRedaction(!!v)} /> Требует обезличивания</label>
+          </div>
+
+          {blocked && (
+            <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
+              Документы с паспортными или банковскими данными нельзя импортировать в KB напрямую.
+              Сначала обезличьте документ.
+            </div>
+          )}
+
+          <div>
+            <Label className="text-xs">Обезличенный текст (опционально)</Label>
+            <Textarea
+              rows={4}
+              value={redactedText}
+              onChange={(e) => setRedactedText(e.target.value)}
+              placeholder="Если уже подготовили обезличенную версию — вставьте сюда"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={sending}>Отмена</Button>
+          <Button
+            disabled={sending || blocked || !category}
+            onClick={async () => {
+              setSending(true);
+              try {
+                await send({
+                  source_type: sourceType,
+                  category,
+                  subcategory: subcategory || undefined,
+                  document_type: docType || undefined,
+                  contains_personal_data: hasPersonal,
+                  contains_passport_data: hasPassport,
+                  contains_bank_data: hasBank,
+                  contains_signature: hasSignature,
+                  requires_redaction: requiresRedaction,
+                  redacted_text: redactedText || undefined,
+                });
+                onSent();
+              } catch (e: any) {
+                toast.error(e?.message ?? "Ошибка");
+              } finally {
+                setSending(false);
+              }
+            }}
+          >Отправить в очередь</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
