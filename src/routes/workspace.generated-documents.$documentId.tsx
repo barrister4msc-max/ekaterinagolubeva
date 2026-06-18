@@ -348,7 +348,7 @@ function DocumentDetailPage() {
     style={{
   fontFamily: '"Times New Roman", Times, serif',
   fontSize: "16px",
-  lineHeight: 1.7,
+  lineHeight: 1.9,
   backgroundColor: "#fffdf7",
   color: "#111827",
 }}
