@@ -913,7 +913,7 @@ export const archiveClassify = createServerFn({ method: "POST" })
     md.classified_at = new Date().toISOString();
     const patch: Record<string, unknown> = { metadata: md };
     if (data.category !== undefined) patch.category = data.category;
-    const { error } = await supabase.from("lawyer_archive_items").update(patch).eq("id", data.id);
+    const { error } = await (supabase.from("lawyer_archive_items") as any).update(patch).eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
