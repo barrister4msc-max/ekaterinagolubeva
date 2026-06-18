@@ -6,7 +6,7 @@ import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, Message
 import workspaceBg from "@/assets/workspace-bg-wave-wide-light.jpg";
 
 const bgStyle: React.CSSProperties = {
-  backgroundImage: `url(${workspaceBg.url})`,
+  backgroundImage: `url(${workspaceBg})`,
   backgroundSize: "cover",
   backgroundPosition: "center center",
   backgroundRepeat: "no-repeat",
