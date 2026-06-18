@@ -327,7 +327,7 @@ function DocumentDetailPage() {
       </div>
 
       {tab === "document" && (
-        <section className="space-y-3">
+        <section className="relative space-y-3 pb-24">
           {isApproved && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-xs text-amber-50">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
