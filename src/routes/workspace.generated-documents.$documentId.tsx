@@ -45,13 +45,13 @@ type DocRow = {
 
 const GLASS = "rounded-2xl border border-white/15 bg-white/10 backdrop-blur-md";
 const BTN =
-  "inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-foreground/90 backdrop-blur transition hover:bg-white/15 disabled:opacity-50";
+  "inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50";
 const BTN_PRIMARY =
   "inline-flex items-center gap-1.5 rounded-lg border border-sky-300/40 bg-sky-400/20 px-3 py-1.5 text-xs text-sky-50 backdrop-blur transition hover:bg-sky-400/30 disabled:opacity-50";
 const BTN_AMBER =
-  "inline-flex items-center gap-1.5 rounded-lg border border-amber-300/40 bg-amber-400/20 px-3 py-1.5 text-xs text-amber-50 backdrop-blur transition hover:bg-amber-400/30 disabled:opacity-50";
+  "inline-flex items-center gap-2 rounded-lg border border-amber-500 bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-amber-600 disabled:opacity-50";
 const BTN_EMERALD =
-  "inline-flex items-center gap-1.5 rounded-lg border border-emerald-300/40 bg-emerald-400/20 px-3 py-1.5 text-xs text-emerald-50 backdrop-blur transition hover:bg-emerald-400/30 disabled:opacity-50";
+  "inline-flex items-center gap-2 rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50";
 const CHIP =
   "inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-foreground/80";
 
