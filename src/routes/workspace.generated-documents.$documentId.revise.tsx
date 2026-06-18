@@ -1126,7 +1126,7 @@ const cleanSourceTitle = String(sourceTitle)
         metadata: {
           source: "revision_required_fixes",
           source_document_id: doc.id,
-          source_document_title: doc.title,
+          source_document_title: cleanSourceTitle || "документ",
           missing_evidence: missingEvidence,
           created_from_revision: true,
         },
