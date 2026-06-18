@@ -211,17 +211,27 @@ export const lkqImportToKb = createServerFn({ method: "POST" })
       .single();
     if (insErr) throw new Error(insErr.message);
 
+    let embeddingError: string | null = null;
+    try {
+      const { error: fnErr } = await supabaseAdmin.functions.invoke("embed-legal-knowledge", {
+        body: { chunk_id: inserted.id },
+      });
+      if (fnErr) embeddingError = fnErr.message || String(fnErr);
+    } catch (e: any) {
+      embeddingError = e?.message ?? String(e);
+    }
+
     const now = new Date().toISOString();
     const { error: updErr } = await supabaseAdmin
       .from("legal_knowledge_import_queue")
       .update({
         import_status: "imported",
         imported_chunk_id: inserted.id,
-        import_error: null,
+        import_error: embeddingError ? `Imported to KB, but embedding failed: ${embeddingError}` : null,
         updated_at: now,
       })
       .eq("id", data.id);
     if (updErr) throw new Error(updErr.message);
 
-    return { ok: true, chunk_id: inserted.id };
+    return { ok: true, chunk_id: inserted.id, embedding_failed: !!embeddingError };
   });
