@@ -1367,9 +1367,7 @@ export const archiveExtractTextBatch = createServerFn({ method: "POST" })
         const patch: Record<string, any> = { metadata: newMd };
         if (result.status === "completed" && result.text.length > 0) patch.content = result.text;
 
-        const { error: upErr } = await supabaseAdmin
-          .from("lawyer_archive_items")
-          .update(patch)
+        const { error: upErr } = await (supabaseAdmin.from("lawyer_archive_items") as any).update(patch)
           .eq("id", r.id);
         if (upErr) throw new Error(upErr.message);
 
@@ -1387,9 +1385,7 @@ export const archiveExtractTextBatch = createServerFn({ method: "POST" })
           text_extraction_error: e?.message ?? String(e),
           text_extracted_at: new Date().toISOString(),
         };
-        await supabaseAdmin
-          .from("lawyer_archive_items")
-          .update({ metadata: newMd })
+        await (supabaseAdmin.from("lawyer_archive_items") as any).update({ metadata: newMd })
           .eq("id", r.id);
       }
     }
@@ -1450,9 +1446,7 @@ export const archiveOcrBatch = createServerFn({ method: "POST" })
           requires_ocr: false,
         };
         delete newMd.text_extraction_error;
-        const { error: upErr } = await supabaseAdmin
-          .from("lawyer_archive_items")
-          .update({ content: out.text, metadata: newMd })
+        const { error: upErr } = await (supabaseAdmin.from("lawyer_archive_items") as any).update({ content: out.text, metadata: newMd })
           .eq("id", r.id);
         if (upErr) throw new Error(upErr.message);
         ocr_completed += 1;
@@ -1464,9 +1458,7 @@ export const archiveOcrBatch = createServerFn({ method: "POST" })
           text_extraction_error: e?.message ?? String(e),
           ocr_last_attempt_at: new Date().toISOString(),
         };
-        await supabaseAdmin
-          .from("lawyer_archive_items")
-          .update({ metadata: newMd })
+        await (supabaseAdmin.from("lawyer_archive_items") as any).update({ metadata: newMd })
           .eq("id", r.id);
       }
     }
@@ -1556,9 +1548,7 @@ export const archiveProcessBatchFully = createServerFn({ method: "POST" })
           requires_ocr: false,
         };
         delete newMd.text_extraction_error;
-        await supabaseAdmin
-          .from("lawyer_archive_items")
-          .update({ content: out.text, metadata: newMd })
+        await (supabaseAdmin.from("lawyer_archive_items") as any).update({ content: out.text, metadata: newMd })
           .eq("id", r.id);
         ocr_completed += 1;
       } catch {
