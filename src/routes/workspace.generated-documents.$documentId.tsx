@@ -338,6 +338,7 @@ function DocumentDetailPage() {
             </div>
           )}
           <div className="mx-auto w-full max-w-[720px] px-[80px] py-[90px] shadow-2xl ring-1 ring-black/10" style={{ backgroundColor: "#fffdf7" }}>
+  {editMode ? (
   <textarea
     value={edited}
     onChange={(e) => {
@@ -347,15 +348,28 @@ function DocumentDetailPage() {
     readOnly={isApproved}
     spellCheck={false}
     style={{
-  fontFamily: '"Times New Roman", Times, serif',
-  fontSize: "18px",
-  lineHeight: 1.9,
-  backgroundColor: "#fffdf7",
-  color: "#111827",
-}}
+      fontFamily: '"Times New Roman", Times, serif',
+      fontSize: "18px",
+      lineHeight: 1.9,
+      backgroundColor: "#fffdf7",
+      color: "#111827",
+    }}
     className="block min-h-[900px] w-full resize-none border-0 p-0 outline-none placeholder:text-slate-500"
     placeholder="Текст документа..."
   />
+) : (
+  <div
+    style={{
+      fontFamily: '"Times New Roman", Times, serif',
+      fontSize: "18px",
+      lineHeight: 1.9,
+      color: "#111827",
+    }}
+    className="min-h-[900px] whitespace-pre-wrap"
+  >
+    {edited || "Документ пуст"}
+  </div>
+)}
 
   <p className="mt-8 border-t border-slate-200 pt-3 text-center text-[11px] italic text-slate-500">
     Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
