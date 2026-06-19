@@ -487,9 +487,9 @@ function PracticePage() {
                       <TableCell className="font-mono text-xs">{b.id}</TableCell>
                       <TableCell>{b.count}</TableCell>
                       <TableCell className="text-xs">{new Date(b.created_at).toLocaleString("ru-RU")}</TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => { /* could filter by batch */ toast.message(`Партия ${b.id}`); }}>
-                          Открыть
+                      <TableCell className="text-right space-x-1">
+                        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ batch_id: b.id })}>
+                          <Wand2 className="size-4 mr-1" /> AI классифицировать партию
                         </Button>
                       </TableCell>
                     </TableRow>
