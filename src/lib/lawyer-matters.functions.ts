@@ -1082,3 +1082,208 @@ export const archiveSendToKbQueue = createServerFn({ method: "POST" })
 
     return { ok: true, queue_id: queued.id };
   });
+
+/* ===== AI content-based classification ===== */
+
+const CLASSIFY_SYSTEM_PROMPT = `Ты классификатор юридических документов из рабочего архива практики юриста.
+Верни СТРОГО валидный JSON, без markdown и без пояснений вне JSON.
+
+Правила:
+- Фото дела / сканы материалов дела / снимки страниц из суда → practice_area="court", document_type="case_materials_photo", document_role="evidence_raw", use_in_rag=false.
+- Р11001, Р13014, Р34002, выписки ЕГРЮЛ, листы записи ФНС, свидетельства о регистрации → practice_area="corporate", document_type="registration_document", document_role="source_document", use_in_rag=false.
+- Правовые позиции, аналитические записки, возражения, жалобы, правовые заключения юриста → document_role="gold_practice", use_in_rag=true.
+- Шаблоны/типовые формы договоров, актов, претензий, уведомлений → document_role="template", use_in_rag=true.
+- Паспорта, доверенности, банковские выписки, платёжки, СНИЛС, ИНН физлица → document_role="private_do_not_index", use_in_rag=false, contains_personal_data=true, requires_redaction=true.
+- Письма ФНС / Минфина / разъяснения ведомств → document_role="source_document", добавь "must_not_treat_as_law": true.
+- Тексты норм законов/кодексов/постановлений → document_role="source_document", document_type="law_reference".
+
+Схема ответа:
+{
+  "practice_area": "tax|real_estate|corporate|court|contracts|land|compliance|other",
+  "category": "строка",
+  "subcategory": "строка",
+  "document_type": "строка",
+  "document_role": "gold_practice|template|source_document|evidence_raw|technical|private_do_not_index",
+  "use_in_rag": true,
+  "use_in_generation": true,
+  "requires_ocr": false,
+  "requires_redaction": false,
+  "requires_lawyer_review": true,
+  "contains_personal_data": false,
+  "contains_passport_data": false,
+  "contains_bank_data": false,
+  "confidence": 0.0,
+  "reason": "коротко почему"
+}`;
+
+async function classifyOneArchiveItem(
+  supabase: any,
+  userId: string,
+  row: any,
+  apiKey: string,
+): Promise<void> {
+  const md = (row.metadata ?? {}) as Record<string, any>;
+  let text: string =
+    (typeof row.content === "string" && row.content) ||
+    (typeof md.extracted_text === "string" && md.extracted_text) ||
+    (typeof md.ocr_text === "string" && md.ocr_text) ||
+    "";
+
+  // Try extract-document-text edge function if we have a document_id but no text yet
+  if (text.trim().length < 50 && row.document_id) {
+    try {
+      const url = `${process.env.SUPABASE_URL}/functions/v1/extract-document-text`;
+      await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({ document_id: row.document_id }),
+      });
+      const { data: doc } = await supabase
+        .from("documents")
+        .select("ocr_text")
+        .eq("id", row.document_id)
+        .maybeSingle();
+      if (doc && typeof doc.ocr_text === "string" && doc.ocr_text.length >= 50) {
+        text = doc.ocr_text;
+      }
+    } catch {
+      // fall through to filename fallback
+    }
+  }
+
+  const filename: string =
+    (typeof md.original_filename === "string" && md.original_filename) ||
+    (typeof md.original_file_name === "string" && md.original_file_name) ||
+    row.title ||
+    "";
+  const ext: string =
+    (typeof md.file_extension === "string" && md.file_extension) ||
+    (filename.includes(".") ? filename.split(".").pop()! : "");
+  const usedFallback = text.trim().length < 50;
+  const userPrompt = usedFallback
+    ? `Имя файла: ${filename}\nРасширение: ${ext}\n(Извлечённого текста нет — классифицируй по имени файла.)`
+    : `Имя файла: ${filename}\nРасширение: ${ext}\n\nФрагмент текста документа:\n${text.slice(0, 12000)}`;
+
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Lovable-API-Key": apiKey,
+      "X-Lovable-AIG-SDK": "vercel-ai-sdk",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: CLASSIFY_SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    if (resp.status === 429) throw new Error("AI rate limit (429)");
+    if (resp.status === 402) throw new Error("AI credits exhausted (402)");
+    throw new Error(`AI HTTP ${resp.status}: ${body.slice(0, 300)}`);
+  }
+  const j: any = await resp.json();
+  const raw: string = j?.choices?.[0]?.message?.content ?? "";
+  let parsed: any;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("AI вернул не-JSON");
+    parsed = JSON.parse(m[0]);
+  }
+
+  const newMd: Record<string, any> = {
+    ...md,
+    ...parsed,
+    document_role: parsed.document_role ?? md.document_role,
+    practice_area: parsed.practice_area ?? md.practice_area,
+    classification_status: "classified",
+    classified_by: "ai_content",
+    classified_at: new Date().toISOString(),
+    classified_by_user: userId,
+    classified_from: usedFallback ? "filename_fallback" : "content",
+  };
+
+  const patch: Record<string, any> = { metadata: newMd };
+  if (parsed.practice_area) patch.category = parsed.practice_area;
+  if (parsed.document_type) patch.item_type = parsed.document_type;
+
+  const { error: upErr } = await (supabase.from("lawyer_archive_items") as any)
+    .update(patch)
+    .eq("id", row.id);
+  if (upErr) throw new Error(upErr.message);
+}
+
+export const archiveClassifyBatchByContent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        batch_id: z.string().trim().min(1).max(120).optional(),
+        only_pending: z.boolean().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY не сконфигурирован");
+
+    let q = supabase
+      .from("lawyer_archive_items")
+      .select("id, title, content, storage_path, document_id, item_type, category, metadata")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(data.limit ?? 30);
+    if (data.batch_id) q = q.eq("metadata->>archive_batch_id", data.batch_id);
+    if (data.only_pending) {
+      q = q.or(
+        "metadata->>classification_status.is.null,metadata->>classification_status.eq.pending",
+      );
+    }
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+
+    let classified_count = 0;
+    let failed_count = 0;
+    const errors: { id: string; title: string; error: string }[] = [];
+
+    for (const r of rows ?? []) {
+      try {
+        await classifyOneArchiveItem(supabase, userId, r, apiKey);
+        classified_count += 1;
+      } catch (e: any) {
+        failed_count += 1;
+        errors.push({ id: r.id, title: r.title, error: e?.message ?? String(e) });
+      }
+    }
+
+    // Count remaining pending in the same scope
+    let pq = supabase
+      .from("lawyer_archive_items")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .or(
+        "metadata->>classification_status.is.null,metadata->>classification_status.eq.pending",
+      );
+    if (data.batch_id) pq = pq.eq("metadata->>archive_batch_id", data.batch_id);
+    const { count } = await pq;
+
+    return {
+      classified_count,
+      failed_count,
+      pending_count: count ?? 0,
+      errors: errors.slice(0, 20),
+    };
+  });
