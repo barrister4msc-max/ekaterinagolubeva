@@ -326,7 +326,7 @@ function DocumentDetailPage() {
   ))}
 </div>
 
-      <div className="flex justify-center">
+      
         {tab === "document" && (
         <section className="relative space-y-3 pb-24">
           {isApproved && (
@@ -337,7 +337,7 @@ function DocumentDetailPage() {
               </span>
             </div>
           )}
-          <div className="mx-auto w-full max-w-[720px] px-[80px] py-[90px] shadow-2xl ring-1 ring-black/10" style={{ backgroundColor: "#fffdf7" }}>
+          <div className="mx-auto w-full max-w-[900px] px-[60px] py-[70px] shadow-2xl ring-1 ring-black/10" style={{ bbackgroundColor: "#ffffff" }}>
   {editMode ? (
   <textarea
     value={edited}
@@ -351,7 +351,7 @@ function DocumentDetailPage() {
       fontFamily: '"Times New Roman", Times, serif',
       fontSize: "18px",
       lineHeight: 1.9,
-      backgroundColor: "#fffdf7",
+      backgroundColor: "#ffffff",
       color: "#111827",
     }}
     className="block min-h-[900px] w-full resize-none border-0 p-0 outline-none placeholder:text-slate-500"
