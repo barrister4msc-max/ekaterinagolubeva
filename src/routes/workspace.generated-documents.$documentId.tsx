@@ -402,7 +402,7 @@ const downloadPdf = () => {
     Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
   </p>
 </div>
-          <div className="mx-auto flex w-full max-w-[900px] items-center gap-3 overflow-x-auto border-t border-slate-200 bg-white px-[60px] py-6">
+          <div className="mx-auto flex w-full max-w-[900px] flex-nowrap items-center gap-3 overflow-x-auto border-t border-slate-200 bg-white px-[60px] py-6">
             <button
   type="button"
   onClick={() => setEditMode((v) => !v)}
