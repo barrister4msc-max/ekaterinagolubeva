@@ -225,18 +225,41 @@ function DocumentDetailPage() {
     onError: (e: any) => toast.error(e?.message ?? "Не удалось одобрить"),
   });
 
-  const downloadMd = () => {
-    if (!doc) return;
-    const blob = new Blob([`# ${doc.title ?? "Документ"}\n\n${doc.content ?? ""}`], {
-      type: "text/markdown;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(doc.title ?? "document").replace(/[^\w\-]+/g, "_")}_v${doc.version_number}.md`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  };
+  const getSafeFileName = () =>
+  `${(doc?.title ?? "document").replace(/[^\wа-яА-ЯёЁ\-]+/g, "_")}_v${doc?.version_number ?? 1}`;
+
+const downloadDocx = () => {
+  if (!doc) return;
+
+  const html = `
+  <html>
+    <head>
+      <meta charset="utf-8" />
+    </head>
+    <body>
+      <pre>${edited.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
+    </body>
+  </html>
+  `;
+
+  const blob = new Blob([html], {
+    type: "application/msword;charset=utf-8",
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${getSafeFileName()}.doc`;
+
+  a.click();
+
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+};
+
+const downloadPdf = () => {
+  window.print();
+};
     if (isNestedRoute) {
     return <Outlet />;
   }  
