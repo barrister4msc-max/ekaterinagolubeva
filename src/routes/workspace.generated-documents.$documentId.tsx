@@ -375,13 +375,13 @@ function DocumentDetailPage() {
     Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
   </p>
 </div>
-          <div className="mx-auto flex w-full max-w-[960px] flex-wrap gap-3 border-t border-slate-200 bg-white px-[60px] py-6">
+          <div className="mx-auto flex w-full max-w-[900px] items-center gap-3 overflow-x-auto border-t border-slate-200 bg-white px-[60px] py-6">
             <button
   type="button"
   onClick={() => setEditMode((v) => !v)}
   className={BTN}
 >
-  {editMode ? "Закрыть редактирование" : "Редактировать"}
+  {editMode ? "Закрыть" : "Редактировать"}
 </button>
             <button
               type="button"
@@ -390,7 +390,7 @@ function DocumentDetailPage() {
               className={BTN_PRIMARY}
             >
               {saveEdits.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-              Сохранить правки
+              Сохранить
             </button>
             <button
               type="button"
@@ -419,7 +419,7 @@ function DocumentDetailPage() {
                 ) : (
                   <CheckCircle2 size={12} />
                 )}
-                Одобрить документ
+                Одобрить
               </button>
             )}
           </div>
