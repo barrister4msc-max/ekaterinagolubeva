@@ -228,24 +228,39 @@ function DocumentDetailPage() {
   const getSafeFileName = () =>
   `${(doc?.title ?? "document").replace(/[^\wа-яА-ЯёЁ\-]+/g, "_")}_v${doc?.version_number ?? 1}`;
 
-const downloadDocx = () => {
+const downloadDocx = async () => {
   if (!doc) return;
 
   const text = edited || doc.content || "";
 
-  const blob = new Blob([text], {
-    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document;charset=utf-8",
+  const paragraphs = text.split("\n").map(
+    (line) =>
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: line,
+            size: 28,
+            font: "Times New Roman",
+          }),
+        ],
+        spacing: {
+          after: 160,
+          line: 360,
+        },
+      }),
+  );
+
+  const wordDoc = new Document({
+    sections: [
+      {
+        properties: {},
+        children: paragraphs,
+      },
+    ],
   });
 
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${getSafeFileName()}.docx`;
-
-  a.click();
-
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  const blob = await Packer.toBlob(wordDoc);
+  saveAs(blob, `${getSafeFileName()}.docx`);
 };
 
 const downloadPdf = () => {
