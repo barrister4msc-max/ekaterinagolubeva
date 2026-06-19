@@ -1522,7 +1522,7 @@ export const archiveProcessBatchFully = createServerFn({ method: "POST" })
         if (result.use_in_generation !== undefined) newMd.use_in_generation = result.use_in_generation;
         const patch: Record<string, any> = { metadata: newMd };
         if (result.status === "completed" && result.text.length > 0) patch.content = result.text;
-        await supabaseAdmin.from("lawyer_archive_items").update(patch).eq("id", r.id);
+        await (supabaseAdmin.from("lawyer_archive_items") as any).update(patch).eq("id", r.id);
         if (result.status === "completed") extract_completed += 1;
         else if (result.status === "ocr_required") extract_ocr_required += 1;
         else if (result.status === "failed") extract_failed += 1;
