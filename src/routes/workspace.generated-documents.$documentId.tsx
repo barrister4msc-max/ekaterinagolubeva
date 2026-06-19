@@ -437,7 +437,7 @@ const downloadPdf = () => {
         ) : (
           <GitBranch size={12} />
         )}
-        Создать версию
+        Создать версию запроса документов
       </button>
 
       {!isApproved && (
