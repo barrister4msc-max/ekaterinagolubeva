@@ -556,9 +556,18 @@ function PracticePage() {
                       <TableCell className="font-mono text-xs">{b.id}</TableCell>
                       <TableCell>{b.count}</TableCell>
                       <TableCell className="text-xs">{new Date(b.created_at).toLocaleString("ru-RU")}</TableCell>
-                      <TableCell className="text-right space-x-1">
+                      <TableCell className="text-right space-x-1 whitespace-nowrap">
+                        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runExtractText({ batch_id: b.id })}>
+                          <FileText className="size-4 mr-1" /> Текст
+                        </Button>
+                        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runOcr({ batch_id: b.id })}>
+                          <Eye className="size-4 mr-1" /> OCR
+                        </Button>
                         <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ batch_id: b.id })}>
-                          <Wand2 className="size-4 mr-1" /> AI классифицировать партию
+                          <Wand2 className="size-4 mr-1" /> AI
+                        </Button>
+                        <Button size="sm" disabled={aiBusy} onClick={() => runProcessFully({ batch_id: b.id })}>
+                          <Layers className="size-4 mr-1" /> Обработать полностью
                         </Button>
                       </TableCell>
                     </TableRow>
