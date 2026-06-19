@@ -375,7 +375,7 @@ function DocumentDetailPage() {
     Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
   </p>
 </div>
-          <div className="mx-auto mt-8 flex w-full max-w-[720px] flex-wrap gap-3">
+          <div className="mx-auto flex w-full max-w-[960px] flex-wrap gap-3 border-t border-slate-200 bg-white px-[60px] py-6">
             <button
   type="button"
   onClick={() => setEditMode((v) => !v)}
