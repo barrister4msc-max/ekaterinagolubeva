@@ -246,6 +246,29 @@ function PracticePage() {
     }
   }
 
+  async function runAiClassify(args: { batch_id?: string; only_pending?: boolean }) {
+    if (aiBusy) return;
+    setAiBusy(true);
+    const tid = toast.loading("AI классифицирует документы…");
+    try {
+      const r: any = await classifyBatchFn({ data: { ...args, limit: 30 } });
+      toast.dismiss(tid);
+      const errMsg = r.errors?.length ? ` · ошибок: ${r.errors.length}` : "";
+      toast.success(
+        `Классифицировано: ${r.classified_count} · осталось: ${r.pending_count} · сбоев: ${r.failed_count}${errMsg}`,
+      );
+      if (r.errors?.length) {
+        console.warn("[archiveClassifyBatchByContent] errors", r.errors);
+      }
+      reload();
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(e?.message ?? "Ошибка AI-классификации");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -256,6 +279,9 @@ function PracticePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ only_pending: true })}>
+            <Wand2 className="size-4 mr-1" /> AI классифицировать все pending
+          </Button>
           <ZipUploadDialog onUploaded={reload} />
         </div>
       </div>
