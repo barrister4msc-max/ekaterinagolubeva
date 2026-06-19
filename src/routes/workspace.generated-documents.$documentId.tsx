@@ -279,7 +279,7 @@ function DocumentDetailPage() {
           <ArrowLeft size={12} /> К списку
         </button>
         <button type="button" onClick={downloadMd} className={BTN}>
-          <Download size={12} /> Скачать .md
+          <Download size={12} /> Скачать документ
         </button>
       </div>
 
