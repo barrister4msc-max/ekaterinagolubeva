@@ -337,7 +337,7 @@ function DocumentDetailPage() {
               </span>
             </div>
           )}
-          <div className="mx-auto w-full max-w-[900px] px-[60px] py-[70px] shadow-2xl ring-1 ring-black/10" style={{ bbackgroundColor: "#ffffff" }}>
+          <div className="mx-auto w-full max-w-[900px] px-[60px] py-[70px] shadow-2xl ring-1 ring-black/10" style={{ backgroundColor: "#ffffff" }}>
   {editMode ? (
   <textarea
     value={edited}
@@ -507,7 +507,6 @@ function DocumentDetailPage() {
           {/* EVIDENCE_LAYER: новые обстоятельства не переписывают историю, создаётся новый цикл */}
         </section>
       )}
-      </div>
     </div>
   );
 }
