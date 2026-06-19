@@ -817,6 +817,26 @@ export const archiveApproveTraining = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+function resolvePracticeArea(category: string | null, practiceArea: string | null): string {
+  const cat = (category || "").toLowerCase();
+  const pa = (practiceArea || "").toLowerCase();
+
+  const realEstate = ["real_estate", "real_estate_law", "property", "realty"];
+  if (realEstate.includes(cat) || realEstate.includes(pa)) return "real_estate";
+
+  if (cat === "tax" || pa === "tax") return "tax";
+  if (cat === "corporate" || pa === "corporate") return "corporate";
+
+  const contracts = ["contracts", "contract"];
+  if (contracts.includes(cat) || contracts.includes(pa)) return "contracts";
+
+  const known = ["litigation", "land", "inheritance", "bankruptcy", "enforcement", "claims"];
+  if (known.includes(pa)) return pa;
+  if (known.includes(cat)) return cat;
+
+  return "other";
+}
+
 export const archivePracticeStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -824,7 +844,7 @@ export const archivePracticeStats = createServerFn({ method: "POST" })
     await assertAdmin(supabase, userId);
     const { data, error } = await supabase
       .from("lawyer_archive_items")
-      .select("item_type, metadata")
+      .select("item_type, category, metadata")
       .eq("is_active", true)
       .limit(5000);
     if (error) throw new Error(error.message);
@@ -835,7 +855,7 @@ export const archivePracticeStats = createServerFn({ method: "POST" })
     };
     for (const r of data ?? []) {
       const md = (r.metadata ?? {}) as any;
-      const area = md.practice_area || "other";
+      const area = resolvePracticeArea(r.category, md.practice_area);
       const s = bump(area);
       s.total += 1;
       if (md.document_role === "gold_reference") s.gold += 1;
