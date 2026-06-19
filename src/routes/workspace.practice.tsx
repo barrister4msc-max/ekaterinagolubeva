@@ -114,9 +114,11 @@ function PracticePage() {
   const addToMatter = useServerFn(archiveAddToMatter);
   const approveTraining = useServerFn(archiveApproveTraining);
   const classifyFn = useServerFn(archiveClassify);
+  const classifyBatchFn = useServerFn(archiveClassifyBatchByContent);
   const sendToKbFn = useServerFn(archiveSendToKbQueue);
   const getTextFn = useServerFn(archiveGetExtractedText);
   const mList = useServerFn(matterList);
+  const [aiBusy, setAiBusy] = useState(false);
 
   const [items, setItems] = useState<ArchiveItem[]>([]);
   const [tab, setTab] = useState("directions");
