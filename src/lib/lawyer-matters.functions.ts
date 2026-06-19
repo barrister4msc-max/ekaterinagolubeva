@@ -1287,3 +1287,312 @@ export const archiveClassifyBatchByContent = createServerFn({ method: "POST" })
       errors: errors.slice(0, 20),
     };
   });
+
+/* ===== Text extraction / OCR pipeline ===== */
+
+async function fetchExtractTargets(
+  admin: any,
+  args: { batch_id?: string; only_pending?: boolean; only_ocr_required?: boolean; limit: number },
+) {
+  let q = admin
+    .from("lawyer_archive_items")
+    .select("id, title, storage_path, content, metadata")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false })
+    .limit(args.limit);
+  if (args.batch_id) q = q.eq("metadata->>archive_batch_id", args.batch_id);
+  if (args.only_pending) {
+    q = q.or(
+      "metadata->>text_extraction_status.is.null,metadata->>text_extraction_status.eq.pending",
+    );
+  }
+  if (args.only_ocr_required) q = q.eq("metadata->>text_extraction_status", "ocr_required");
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export const archiveExtractTextBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        batch_id: z.string().trim().min(1).max(120).optional(),
+        only_pending: z.boolean().optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const helpers = await import("@/lib/archive-extract.server");
+
+    const rows = await fetchExtractTargets(supabaseAdmin, {
+      batch_id: data.batch_id,
+      only_pending: data.only_pending,
+      limit: data.limit ?? 50,
+    });
+
+    let completed = 0, ocr_required = 0, technical = 0, nested = 0, failed = 0;
+    const errors: { id: string; title: string; error: string }[] = [];
+
+    for (const r of rows) {
+      const md = (r.metadata ?? {}) as Record<string, any>;
+      const filename: string = md.original_filename || md.original_file_name || r.title || "";
+      const ext: string = md.file_extension || helpers.extOf(filename);
+
+      try {
+        if (!r.storage_path) throw new Error("no_storage_path");
+        const dl = await helpers.downloadArchiveFile(supabaseAdmin, r.storage_path);
+        if (!dl) throw new Error("file_not_found_in_storage");
+
+        const result = await helpers.extractByExtension(ext, dl.buf);
+        const newMd: Record<string, any> = {
+          ...md,
+          text_extraction_status: result.status,
+          text_extraction_method: result.method,
+          text_extracted_at: new Date().toISOString(),
+          extracted_text_length: result.text.length,
+        };
+        if (result.error) newMd.text_extraction_error = result.error;
+        else delete newMd.text_extraction_error;
+        if (result.requires_ocr) newMd.requires_ocr = true;
+        if (result.requires_unpack) newMd.requires_unpack = true;
+        if (result.document_role) newMd.document_role = result.document_role;
+        if (result.use_in_rag !== undefined) newMd.use_in_rag = result.use_in_rag;
+        if (result.use_in_generation !== undefined) newMd.use_in_generation = result.use_in_generation;
+
+        const patch: Record<string, any> = { metadata: newMd };
+        if (result.status === "completed" && result.text.length > 0) patch.content = result.text;
+
+        const { error: upErr } = await supabaseAdmin
+          .from("lawyer_archive_items")
+          .update(patch)
+          .eq("id", r.id);
+        if (upErr) throw new Error(upErr.message);
+
+        if (result.status === "completed") completed += 1;
+        else if (result.status === "ocr_required") ocr_required += 1;
+        else if (result.status === "technical_file") technical += 1;
+        else if (result.status === "nested_archive") nested += 1;
+        else failed += 1;
+      } catch (e: any) {
+        failed += 1;
+        errors.push({ id: r.id, title: r.title, error: e?.message ?? String(e) });
+        const newMd: Record<string, any> = {
+          ...md,
+          text_extraction_status: "failed",
+          text_extraction_error: e?.message ?? String(e),
+          text_extracted_at: new Date().toISOString(),
+        };
+        await supabaseAdmin
+          .from("lawyer_archive_items")
+          .update({ metadata: newMd })
+          .eq("id", r.id);
+      }
+    }
+
+    return {
+      processed: rows.length,
+      completed,
+      ocr_required,
+      technical,
+      nested,
+      failed,
+      errors: errors.slice(0, 20),
+    };
+  });
+
+export const archiveOcrBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        batch_id: z.string().trim().min(1).max(120).optional(),
+        limit: z.number().int().min(1).max(50).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const helpers = await import("@/lib/archive-extract.server");
+
+    const rows = await fetchExtractTargets(supabaseAdmin, {
+      batch_id: data.batch_id,
+      only_ocr_required: true,
+      limit: data.limit ?? 20,
+    });
+
+    let ocr_completed = 0, failed = 0;
+    const errors: { id: string; title: string; error: string }[] = [];
+
+    for (const r of rows) {
+      const md = (r.metadata ?? {}) as Record<string, any>;
+      try {
+        if (!r.storage_path) throw new Error("no_storage_path");
+        const dl = await helpers.downloadArchiveFile(supabaseAdmin, r.storage_path);
+        if (!dl) throw new Error("file_not_found_in_storage");
+        const mime = md.mime_type || "application/octet-stream";
+        const out = await helpers.ocrViaGemini(dl.buf, mime);
+        if (out.error || !out.text) throw new Error(out.error || "ocr_empty");
+
+        const newMd: Record<string, any> = {
+          ...md,
+          text_extraction_status: "completed",
+          text_extraction_method: "gemini_ocr",
+          text_extracted_at: new Date().toISOString(),
+          extracted_text_length: out.text.length,
+          ocr_text: out.text,
+          requires_ocr: false,
+        };
+        delete newMd.text_extraction_error;
+        const { error: upErr } = await supabaseAdmin
+          .from("lawyer_archive_items")
+          .update({ content: out.text, metadata: newMd })
+          .eq("id", r.id);
+        if (upErr) throw new Error(upErr.message);
+        ocr_completed += 1;
+      } catch (e: any) {
+        failed += 1;
+        errors.push({ id: r.id, title: r.title, error: e?.message ?? String(e) });
+        const newMd: Record<string, any> = {
+          ...md,
+          text_extraction_error: e?.message ?? String(e),
+          ocr_last_attempt_at: new Date().toISOString(),
+        };
+        await supabaseAdmin
+          .from("lawyer_archive_items")
+          .update({ metadata: newMd })
+          .eq("id", r.id);
+      }
+    }
+
+    return { processed: rows.length, ocr_completed, failed, errors: errors.slice(0, 20) };
+  });
+
+export const archiveProcessBatchFully = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        batch_id: z.string().trim().min(1).max(120).optional(),
+        limit: z.number().int().min(1).max(200).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const helpers = await import("@/lib/archive-extract.server");
+
+    const limit = data.limit ?? 100;
+    // STEP 1: extract text for everything
+    const extractTargets = await fetchExtractTargets(supabaseAdmin, {
+      batch_id: data.batch_id,
+      limit,
+    });
+    let extract_completed = 0, extract_ocr_required = 0, extract_failed = 0;
+    for (const r of extractTargets) {
+      const md = (r.metadata ?? {}) as Record<string, any>;
+      const filename: string = md.original_filename || md.original_file_name || r.title || "";
+      const ext: string = md.file_extension || helpers.extOf(filename);
+      try {
+        if (!r.storage_path) throw new Error("no_storage_path");
+        const dl = await helpers.downloadArchiveFile(supabaseAdmin, r.storage_path);
+        if (!dl) throw new Error("file_not_found_in_storage");
+        const result = await helpers.extractByExtension(ext, dl.buf);
+        const newMd: Record<string, any> = {
+          ...md,
+          text_extraction_status: result.status,
+          text_extraction_method: result.method,
+          text_extracted_at: new Date().toISOString(),
+          extracted_text_length: result.text.length,
+        };
+        if (result.error) newMd.text_extraction_error = result.error;
+        else delete newMd.text_extraction_error;
+        if (result.requires_ocr) newMd.requires_ocr = true;
+        if (result.requires_unpack) newMd.requires_unpack = true;
+        if (result.document_role) newMd.document_role = result.document_role;
+        if (result.use_in_rag !== undefined) newMd.use_in_rag = result.use_in_rag;
+        if (result.use_in_generation !== undefined) newMd.use_in_generation = result.use_in_generation;
+        const patch: Record<string, any> = { metadata: newMd };
+        if (result.status === "completed" && result.text.length > 0) patch.content = result.text;
+        await supabaseAdmin.from("lawyer_archive_items").update(patch).eq("id", r.id);
+        if (result.status === "completed") extract_completed += 1;
+        else if (result.status === "ocr_required") extract_ocr_required += 1;
+        else if (result.status === "failed") extract_failed += 1;
+      } catch (e: any) {
+        extract_failed += 1;
+      }
+    }
+
+    // STEP 2: OCR pass
+    const ocrTargets = await fetchExtractTargets(supabaseAdmin, {
+      batch_id: data.batch_id,
+      only_ocr_required: true,
+      limit: Math.min(50, limit),
+    });
+    let ocr_completed = 0, ocr_failed = 0;
+    for (const r of ocrTargets) {
+      const md = (r.metadata ?? {}) as Record<string, any>;
+      try {
+        if (!r.storage_path) throw new Error("no_storage_path");
+        const dl = await helpers.downloadArchiveFile(supabaseAdmin, r.storage_path);
+        if (!dl) throw new Error("file_not_found_in_storage");
+        const out = await helpers.ocrViaGemini(dl.buf, md.mime_type || "application/octet-stream");
+        if (out.error || !out.text) throw new Error(out.error || "ocr_empty");
+        const newMd: Record<string, any> = {
+          ...md,
+          text_extraction_status: "completed",
+          text_extraction_method: "gemini_ocr",
+          text_extracted_at: new Date().toISOString(),
+          extracted_text_length: out.text.length,
+          ocr_text: out.text,
+          requires_ocr: false,
+        };
+        delete newMd.text_extraction_error;
+        await supabaseAdmin
+          .from("lawyer_archive_items")
+          .update({ content: out.text, metadata: newMd })
+          .eq("id", r.id);
+        ocr_completed += 1;
+      } catch {
+        ocr_failed += 1;
+      }
+    }
+
+    // STEP 3: AI classify all pending in scope
+    const apiKey = process.env.LOVABLE_API_KEY;
+    let classified = 0, classify_failed = 0;
+    if (apiKey) {
+      let cq = supabaseAdmin
+        .from("lawyer_archive_items")
+        .select("id, title, content, storage_path, document_id, item_type, category, metadata")
+        .eq("is_active", true)
+        .or("metadata->>classification_status.is.null,metadata->>classification_status.eq.pending")
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (data.batch_id) cq = cq.eq("metadata->>archive_batch_id", data.batch_id);
+      const { data: crows } = await cq;
+      for (const r of crows ?? []) {
+        try {
+          await classifyOneArchiveItem(supabaseAdmin, userId, r, apiKey);
+          classified += 1;
+        } catch {
+          classify_failed += 1;
+        }
+      }
+    }
+
+    return {
+      extract: { completed: extract_completed, ocr_required: extract_ocr_required, failed: extract_failed },
+      ocr: { completed: ocr_completed, failed: ocr_failed },
+      classify: { classified, failed: classify_failed },
+    };
+  });
+
