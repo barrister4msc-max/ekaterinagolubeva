@@ -31,6 +31,7 @@ import {
   archiveAddToMatter,
   archiveApproveTraining,
   archiveClassify,
+  archiveClassifyBatchByContent,
   archiveSendToKbQueue,
   archiveGetExtractedText,
   matterList,
