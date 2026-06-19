@@ -507,7 +507,6 @@ function DocumentDetailPage() {
           {/* EVIDENCE_LAYER: новые обстоятельства не переписывают историю, создаётся новый цикл */}
         </section>
       )}
-      </div>
     </div>
   );
 }
