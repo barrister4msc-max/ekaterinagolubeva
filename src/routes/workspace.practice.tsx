@@ -341,9 +341,15 @@ function PracticePage() {
             Рабочий архив документов. Не используется в правовых заключениях без явного одобрения.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" disabled={aiBusy} onClick={() => runExtractText({ only_pending: true })}>
+            <FileText className="size-4 mr-1" /> Извлечь текст
+          </Button>
+          <Button variant="outline" disabled={aiBusy} onClick={() => runOcr({})}>
+            <Eye className="size-4 mr-1" /> OCR для сканов
+          </Button>
           <Button variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ only_pending: true })}>
-            <Wand2 className="size-4 mr-1" /> AI классифицировать все pending
+            <Wand2 className="size-4 mr-1" /> AI классифицировать по содержанию
           </Button>
           <ZipUploadDialog onUploaded={reload} />
         </div>
