@@ -31,6 +31,7 @@ import {
   archiveAddToMatter,
   archiveApproveTraining,
   archiveClassify,
+  archiveClassifyBatchByContent,
   archiveSendToKbQueue,
   archiveGetExtractedText,
   matterList,
@@ -113,9 +114,11 @@ function PracticePage() {
   const addToMatter = useServerFn(archiveAddToMatter);
   const approveTraining = useServerFn(archiveApproveTraining);
   const classifyFn = useServerFn(archiveClassify);
+  const classifyBatchFn = useServerFn(archiveClassifyBatchByContent);
   const sendToKbFn = useServerFn(archiveSendToKbQueue);
   const getTextFn = useServerFn(archiveGetExtractedText);
   const mList = useServerFn(matterList);
+  const [aiBusy, setAiBusy] = useState(false);
 
   const [items, setItems] = useState<ArchiveItem[]>([]);
   const [tab, setTab] = useState("directions");
@@ -243,6 +246,29 @@ function PracticePage() {
     }
   }
 
+  async function runAiClassify(args: { batch_id?: string; only_pending?: boolean }) {
+    if (aiBusy) return;
+    setAiBusy(true);
+    const tid = toast.loading("AI классифицирует документы…");
+    try {
+      const r: any = await classifyBatchFn({ data: { ...args, limit: 30 } });
+      toast.dismiss(tid);
+      const errMsg = r.errors?.length ? ` · ошибок: ${r.errors.length}` : "";
+      toast.success(
+        `Классифицировано: ${r.classified_count} · осталось: ${r.pending_count} · сбоев: ${r.failed_count}${errMsg}`,
+      );
+      if (r.errors?.length) {
+        console.warn("[archiveClassifyBatchByContent] errors", r.errors);
+      }
+      reload();
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(e?.message ?? "Ошибка AI-классификации");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -253,6 +279,9 @@ function PracticePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ only_pending: true })}>
+            <Wand2 className="size-4 mr-1" /> AI классифицировать все pending
+          </Button>
           <ZipUploadDialog onUploaded={reload} />
         </div>
       </div>
@@ -458,9 +487,9 @@ function PracticePage() {
                       <TableCell className="font-mono text-xs">{b.id}</TableCell>
                       <TableCell>{b.count}</TableCell>
                       <TableCell className="text-xs">{new Date(b.created_at).toLocaleString("ru-RU")}</TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" onClick={() => { /* could filter by batch */ toast.message(`Партия ${b.id}`); }}>
-                          Открыть
+                      <TableCell className="text-right space-x-1">
+                        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ batch_id: b.id })}>
+                          <Wand2 className="size-4 mr-1" /> AI классифицировать партию
                         </Button>
                       </TableCell>
                     </TableRow>
