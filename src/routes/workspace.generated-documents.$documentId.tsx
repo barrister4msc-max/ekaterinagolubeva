@@ -439,7 +439,7 @@ const downloadPdf = () => {
                   if (confirm("Одобрить документ?")) approve.mutate();
                 }}
                 disabled={approve.isPending}
-                className={BTN_EMERALD}
+                className={`${BTN_SUCCESS} whitespace-nowrap`}
               >
                 {approve.isPending ? (
                   <Loader2 size={12} className="animate-spin" />
