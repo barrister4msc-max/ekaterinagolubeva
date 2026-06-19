@@ -121,7 +121,7 @@ function DocumentDetailPage() {
   const [tab, setTab] = useState<TabId>("document");
   const [edited, setEdited] = useState<string>("");
   const [dirty, setDirty] = useState(false);
-
+  const [editMode, setEditMode] = useState(false);  
   const { data: doc, isLoading, error } = useQuery({
     queryKey: ["generated-document", documentId],
     queryFn: async () => {
