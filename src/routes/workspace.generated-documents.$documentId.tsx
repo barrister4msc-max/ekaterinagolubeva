@@ -15,6 +15,8 @@ import {
   Download,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+import { saveAs } from "file-saver";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId")({
   head: () => ({
