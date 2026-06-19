@@ -1206,7 +1206,7 @@ async function classifyOneArchiveItem(
     document_role: parsed.document_role ?? md.document_role,
     practice_area: parsed.practice_area ?? md.practice_area,
     classification_status: "classified",
-    classified_by: "ai_content",
+    classified_by: usedFallback ? "filename_fallback" : "ai_content",
     classified_at: new Date().toISOString(),
     classified_by_user: userId,
     classified_from: usedFallback ? "filename_fallback" : "content",
