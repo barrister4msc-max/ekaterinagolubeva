@@ -34,6 +34,9 @@ import {
   archiveClassifyBatchByContent,
   archiveSendToKbQueue,
   archiveGetExtractedText,
+  archiveExtractTextBatch,
+  archiveOcrBatch,
+  archiveProcessBatchFully,
   matterList,
 } from "@/lib/lawyer-matters.functions";
 import { ZipUploadDialog } from "@/components/practice/zip-upload-dialog";
