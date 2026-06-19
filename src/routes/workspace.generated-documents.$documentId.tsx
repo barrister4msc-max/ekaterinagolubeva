@@ -386,7 +386,7 @@ function DocumentDetailPage() {
             <button
               type="button"
               onClick={() => saveEdits.mutate()}
-              disabled={isApproved || !dirty || saveEdits.isPending}
+              disabled={isApproved || !editMode || !dirty || saveEdits.isPending}
               className={BTN_PRIMARY}
             >
               {saveEdits.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
