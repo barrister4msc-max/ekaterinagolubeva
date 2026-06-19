@@ -355,104 +355,113 @@ const downloadPdf = () => {
 
       
         {tab === "document" && (
-        <section className="relative space-y-3 pb-24">
-          {isApproved && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-xs text-amber-50">
-              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-              <span>
-                Одобренную или финальную версию нельзя изменить напрямую. Создайте новую версию.
-              </span>
-            </div>
-          )}
-          <div className="mx-auto w-full max-w-[900px] px-[60px] py-[70px] shadow-2xl ring-1 ring-black/10" style={{ backgroundColor: "#ffffff" }}>
-  {editMode ? (
-  <textarea
-    value={edited}
-    onChange={(e) => {
-      setEdited(e.target.value);
-      setDirty(true);
-    }}
-    readOnly={isApproved}
-    spellCheck={false}
-    style={{
-      fontFamily: '"Times New Roman", Times, serif',
-      fontSize: "18px",
-      lineHeight: 1.9,
-      backgroundColor: "#ffffff",
-      color: "#111827",
-    }}
-    className="block min-h-[900px] w-full resize-none border-0 p-0 outline-none placeholder:text-slate-500"
-    placeholder="Текст документа..."
-  />
-) : (
-  <div
-    style={{
-      fontFamily: '"Times New Roman", Times, serif',
-      fontSize: "18px",
-      lineHeight: 1.9,
-      color: "#111827",
-    }}
-    className="min-h-[900px] whitespace-pre-wrap"
-  >
-    {edited || "Документ пуст"}
-  </div>
-)}
+  <section className="relative space-y-0 pb-10">
+    {isApproved && (
+      <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-xs text-amber-50">
+        <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+        <span>
+          Одобренную или финальную версию нельзя изменить напрямую. Создайте новую версию.
+        </span>
+      </div>
+    )}
 
-  <p className="mt-8 border-t border-slate-200 pt-3 text-center text-[11px] italic text-slate-500">
-    Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
-  </p>
-</div>
-          <div className="mx-auto flex w-full max-w-[900px] flex-nowrap items-center gap-3 overflow-x-auto border-t border-slate-200 bg-white px-[60px] py-6">
-            <button
-  type="button"
-  onClick={() => setEditMode((v) => !v)}
-  className={BTN}
->
-  {editMode ? "Закрыть" : "Редактировать"}
-</button>
-            <button
-              type="button"
-              onClick={() => saveEdits.mutate()}
-              disabled={isApproved || !editMode || !dirty || saveEdits.isPending}
-              className={BTN_PRIMARY}
-            >
-              {saveEdits.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-              Сохранить
-            </button>
-            <button
-              type="button"
-              onClick={() => createVersion.mutate()}
-              disabled={createVersion.isPending || !edited}
-              className={BTN_AMBER}
-            >
-              {createVersion.isPending ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <GitBranch size={12} />
-              )}
-              Создать новую версию из правок
-            </button>
-            {!isApproved && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm("Одобрить документ?")) approve.mutate();
-                }}
-                disabled={approve.isPending}
-                className={`${BTN_SUCCESS} whitespace-nowrap`}
-              >
-                {approve.isPending ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <CheckCircle2 size={12} />
-                )}
-                Одобрить
-              </button>
-            )}
-          </div>
-          {/* EVIDENCE_LAYER: связь правок с фактами и доказательствами */}
-        </section>
+    <div
+      className="mx-auto w-full max-w-[900px] px-[60px] py-[70px] shadow-[0_10px_40px_rgba(0,0,0,0.25)] ring-1 ring-black/10"
+      style={{ backgroundColor: "#ffffff" }}
+    >
+      {editMode ? (
+        <textarea
+          value={edited}
+          onChange={(e) => {
+            setEdited(e.target.value);
+            setDirty(true);
+          }}
+          readOnly={isApproved}
+          spellCheck={false}
+          style={{
+            fontFamily: '"Times New Roman", Times, serif',
+            fontSize: "18px",
+            lineHeight: 1.9,
+            backgroundColor: "#ffffff",
+            color: "#111827",
+          }}
+          className="block min-h-[900px] w-full resize-none border-0 p-0 outline-none placeholder:text-slate-500"
+          placeholder="Текст документа..."
+        />
+      ) : (
+        <div
+          style={{
+            fontFamily: '"Times New Roman", Times, serif',
+            fontSize: "18px",
+            lineHeight: 1.9,
+            color: "#111827",
+          }}
+          className="min-h-[900px] whitespace-pre-wrap"
+        >
+          {edited || "Документ пуст"}
+        </div>
       )}
+
+      <p className="mt-8 border-t border-slate-200 pt-3 text-center text-[11px] italic text-slate-500">
+        Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
+      </p>
+    </div>
+
+    <div className="mx-auto flex w-full max-w-[900px] flex-nowrap items-center gap-3 overflow-x-auto border-t border-slate-200 bg-white px-[60px] py-6">
+      <button
+        type="button"
+        onClick={() => setEditMode((v) => !v)}
+        className={`${BTN} whitespace-nowrap`}
+      >
+        {editMode ? "Закрыть" : "Редактировать"}
+      </button>
+
+      <button
+        type="button"
+        onClick={() => saveEdits.mutate()}
+        disabled={isApproved || !editMode || !dirty || saveEdits.isPending}
+        className={`${BTN_PRIMARY} whitespace-nowrap`}
+      >
+        {saveEdits.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+        Сохранить
+      </button>
+
+      <button
+        type="button"
+        onClick={() => createVersion.mutate()}
+        disabled={createVersion.isPending || !edited}
+        className={`${BTN_AMBER} whitespace-nowrap`}
+      >
+        {createVersion.isPending ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : (
+          <GitBranch size={12} />
+        )}
+        Создать версию
+      </button>
+
+      {!isApproved && (
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm("Одобрить документ?")) approve.mutate();
+          }}
+          disabled={approve.isPending}
+          className={`${BTN_EMERALD} whitespace-nowrap`}
+        >
+          {approve.isPending ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <CheckCircle2 size={12} />
+          )}
+          Одобрить
+        </button>
+      )}
+    </div>
+
+    {/* EVIDENCE_LAYER: связь правок с фактами и доказательствами */}
+  </section>
+)}
 
       {tab === "ai" && (
         <section className={`${GLASS} p-5 space-y-3`}>
