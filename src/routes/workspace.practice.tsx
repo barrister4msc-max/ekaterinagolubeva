@@ -275,6 +275,63 @@ function PracticePage() {
     }
   }
 
+  async function runExtractText(args: { batch_id?: string; only_pending?: boolean }) {
+    if (aiBusy) return;
+    setAiBusy(true);
+    const tid = toast.loading("Извлечение текста…");
+    try {
+      const r: any = await extractTextFn({ data: { ...args, limit: 100 } });
+      toast.dismiss(tid);
+      toast.success(
+        `Готово: ${r.completed} · OCR нужен: ${r.ocr_required} · технич.: ${r.technical} · вложенные архивы: ${r.nested} · ошибок: ${r.failed}`,
+      );
+      if (r.errors?.length) console.warn("[archiveExtractTextBatch] errors", r.errors);
+      reload();
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(e?.message ?? "Ошибка извлечения текста");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function runOcr(args: { batch_id?: string }) {
+    if (aiBusy) return;
+    setAiBusy(true);
+    const tid = toast.loading("OCR сканов…");
+    try {
+      const r: any = await ocrBatchFn({ data: { ...args, limit: 20 } });
+      toast.dismiss(tid);
+      toast.success(`OCR готово: ${r.ocr_completed} · сбоев: ${r.failed}`);
+      if (r.errors?.length) console.warn("[archiveOcrBatch] errors", r.errors);
+      reload();
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(e?.message ?? "Ошибка OCR");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function runProcessFully(args: { batch_id?: string }) {
+    if (aiBusy) return;
+    setAiBusy(true);
+    const tid = toast.loading("Обработка партии: текст → OCR → классификация…");
+    try {
+      const r: any = await processFullyFn({ data: { ...args, limit: 100 } });
+      toast.dismiss(tid);
+      toast.success(
+        `Извлечено: ${r.extract.completed} · OCR: ${r.ocr.completed} · классифицировано: ${r.classify.classified}`,
+      );
+      reload();
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(e?.message ?? "Ошибка полной обработки");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
