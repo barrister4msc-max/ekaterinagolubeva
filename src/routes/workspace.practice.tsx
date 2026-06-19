@@ -120,6 +120,9 @@ function PracticePage() {
   const classifyBatchFn = useServerFn(archiveClassifyBatchByContent);
   const sendToKbFn = useServerFn(archiveSendToKbQueue);
   const getTextFn = useServerFn(archiveGetExtractedText);
+  const extractTextFn = useServerFn(archiveExtractTextBatch);
+  const ocrBatchFn = useServerFn(archiveOcrBatch);
+  const processFullyFn = useServerFn(archiveProcessBatchFully);
   const mList = useServerFn(matterList);
   const [aiBusy, setAiBusy] = useState(false);
 
