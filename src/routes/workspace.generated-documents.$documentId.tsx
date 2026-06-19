@@ -348,7 +348,7 @@ function DocumentDetailPage() {
     spellCheck={false}
     style={{
   fontFamily: '"Times New Roman", Times, serif',
-  fontSize: "16px",
+  fontSize: "18px",
   lineHeight: 1.9,
   backgroundColor: "#fffdf7",
   color: "#111827",
