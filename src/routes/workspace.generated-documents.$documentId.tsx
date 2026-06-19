@@ -231,26 +231,17 @@ function DocumentDetailPage() {
 const downloadDocx = () => {
   if (!doc) return;
 
-  const html = `
-  <html>
-    <head>
-      <meta charset="utf-8" />
-    </head>
-    <body>
-      <pre>${edited.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
-    </body>
-  </html>
-  `;
+  const text = edited || doc.content || "";
 
-  const blob = new Blob([html], {
-    type: "application/msword;charset=utf-8",
+  const blob = new Blob([text], {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document;charset=utf-8",
   });
 
   const url = URL.createObjectURL(blob);
 
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${getSafeFileName()}.doc`;
+  a.download = `${getSafeFileName()}.docx`;
 
   a.click();
 
