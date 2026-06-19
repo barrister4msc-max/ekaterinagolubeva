@@ -278,9 +278,13 @@ function DocumentDetailPage() {
         >
           <ArrowLeft size={12} /> К списку
         </button>
-        <button type="button" onClick={downloadMd} className={BTN}>
-          <Download size={12} /> Скачать документ
-        </button>
+        <button type="button" onClick={downloadDocx} className={BTN}>
+  <Download size={12} /> DOCX
+</button>
+
+<button type="button" onClick={downloadPdf} className={BTN}>
+  <Download size={12} /> PDF
+</button>
       </div>
 
       <header className={`${GLASS} p-5`}>
