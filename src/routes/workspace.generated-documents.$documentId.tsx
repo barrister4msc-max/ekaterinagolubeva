@@ -377,6 +377,13 @@ function DocumentDetailPage() {
 </div>
           <div className="sticky bottom-4 z-50 mx-auto mt-6 flex w-full max-w-[1000px] flex-wrap gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
             <button
+  type="button"
+  onClick={() => setEditMode((v) => !v)}
+  className={BTN}
+>
+  {editMode ? "Закрыть редактирование" : "Редактировать"}
+</button>
+            <button
               type="button"
               onClick={() => saveEdits.mutate()}
               disabled={isApproved || !dirty || saveEdits.isPending}
