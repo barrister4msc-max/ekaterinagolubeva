@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { FolderArchive } from "lucide-react";
-import { archiveBulkCreate } from "@/lib/lawyer-matters.functions";
+import { archiveBulkCreate, archiveExtractTextBatch } from "@/lib/lawyer-matters.functions";
 
 const IGNORED_PREFIX = ["__MACOSX/", "__MACOSX"];
 const IGNORED_NAMES = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);
@@ -53,6 +53,7 @@ export function ZipUploadDialog({ onUploaded }: { onUploaded?: () => void }) {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<string>("");
   const bulkCreate = useServerFn(archiveBulkCreate);
+  const extractText = useServerFn(archiveExtractTextBatch);
 
   const reset = () => {
     setFile(null);
@@ -136,6 +137,18 @@ export function ZipUploadDialog({ onUploaded }: { onUploaded?: () => void }) {
 
       setStatus("Сохранение записей…");
       await bulkCreate({ data: { archive_batch_id: batchId, items } });
+
+      setStatus("Извлечение текста из файлов…");
+      try {
+        for (let i = 0; i < 200; i++) {
+          const r: any = await extractText({ data: { batch_id: batchId, limit: 100 } });
+          if (!r || (r.processed ?? 0) === 0) break;
+          setStatus(`Извлечение текста: обработано ${(i + 1) * 100}…`);
+        }
+      } catch (err) {
+        console.warn("auto extract after upload failed", err);
+      }
+
       toast.success(`Загружено файлов: ${items.length}`);
       onUploaded?.();
       setOpen(false);

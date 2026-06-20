@@ -280,12 +280,28 @@ function PracticePage() {
     setAiBusy(true);
     const tid = toast.loading("Извлечение текста…");
     try {
-      const r: any = await extractTextFn({ data: { ...args, limit: 100 } });
+      const totals = { completed: 0, ocr_required: 0, technical: 0, nested: 0, failed: 0, processed: 0 };
+      const loop = Boolean(args.only_pending || args.batch_id);
+      const maxIters = loop ? 200 : 1;
+      for (let i = 0; i < maxIters; i++) {
+        const r: any = await extractTextFn({ data: { ...args, limit: 100 } });
+        totals.completed += r.completed ?? 0;
+        totals.ocr_required += r.ocr_required ?? 0;
+        totals.technical += r.technical ?? 0;
+        totals.nested += r.nested ?? 0;
+        totals.failed += r.failed ?? 0;
+        totals.processed += r.processed ?? 0;
+        if (r.errors?.length) console.warn("[archiveExtractTextBatch] errors", r.errors);
+        toast.loading(
+          `Извлечение… обработано ${totals.processed} · готово ${totals.completed} · OCR ${totals.ocr_required} · технич ${totals.technical} · архивов ${totals.nested} · ошибок ${totals.failed}`,
+          { id: tid },
+        );
+        if (!loop || (r.processed ?? 0) === 0) break;
+      }
       toast.dismiss(tid);
       toast.success(
-        `Готово: ${r.completed} · OCR нужен: ${r.ocr_required} · технич.: ${r.technical} · вложенные архивы: ${r.nested} · ошибок: ${r.failed}`,
+        `Готово: ${totals.completed} · OCR нужен: ${totals.ocr_required} · технич.: ${totals.technical} · вложенные архивы: ${totals.nested} · ошибок: ${totals.failed}`,
       );
-      if (r.errors?.length) console.warn("[archiveExtractTextBatch] errors", r.errors);
       reload();
     } catch (e: any) {
       toast.dismiss(tid);
