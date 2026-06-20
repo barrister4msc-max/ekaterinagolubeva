@@ -315,11 +315,25 @@ function PracticePage() {
     if (aiBusy) return;
     setAiBusy(true);
     const tid = toast.loading("OCR сканов…");
+    const totals = { processed: 0, completed: 0, failed: 0, remaining: 0 };
     try {
-      const r: any = await ocrBatchFn({ data: { ...args, limit: 20 } });
+      for (let i = 0; i < 200; i++) {
+        const r: any = await ocrBatchFn({ data: { ...args, limit: 20 } });
+        totals.processed += r.processed ?? 0;
+        totals.completed += r.ocr_completed ?? r.completed ?? 0;
+        totals.failed += r.ocr_failed ?? r.failed ?? 0;
+        totals.remaining = r.remaining_ocr_required ?? 0;
+        toast.loading(
+          `OCR… обработано ${totals.processed} · готово ${totals.completed} · сбоев ${totals.failed} · осталось ${totals.remaining}`,
+          { id: tid },
+        );
+        if (r.errors?.length) console.warn("[archiveOcrBatch] errors", r.errors);
+        if ((r.processed ?? 0) === 0) break;
+      }
       toast.dismiss(tid);
-      toast.success(`OCR готово: ${r.ocr_completed} · сбоев: ${r.failed}`);
-      if (r.errors?.length) console.warn("[archiveOcrBatch] errors", r.errors);
+      toast.success(
+        `OCR: готово ${totals.completed} · сбоев ${totals.failed} · осталось ${totals.remaining}`,
+      );
       reload();
     } catch (e: any) {
       toast.dismiss(tid);
