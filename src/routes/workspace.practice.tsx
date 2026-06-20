@@ -125,6 +125,8 @@ function PracticePage() {
   const extractTextFn = useServerFn(archiveExtractTextBatch);
   const ocrBatchFn = useServerFn(archiveOcrBatch);
   const processFullyFn = useServerFn(archiveProcessBatchFully);
+  const aiAnalyzeFn = useServerFn(archiveAiAnalyzeBatch);
+  const getAnalysisFn = useServerFn(archiveGetAiAnalysis);
   const mList = useServerFn(matterList);
   const [aiBusy, setAiBusy] = useState(false);
 
