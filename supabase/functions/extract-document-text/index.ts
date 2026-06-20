@@ -16,6 +16,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const GEMINI_MODEL = "gemini-2.5-flash";
 type ExtractionStatus =
   | "completed"
   | "ocr_required"
@@ -45,6 +46,17 @@ function extOf(name: string | null | undefined): string {
   if (!name) return "";
   const i = name.lastIndexOf(".");
   return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
+function normalizeOcrMimeType(mime: string | null | undefined, fileName: string, storagePath = ""): string {
+  const ext = extOf(fileName) || extOf(storagePath);
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  if (ext === "tif" || ext === "tiff") return "image/tiff";
+  if (ext === "pdf") return "application/pdf";
+  const m = (mime || "").toLowerCase();
+  if (["image/jpeg", "image/png", "image/tiff", "application/pdf"].includes(m)) return m;
+  return m && m !== "application/octet-stream" ? m : "application/octet-stream";
 }
 
 function decodeXmlEntities(s: string): string {
