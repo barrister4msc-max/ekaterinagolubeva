@@ -17,7 +17,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Briefcase, FileText, Star, FolderArchive, Layers, ExternalLink, Trash2, Link2, Wand2, ShieldCheck, Eraser, GraduationCap, Send, Tags, Eye } from "lucide-react";
+import { Briefcase, FileText, Star, FolderArchive, Layers, ExternalLink, Trash2, Link2, Wand2, ShieldCheck, Eraser, GraduationCap, Send, Tags, Eye, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,8 @@ import {
   archiveExtractTextBatch,
   archiveOcrBatch,
   archiveProcessBatchFully,
+  archiveAiAnalyzeBatch,
+  archiveGetAiAnalysis,
   matterList,
 } from "@/lib/lawyer-matters.functions";
 import { ZipUploadDialog } from "@/components/practice/zip-upload-dialog";
@@ -123,6 +125,8 @@ function PracticePage() {
   const extractTextFn = useServerFn(archiveExtractTextBatch);
   const ocrBatchFn = useServerFn(archiveOcrBatch);
   const processFullyFn = useServerFn(archiveProcessBatchFully);
+  const aiAnalyzeFn = useServerFn(archiveAiAnalyzeBatch);
+  const getAnalysisFn = useServerFn(archiveGetAiAnalysis);
   const mList = useServerFn(matterList);
   const [aiBusy, setAiBusy] = useState(false);
 
@@ -141,6 +145,7 @@ function PracticePage() {
   const [classifyTarget, setClassifyTarget] = useState<ArchiveItem | null>(null);
   const [kbTarget, setKbTarget] = useState<ArchiveItem | null>(null);
   const [textTarget, setTextTarget] = useState<{ title: string; extracted_text: string; redacted_text: string | null } | null>(null);
+  const [analysisTarget, setAnalysisTarget] = useState<{ title: string; analysis: any } | null>(null);
 
   const baseFilter = useMemo(() => {
     const f: Record<string, any> = {};
@@ -362,6 +367,39 @@ function PracticePage() {
     }
   }
 
+  async function runAiAnalyze(args: { batch_id?: string }) {
+    if (aiBusy) return;
+    setAiBusy(true);
+    const tid = toast.loading("AI Анализ практики…");
+    const totals = { processed: 0, analyzed: 0, skipped: 0, failed: 0, remaining: 0 };
+    try {
+      for (let i = 0; i < 500; i++) {
+        const r: any = await aiAnalyzeFn({ data: { ...args, only_pending: true, limit: 8 } });
+        totals.processed += r.processed ?? 0;
+        totals.analyzed += r.analyzed ?? 0;
+        totals.skipped += r.skipped ?? 0;
+        totals.failed += r.failed ?? 0;
+        totals.remaining = r.remaining ?? 0;
+        toast.loading(
+          `AI Анализ… обработано ${totals.processed} · проанализировано ${totals.analyzed} · без текста ${totals.skipped} · сбоев ${totals.failed} · осталось ${totals.remaining}`,
+          { id: tid },
+        );
+        if (r.errors?.length) console.warn("[archiveAiAnalyzeBatch] errors", r.errors);
+        if ((r.processed ?? 0) === 0 || totals.remaining === 0) break;
+      }
+      toast.dismiss(tid);
+      toast.success(
+        `AI Анализ готов: ${totals.analyzed} · без текста: ${totals.skipped} · сбоев: ${totals.failed} · осталось: ${totals.remaining}`,
+      );
+      reload();
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(e?.message ?? "Ошибка AI Анализа");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -379,11 +417,15 @@ function PracticePage() {
             <Eye className="size-4 mr-1" /> OCR для сканов
           </Button>
           <Button variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ only_pending: true })}>
-            <Wand2 className="size-4 mr-1" /> AI классифицировать по содержанию
+            <Wand2 className="size-4 mr-1" /> AI классифицировать
+          </Button>
+          <Button disabled={aiBusy} onClick={() => runAiAnalyze({})}>
+            <Sparkles className="size-4 mr-1" /> AI Анализ практики
           </Button>
           <ZipUploadDialog onUploaded={reload} />
         </div>
       </div>
+
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
@@ -475,7 +517,14 @@ function PracticePage() {
                           <TableCell className="text-xs">{areaLabel(md.practice_area)}</TableCell>
                           <TableCell className="text-xs">{familyLabel(md.document_family)}</TableCell>
                           <TableCell className="text-xs space-x-1">
-                            {role && <Badge className={role.tone} variant="secondary">{role.l}</Badge>}
+                            {md.quality_tier === "gold" && <Badge className="bg-amber-100 text-amber-900" variant="secondary">Gold</Badge>}
+                            {md.quality_tier === "silver" && <Badge className="bg-slate-200 text-slate-900" variant="secondary">Silver</Badge>}
+                            {md.quality_tier === "bronze" && <Badge className="bg-orange-100 text-orange-900" variant="secondary">Bronze</Badge>}
+                            {md.document_role === "private_do_not_index" && <Badge className="bg-red-100 text-red-900" variant="secondary">Private</Badge>}
+                            {md.document_role === "technical" && <Badge variant="outline">Technical</Badge>}
+                            {md.use_in_rag === true && <Badge className="bg-emerald-100 text-emerald-900" variant="secondary">RAG Ready</Badge>}
+                            {md.requires_redaction === true && <Badge className="bg-rose-100 text-rose-900" variant="secondary">Needs Redaction</Badge>}
+                            {role && !md.quality_tier && <Badge className={role.tone} variant="secondary">{role.l}</Badge>}
                             {it.item_type === "template" && <Badge variant="outline">Шаблон</Badge>}
                             {md.is_anonymized && (
                               <Badge className="bg-purple-100 text-purple-900" variant="secondary">
@@ -485,16 +534,16 @@ function PracticePage() {
                             {md.anonymization_status === "needs_review" && (
                               <Badge className="bg-amber-100 text-amber-900" variant="secondary">Требует проверки</Badge>
                             )}
-                            {useGen ? (
-                              <Badge className="bg-green-100 text-green-900" variant="secondary">Для генерации</Badge>
-                            ) : (
-                              <Badge variant="outline">Только архив</Badge>
-                            )}
+                            {useGen && <Badge className="bg-green-100 text-green-900" variant="secondary">Для генерации</Badge>}
                             {md.can_use_for_training && (
                               <Badge className="bg-blue-100 text-blue-900" variant="secondary">Для обучения</Badge>
                             )}
+                            {md.ai_analysis_status === "analyzed" && typeof md.quality_score === "number" && (
+                              <span className="text-[10px] text-muted-foreground">· score {md.quality_score}</span>
+                            )}
                             {md.classification_status === "pending" && <Badge variant="outline">Не классифицирован</Badge>}
                           </TableCell>
+
                           <TableCell className="text-right space-x-1 whitespace-nowrap">
                             <Button size="sm" variant="ghost" onClick={() => handleOpen(it)} title="Открыть">
                               <ExternalLink className="size-4" />
@@ -537,9 +586,18 @@ function PracticePage() {
                             }}>
                               <Eye className="size-4" />
                             </Button>
+                            <Button size="sm" variant="ghost" title="AI Анализ" onClick={async () => {
+                              try {
+                                const r: any = await getAnalysisFn({ data: { id: it.id } });
+                                setAnalysisTarget({ title: r.title, analysis: r.analysis });
+                              } catch (e: any) { toast.error(e?.message ?? "Ошибка"); }
+                            }}>
+                              <Sparkles className="size-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" title="Классифицировать" onClick={() => setClassifyTarget(it)}>
                               <Tags className="size-4" />
                             </Button>
+
                             <Button
                               size="sm"
                               variant="ghost"
@@ -594,8 +652,12 @@ function PracticePage() {
                           <Eye className="size-4 mr-1" /> OCR
                         </Button>
                         <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ batch_id: b.id })}>
-                          <Wand2 className="size-4 mr-1" /> AI
+                          <Wand2 className="size-4 mr-1" /> AI классиф.
                         </Button>
+                        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runAiAnalyze({ batch_id: b.id })}>
+                          <Sparkles className="size-4 mr-1" /> AI Анализ партии
+                        </Button>
+
                         <Button size="sm" disabled={aiBusy} onClick={() => runProcessFully({ batch_id: b.id })}>
                           <Layers className="size-4 mr-1" /> Обработать полностью
                         </Button>
@@ -680,6 +742,130 @@ function PracticePage() {
           <DialogFooter><Button variant="ghost" onClick={() => setTextTarget(null)}>Закрыть</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!analysisTarget} onOpenChange={(o) => { if (!o) setAnalysisTarget(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle>AI Анализ · {analysisTarget?.title}</DialogTitle></DialogHeader>
+          {analysisTarget && (() => {
+            const a = analysisTarget.analysis;
+            if (!a || a.status !== "analyzed") {
+              return (
+                <div className="text-sm text-muted-foreground py-4">
+                  Документ ещё не проанализирован{a?.status ? ` (статус: ${a.status})` : ""}.
+                  Запустите «AI Анализ практики».
+                </div>
+              );
+            }
+            return (
+              <div className="space-y-3 max-h-[65vh] overflow-auto text-sm">
+                <div className="flex flex-wrap gap-1.5">
+                  {a.quality_tier === "gold" && <Badge className="bg-amber-100 text-amber-900" variant="secondary">Gold</Badge>}
+                  {a.quality_tier === "silver" && <Badge className="bg-slate-200 text-slate-900" variant="secondary">Silver</Badge>}
+                  {a.quality_tier === "bronze" && <Badge className="bg-orange-100 text-orange-900" variant="secondary">Bronze</Badge>}
+                  {a.quality_tier === "reject" && <Badge className="bg-red-100 text-red-900" variant="secondary">Не использовать</Badge>}
+                  {a.use_in_rag && <Badge className="bg-emerald-100 text-emerald-900" variant="secondary">RAG Ready</Badge>}
+                  {a.use_in_generation && <Badge className="bg-green-100 text-green-900" variant="secondary">Для генерации</Badge>}
+                  {a.gold_candidate && <Badge className="bg-amber-200 text-amber-900" variant="secondary">Gold candidate</Badge>}
+                  {a.requires_redaction && <Badge className="bg-rose-100 text-rose-900" variant="secondary">Needs Redaction</Badge>}
+                  {a.contains_passport_data && <Badge className="bg-red-100 text-red-900" variant="secondary">Паспорт</Badge>}
+                  {a.contains_bank_data && <Badge className="bg-red-100 text-red-900" variant="secondary">Банк</Badge>}
+                  {a.document_role === "private_do_not_index" && <Badge className="bg-red-100 text-red-900" variant="secondary">Private</Badge>}
+                  {a.document_role === "technical" && <Badge variant="outline">Technical</Badge>}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-muted-foreground">Quality score:</span> <b>{a.quality_score ?? "—"}</b></div>
+                  <div><span className="text-muted-foreground">Document role:</span> {a.document_role ?? "—"}</div>
+                  <div><span className="text-muted-foreground">Practice area:</span> {areaLabel(a.practice_area)}</div>
+                  <div><span className="text-muted-foreground">RAG title:</span> {a.rag_title ?? "—"}</div>
+                </div>
+                {a.short_summary && (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">AI Summary</div>
+                    <p className="text-sm bg-muted/40 p-3 rounded">{a.short_summary}</p>
+                  </div>
+                )}
+                {Array.isArray(a.legal_topics) && a.legal_topics.length > 0 && (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Юридические темы</div>
+                    <div className="flex flex-wrap gap-1">
+                      {a.legal_topics.map((t: string, i: number) => <Badge key={i} variant="outline" className="text-xs">{t}</Badge>)}
+                    </div>
+                  </div>
+                )}
+                {Array.isArray(a.key_facts) && a.key_facts.length > 0 && (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Ключевые факты</div>
+                    <ul className="list-disc pl-5 space-y-0.5 text-sm">
+                      {a.key_facts.map((f: string, i: number) => <li key={i}>{f}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(a.key_risks) && a.key_risks.length > 0 && (
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Ключевые риски</div>
+                    <ul className="list-disc pl-5 space-y-0.5 text-sm">
+                      {a.key_risks.map((f: string, i: number) => <li key={i}>{f}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {a.court && (a.court.court_document_type || a.court.dispute_subject) && (
+                  <div className="border-t pt-2">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Судебная практика</div>
+                    <div className="text-xs grid grid-cols-2 gap-1">
+                      <div>Тип: {a.court.court_document_type ?? "—"}</div>
+                      <div>Стадия: {a.court.procedural_stage ?? "—"}</div>
+                      <div className="col-span-2">Предмет: {a.court.dispute_subject ?? "—"}</div>
+                      <div className="col-span-2">Итог: {a.court.outcome ?? "—"}</div>
+                    </div>
+                    {Array.isArray(a.court.winning_arguments) && a.court.winning_arguments.length > 0 && (
+                      <div className="mt-1 text-xs"><b>Выигрышные:</b> {a.court.winning_arguments.join("; ")}</div>
+                    )}
+                    {Array.isArray(a.court.losing_arguments) && a.court.losing_arguments.length > 0 && (
+                      <div className="mt-1 text-xs"><b>Проигрышные:</b> {a.court.losing_arguments.join("; ")}</div>
+                    )}
+                  </div>
+                )}
+                {a.contract && (a.contract.contract_type || a.contract.subject) && (
+                  <div className="border-t pt-2">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Договор</div>
+                    <div className="text-xs grid grid-cols-2 gap-1">
+                      <div>Тип: {a.contract.contract_type ?? "—"}</div>
+                      <div>Шаблон-готов: {a.contract.template_ready ? "да" : "нет"}</div>
+                      <div className="col-span-2">Предмет: {a.contract.subject ?? "—"}</div>
+                    </div>
+                    {Array.isArray(a.contract.critical_risks) && a.contract.critical_risks.length > 0 && (
+                      <div className="mt-1 text-xs"><b>Критические риски:</b> {a.contract.critical_risks.join("; ")}</div>
+                    )}
+                    {Array.isArray(a.contract.strong_clauses) && a.contract.strong_clauses.length > 0 && (
+                      <div className="mt-1 text-xs"><b>Сильные формулировки:</b> {a.contract.strong_clauses.join("; ")}</div>
+                    )}
+                  </div>
+                )}
+                {a.real_estate && (a.real_estate.object_type || a.real_estate.deal_type) && (
+                  <div className="border-t pt-2">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Недвижимость</div>
+                    <div className="text-xs grid grid-cols-2 gap-1">
+                      <div>Объект: {a.real_estate.object_type ?? "—"}</div>
+                      <div>Сделка: {a.real_estate.deal_type ?? "—"}</div>
+                    </div>
+                    {Array.isArray(a.real_estate.main_risks) && a.real_estate.main_risks.length > 0 && (
+                      <div className="mt-1 text-xs"><b>Риски:</b> {a.real_estate.main_risks.join("; ")}</div>
+                    )}
+                    {Array.isArray(a.real_estate.recommendations) && a.real_estate.recommendations.length > 0 && (
+                      <div className="mt-1 text-xs"><b>Рекомендации:</b> {a.real_estate.recommendations.join("; ")}</div>
+                    )}
+                  </div>
+                )}
+                <div className="text-[10px] text-muted-foreground pt-2 border-t">
+                  Версия анализа: {a.version ?? "—"} · {a.at ? new Date(a.at).toLocaleString("ru-RU") : ""}
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter><Button variant="ghost" onClick={() => setAnalysisTarget(null)}>Закрыть</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <AnonymizeDialog
         open={!!anonTarget}
