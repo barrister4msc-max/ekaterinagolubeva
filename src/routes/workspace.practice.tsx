@@ -586,9 +586,18 @@ function PracticePage() {
                             }}>
                               <Eye className="size-4" />
                             </Button>
+                            <Button size="sm" variant="ghost" title="AI Анализ" onClick={async () => {
+                              try {
+                                const r: any = await getAnalysisFn({ data: { id: it.id } });
+                                setAnalysisTarget({ title: r.title, analysis: r.analysis });
+                              } catch (e: any) { toast.error(e?.message ?? "Ошибка"); }
+                            }}>
+                              <Sparkles className="size-4" />
+                            </Button>
                             <Button size="sm" variant="ghost" title="Классифицировать" onClick={() => setClassifyTarget(it)}>
                               <Tags className="size-4" />
                             </Button>
+
                             <Button
                               size="sm"
                               variant="ghost"
