@@ -184,10 +184,10 @@ async function extractWithGeminiFallback(params: {
   buf: ArrayBuffer;
   mimeType: string;
   fileName: string;
-}): Promise<string> {
+}): Promise<{ text: string; debug: Record<string, unknown> }> {
   if (!GEMINI_API_KEY) {
   console.error("[extract-document-text] GEMINI_API_KEY is missing");
-  return "";
+  return { text: "", debug: { error: "GEMINI_API_KEY missing", model: GEMINI_MODEL, mimeType: params.mimeType, byteLength: params.buf.byteLength } };
 }
 
   const base64 = arrayBufferToBase64(params.buf);
@@ -197,18 +197,18 @@ async function extractWithGeminiFallback(params: {
   const parts = [
   {
     text:
-      "Извлеки весь читаемый текст из файла. Верни только plain text, без markdown, комментариев и JSON.",
+      "Извлеки весь читаемый текст с изображения/скана. Верни только текст. Если текста нет — верни пустую строку.",
   },
   {
     inline_data: {
-      mime_type: params.mimeType || "application/octet-stream",
+      mime_type: params.mimeType,
       data: base64,
     },
   },
 ];
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: {
@@ -224,16 +224,27 @@ async function extractWithGeminiFallback(params: {
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
     console.error(
       "[extract-document-text] Gemini fallback failed",
-      await response.text(),
+      errorText,
     );
-    return "";
+    return { text: "", debug: { error: errorText, model: GEMINI_MODEL, mimeType: params.mimeType, byteLength: params.buf.byteLength } };
   }
 
   const data = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+  const debug = {
+    response_keys: Object.keys(data || {}),
+    finishReason: data?.candidates?.[0]?.finishReason,
+    candidate_text_length: text.length,
+    byteLength: params.buf.byteLength,
+    mimeType: params.mimeType,
+    model: GEMINI_MODEL,
+  };
+  console.log("[extract-document-text] Gemini OCR response", JSON.stringify(debug));
 
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+  return { text, debug };
 }
 type Detected = {
   method: ExtractionMethod;
