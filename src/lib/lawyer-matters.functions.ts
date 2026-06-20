@@ -1452,10 +1452,13 @@ export const archiveOcrBatch = createServerFn({ method: "POST" })
         ocr_completed += 1;
       } catch (e: any) {
         failed += 1;
-        errors.push({ id: r.id, title: r.title, error: e?.message ?? String(e) });
+        const errMsg = e?.message ?? String(e);
+        errors.push({ id: r.id, title: r.title, error: errMsg });
         const newMd: Record<string, any> = {
           ...md,
-          text_extraction_error: e?.message ?? String(e),
+          text_extraction_status: "ocr_failed",
+          ocr_error: errMsg,
+          text_extraction_error: errMsg,
           ocr_last_attempt_at: new Date().toISOString(),
         };
         await (supabaseAdmin.from("lawyer_archive_items") as any).update({ metadata: newMd })
@@ -1463,7 +1466,22 @@ export const archiveOcrBatch = createServerFn({ method: "POST" })
       }
     }
 
-    return { processed: rows.length, ocr_completed, failed, errors: errors.slice(0, 20) };
+    const { count: remaining_ocr_required } = await (supabaseAdmin
+      .from("lawyer_archive_items") as any)
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .eq("metadata->>text_extraction_status", "ocr_required")
+      .match(data.batch_id ? { "metadata->>archive_batch_id": data.batch_id } : {});
+
+    return {
+      processed: rows.length,
+      completed: ocr_completed,
+      ocr_completed,
+      ocr_failed: failed,
+      failed,
+      remaining_ocr_required: remaining_ocr_required ?? 0,
+      errors: errors.slice(0, 20),
+    };
   });
 
 export const archiveProcessBatchFully = createServerFn({ method: "POST" })
