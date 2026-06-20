@@ -16,6 +16,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+const GEMINI_MODEL = "gemini-2.5-flash";
 type ExtractionStatus =
   | "completed"
   | "ocr_required"
@@ -45,6 +46,17 @@ function extOf(name: string | null | undefined): string {
   if (!name) return "";
   const i = name.lastIndexOf(".");
   return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
+function normalizeOcrMimeType(mime: string | null | undefined, fileName: string, storagePath = ""): string {
+  const ext = extOf(fileName) || extOf(storagePath);
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  if (ext === "tif" || ext === "tiff") return "image/tiff";
+  if (ext === "pdf") return "application/pdf";
+  const m = (mime || "").toLowerCase();
+  if (["image/jpeg", "image/png", "image/tiff", "application/pdf"].includes(m)) return m;
+  return m && m !== "application/octet-stream" ? m : "application/octet-stream";
 }
 
 function decodeXmlEntities(s: string): string {
@@ -172,10 +184,10 @@ async function extractWithGeminiFallback(params: {
   buf: ArrayBuffer;
   mimeType: string;
   fileName: string;
-}): Promise<string> {
+}): Promise<{ text: string; debug: Record<string, unknown> }> {
   if (!GEMINI_API_KEY) {
   console.error("[extract-document-text] GEMINI_API_KEY is missing");
-  return "";
+  return { text: "", debug: { error: "GEMINI_API_KEY missing", model: GEMINI_MODEL, mimeType: params.mimeType, byteLength: params.buf.byteLength } };
 }
 
   const base64 = arrayBufferToBase64(params.buf);
@@ -185,18 +197,18 @@ async function extractWithGeminiFallback(params: {
   const parts = [
   {
     text:
-      "Извлеки весь читаемый текст из файла. Верни только plain text, без markdown, комментариев и JSON.",
+      "Извлеки весь читаемый текст с изображения/скана. Верни только текст. Если текста нет — верни пустую строку.",
   },
   {
     inline_data: {
-      mime_type: params.mimeType || "application/octet-stream",
+      mime_type: params.mimeType,
       data: base64,
     },
   },
 ];
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: {
@@ -212,16 +224,27 @@ async function extractWithGeminiFallback(params: {
   );
 
   if (!response.ok) {
+    const errorText = await response.text();
     console.error(
       "[extract-document-text] Gemini fallback failed",
-      await response.text(),
+      errorText,
     );
-    return "";
+    return { text: "", debug: { error: errorText, model: GEMINI_MODEL, mimeType: params.mimeType, byteLength: params.buf.byteLength } };
   }
 
   const data = await response.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+  const debug = {
+    response_keys: Object.keys(data || {}),
+    finishReason: data?.candidates?.[0]?.finishReason,
+    candidate_text_length: text.length,
+    byteLength: params.buf.byteLength,
+    mimeType: params.mimeType,
+    model: GEMINI_MODEL,
+  };
+  console.log("[extract-document-text] Gemini OCR response", JSON.stringify(debug));
 
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+  return { text, debug };
 }
 type Detected = {
   method: ExtractionMethod;
@@ -251,7 +274,7 @@ function detect(mime: string, name: string): Detected {
   if (m === "text/html" || e === "html" || e === "htm")
     return { method: "html_text", kind: "html" };
   if (m === "application/pdf" || e === "pdf") return { method: "pdf_text", kind: "pdf" };
-  if (m.startsWith("image/") || ["png", "jpg", "jpeg", "webp"].includes(e))
+  if (m.startsWith("image/") || ["png", "jpg", "jpeg", "tif", "tiff", "webp"].includes(e))
     return { method: "image_ocr_required", kind: "image" };
   if (
     m === "application/vnd.ms-excel" ||
@@ -307,8 +330,8 @@ Deno.serve(async (req) => {
     const md = (item.metadata || {}) as Record<string, any>;
     const storagePath = body.storage_path || item.storage_path;
     if (!storagePath) return json({ error: "no_storage_path" }, 400);
-    const mime = body.mime_type || md.mime_type || "application/octet-stream";
     const fileName = body.file_name || md.original_filename || item.title || "document";
+    const mime = normalizeOcrMimeType(body.mime_type || md.mime_type, fileName, storagePath);
 
     let downloaded: { buf: ArrayBuffer; bucket: string } | null = null;
     if (body.bucket) {
@@ -321,17 +344,27 @@ Deno.serve(async (req) => {
       await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
       return json({ error: "file_not_found_in_storage" }, 404);
     }
+    const byteLength = downloaded.buf.byteLength;
+    console.log("[extract-document-text] archive download", JSON.stringify({ archive_item_id: item.id, storagePath, bucket: downloaded.bucket, byteLength, mimeType: mime, fileName }));
+    if (byteLength === 0) {
+      const newMd = { ...md, text_extraction_status: "ocr_failed", ocr_error: "storage_empty", ocr_debug: { byteLength, mimeType: mime, model: GEMINI_MODEL }, ocr_last_attempt_at: new Date().toISOString() };
+      await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
+      return json({ ok: false, error: "storage_empty" }, 200);
+    }
 
-    const text = (await extractWithGeminiFallback({ buf: downloaded.buf, mimeType: mime, fileName })).trim();
+    const result = await extractWithGeminiFallback({ buf: downloaded.buf, mimeType: mime, fileName });
+    const text = result.text.trim();
     if (!text) {
+      const unsupportedTiff = mime === "image/tiff" && String(result.debug?.error || "").toLowerCase().includes("unsupported");
       const newMd = {
         ...md,
-        text_extraction_status: "ocr_failed",
-        ocr_error: GEMINI_API_KEY ? "ocr_empty" : "GEMINI_API_KEY missing",
+        text_extraction_status: unsupportedTiff ? "ocr_format_unsupported" : "ocr_failed",
+        ocr_error: unsupportedTiff ? "ocr_format_unsupported" : (GEMINI_API_KEY ? "ocr_empty" : "GEMINI_API_KEY missing"),
+        ocr_debug: result.debug,
         ocr_last_attempt_at: new Date().toISOString(),
       };
       await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
-      return json({ ok: false, error: "ocr_empty" }, 200);
+      return json({ ok: false, error: unsupportedTiff ? "ocr_format_unsupported" : "ocr_empty", ocr_debug: result.debug }, 200);
     }
 
     const newMd: Record<string, any> = {
@@ -341,6 +374,7 @@ Deno.serve(async (req) => {
       text_extracted_at: new Date().toISOString(),
       extracted_text_length: text.length,
       ocr_text: text,
+      ocr_debug: result.debug,
       requires_ocr: false,
     };
     delete newMd.text_extraction_error;
@@ -431,14 +465,14 @@ Deno.serve(async (req) => {
   }
 
   if (text.trim().length < 50 && downloaded?.buf) {
-    const fallbackText = await extractWithGeminiFallback({
+    const fallback = await extractWithGeminiFallback({
       buf: downloaded.buf,
-      mimeType: doc.mime_type || "application/octet-stream",
+      mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
       fileName: doc.file_name || "document",
     });
 
-    if (fallbackText.trim().length >= 50) {
-      text = fallbackText.trim();
+    if (fallback.text.trim().length >= 50) {
+      text = fallback.text.trim();
       method = "gemini_fallback";
       status = "completed";
     } else if (detected.kind === "image" || detected.kind === "pdf") {
