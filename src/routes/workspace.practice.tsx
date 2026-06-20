@@ -517,7 +517,14 @@ function PracticePage() {
                           <TableCell className="text-xs">{areaLabel(md.practice_area)}</TableCell>
                           <TableCell className="text-xs">{familyLabel(md.document_family)}</TableCell>
                           <TableCell className="text-xs space-x-1">
-                            {role && <Badge className={role.tone} variant="secondary">{role.l}</Badge>}
+                            {md.quality_tier === "gold" && <Badge className="bg-amber-100 text-amber-900" variant="secondary">Gold</Badge>}
+                            {md.quality_tier === "silver" && <Badge className="bg-slate-200 text-slate-900" variant="secondary">Silver</Badge>}
+                            {md.quality_tier === "bronze" && <Badge className="bg-orange-100 text-orange-900" variant="secondary">Bronze</Badge>}
+                            {md.document_role === "private_do_not_index" && <Badge className="bg-red-100 text-red-900" variant="secondary">Private</Badge>}
+                            {md.document_role === "technical" && <Badge variant="outline">Technical</Badge>}
+                            {md.use_in_rag === true && <Badge className="bg-emerald-100 text-emerald-900" variant="secondary">RAG Ready</Badge>}
+                            {md.requires_redaction === true && <Badge className="bg-rose-100 text-rose-900" variant="secondary">Needs Redaction</Badge>}
+                            {role && !md.quality_tier && <Badge className={role.tone} variant="secondary">{role.l}</Badge>}
                             {it.item_type === "template" && <Badge variant="outline">Шаблон</Badge>}
                             {md.is_anonymized && (
                               <Badge className="bg-purple-100 text-purple-900" variant="secondary">
@@ -527,16 +534,16 @@ function PracticePage() {
                             {md.anonymization_status === "needs_review" && (
                               <Badge className="bg-amber-100 text-amber-900" variant="secondary">Требует проверки</Badge>
                             )}
-                            {useGen ? (
-                              <Badge className="bg-green-100 text-green-900" variant="secondary">Для генерации</Badge>
-                            ) : (
-                              <Badge variant="outline">Только архив</Badge>
-                            )}
+                            {useGen && <Badge className="bg-green-100 text-green-900" variant="secondary">Для генерации</Badge>}
                             {md.can_use_for_training && (
                               <Badge className="bg-blue-100 text-blue-900" variant="secondary">Для обучения</Badge>
                             )}
+                            {md.ai_analysis_status === "analyzed" && typeof md.quality_score === "number" && (
+                              <span className="text-[10px] text-muted-foreground">· score {md.quality_score}</span>
+                            )}
                             {md.classification_status === "pending" && <Badge variant="outline">Не классифицирован</Badge>}
                           </TableCell>
+
                           <TableCell className="text-right space-x-1 whitespace-nowrap">
                             <Button size="sm" variant="ghost" onClick={() => handleOpen(it)} title="Открыть">
                               <ExternalLink className="size-4" />
