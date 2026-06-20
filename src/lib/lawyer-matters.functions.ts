@@ -1552,22 +1552,22 @@ export const archiveProcessBatchFully = createServerFn({ method: "POST" })
       const md = (r.metadata ?? {}) as Record<string, any>;
       try {
         if (!r.storage_path) throw new Error("no_storage_path");
-        const dl = await helpers.downloadArchiveFile(supabaseAdmin, r.storage_path);
-        if (!dl) throw new Error("file_not_found_in_storage");
-        const out = await helpers.ocrViaGemini(dl.buf, md.mime_type || "application/octet-stream");
-        if (out.error || !out.text) throw new Error(out.error || "ocr_empty");
-        const newMd: Record<string, any> = {
-          ...md,
-          text_extraction_status: "completed",
-          text_extraction_method: "gemini_ocr",
-          text_extracted_at: new Date().toISOString(),
-          extracted_text_length: out.text.length,
-          ocr_text: out.text,
-          requires_ocr: false,
-        };
-        delete newMd.text_extraction_error;
-        await (supabaseAdmin.from("lawyer_archive_items") as any).update({ content: out.text, metadata: newMd })
-          .eq("id", r.id);
+        const url = `${process.env.SUPABASE_URL}/functions/v1/extract-document-text`;
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            archive_item_id: r.id,
+            storage_path: r.storage_path,
+            mime_type: md.mime_type,
+            file_name: md.original_filename || md.original_file_name || r.title,
+          }),
+        });
+        const j: any = await resp.json().catch(() => ({}));
+        if (!resp.ok || j?.ok !== true) throw new Error(j?.error || `edge_http_${resp.status}`);
         ocr_completed += 1;
       } catch {
         ocr_failed += 1;
