@@ -1466,12 +1466,12 @@ export const archiveOcrBatch = createServerFn({ method: "POST" })
       }
     }
 
-    const { count: remaining_ocr_required } = await (supabaseAdmin
-      .from("lawyer_archive_items") as any)
+    let remainingQ = (supabaseAdmin.from("lawyer_archive_items") as any)
       .select("id", { count: "exact", head: true })
       .eq("is_active", true)
-      .eq("metadata->>text_extraction_status", "ocr_required")
-      .match(data.batch_id ? { "metadata->>archive_batch_id": data.batch_id } : {});
+      .eq("metadata->>text_extraction_status", "ocr_required");
+    if (data.batch_id) remainingQ = remainingQ.eq("metadata->>archive_batch_id", data.batch_id);
+    const { count: remaining_ocr_required } = await remainingQ;
 
     return {
       processed: rows.length,
