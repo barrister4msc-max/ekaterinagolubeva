@@ -1605,3 +1605,309 @@ export const archiveProcessBatchFully = createServerFn({ method: "POST" })
     };
   });
 
+/* ===== AI Analysis (full practice analysis for RAG/generation readiness) ===== */
+
+const AI_ANALYSIS_VERSION = "v1";
+
+const AI_ANALYSIS_SYSTEM_PROMPT = `Ты — старший юрист-аналитик практики Екатерины Голубевой (недвижимость, налоги, суды, договоры, земля, корпоративное).
+Задача: глубоко проанализировать документ из её рабочего архива и подготовить его для базы знаний (RAG), генерации документов и поиска практики.
+Верни СТРОГО валидный JSON, без markdown, без пояснений вне JSON, без trailing запятых.
+
+Жёсткие правила качества (quality_score 0–100):
+- 90–100 = Gold: правовая позиция, аналитическая записка, грамотные возражения/жалобы, готовое заключение, эталонный шаблон.
+- 75–89 = Silver: добротный рабочий документ (иск, претензия, отзыв), пригодный как образец.
+- 50–74 = Bronze: пригоден как контекст, но не как эталон.
+- 0–49 = Не использовать (мусор, обрывки OCR, дубли, нерелевантное).
+
+Жёсткие правила доступа:
+- Доверенности → document_role="private_do_not_index", use_in_rag=false, requires_redaction=true, contains_personal_data=true.
+- Паспорта, СНИЛС, ИНН физлица → document_role="private_do_not_index", use_in_rag=false, requires_redaction=true, contains_personal_data=true, contains_passport_data=true.
+- Банковские выписки, платёжки, реквизиты счетов → document_role="private_do_not_index", use_in_rag=false, requires_redaction=true, contains_bank_data=true.
+- Файлы .p7s, .sig, технические подписи → document_role="technical", quality_score≤20, use_in_rag=false.
+- ZIP, вложенные архивы → document_role="technical", quality_score=0, use_in_rag=false.
+- OCR-мусор (нечитаемый, <100 осмысленных символов) → quality_score≤30, use_in_rag=false.
+
+gold_candidate=true только если quality_score≥90 И use_in_rag=true И НЕТ персональных/паспортных/банковских данных.
+
+Схема ответа:
+{
+  "document_role": "gold_practice|template|source_document|evidence_raw|technical|private_do_not_index",
+  "practice_area": "real_estate|tax|litigation|contracts|land|corporate|inheritance|bankruptcy|enforcement|claims|other",
+  "legal_topics": ["строка", "..."],
+  "key_facts": ["строка", "..."],
+  "key_risks": ["строка", "..."],
+  "quality_score": 0,
+  "quality_tier": "gold|silver|bronze|reject",
+  "gold_candidate": false,
+  "use_in_rag": false,
+  "use_in_generation": false,
+  "requires_redaction": false,
+  "contains_personal_data": false,
+  "contains_passport_data": false,
+  "contains_bank_data": false,
+  "short_summary": "1–3 предложения по сути документа",
+  "rag_title": "короткий заголовок для базы знаний",
+  "court": {
+    "court_document_type": "иск|отзыв|возражения|апелляция|кассация|определение|решение|null",
+    "dispute_subject": "строка|null",
+    "procedural_stage": "первая|апелляция|кассация|надзор|исполнение|null",
+    "winning_arguments": ["..."],
+    "losing_arguments": ["..."],
+    "outcome": "удовлетворено|частично|отказано|мировое|прекращено|null"
+  },
+  "contract": {
+    "contract_type": "строка|null",
+    "subject": "строка|null",
+    "critical_risks": ["..."],
+    "strong_clauses": ["..."],
+    "template_ready": false
+  },
+  "real_estate": {
+    "object_type": "квартира|дом|нежилое|земля|null",
+    "deal_type": "купля-продажа|аренда|дарение|мена|ипотека|null",
+    "main_risks": ["..."],
+    "recommendations": ["..."]
+  }
+}
+
+Если документ не относится к судам/договорам/недвижимости — соответствующий вложенный объект верни со всеми полями null или пустыми массивами.`;
+
+function deriveQualityTier(score: number): "gold" | "silver" | "bronze" | "reject" {
+  if (score >= 90) return "gold";
+  if (score >= 75) return "silver";
+  if (score >= 50) return "bronze";
+  return "reject";
+}
+
+async function analyzeOneArchiveItem(
+  supabase: any,
+  userId: string,
+  row: any,
+  apiKey: string,
+): Promise<void> {
+  const md = (row.metadata ?? {}) as Record<string, any>;
+  const text: string = typeof row.content === "string" ? row.content : "";
+  if (text.trim().length < 50) {
+    // Cannot analyze without content — mark as skipped, not failed.
+    const newMd = {
+      ...md,
+      ai_analysis_status: "skipped_no_text",
+      ai_analysis_at: new Date().toISOString(),
+      ai_analysis_version: AI_ANALYSIS_VERSION,
+      quality_score: 0,
+      quality_tier: "reject",
+      use_in_rag: false,
+    };
+    await (supabase.from("lawyer_archive_items") as any).update({ metadata: newMd }).eq("id", row.id);
+    return;
+  }
+
+  const filename: string = md.original_filename || md.original_file_name || row.title || "";
+  const ext: string = md.file_extension || (filename.includes(".") ? filename.split(".").pop() : "");
+  const hintedPracticeArea = md.practice_area ? `\nТекущая отнесённая область практики: ${md.practice_area}` : "";
+  const hintedDocType = md.document_type ? `\nТекущий тип документа: ${md.document_type}` : "";
+
+  const userPrompt = `Имя файла: ${filename}
+Расширение: ${ext}${hintedPracticeArea}${hintedDocType}
+
+Текст документа (может быть обрезан):
+${text.slice(0, 18000)}`;
+
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Lovable-API-Key": apiKey,
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: AI_ANALYSIS_SYSTEM_PROMPT },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    if (resp.status === 429) throw new Error("AI rate limit (429)");
+    if (resp.status === 402) throw new Error("AI credits exhausted (402)");
+    throw new Error(`AI HTTP ${resp.status}: ${body.slice(0, 300)}`);
+  }
+  const j: any = await resp.json();
+  const raw: string = j?.choices?.[0]?.message?.content ?? "";
+  let parsed: any;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    const m = raw.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("AI вернул не-JSON");
+    parsed = JSON.parse(m[0]);
+  }
+
+  const qScore = Math.max(0, Math.min(100, Number(parsed.quality_score ?? 0)));
+  const qTier = parsed.quality_tier && ["gold", "silver", "bronze", "reject"].includes(parsed.quality_tier)
+    ? parsed.quality_tier
+    : deriveQualityTier(qScore);
+
+  // Safety overrides — never trust the model on PII flags downgrading themselves.
+  const isPrivate = parsed.document_role === "private_do_not_index"
+    || parsed.contains_passport_data === true
+    || parsed.contains_bank_data === true;
+
+  const newMd: Record<string, any> = {
+    ...md,
+    document_role: parsed.document_role ?? md.document_role,
+    practice_area: parsed.practice_area ?? md.practice_area,
+    legal_topics: Array.isArray(parsed.legal_topics) ? parsed.legal_topics.slice(0, 30) : [],
+    key_facts: Array.isArray(parsed.key_facts) ? parsed.key_facts.slice(0, 30) : [],
+    key_risks: Array.isArray(parsed.key_risks) ? parsed.key_risks.slice(0, 30) : [],
+    quality_score: qScore,
+    quality_tier: qTier,
+    gold_candidate: parsed.gold_candidate === true && qTier === "gold" && !isPrivate,
+    use_in_rag: isPrivate ? false : parsed.use_in_rag === true,
+    use_in_generation: isPrivate ? false : parsed.use_in_generation === true,
+    requires_redaction: parsed.requires_redaction === true || isPrivate,
+    contains_personal_data: parsed.contains_personal_data === true || isPrivate,
+    contains_passport_data: parsed.contains_passport_data === true,
+    contains_bank_data: parsed.contains_bank_data === true,
+    short_summary: typeof parsed.short_summary === "string" ? parsed.short_summary.slice(0, 1200) : "",
+    rag_title: typeof parsed.rag_title === "string" ? parsed.rag_title.slice(0, 240) : row.title,
+    ai_analysis_court: parsed.court ?? null,
+    ai_analysis_contract: parsed.contract ?? null,
+    ai_analysis_real_estate: parsed.real_estate ?? null,
+    ai_analysis_status: "analyzed",
+    ai_analysis_at: new Date().toISOString(),
+    ai_analysis_version: AI_ANALYSIS_VERSION,
+    ai_analysis_by_user: userId,
+  };
+
+  const { error: upErr } = await (supabase.from("lawyer_archive_items") as any)
+    .update({ metadata: newMd })
+    .eq("id", row.id);
+  if (upErr) throw new Error(upErr.message);
+}
+
+export const archiveAiAnalyzeBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        batch_id: z.string().trim().min(1).max(120).optional(),
+        only_pending: z.boolean().optional(),
+        limit: z.number().int().min(1).max(50).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY не сконфигурирован");
+
+    let q = supabase
+      .from("lawyer_archive_items")
+      .select("id, title, content, metadata")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(data.limit ?? 10);
+    if (data.batch_id) q = q.eq("metadata->>archive_batch_id", data.batch_id);
+    if (data.only_pending !== false) {
+      // Only items not yet analyzed (or older version).
+      q = q.or(
+        `metadata->>ai_analysis_status.is.null,metadata->>ai_analysis_status.neq.analyzed,metadata->>ai_analysis_version.neq.${AI_ANALYSIS_VERSION}`,
+      );
+    }
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+
+    let analyzed = 0;
+    let failed = 0;
+    let skipped = 0;
+    const errors: { id: string; title: string; error: string }[] = [];
+
+    const runOne = async (r: any) => {
+      try {
+        const before = ((r.metadata ?? {}) as any).ai_analysis_status;
+        await analyzeOneArchiveItem(supabase, userId, r, apiKey);
+        // Re-read status to count skipped vs analyzed
+        const { data: after } = await (supabase.from("lawyer_archive_items") as any)
+          .select("metadata")
+          .eq("id", r.id)
+          .maybeSingle();
+        const status = after?.metadata?.ai_analysis_status;
+        if (status === "skipped_no_text") skipped += 1;
+        else analyzed += 1;
+        void before;
+      } catch (e: any) {
+        failed += 1;
+        errors.push({ id: r.id, title: r.title, error: e?.message ?? String(e) });
+      }
+    };
+    // Parallel — each call ~3-6s; sequential 10× exceeds wall time.
+    await Promise.allSettled((rows ?? []).map(runOne));
+
+    let pq = (supabase.from("lawyer_archive_items") as any)
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .or(
+        `metadata->>ai_analysis_status.is.null,metadata->>ai_analysis_status.neq.analyzed,metadata->>ai_analysis_version.neq.${AI_ANALYSIS_VERSION}`,
+      );
+    if (data.batch_id) pq = pq.eq("metadata->>archive_batch_id", data.batch_id);
+    const { count: remaining } = await pq;
+
+    return {
+      processed: (rows ?? []).length,
+      analyzed,
+      skipped,
+      failed,
+      remaining: remaining ?? 0,
+      errors: errors.slice(0, 20),
+    };
+  });
+
+export const archiveGetAiAnalysis = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { data: row, error } = await supabase
+      .from("lawyer_archive_items")
+      .select("id, title, metadata")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("Не найдено");
+    const md = (row.metadata ?? {}) as any;
+    return {
+      id: row.id,
+      title: row.title,
+      analysis: {
+        status: md.ai_analysis_status ?? null,
+        version: md.ai_analysis_version ?? null,
+        at: md.ai_analysis_at ?? null,
+        document_role: md.document_role ?? null,
+        practice_area: md.practice_area ?? null,
+        quality_score: md.quality_score ?? null,
+        quality_tier: md.quality_tier ?? null,
+        gold_candidate: md.gold_candidate ?? false,
+        use_in_rag: md.use_in_rag ?? false,
+        use_in_generation: md.use_in_generation ?? false,
+        requires_redaction: md.requires_redaction ?? false,
+        contains_personal_data: md.contains_personal_data ?? false,
+        contains_passport_data: md.contains_passport_data ?? false,
+        contains_bank_data: md.contains_bank_data ?? false,
+        short_summary: md.short_summary ?? "",
+        rag_title: md.rag_title ?? row.title,
+        legal_topics: md.legal_topics ?? [],
+        key_facts: md.key_facts ?? [],
+        key_risks: md.key_risks ?? [],
+        court: md.ai_analysis_court ?? null,
+        contract: md.ai_analysis_contract ?? null,
+        real_estate: md.ai_analysis_real_estate ?? null,
+      },
+    };
+  });
+
