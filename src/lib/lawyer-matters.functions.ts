@@ -1430,30 +1430,30 @@ export const archiveOcrBatch = createServerFn({ method: "POST" })
       const md = (r.metadata ?? {}) as Record<string, any>;
       try {
         if (!r.storage_path) throw new Error("no_storage_path");
-        const dl = await helpers.downloadArchiveFile(supabaseAdmin, r.storage_path);
-        if (!dl) throw new Error("file_not_found_in_storage");
-        const mime = md.mime_type || "application/octet-stream";
-        const out = await helpers.ocrViaGemini(dl.buf, mime);
-        if (out.error || !out.text) throw new Error(out.error || "ocr_empty");
-
-        const newMd: Record<string, any> = {
-          ...md,
-          text_extraction_status: "completed",
-          text_extraction_method: "gemini_ocr",
-          text_extracted_at: new Date().toISOString(),
-          extracted_text_length: out.text.length,
-          ocr_text: out.text,
-          requires_ocr: false,
-        };
-        delete newMd.text_extraction_error;
-        const { error: upErr } = await (supabaseAdmin.from("lawyer_archive_items") as any).update({ content: out.text, metadata: newMd })
-          .eq("id", r.id);
-        if (upErr) throw new Error(upErr.message);
+        const url = `${process.env.SUPABASE_URL}/functions/v1/extract-document-text`;
+        const resp = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({
+            archive_item_id: r.id,
+            storage_path: r.storage_path,
+            mime_type: md.mime_type,
+            file_name: md.original_filename || md.original_file_name || r.title,
+          }),
+        });
+        const j: any = await resp.json().catch(() => ({}));
+        if (!resp.ok || j?.ok !== true) {
+          throw new Error(j?.error || `edge_http_${resp.status}`);
+        }
         ocr_completed += 1;
       } catch (e: any) {
         failed += 1;
         const errMsg = e?.message ?? String(e);
         errors.push({ id: r.id, title: r.title, error: errMsg });
+        // edge function already records ocr_failed metadata; only patch if we never reached it
         const newMd: Record<string, any> = {
           ...md,
           text_extraction_status: "ocr_failed",
