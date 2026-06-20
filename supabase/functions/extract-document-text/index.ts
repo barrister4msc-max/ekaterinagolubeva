@@ -286,12 +286,73 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  let body: { document_id?: string };
+  let body: { document_id?: string; archive_item_id?: string; storage_path?: string; bucket?: string; mime_type?: string; file_name?: string };
   try {
     body = await req.json();
   } catch {
     return json({ error: "invalid_json" }, 400);
   }
+
+  // ---- Archive item mode (lawyer_archive_items) ----
+  if (body.archive_item_id) {
+    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+    const { data: item, error: loadErr } = await supabase
+      .from("lawyer_archive_items")
+      .select("id, title, storage_path, metadata")
+      .eq("id", body.archive_item_id)
+      .maybeSingle();
+    if (loadErr) return json({ error: loadErr.message }, 500);
+    if (!item) return json({ error: "not_found" }, 404);
+
+    const md = (item.metadata || {}) as Record<string, any>;
+    const storagePath = body.storage_path || item.storage_path;
+    if (!storagePath) return json({ error: "no_storage_path" }, 400);
+    const mime = body.mime_type || md.mime_type || "application/octet-stream";
+    const fileName = body.file_name || md.original_filename || item.title || "document";
+
+    let downloaded: { buf: ArrayBuffer; bucket: string } | null = null;
+    if (body.bucket) {
+      const { data, error } = await supabase.storage.from(body.bucket).download(storagePath);
+      if (!error && data) downloaded = { buf: await data.arrayBuffer(), bucket: body.bucket };
+    }
+    if (!downloaded) downloaded = await downloadFile(supabase, storagePath);
+    if (!downloaded) {
+      const newMd = { ...md, text_extraction_status: "ocr_failed", ocr_error: "file_not_found_in_storage", ocr_last_attempt_at: new Date().toISOString() };
+      await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
+      return json({ error: "file_not_found_in_storage" }, 404);
+    }
+
+    const text = (await extractWithGeminiFallback({ buf: downloaded.buf, mimeType: mime, fileName })).trim();
+    if (!text) {
+      const newMd = {
+        ...md,
+        text_extraction_status: "ocr_failed",
+        ocr_error: GEMINI_API_KEY ? "ocr_empty" : "GEMINI_API_KEY missing",
+        ocr_last_attempt_at: new Date().toISOString(),
+      };
+      await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
+      return json({ ok: false, error: "ocr_empty" }, 200);
+    }
+
+    const newMd: Record<string, any> = {
+      ...md,
+      text_extraction_status: "completed",
+      text_extraction_method: "gemini_ocr",
+      text_extracted_at: new Date().toISOString(),
+      extracted_text_length: text.length,
+      ocr_text: text,
+      requires_ocr: false,
+    };
+    delete newMd.text_extraction_error;
+    delete newMd.ocr_error;
+    const { error: upErr } = await supabase
+      .from("lawyer_archive_items")
+      .update({ content: text, metadata: newMd })
+      .eq("id", item.id);
+    if (upErr) return json({ error: upErr.message }, 500);
+    return json({ ok: true, text_length: text.length });
+  }
+
   const documentId = body.document_id;
   if (!documentId) return json({ error: "document_id_required" }, 400);
 
