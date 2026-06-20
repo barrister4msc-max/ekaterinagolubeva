@@ -330,8 +330,8 @@ Deno.serve(async (req) => {
     const md = (item.metadata || {}) as Record<string, any>;
     const storagePath = body.storage_path || item.storage_path;
     if (!storagePath) return json({ error: "no_storage_path" }, 400);
-    const mime = body.mime_type || md.mime_type || "application/octet-stream";
     const fileName = body.file_name || md.original_filename || item.title || "document";
+    const mime = normalizeOcrMimeType(body.mime_type || md.mime_type, fileName, storagePath);
 
     let downloaded: { buf: ArrayBuffer; bucket: string } | null = null;
     if (body.bucket) {
@@ -344,17 +344,27 @@ Deno.serve(async (req) => {
       await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
       return json({ error: "file_not_found_in_storage" }, 404);
     }
+    const byteLength = downloaded.buf.byteLength;
+    console.log("[extract-document-text] archive download", JSON.stringify({ archive_item_id: item.id, storagePath, bucket: downloaded.bucket, byteLength, mimeType: mime, fileName }));
+    if (byteLength === 0) {
+      const newMd = { ...md, text_extraction_status: "ocr_failed", ocr_error: "storage_empty", ocr_debug: { byteLength, mimeType: mime, model: GEMINI_MODEL }, ocr_last_attempt_at: new Date().toISOString() };
+      await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
+      return json({ ok: false, error: "storage_empty" }, 200);
+    }
 
-    const text = (await extractWithGeminiFallback({ buf: downloaded.buf, mimeType: mime, fileName })).trim();
+    const result = await extractWithGeminiFallback({ buf: downloaded.buf, mimeType: mime, fileName });
+    const text = result.text.trim();
     if (!text) {
+      const unsupportedTiff = mime === "image/tiff" && String(result.debug?.error || "").toLowerCase().includes("unsupported");
       const newMd = {
         ...md,
-        text_extraction_status: "ocr_failed",
-        ocr_error: GEMINI_API_KEY ? "ocr_empty" : "GEMINI_API_KEY missing",
+        text_extraction_status: unsupportedTiff ? "ocr_format_unsupported" : "ocr_failed",
+        ocr_error: unsupportedTiff ? "ocr_format_unsupported" : (GEMINI_API_KEY ? "ocr_empty" : "GEMINI_API_KEY missing"),
+        ocr_debug: result.debug,
         ocr_last_attempt_at: new Date().toISOString(),
       };
       await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
-      return json({ ok: false, error: "ocr_empty" }, 200);
+      return json({ ok: false, error: unsupportedTiff ? "ocr_format_unsupported" : "ocr_empty", ocr_debug: result.debug }, 200);
     }
 
     const newMd: Record<string, any> = {
@@ -364,6 +374,7 @@ Deno.serve(async (req) => {
       text_extracted_at: new Date().toISOString(),
       extracted_text_length: text.length,
       ocr_text: text,
+      ocr_debug: result.debug,
       requires_ocr: false,
     };
     delete newMd.text_extraction_error;
