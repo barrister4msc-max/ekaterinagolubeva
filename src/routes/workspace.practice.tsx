@@ -367,6 +367,39 @@ function PracticePage() {
     }
   }
 
+  async function runAiAnalyze(args: { batch_id?: string }) {
+    if (aiBusy) return;
+    setAiBusy(true);
+    const tid = toast.loading("AI Анализ практики…");
+    const totals = { processed: 0, analyzed: 0, skipped: 0, failed: 0, remaining: 0 };
+    try {
+      for (let i = 0; i < 500; i++) {
+        const r: any = await aiAnalyzeFn({ data: { ...args, only_pending: true, limit: 8 } });
+        totals.processed += r.processed ?? 0;
+        totals.analyzed += r.analyzed ?? 0;
+        totals.skipped += r.skipped ?? 0;
+        totals.failed += r.failed ?? 0;
+        totals.remaining = r.remaining ?? 0;
+        toast.loading(
+          `AI Анализ… обработано ${totals.processed} · проанализировано ${totals.analyzed} · без текста ${totals.skipped} · сбоев ${totals.failed} · осталось ${totals.remaining}`,
+          { id: tid },
+        );
+        if (r.errors?.length) console.warn("[archiveAiAnalyzeBatch] errors", r.errors);
+        if ((r.processed ?? 0) === 0 || totals.remaining === 0) break;
+      }
+      toast.dismiss(tid);
+      toast.success(
+        `AI Анализ готов: ${totals.analyzed} · без текста: ${totals.skipped} · сбоев: ${totals.failed} · осталось: ${totals.remaining}`,
+      );
+      reload();
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(e?.message ?? "Ошибка AI Анализа");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -384,11 +417,15 @@ function PracticePage() {
             <Eye className="size-4 mr-1" /> OCR для сканов
           </Button>
           <Button variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ only_pending: true })}>
-            <Wand2 className="size-4 mr-1" /> AI классифицировать по содержанию
+            <Wand2 className="size-4 mr-1" /> AI классифицировать
+          </Button>
+          <Button disabled={aiBusy} onClick={() => runAiAnalyze({})}>
+            <Sparkles className="size-4 mr-1" /> AI Анализ практики
           </Button>
           <ZipUploadDialog onUploaded={reload} />
         </div>
       </div>
+
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
