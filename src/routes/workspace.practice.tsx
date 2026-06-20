@@ -652,8 +652,12 @@ function PracticePage() {
                           <Eye className="size-4 mr-1" /> OCR
                         </Button>
                         <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ batch_id: b.id })}>
-                          <Wand2 className="size-4 mr-1" /> AI
+                          <Wand2 className="size-4 mr-1" /> AI классиф.
                         </Button>
+                        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runAiAnalyze({ batch_id: b.id })}>
+                          <Sparkles className="size-4 mr-1" /> AI Анализ партии
+                        </Button>
+
                         <Button size="sm" disabled={aiBusy} onClick={() => runProcessFully({ batch_id: b.id })}>
                           <Layers className="size-4 mr-1" /> Обработать полностью
                         </Button>
