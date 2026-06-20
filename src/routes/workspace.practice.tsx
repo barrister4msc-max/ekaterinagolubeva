@@ -17,7 +17,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Briefcase, FileText, Star, FolderArchive, Layers, ExternalLink, Trash2, Link2, Wand2, ShieldCheck, Eraser, GraduationCap, Send, Tags, Eye } from "lucide-react";
+import { Briefcase, FileText, Star, FolderArchive, Layers, ExternalLink, Trash2, Link2, Wand2, ShieldCheck, Eraser, GraduationCap, Send, Tags, Eye, Sparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -37,6 +37,8 @@ import {
   archiveExtractTextBatch,
   archiveOcrBatch,
   archiveProcessBatchFully,
+  archiveAiAnalyzeBatch,
+  archiveGetAiAnalysis,
   matterList,
 } from "@/lib/lawyer-matters.functions";
 import { ZipUploadDialog } from "@/components/practice/zip-upload-dialog";
