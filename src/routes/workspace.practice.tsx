@@ -145,6 +145,7 @@ function PracticePage() {
   const [classifyTarget, setClassifyTarget] = useState<ArchiveItem | null>(null);
   const [kbTarget, setKbTarget] = useState<ArchiveItem | null>(null);
   const [textTarget, setTextTarget] = useState<{ title: string; extracted_text: string; redacted_text: string | null } | null>(null);
+  const [analysisTarget, setAnalysisTarget] = useState<{ title: string; analysis: any } | null>(null);
 
   const baseFilter = useMemo(() => {
     const f: Record<string, any> = {};
