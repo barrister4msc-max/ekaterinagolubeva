@@ -274,7 +274,7 @@ function detect(mime: string, name: string): Detected {
   if (m === "text/html" || e === "html" || e === "htm")
     return { method: "html_text", kind: "html" };
   if (m === "application/pdf" || e === "pdf") return { method: "pdf_text", kind: "pdf" };
-  if (m.startsWith("image/") || ["png", "jpg", "jpeg", "webp"].includes(e))
+  if (m.startsWith("image/") || ["png", "jpg", "jpeg", "tif", "tiff", "webp"].includes(e))
     return { method: "image_ocr_required", kind: "image" };
   if (
     m === "application/vnd.ms-excel" ||
@@ -465,14 +465,14 @@ Deno.serve(async (req) => {
   }
 
   if (text.trim().length < 50 && downloaded?.buf) {
-    const fallbackText = await extractWithGeminiFallback({
+    const fallback = await extractWithGeminiFallback({
       buf: downloaded.buf,
-      mimeType: doc.mime_type || "application/octet-stream",
+      mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
       fileName: doc.file_name || "document",
     });
 
-    if (fallbackText.trim().length >= 50) {
-      text = fallbackText.trim();
+    if (fallback.text.trim().length >= 50) {
+      text = fallback.text.trim();
       method = "gemini_fallback";
       status = "completed";
     } else if (detected.kind === "image" || detected.kind === "pdf") {
