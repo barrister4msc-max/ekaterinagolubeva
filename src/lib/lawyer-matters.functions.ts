@@ -1426,7 +1426,7 @@ export const archiveOcrBatch = createServerFn({ method: "POST" })
     let ocr_completed = 0, failed = 0;
     const errors: { id: string; title: string; error: string }[] = [];
 
-    for (const r of rows) {
+    const runOne = async (r: any) => {
       const md = (r.metadata ?? {}) as Record<string, any>;
       try {
         if (!r.storage_path) throw new Error("no_storage_path");
@@ -1453,7 +1453,6 @@ export const archiveOcrBatch = createServerFn({ method: "POST" })
         failed += 1;
         const errMsg = e?.message ?? String(e);
         errors.push({ id: r.id, title: r.title, error: errMsg });
-        // edge function already records ocr_failed metadata; only patch if we never reached it
         const newMd: Record<string, any> = {
           ...md,
           text_extraction_status: "ocr_failed",
@@ -1464,7 +1463,9 @@ export const archiveOcrBatch = createServerFn({ method: "POST" })
         await (supabaseAdmin.from("lawyer_archive_items") as any).update({ metadata: newMd })
           .eq("id", r.id);
       }
-    }
+    };
+    // Parallel — each Gemini OCR is ~3-5s; sequential 20× would exceed the server-fn wall time.
+    await Promise.allSettled(rows.map(runOne));
 
     let remainingQ = (supabaseAdmin.from("lawyer_archive_items") as any)
       .select("id", { count: "exact", head: true })
