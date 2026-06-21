@@ -82,19 +82,6 @@ export type LegalResearchQuery = {
   keywords: string[];
 };
 
-export type LegalAnalysisDocAudit = {
-  id: string;
-  title: string;
-  ocr_length: number;
-  used: boolean;
-  reason?:
-    | "no_ocr"
-    | "text_too_short"
-    | "archive_zip"
-    | "technical_file"
-    | "duplicate"
-    | "irrelevant";
-};
 
 export type LegalAnalysisResult = {
   facts: string[];
