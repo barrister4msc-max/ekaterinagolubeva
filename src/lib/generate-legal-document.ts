@@ -23,6 +23,7 @@ import type {
   IntakeAttachment,
 } from "./document-intake-schemas";
 import type { DocumentTemplate } from "./document-templates";
+import type { LegalAnalysisResult } from "./legal-analysis";
 
 export type GenerateLegalDocumentRequest = {
   template_code: string;
@@ -39,12 +40,16 @@ export type GenerateLegalDocumentRequest = {
   intake: IntakeAnswers;
   attachments: IntakeAttachment[];
   special_instructions: string;
+  intake_session_id?: string | null;
+  legal_analysis?: LegalAnalysisResult | null;
+  legal_analysis_run_id?: string | null;
   schema: {
     title: string;
     required_fields: string[];
     warnings: string[];
   } | null;
 };
+
 
 export function buildGenerateRequest(
   template: DocumentTemplate,
