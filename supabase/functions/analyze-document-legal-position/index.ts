@@ -378,7 +378,12 @@ Deno.serve(async (req) => {
       throw new Error(`parse_failed: ${(e as Error).message}`);
     }
 
-    const metrics = computeMetrics(parsed);
+    // No external source verification is performed in this function yet.
+    const externalVerificationPerformed = false;
+    const normalizedSources = normalizeSources(parsed.sources, { externalVerificationPerformed });
+    parsed.sources = normalizedSources as any;
+
+    const metrics = computeMetrics(parsed, { externalVerificationPerformed });
 
     const { error: updErr } = await sb
       .from("document_intake_ai_runs")
@@ -387,7 +392,7 @@ Deno.serve(async (req) => {
         completed_at: new Date().toISOString(),
         model_name: model,
         ai_result: parsed as any,
-        used_sources: parsed.sources as any,
+        used_sources: normalizedSources as any,
         source_verification_status: metrics.source_verification_status,
         hallucination_risk: metrics.hallucination_risk,
         legal_accuracy_score: metrics.legal_accuracy_score,
@@ -401,6 +406,7 @@ Deno.serve(async (req) => {
           answers_count: Object.keys(answers).length,
           template_code: session.template_code,
           practice_area: practiceArea,
+          external_verification_performed: externalVerificationPerformed,
         } as any,
       })
       .eq("id", runId);
