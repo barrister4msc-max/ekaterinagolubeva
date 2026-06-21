@@ -780,6 +780,8 @@ function ReviewStep({
   onRemoveAttachment,
   answers,
   availableModes,
+  sessionId,
+  onEnsureSession,
 }: {
   schema: DocumentIntakeSchema;
   state: IntakeState;
@@ -791,7 +793,10 @@ function ReviewStep({
   onRemoveAttachment: (id: string) => void;
   answers: IntakeAnswers;
   availableModes?: Array<IntakeState["generationMode"]>;
+  sessionId: string | null;
+  onEnsureSession: () => Promise<string>;
 }) {
+
   const [showJson, setShowJson] = useState(false);
   const [copied, setCopied] = useState(false);
 
