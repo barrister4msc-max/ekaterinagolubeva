@@ -431,8 +431,15 @@ function PracticePage() {
           <Button variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ only_pending: true })}>
             <Wand2 className="size-4 mr-1" /> AI классифицировать
           </Button>
-          <Button disabled={aiBusy} onClick={() => runAiAnalyze({})}>
-            <Sparkles className="size-4 mr-1" /> AI Анализ практики
+          <Button
+            disabled={aiBusy}
+            onClick={() => {
+              setAnalyzeBatchId(batchRows[0]?.id ?? null);
+              setAnalyzeMode("selected");
+            }}
+          >
+            <Sparkles className="size-4 mr-1" /> AI Экспертиза документов
+
           </Button>
           <ZipUploadDialog onUploaded={reload} />
         </div>
