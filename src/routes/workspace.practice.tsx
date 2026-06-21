@@ -39,8 +39,12 @@ import {
   archiveProcessBatchFully,
   archiveAiAnalyzeBatch,
   archiveGetAiAnalysis,
+  archiveApproveBatchGold,
+  archiveSendBatchGoldToKb,
   matterList,
+  type BatchStats,
 } from "@/lib/lawyer-matters.functions";
+
 import { ZipUploadDialog } from "@/components/practice/zip-upload-dialog";
 import { AnonymizeDialog } from "@/components/practice/anonymize-dialog";
 
@@ -109,6 +113,105 @@ function familyLabel(v?: string | null) {
   return DOC_FAMILIES.find((x) => x.v === v)?.l ?? (v || "—");
 }
 
+function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+  return (
+    <div className="rounded-md border bg-card/40 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-sm font-semibold">{value}</div>
+      {hint && <div className="text-[10px] text-muted-foreground">{hint}</div>}
+    </div>
+  );
+}
+
+function BatchCard({
+  b, busy,
+  onExtract, onOcr, onClassify, onAnalyze, onProcessAll, onApproveGold, onSendGoldKb,
+}: {
+  b: BatchStats;
+  busy: boolean;
+  onExtract: () => void;
+  onOcr: () => void;
+  onClassify: () => void;
+  onAnalyze: () => void;
+  onProcessAll: () => void;
+  onApproveGold: () => void;
+  onSendGoldKb: () => void;
+}) {
+  const title = b.title || b.archive_name || b.id;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-base">{title}</CardTitle>
+            <div className="text-xs text-muted-foreground font-mono">{b.id}</div>
+            <div className="text-xs text-muted-foreground">
+              Загружено: {new Date(b.created_at).toLocaleString("ru-RU")}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline">Файлов: {b.total}</Badge>
+            {b.gold > 0 && <Badge className="bg-amber-500/20 text-amber-700">Gold {b.gold}</Badge>}
+            {b.silver > 0 && <Badge className="bg-zinc-300/40 text-zinc-800">Silver {b.silver}</Badge>}
+            {b.bronze > 0 && <Badge className="bg-orange-500/20 text-orange-700">Bronze {b.bronze}</Badge>}
+            {b.private_count > 0 && <Badge variant="destructive">Private {b.private_count}</Badge>}
+            {b.rag_ready > 0 && <Badge className="bg-emerald-500/20 text-emerald-700">RAG {b.rag_ready}</Badge>}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+          <Stat label="Текст" value={`${b.with_content} / ${b.total}`} />
+          <Stat label="OCR required" value={b.ocr_required} />
+          <Stat label="OCR failed" value={b.ocr_failed} />
+          <Stat label="Классификация" value={`${b.classified} / ${b.total}`} />
+          <Stat label="AI Экспертиза" value={`${b.ai_analysis_completed} / ${b.total}`} />
+          <Stat label="Reject" value={b.reject} />
+          <Stat label="Technical" value={b.technical} />
+          <Stat label="RAG Ready" value={b.rag_ready} />
+          <Stat label="Approved" value={b.approved} />
+          <Stat label="Sent to KB" value={b.sent_to_kb} />
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          <Button size="sm" variant="outline" disabled={busy} onClick={onExtract}>
+            <FileText className="size-4 mr-1" /> Извлечь текст
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onOcr}>
+            <Eye className="size-4 mr-1" /> OCR сканов
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onClassify}>
+            <Wand2 className="size-4 mr-1" /> AI классификация
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onAnalyze}>
+            <Sparkles className="size-4 mr-1" /> AI Экспертиза
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy || b.gold === 0} onClick={onApproveGold}>
+            <ShieldCheck className="size-4 mr-1" /> Одобрить Gold
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy || b.gold === 0} onClick={onSendGoldKb}>
+            <Send className="size-4 mr-1" /> Отправить Gold в KB
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onOcr} title="Повторить OCR">
+            <Eye className="size-4 mr-1" /> Повторить OCR
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onClassify} title="Повторить AI классификацию">
+            <Wand2 className="size-4 mr-1" /> Повторить классиф.
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onAnalyze} title="Повторить AI Экспертизу">
+            <Sparkles className="size-4 mr-1" /> Повторить Экспертизу
+          </Button>
+          <Button size="sm" disabled={busy} onClick={onProcessAll}>
+            <Layers className="size-4 mr-1" /> Обработать полностью
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+
 function PracticePage() {
   const list = useServerFn(archivePracticeList);
   const stats = useServerFn(archivePracticeStats);
@@ -138,7 +241,12 @@ function PracticePage() {
   const [search, setSearch] = useState("");
   const [anonTarget, setAnonTarget] = useState<ArchiveItem | null>(null);
   const [statsMap, setStatsMap] = useState<Record<string, { total: number; gold: number; templates: number; unclassified: number; pending_approval: number }>>({});
-  const [batchRows, setBatchRows] = useState<{ id: string; count: number; created_at: string }[]>([]);
+  const [batchRows, setBatchRows] = useState<BatchStats[]>([]);
+  const approveGoldFn = useServerFn(archiveApproveBatchGold);
+  const sendGoldKbFn = useServerFn(archiveSendBatchGoldToKb);
+  const [analyzeMode, setAnalyzeMode] = useState<null | "selected" | "unprocessed" | "all">(null);
+  const [analyzeBatchId, setAnalyzeBatchId] = useState<string | null>(null);
+
   const [matters, setMatters] = useState<{ id: string; title: string | null; matter_number: string | null }[]>([]);
   const [attachOpen, setAttachOpen] = useState<ArchiveItem | null>(null);
   const [attachMatterId, setAttachMatterId] = useState("");
@@ -181,11 +289,14 @@ function PracticePage() {
     reload();
   }, [reload]);
 
+  const reloadBatches = useCallback(() => {
+    batches({}).then((r: any) => setBatchRows(r.batches ?? [])).catch(() => {});
+  }, [batches]);
+
   useEffect(() => {
-    if (tab === "uploads") {
-      batches({}).then((r: any) => setBatchRows(r.batches ?? [])).catch(() => {});
-    }
-  }, [tab, batches]);
+    if (tab === "uploads") reloadBatches();
+  }, [tab, reloadBatches]);
+
 
   useEffect(() => {
     mList({ data: { limit: 200 } })
@@ -419,10 +530,17 @@ function PracticePage() {
           <Button variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ only_pending: true })}>
             <Wand2 className="size-4 mr-1" /> AI классифицировать
           </Button>
-          <Button disabled={aiBusy} onClick={() => runAiAnalyze({})}>
-            <Sparkles className="size-4 mr-1" /> AI Анализ практики
+          <Button
+            disabled={aiBusy}
+            onClick={() => {
+              setAnalyzeBatchId(batchRows[0]?.id ?? null);
+              setAnalyzeMode("selected");
+            }}
+          >
+            <Sparkles className="size-4 mr-1" /> AI Экспертиза документов
+
           </Button>
-          <ZipUploadDialog onUploaded={reload} />
+          <ZipUploadDialog onUploaded={() => { reload(); setTab("uploads"); reloadBatches(); }} />
         </div>
       </div>
 
@@ -622,54 +740,108 @@ function PracticePage() {
           </TabsContent>
         ))}
 
-        <TabsContent value="uploads" className="mt-4">
-          <Card>
-            <CardHeader><CardTitle className="text-base">Партии ZIP-загрузок</CardTitle></CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID партии</TableHead>
-                    <TableHead>Файлов</TableHead>
-                    <TableHead>Загружено</TableHead>
-                    <TableHead className="text-right"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {batchRows.length === 0 && (
-                    <TableRow><TableCell colSpan={4} className="text-center text-sm text-muted-foreground py-6">Пока нет загрузок</TableCell></TableRow>
-                  )}
-                  {batchRows.map((b) => (
-                    <TableRow key={b.id}>
-                      <TableCell className="font-mono text-xs">{b.id}</TableCell>
-                      <TableCell>{b.count}</TableCell>
-                      <TableCell className="text-xs">{new Date(b.created_at).toLocaleString("ru-RU")}</TableCell>
-                      <TableCell className="text-right space-x-1 whitespace-nowrap">
-                        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runExtractText({ batch_id: b.id })}>
-                          <FileText className="size-4 mr-1" /> Текст
-                        </Button>
-                        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runOcr({ batch_id: b.id })}>
-                          <Eye className="size-4 mr-1" /> OCR
-                        </Button>
-                        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ batch_id: b.id })}>
-                          <Wand2 className="size-4 mr-1" /> AI классиф.
-                        </Button>
-                        <Button size="sm" variant="outline" disabled={aiBusy} onClick={() => runAiAnalyze({ batch_id: b.id })}>
-                          <Sparkles className="size-4 mr-1" /> AI Анализ партии
-                        </Button>
-
-                        <Button size="sm" disabled={aiBusy} onClick={() => runProcessFully({ batch_id: b.id })}>
-                          <Layers className="size-4 mr-1" /> Обработать полностью
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+        <TabsContent value="uploads" className="mt-4 space-y-3">
+          {batchRows.length === 0 && (
+            <div className="text-center text-sm text-muted-foreground py-10 rounded-md border border-dashed">
+              Пока нет загруженных партий
+            </div>
+          )}
+          {batchRows.map((b) => (
+            <BatchCard
+              key={b.id}
+              b={b}
+              busy={aiBusy}
+              onExtract={() => runExtractText({ batch_id: b.id })}
+              onOcr={() => runOcr({ batch_id: b.id })}
+              onClassify={() => runAiClassify({ batch_id: b.id })}
+              onAnalyze={() => runAiAnalyze({ batch_id: b.id })}
+              onProcessAll={() => runProcessFully({ batch_id: b.id })}
+              onApproveGold={async () => {
+                if (!confirm(`Одобрить все Gold (${b.gold}) в партии «${b.title ?? b.id}»?`)) return;
+                try {
+                  setAiBusy(true);
+                  const r: any = await approveGoldFn({ data: { batch_id: b.id } });
+                  toast.success(`Gold одобрено: ${r.approved}/${r.gold_total}`);
+                  reloadBatches();
+                } catch (e: any) {
+                  toast.error(e?.message ?? "Ошибка");
+                } finally { setAiBusy(false); }
+              }}
+              onSendGoldKb={async () => {
+                if (!confirm(`Отправить Gold (${b.gold}) в Knowledge Base?`)) return;
+                try {
+                  setAiBusy(true);
+                  const r: any = await sendGoldKbFn({ data: { batch_id: b.id } });
+                  toast.success(`Отправлено в KB: ${r.queued}, пропущено: ${r.skipped}`);
+                  reloadBatches();
+                } catch (e: any) {
+                  toast.error(e?.message ?? "Ошибка");
+                } finally { setAiBusy(false); }
+              }}
+            />
+          ))}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!analyzeMode} onOpenChange={(o) => { if (!o) setAnalyzeMode(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>AI Экспертиза документов — выбор режима</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name="amode" checked={analyzeMode === "selected"} onChange={() => setAnalyzeMode("selected")} />
+                <span>
+                  <b>Выбранная партия</b>
+                  <div className="text-xs text-muted-foreground">Только документы выбранного ZIP-архива</div>
+                </span>
+              </label>
+              {analyzeMode === "selected" && (
+                <Select value={analyzeBatchId ?? ""} onValueChange={(v) => setAnalyzeBatchId(v)}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Выберите партию" /></SelectTrigger>
+                  <SelectContent>
+                    {batchRows.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {(b.title || b.archive_name || b.id).slice(0, 60)} — {b.total} файл.
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name="amode" checked={analyzeMode === "unprocessed"} onChange={() => setAnalyzeMode("unprocessed")} />
+                <span>
+                  <b>Все необработанные документы</b>
+                  <div className="text-xs text-muted-foreground">По всему архиву — только те, что без AI Экспертизы</div>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input type="radio" name="amode" checked={analyzeMode === "all"} onChange={() => setAnalyzeMode("all")} />
+                <span>
+                  <b>Весь архив</b>
+                  <div className="text-xs text-muted-foreground">Перепроанализировать все документы</div>
+                </span>
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAnalyzeMode(null)}>Отмена</Button>
+            <Button
+              disabled={aiBusy || (analyzeMode === "selected" && !analyzeBatchId)}
+              onClick={async () => {
+                const m = analyzeMode;
+                setAnalyzeMode(null);
+                if (m === "selected" && analyzeBatchId) await runAiAnalyze({ batch_id: analyzeBatchId });
+                else if (m === "unprocessed") await runAiAnalyze({});
+                else if (m === "all") await runAiAnalyze({});
+                reloadBatches();
+              }}
+            >
+              <Sparkles className="size-4 mr-1" /> Запустить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <Dialog open={!!attachOpen} onOpenChange={(o) => { if (!o) setAttachOpen(null); }}>
         <DialogContent>

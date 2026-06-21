@@ -679,29 +679,197 @@ export const archiveAddToMatter = createServerFn({ method: "POST" })
     return { document_id: doc.id };
   });
 
+export type BatchStats = {
+  id: string;
+  title: string | null;
+  archive_name: string | null;
+  created_at: string;
+  total: number;
+  with_content: number;
+  ocr_required: number;
+  ocr_failed: number;
+  classified: number;
+  ai_analysis_completed: number;
+  gold: number;
+  silver: number;
+  bronze: number;
+  reject: number;
+  private_count: number;
+  technical: number;
+  rag_ready: number;
+  approved: number;
+  sent_to_kb: number;
+};
+
 export const archiveBatchesList = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     await assertAdmin(supabase, userId);
-    const { data, error } = await supabase
+
+    // 1) practice_batches (canonical batch registry)
+    const { data: batchRows, error: bErr } = await supabase
+      .from("practice_batches")
+      .select("id, title, archive_name, created_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (bErr) throw new Error(bErr.message);
+
+    // 2) all zip-archive items — used to compute per-batch stats
+    const { data: items, error: iErr } = await supabase
       .from("lawyer_archive_items")
-      .select("metadata, created_at")
+      .select("content, metadata, created_at")
       .eq("is_active", true)
       .eq("metadata->>upload_source", "zip_archive")
-      .order("created_at", { ascending: false })
+      .limit(10000);
+    if (iErr) throw new Error(iErr.message);
+
+    const map = new Map<string, BatchStats>();
+    const ensure = (id: string, created_at: string, title?: string | null, archive_name?: string | null): BatchStats => {
+      const cur = map.get(id);
+      if (cur) return cur;
+      const fresh: BatchStats = {
+        id,
+        title: title ?? null,
+        archive_name: archive_name ?? null,
+        created_at,
+        total: 0,
+        with_content: 0,
+        ocr_required: 0,
+        ocr_failed: 0,
+        classified: 0,
+        ai_analysis_completed: 0,
+        gold: 0,
+        silver: 0,
+        bronze: 0,
+        reject: 0,
+        private_count: 0,
+        technical: 0,
+        rag_ready: 0,
+        approved: 0,
+        sent_to_kb: 0,
+      };
+      map.set(id, fresh);
+      return fresh;
+    };
+
+    for (const b of batchRows ?? []) {
+      ensure(b.id as string, (b.created_at as string) ?? new Date().toISOString(), b.title as string | null, b.archive_name as string | null);
+    }
+
+    for (const r of items ?? []) {
+      const md = (r.metadata ?? {}) as Record<string, any>;
+      const id: string | null = md.archive_batch_id ?? null;
+      if (!id) continue;
+      const s = ensure(id, (r.created_at as string) ?? new Date().toISOString());
+      s.total += 1;
+      if (typeof r.content === "string" && r.content.trim().length > 0) s.with_content += 1;
+
+      const tex = md.text_extraction_status;
+      if (tex === "ocr_required") s.ocr_required += 1;
+      if (tex === "failed" || md.ocr_status === "failed") s.ocr_failed += 1;
+
+      if (md.classification_status === "completed" || md.document_role || md.practice_area) {
+        s.classified += 1;
+      }
+
+      if (md.ai_analysis_status === "completed") s.ai_analysis_completed += 1;
+
+      const tier = (md.quality_tier ?? "").toString().toLowerCase();
+      if (tier === "gold") s.gold += 1;
+      else if (tier === "silver") s.silver += 1;
+      else if (tier === "bronze") s.bronze += 1;
+      else if (tier === "reject") s.reject += 1;
+
+      if (md.private_do_not_index === true || md.is_private === true) s.private_count += 1;
+      if (md.document_role === "technical" || md.is_technical === true) s.technical += 1;
+      if (md.use_in_rag === true || md.rag_ready === true) s.rag_ready += 1;
+      if (md.approved === true || md.approval_status === "approved") s.approved += 1;
+      if (md.kb_queue_id || md.kb_status === "sent" || md.sent_to_kb === true) s.sent_to_kb += 1;
+    }
+
+    const batches = Array.from(map.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+    return { batches };
+  });
+
+/** Bulk approve all Gold-tier items inside a batch */
+export const archiveApproveBatchGold = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ batch_id: z.string().trim().min(1).max(120) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("lawyer_archive_items")
+      .select("id, metadata")
+      .eq("is_active", true)
+      .eq("metadata->>archive_batch_id", data.batch_id)
+      .eq("metadata->>quality_tier", "gold")
       .limit(2000);
     if (error) throw new Error(error.message);
-    const map = new Map<string, { id: string; count: number; created_at: string }>();
-    for (const r of data ?? []) {
-      const id = (r.metadata as any)?.archive_batch_id;
-      if (!id) continue;
-      const cur = map.get(id);
-      if (cur) cur.count += 1;
-      else map.set(id, { id, count: 1, created_at: r.created_at as string });
+
+    let approved = 0;
+    for (const r of rows ?? []) {
+      const md = (r.metadata ?? {}) as Record<string, any>;
+      if (md.approval_status === "approved") continue;
+      const newMd = { ...md, approval_status: "approved", approved: true, approved_at: new Date().toISOString() };
+      const { error: upErr } = await (supabaseAdmin.from("lawyer_archive_items") as any)
+        .update({ metadata: newMd })
+        .eq("id", r.id);
+      if (!upErr) approved += 1;
     }
-    return { batches: Array.from(map.values()) };
+    return { batch_id: data.batch_id, gold_total: rows?.length ?? 0, approved };
   });
+
+/** Bulk-send approved Gold items of a batch to KB import queue */
+export const archiveSendBatchGoldToKb = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z.object({ batch_id: z.string().trim().min(1).max(120) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("lawyer_archive_items")
+      .select("id, metadata")
+      .eq("is_active", true)
+      .eq("metadata->>archive_batch_id", data.batch_id)
+      .eq("metadata->>quality_tier", "gold")
+      .limit(2000);
+    if (error) throw new Error(error.message);
+
+    let queued = 0, skipped = 0;
+    const errors: { id: string; error: string }[] = [];
+    for (const r of rows ?? []) {
+      const md = (r.metadata ?? {}) as Record<string, any>;
+      if (md.kb_queue_id || md.kb_status === "sent") { skipped += 1; continue; }
+      if (md.private_do_not_index === true) { skipped += 1; continue; }
+      try {
+        // Mark as queued — reuse single-item logic by setting kb_status; the real ingestion
+        // is performed by archiveSendToKbQueue when called per-item from the UI dialog.
+        const newMd = { ...md, kb_status: "queued", kb_queued_at: new Date().toISOString() };
+        const { error: upErr } = await (supabaseAdmin.from("lawyer_archive_items") as any)
+          .update({ metadata: newMd })
+          .eq("id", r.id);
+        if (upErr) throw new Error(upErr.message);
+        queued += 1;
+      } catch (e: any) {
+        errors.push({ id: r.id as string, error: e?.message ?? String(e) });
+      }
+    }
+    return { batch_id: data.batch_id, gold_total: rows?.length ?? 0, queued, skipped, errors: errors.slice(0, 20) };
+  });
+
+
 
 /* ===== Anonymization ===== */
 
