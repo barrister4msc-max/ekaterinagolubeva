@@ -189,7 +189,10 @@ async function callGemini(prompt: string): Promise<{ text: string; model: string
   return { text, model: GEMINI_MODEL };
 }
 
-function computeMetrics(result: AnalysisResult): {
+function computeMetrics(
+  result: AnalysisResult,
+  opts: { externalVerificationPerformed: boolean },
+): {
   hallucination_risk: "low" | "medium" | "high";
   legal_accuracy_score: number;
   source_verification_status: string;
@@ -202,33 +205,61 @@ function computeMetrics(result: AnalysisResult): {
   const missing = result.missing_evidence.length;
   const mapped = result.fact_to_law_mapping.length;
 
+  const sourcesWithoutUrl = result.sources.filter(
+    (s) => !((s as any).url || (s as any).official_url),
+  ).length;
+
   let score = 0.5;
   if (mapped >= 3) score += 0.15;
   if (totalSources >= 3) score += 0.1;
   if (actualityKnown >= totalSources && totalSources > 0) score += 0.1;
   if (missing === 0) score += 0.1;
   if (outdated > 0) score -= 0.1;
+  if (sourcesWithoutUrl > 0) score -= 0.1;
   score = Math.max(0, Math.min(1, score));
 
   let risk: "low" | "medium" | "high" = "medium";
   if (totalSources === 0 || unknown > totalSources / 2) risk = "high";
-  else if (outdated === 0 && unknown === 0 && missing === 0) risk = "low";
+  else if (outdated === 0 && unknown === 0 && missing === 0 && sourcesWithoutUrl === 0) risk = "low";
 
-  const status =
-    totalSources === 0
-      ? "no_sources"
-      : outdated > 0
-        ? "needs_recheck"
-        : unknown > 0
-          ? "partial"
-          : "verified";
+  let status: string;
+  if (totalSources === 0) status = "no_sources";
+  else if (sourcesWithoutUrl > 0) status = "missing_url";
+  else if (!opts.externalVerificationPerformed) status = "needs_check";
+  else if (outdated > 0) status = "needs_recheck";
+  else if (unknown > 0) status = "partial";
+  else status = "verified";
 
   return {
     hallucination_risk: risk,
     legal_accuracy_score: Number(score.toFixed(2)),
     source_verification_status: status,
-    needs_lawyer_review: risk !== "low" || missing > 0 || result.weak_points.length > 0,
+    needs_lawyer_review:
+      risk !== "low" || missing > 0 || result.weak_points.length > 0 || sourcesWithoutUrl > 0,
   };
+}
+
+function normalizeSources(
+  sources: AnalysisResult["sources"],
+  opts: { externalVerificationPerformed: boolean },
+): Array<Record<string, unknown>> {
+  return (sources ?? []).map((s) => {
+    const url = ((s as any).url || (s as any).official_url || "").toString().trim();
+    const hasUrl = url.length > 0;
+    let verification_status: string;
+    let actuality_status: string;
+    if (!hasUrl) {
+      verification_status = "missing_url";
+      actuality_status = "requires_manual_verification";
+    } else if (!opts.externalVerificationPerformed) {
+      verification_status = "needs_check";
+      actuality_status = "requires_actuality_check";
+    } else {
+      verification_status = "verified";
+      actuality_status = "actual";
+    }
+    return { ...s, verification_status, actuality_status };
+  });
 }
 
 Deno.serve(async (req) => {
@@ -347,7 +378,12 @@ Deno.serve(async (req) => {
       throw new Error(`parse_failed: ${(e as Error).message}`);
     }
 
-    const metrics = computeMetrics(parsed);
+    // No external source verification is performed in this function yet.
+    const externalVerificationPerformed = false;
+    const normalizedSources = normalizeSources(parsed.sources, { externalVerificationPerformed });
+    parsed.sources = normalizedSources as any;
+
+    const metrics = computeMetrics(parsed, { externalVerificationPerformed });
 
     const { error: updErr } = await sb
       .from("document_intake_ai_runs")
@@ -356,7 +392,7 @@ Deno.serve(async (req) => {
         completed_at: new Date().toISOString(),
         model_name: model,
         ai_result: parsed as any,
-        used_sources: parsed.sources as any,
+        used_sources: normalizedSources as any,
         source_verification_status: metrics.source_verification_status,
         hallucination_risk: metrics.hallucination_risk,
         legal_accuracy_score: metrics.legal_accuracy_score,
@@ -370,6 +406,7 @@ Deno.serve(async (req) => {
           answers_count: Object.keys(answers).length,
           template_code: session.template_code,
           practice_area: practiceArea,
+          external_verification_performed: externalVerificationPerformed,
         } as any,
       })
       .eq("id", runId);
