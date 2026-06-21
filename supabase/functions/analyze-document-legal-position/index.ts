@@ -199,8 +199,40 @@ Deno.serve(async (req) => {
     const { text, model } = await callGeminiPro(prompt);
 
     let parsed: any;
-    try { parsed = extractJson(text); }
-    catch (e) { throw new Error(`parse_failed: ${(e as Error).message}`); }
+    try {
+      parsed = extractJson(text);
+    } catch (e) {
+      const parseMsg = (e as Error).message ?? String(e);
+      const preview = (text ?? "").slice(0, 4000);
+      await sb
+        .from("document_intake_ai_runs")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          model_name: model,
+          error_message: `parse_failed: ${parseMsg}`,
+          ai_result: {
+            error: "parse_failed",
+            message: parseMsg,
+            raw_response_preview: preview,
+          } as any,
+          source_verification_status: "no_sources",
+          hallucination_risk: "high",
+          legal_accuracy_score: 0,
+          needs_lawyer_review: true,
+        })
+        .eq("id", runId);
+      return json(
+        {
+          success: false,
+          run_id: runId,
+          error: "parse_failed",
+          message: parseMsg,
+          raw_response_preview: preview,
+        },
+        200,
+      );
+    }
 
     // Layer 6: merge with registry + apply document_usage
     const { combined_sources, source_actuality } = mergeWithRegistry(parsed, merged);
