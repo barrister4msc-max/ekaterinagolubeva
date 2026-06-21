@@ -82,20 +82,20 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
           <div className="db-subcard">
             <div className="flex flex-wrap gap-2 text-[11px]">
               {run?.hallucination_risk && (
-                <span className={`db-chip ${run.hallucination_risk === "low" ? "" : "db-chip-warn"}`}>
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${run.hallucination_risk === "low" ? "bg-white/10 text-white/80" : "bg-amber-500/20 text-amber-100"}`}>
                   риск: {run.hallucination_risk}
                 </span>
               )}
               {run?.legal_accuracy_score != null && (
-                <span className="db-chip">точность: {run.legal_accuracy_score}</span>
+                <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-white/80">точность: {run.legal_accuracy_score}</span>
               )}
               {run?.source_verification_status && (
-                <span className="db-chip">источники: {run.source_verification_status}</span>
+                <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-white/80">источники: {run.source_verification_status}</span>
               )}
               {run?.needs_lawyer_review && (
-                <span className="db-chip db-chip-warn">требуется проверка юриста</span>
+                <span className="inline-flex items-center rounded-full bg-amber-500/20 px-2 py-0.5 text-amber-100">требуется проверка юриста</span>
               )}
-              {run?.model_name && <span className="db-chip">{run.model_name}</span>}
+              {run?.model_name && <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-white/80">{run.model_name}</span>}
             </div>
           </div>
 
@@ -189,7 +189,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                     </div>
                     {act && (
                       <span
-                        className={`db-chip ${act.status === "actual" ? "" : act.status === "outdated" ? "db-chip-warn" : ""}`}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${act.status === "actual" ? "bg-emerald-500/20 text-emerald-100" : act.status === "outdated" ? "bg-amber-500/20 text-amber-100" : "bg-white/10 text-white/70"}`}
                       >
                         {act.status === "actual" ? (
                           <CheckCircle2 size={10} />
