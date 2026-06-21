@@ -984,6 +984,9 @@ function ReviewStep({
         </div>
       </div>
 
+      <LegalAnalysisPanel sessionId={sessionId} onEnsureSession={onEnsureSession} />
+
+
       <div>
         <div className="db-section-label">Особые указания</div>
         <textarea
