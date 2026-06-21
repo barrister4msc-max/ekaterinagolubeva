@@ -205,39 +205,11 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     setIsSavingDraft(false);
   }
 };
-  const handleUploadDocument = async (
-  event: React.ChangeEvent<HTMLInputElement>,
-) => {
-  const file = event.target.files?.[0];
-
-  if (!file) return;
-
-  try {
-    setIsUploadingDocument(true);
-
-    const session = await createOrLoadIntakeSession({
-      matterId: intakeContext?.matterId ?? null,
-      clientId: intakeContext?.clientId ?? null,
-      leadId: intakeContext?.leadId ?? null,
-      documentId: intakeContext?.documentId ?? null,
-      draftKey: intakeSessionId,
-      templateCode: state.templateCode,
-      jurisdiction: state.jurisdiction,
-      language: state.language,
-    });
-
-    setIntakeSessionId(session.id);
-
-    const rawExtension = file.name.includes(".")
-  ? file.name.split(".").pop()
-  : "bin";
-
-const extension =
-  String(rawExtension || "bin")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "") || "bin";
-
-const storagePath = `builder/${session.id}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const uploadSingleFile = async (file: File, sessionIdParam: string) => {
+    const rawExtension = file.name.includes(".") ? file.name.split(".").pop() : "bin";
+    const extension =
+      String(rawExtension || "bin").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+    const storagePath = `builder/${sessionIdParam}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
 
     const { error: uploadError } = await supabase.storage
       .from("lead-documents")
@@ -246,7 +218,6 @@ const storagePath = `builder/${session.id}/${Date.now()}-${crypto.randomUUID()}.
         upsert: false,
         contentType: file.type || "application/octet-stream",
       });
-
     if (uploadError) throw uploadError;
 
     const { data: documentRow, error: documentError } = await supabase
@@ -263,7 +234,7 @@ const storagePath = `builder/${session.id}/${Date.now()}-${crypto.randomUUID()}.
         analysis_status: "uploaded",
         review_status: "pending",
         metadata: {
-          intake_session_id: session.id,
+          intake_session_id: sessionIdParam,
           template_code: state.templateCode,
           jurisdiction: state.jurisdiction,
           language: state.language,
@@ -271,86 +242,125 @@ const storagePath = `builder/${session.id}/${Date.now()}-${crypto.randomUUID()}.
       })
       .select("id")
       .single();
-
     if (documentError) throw documentError;
 
     await supabase
       .from("document_intake_sessions")
-      .update({
-        document_id: documentRow.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", session.id);
+      .update({ document_id: documentRow.id, updated_at: new Date().toISOString() })
+      .eq("id", sessionIdParam);
 
     const { error: extractError } = await supabase.functions.invoke(
       "extract-document-text",
-      {
-        body: {
-          document_id: documentRow.id,
-        },
-      },
+      { body: { document_id: documentRow.id } },
     );
-
     if (extractError) throw extractError;
 
-    setUploadedDocumentId(documentRow.id);
+    return documentRow.id as string;
+  };
 
-    alert("Документ загружен, текст извлечён. Теперь можно заполнить поля AI.");
-  } catch (e) {
-    console.error("Failed to upload/extract document", e);
-    alert("Не удалось загрузить документ или извлечь текст");
-  } finally {
-    setIsUploadingDocument(false);
-    event.target.value = "";
-  }
-};
+  const handleUploadDocument = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+
+    try {
+      setIsUploadingDocument(true);
+
+      const session = await createOrLoadIntakeSession({
+        matterId: intakeContext?.matterId ?? null,
+        clientId: intakeContext?.clientId ?? null,
+        leadId: intakeContext?.leadId ?? null,
+        documentId: intakeContext?.documentId ?? null,
+        draftKey: intakeSessionId,
+        templateCode: state.templateCode,
+        jurisdiction: state.jurisdiction,
+        language: state.language,
+      });
+      setIntakeSessionId(session.id);
+
+      for (const file of files) {
+        try {
+          await uploadSingleFile(file, session.id);
+        } catch (err) {
+          console.error("Failed to upload file", file.name, err);
+          alert(`Не удалось загрузить файл: ${file.name}`);
+        }
+        await refreshSessionDocuments(session.id);
+      }
+
+      try {
+        window.dispatchEvent(new CustomEvent("intake-documents-updated"));
+      } catch {}
+    } catch (e) {
+      console.error("Failed to upload documents", e);
+      alert("Не удалось загрузить документы");
+    } finally {
+      setIsUploadingDocument(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: string) => {
+    if (!confirm("Удалить этот документ из комплекта?")) return;
+    try {
+      const { error } = await supabase.from("documents").delete().eq("id", documentId);
+      if (error) throw error;
+      await refreshSessionDocuments(intakeSessionId);
+      try {
+        window.dispatchEvent(new CustomEvent("intake-documents-updated"));
+      } catch {}
+    } catch (e) {
+      console.error("Failed to delete document", e);
+      alert("Не удалось удалить документ");
+    }
+  };
+
   const handleAiFillFromDocument = async () => {
-  if (!intakeSessionId || !uploadedDocumentId) {
-    alert("Сначала загрузите документ");
-    return;
-  }
-
-  try {
-    setIsAiFilling(true);
-
-    const { error } = await supabase.functions.invoke(
-      "document-intake-ai-fill",
-      {
-        body: {
-          session_id: intakeSessionId,
-          document_id: uploadedDocumentId,
-        },
-      },
-    );
-
-    if (error) throw error;
-
-    const { data: answers, error: answersError } = await supabase
-      .from("document_intake_answers")
-      .select("field_name, field_value")
-      .eq("session_id", intakeSessionId);
-
-    if (answersError) throw answersError;
-
-    const nextAnswers = { ...state.answers };
-
-    for (const answer of answers ?? []) {
-      nextAnswers[answer.field_name as string] = answer.field_value;
+    if (!intakeSessionId) {
+      alert("Сначала загрузите документы");
+      return;
+    }
+    const readyDocs = sessionDocuments.filter((d) => d.ocr_text_length > 50);
+    if (readyDocs.length === 0) {
+      alert("Нет документов с извлечённым текстом");
+      return;
     }
 
-    onChange({
-      ...state,
-      answers: nextAnswers,
-    });
+    try {
+      setIsAiFilling(true);
 
-    alert("AI заполнил поля из документа. Проверьте значения.");
-  } catch (e) {
-    console.error("AI fill failed", e);
-    alert("Не удалось заполнить поля из документа");
-  } finally {
-    setIsAiFilling(false);
-  }
-};
+      for (const doc of readyDocs) {
+        const { error } = await supabase.functions.invoke(
+          "document-intake-ai-fill",
+          { body: { session_id: intakeSessionId, document_id: doc.id } },
+        );
+        if (error) {
+          console.error("AI fill failed for document", doc.id, error);
+        }
+      }
+
+      const { data: answers, error: answersError } = await supabase
+        .from("document_intake_answers")
+        .select("field_name, field_value")
+        .eq("session_id", intakeSessionId);
+      if (answersError) throw answersError;
+
+      const nextAnswers = { ...state.answers };
+      for (const answer of answers ?? []) {
+        nextAnswers[answer.field_name as string] = answer.field_value;
+      }
+      onChange({ ...state, answers: nextAnswers });
+
+      alert("AI заполнил поля из документов. Проверьте значения.");
+    } catch (e) {
+      console.error("AI fill failed", e);
+      alert("Не удалось заполнить поля из документов");
+    } finally {
+      setIsAiFilling(false);
+    }
+  };
+
   const progressPct = Math.round(((stepIdx + 1) / totalSteps) * 100);
   const currentTitle = isReview ? "Предпросмотр подготовки документа" : currentStep.title;
 
