@@ -55,6 +55,11 @@ export function buildGenerateRequest(
   template: DocumentTemplate,
   state: IntakeState,
   schema: DocumentIntakeSchema | null,
+  extras?: {
+    intakeSessionId?: string | null;
+    legalAnalysis?: LegalAnalysisResult | null;
+    legalAnalysisRunId?: string | null;
+  },
 ): GenerateLegalDocumentRequest {
   return {
     template_code: template.code,
@@ -71,6 +76,9 @@ export function buildGenerateRequest(
     intake: state.answers,
     attachments: state.attachments,
     special_instructions: state.specialInstructions,
+    intake_session_id: extras?.intakeSessionId ?? null,
+    legal_analysis: extras?.legalAnalysis ?? null,
+    legal_analysis_run_id: extras?.legalAnalysisRunId ?? null,
     schema: schema
       ? {
           title: schema.title,
@@ -80,6 +88,7 @@ export function buildGenerateRequest(
       : null,
   };
 }
+
 
 export type GeneratedDocumentResult = {
   generated_document_id: string;
