@@ -1,134 +1,123 @@
-## Frontend Document Lifecycle — KATI LAWYER
+# Legal Research Engine — Этап 1
 
-Этап **Frontend Stabilization**: только UI/UX и фронтенд-логика. БД, RLS, Edge Functions, схема версий — **не трогаем**.
+Расширяем существующую edge function `analyze-document-legal-position` до полноценного research-движка. Ни схема БД, ни generator, ни review, ни AI Fill, ни Document Generator не меняются.
 
----
+## Что меняется
 
-### 1. Навигация Workspace (`src/routes/workspace.tsx`)
+### 1. `supabase/functions/analyze-document-legal-position/index.ts` (расширение)
 
-Заменить пункт «Мои черновики» на 4 раздела:
+Перед вызовом Gemini добавляется **каскадный поиск источников**. Текущий простой запрос `legal_knowledge_chunks WHERE category = practice_area` заменяется на 6 параллельных запросов с фильтром по `metadata->>'source_type'` (плюс fallback на колонку `source_type`):
 
 ```
-📄 Конструктор документов   → /workspace/document-builder
-📋 Мои опросники            → /workspace/intakes
-📝 Мои документы            → /workspace/generated-documents
-🗄 Архив                    → /workspace/archive
+laws            → source_type IN ('law_full_text','federal_law','law_full_text_placeholder')
+court_practice  → source_type IN ('court_practice','vs_review')
+fns_letters     → source_type = 'fns_letter'
+minfin_letters  → source_type = 'minfin_letter'
+ekaterina       → source_type = 'ekaterina_practice'
+                  + practice_document_legal_analysis (use_in_rag=true)
+                  + practice_legal_analysis_sources (relevance_score desc)
+manuals         → source_type IN ('manual','manual_seed','template')
 ```
 
-Старый маршрут `/workspace/document-drafts` оставляем рабочим (backward compat), но из меню убираем.
+Каждый bucket лимитируется (10/8/6/6/6/4) и упорядочивается. Для каждого источника собирается единый ResearchSource:
 
----
+```ts
+{ source_table, source_id, source_type, title, official_url, citation,
+  verification_status, actuality_status, why_selected, used_for }
+```
 
-### 2. Новые routes (файлы)
+Параллельно строится **document audit**: проходим все `documents` сессии (без фильтра по тексту), для каждого вычисляем `used | rejected` + `reason` (`no_ocr` / `text_too_short` / `archive_zip` / `technical_file` / `duplicate` / `irrelevant`). Использованные документы — те, что попадают в подсказку Gemini.
 
-| Файл | Назначение |
-|---|---|
-| `src/routes/workspace.intakes.tsx` | Список опросников (`document_intake_sessions` + `document_intake_answers`) |
-| `src/routes/workspace.generated-documents.tsx` | Список сформированных документов (`generated_legal_documents`) с фильтрами |
-| `src/routes/workspace.generated-documents.$documentId.versions.tsx` | История версий (parent_document_id / version_number) |
-| `src/routes/workspace.generated-documents.$documentId.revise.tsx` | Workflow «Пересмотреть документ» |
-| `src/routes/workspace.archive.tsx` | Архивные опросники и документы (`archived_at IS NOT NULL`) |
+Prompt дополняется блоками `LAWS / COURT_PRACTICE / FNS / MINFIN / EKATERINA / MANUALS` (вместо одной общей KB-кучи) и требует от модели:
 
-Оставляем как есть:
-- `workspace.document-builder.tsx` (читает `?sessionId=` — уже поддерживает или добавим чтение search-param)
-- `workspace.document-drafts.*` (backward compat)
+- разделять `applicable_laws` / `rejected_laws`
+- разделять `court_practice` / `rejected_court_practice`
+- сопоставлять каждый источник с одним из переданных id (поле `source_id`), чтобы избежать выдумки
+- заполнить `generation_instructions`, `risks`, `missing_evidence`, `recommendations`
 
----
+Post-processing:
+- список ResearchSource объединяется с тем, что вернула модель (по `source_id`); URL/verification берутся из БД, а не из ответа модели — это снимает риск галлюцинаций URL
+- `source_actuality` пересчитывается уже существующей `sanitizeSourceActuality` (правило needs_check / requires_actuality_check / actual)
+- метрики `legal_accuracy_score`, `hallucination_risk`, `source_verification_status`, `needs_lawyer_review` считаются как и сейчас, но с учётом наличия URL в реестре
 
-### 3. Раздел «Мои опросники»
+Результат сохраняется в **существующие** колонки `document_intake_ai_runs`:
+- `ai_result` — новый объект `legal_analysis` (см. пример ниже)
+- `used_sources` — массив ResearchSource
+- `input_snapshot` — сводка (documents used/rejected/total, по бакетам сколько найдено)
+- `recommendations`, `required_fixes`, `problems`, `source_verification_status`, `hallucination_risk`, `legal_accuracy_score`, `needs_lawyer_review`
 
-**Источник:** `document_intake_sessions` + count из `document_intake_answers` и `generated_legal_documents`.
+Никаких новых колонок и таблиц.
 
-**Карточка опросника (JSX):**
-- Название шаблона + `template_code`
-- Дата создания / обновления
-- Прогресс заполнения = `answered / total_questions` (по схеме шаблона)
-- Бейдж AI-заполнения (если хоть один answer имеет `source = 'ai'`)
-- Кол-во связанных `generated_legal_documents`
-- Статус: 🟡 «В работе» / 🟢 «Готов к формированию»
+### 2. `src/lib/legal-analysis.ts` (типы)
 
-**Действия:** `[Продолжить работу]` → `/workspace/document-builder?sessionId=<id>`, `[История AI]` → существующий `/workspace/document-drafts/$sessionId/ai-history`, `[Архивировать]` → существующий RPC `archive_document_intake_session`.
+Расширяю `LegalAnalysisResult`: `rejected_laws`, `rejected_court_practice`, `rejected_fns_letters`, `manuals`, `documents_audit: { used: [...], rejected: [{ title, reason }] }`, `research_summary`. Все поля опциональные — обратная совместимость со старыми runs.
 
-Восстановление состояния формы — в `document-builder` через чтение `sessionId` из search-params (если ещё не реализовано — добавить хук загрузки сессии и ответов).
+### 3. `src/components/document-builder/legal-analysis-panel.tsx` (UI)
 
----
+Добавляю секции:
+- «Использованные документы» / «Неиспользованные документы (с причиной)»
+- «Альтернативные / отклонённые нормы и практика»
+- «Сводка исследования» (счётчики по бакетам)
+- В существующем списке источников показываю `why_selected` и `used_for`
 
-### 4. Раздел «Мои документы»
+Никакая логика проверки документов и кнопки запуска не трогается.
 
-**Источник:** `generated_legal_documents` (только корневые версии — `parent_document_id IS NULL` или последняя версия в цепочке; в карточке показываем «v{N}»).
+## Что НЕ меняется (подтверждение)
 
-**Карточка (JSX):**
-- Название, `version_number`, дата создания
-- AI review status, статус юриста, кто одобрил, дата утверждения
-- Действия: `[Открыть]`, `[История версий]`, `[Пересмотреть]`, `[Архивировать]`
+- `supabase/functions/generate-legal-document-v2/*` — не трогаю
+- `supabase/functions/review-generated-legal-document/*` — не трогаю
+- AI Fill (`document-intake-ai-fill`) — не трогаю
+- `src/lib/generate-legal-document.ts`, `intake-form.tsx` — не трогаю
+- Схема БД (таблицы, колонки, RLS, политики) — без миграций
 
-**Фильтры** (клиентские, по полям таблицы):
-Все · AI черновики · На проверке · Одобренные · Финальные · Требующие пересмотра.
+Контракт между Research Engine и Generator уже сейчас идёт через `ai_result` поле в `document_intake_ai_runs`. Generator получит более богатый объект в том же поле — обратная совместимость сохранена (все новые поля опциональны).
 
----
+## Пример новой структуры `legal_analysis`
 
-### 5. Workflow «Пересмотреть документ»
+```jsonc
+{
+  "facts": ["..."],
+  "legal_qualification": "...",
+  "main_legal_position": "...",
+  "taxpayer_position": "...",
+  "tax_authority_position": "...",
 
-Route: `/workspace/generated-documents/$documentId/revise`.
+  "applicable_laws":  [{ "source_id": "...", "code": "НК РФ", "article": "54.1", "title": "...", "official_url": "...", "why_selected": "...", "used_for": "..." }],
+  "rejected_laws":    [{ "law": "...", "reason": "..." }],
 
-Доступен **для любого статуса** (AI draft / review / approved / final).
+  "court_practice":          [{ "source_id": "...", "case": "...", "court": "...", "date": "...", "url": "...", "why_selected": "...", "used_for": "..." }],
+  "rejected_court_practice": [{ "case": "...", "reason": "..." }],
 
-**Шаги (UI-стейт-машина, без новых таблиц):**
+  "fns_letters":     [{ "source_id": "...", "number": "...", "date": "...", "url": "...", "used_for": "..." }],
+  "minfin_letters":  [{ "source_id": "...", "number": "...", "date": "...", "url": "...", "used_for": "..." }],
+  "ekaterina_practice": [{ "source_id": "...", "title": "...", "similarity": 0.82, "used_for": "..." }],
+  "manuals":         [{ "source_id": "...", "title": "...", "used_for": "..." }],
 
-1. **Загрузка материалов** — переиспользуем существующий загрузчик в `documents` (тот же storage bucket / таблица, что используется в intake).
-2. **AI-анализ изменений** — вызов существующей Edge Function `review-generated-legal-document` с дополнительным флагом `run_type = 'revision_analysis'` и `parent_document_id`. Результат рендерим в секциях:
-   - Новые факты · Изменённые факты · Противоречия · Недостающие доказательства
-   - Изменение правовой оценки (нормы было/стало, альтернативы)
-   - Судебная практика (за / против / противоречивая)
-   - Риски: было / стало / причина
-3. **Решение юриста:**
-   - `[Оставить текущую версию актуальной]` — закрыть workflow, ничего не пересоздавать.
-   - `[Создать новую версию]` — insert в `generated_legal_documents` с `parent_document_id = currentId`, `version_number = current + 1`, копируем `session_id`, content draft (или генерируем через существующую функцию генерации). Старая версия не меняется.
+  "fact_to_law_mapping": [{ "fact": "...", "law": "...", "reasoning": "...", "conclusion": "..." }],
+  "counter_arguments":   ["..."],
+  "weak_points":         ["..."],
+  "missing_evidence":    ["..."],
+  "risks":               [{ "risk": "...", "severity": "high", "mitigation": "..." }],
+  "recommendations":     ["..."],
+  "generation_instructions": ["..."],
 
-Никаких изменений схемы — поля `parent_document_id` и `version_number` уже существуют.
+  "documents_audit": {
+    "used":     [{ "id": "...", "title": "...", "ocr_length": 367, "used_for": ["facts","fact_to_law_mapping[2]"] }],
+    "rejected": [{ "id": "...", "title": "архив.zip", "reason": "archive_zip" }]
+  },
 
----
+  "sources":          [/* ResearchSource[] — единый список, на который ссылаются source_id выше */],
+  "source_actuality": [/* needs_check / requires_actuality_check / actual */],
 
-### 6. Архив
+  "research_summary": {
+    "documents_total": 5, "documents_used": 3, "documents_rejected": 2,
+    "laws_found": 7, "court_practice_found": 4,
+    "fns_found": 2, "minfin_found": 1,
+    "ekaterina_found": 2, "manuals_found": 1
+  }
+}
+```
 
-Объединённый список: опросники с `archived_at IS NOT NULL` + документы со статусом `archived` (используем существующие поля). Кнопка «Восстановить» через существующий RPC `restore_document_intake_session`.
+## Отчёт после реализации
 
----
-
-### 7. Места для будущего Evidence Layer (комментарии `// EVIDENCE_LAYER:` в коде)
-
-- В карточке документа — место для блока «Доказательная база версии».
-- В workflow пересмотра, шаг 1 — там, где сейчас просто загрузка `documents`, в будущем появится привязка каждого файла к факту/норме.
-- В AI-анализе — секция «Доказательства за/против» будет питаться из Evidence-графа, сейчас читается из AI-ответа.
-- В решении юриста — поле «обоснование выбора» уйдёт в Evidence-журнал.
-
----
-
-### Файлы, которые изменим
-
-**Новые:**
-- `src/routes/workspace.intakes.tsx`
-- `src/routes/workspace.generated-documents.tsx`
-- `src/routes/workspace.generated-documents.$documentId.versions.tsx`
-- `src/routes/workspace.generated-documents.$documentId.revise.tsx`
-- `src/routes/workspace.archive.tsx`
-- `src/components/workspace/intake-card.tsx`
-- `src/components/workspace/generated-document-card.tsx`
-- `src/components/workspace/revision-analysis-panel.tsx`
-
-**Изменим:**
-- `src/routes/workspace.tsx` — навигация (заменить пункт «Мои черновики» на 4 новых).
-- `src/routes/workspace.document-builder.tsx` — чтение `?sessionId=` и восстановление состояния (если не реализовано).
-
-**Не трогаем:** БД, миграции, RLS, Edge Functions, существующие `document-drafts.*` маршруты, `generate-legal-document` / `review-generated-legal-document`.
-
----
-
-### Что НЕ делаем на этом этапе
-
-- Новых таблиц нет.
-- RLS не меняем.
-- Логику генерации документов и AI-review не переписываем — только новые точки вызова с существующими параметрами.
-- Реальный Evidence Layer — следующий этап, сейчас только UI-якоря и комментарии.
-
-После одобрения плана — реализую файлы списком в одной серии правок.
+Будет выдан список изменённых файлов, перечень новых helper-функций (`runCascadeResearch`, `buildDocumentAudit`, `mergeModelSourcesWithRegistry`), пример сохранённого `ai_result` и явное подтверждение, что `generate-legal-document-v2` и `review-generated-legal-document` не трогались.
