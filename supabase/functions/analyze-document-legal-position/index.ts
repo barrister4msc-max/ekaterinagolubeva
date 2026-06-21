@@ -10,7 +10,7 @@ import { extractFacts, embedQuery, queryToSearchString } from "./fact-extraction
 import { runAllRepositories } from "./repositories.ts";
 import { rankSources } from "./ranking.ts";
 import { dedupe } from "./dedupe.ts";
-import { buildPrompt, callGeminiPro } from "./prompt.ts";
+import { buildPrompt, callGeminiPro, limitSources, summarizeDocument } from "./prompt.ts";
 import {
   applyDocumentUsage,
   computeMetrics,
