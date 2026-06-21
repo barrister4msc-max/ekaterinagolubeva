@@ -955,10 +955,9 @@ function ReviewStep({
         </div>
       </div>
 
-      <LegalAnalysisPanel sessionId={sessionId} onEnsureSession={onEnsureSession} />
-
 
       {missing.length > 0 && (
+
         <div className="db-warning">
           Не заполнены обязательные поля: {missing.map((m) => m.label).join(", ")}.
         </div>
