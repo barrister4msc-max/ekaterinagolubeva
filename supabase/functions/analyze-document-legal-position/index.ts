@@ -415,6 +415,12 @@ Deno.serve(async (req) => {
 
     const metrics = computeMetrics(parsed, { externalVerificationPerformed });
 
+    parsed.source_actuality = sanitizeSourceActuality(
+      parsed.source_actuality,
+      parsed.sources,
+      { externalVerificationPerformed },
+    );
+
     const { error: updErr } = await sb
       .from("document_intake_ai_runs")
       .update({
