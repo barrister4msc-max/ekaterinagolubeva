@@ -41,7 +41,14 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
       const result = await runLegalAnalysis(id);
       setRun(result);
     } catch (e) {
-      setError((e as Error).message);
+      const msg = (e as Error).message;
+      if (msg === "no_documents") {
+        setError(
+          "Сначала прикрепите документы. После извлечения текста запустите AI правовой анализ.",
+        );
+      } else {
+        setError(msg);
+      }
     } finally {
       setRunning(false);
     }
