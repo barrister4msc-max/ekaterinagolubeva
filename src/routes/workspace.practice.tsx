@@ -190,11 +190,14 @@ function PracticePage() {
     reload();
   }, [reload]);
 
+  const reloadBatches = useCallback(() => {
+    batches({}).then((r: any) => setBatchRows(r.batches ?? [])).catch(() => {});
+  }, [batches]);
+
   useEffect(() => {
-    if (tab === "uploads") {
-      batches({}).then((r: any) => setBatchRows(r.batches ?? [])).catch(() => {});
-    }
-  }, [tab, batches]);
+    if (tab === "uploads") reloadBatches();
+  }, [tab, reloadBatches]);
+
 
   useEffect(() => {
     mList({ data: { limit: 200 } })
