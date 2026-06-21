@@ -46,7 +46,7 @@ type AnalysisResult = {
   minfin_letters: Array<{ number?: string; date?: string; topic?: string; url?: string }>;
   ekaterina_practice: Array<{ case?: string; year?: string; outcome?: string }>;
   sources: Array<{ id?: string; title: string; url?: string; type?: string; cited_for?: string }>;
-  source_actuality: Array<{ source: string; status: "actual" | "outdated" | "unknown"; note?: string }>;
+  source_actuality: Array<{ source: string; status: "actual" | "outdated" | "unknown" | "needs_check" | "requires_actuality_check"; note?: string }>;
   generation_instructions: string[];
 };
 
@@ -262,6 +262,36 @@ function normalizeSources(
   });
 }
 
+function sanitizeSourceActuality(
+  items: AnalysisResult["source_actuality"],
+  sources: AnalysisResult["sources"],
+  opts: { externalVerificationPerformed: boolean },
+): AnalysisResult["source_actuality"] {
+  return (items ?? []).map((item) => {
+    const src = sources.find((s) => s.title === item.source);
+    const url = ((src as any)?.url || (src as any)?.official_url || "").toString().trim();
+    const hasUrl = url.length > 0;
+
+    if (!hasUrl) {
+      return {
+        source: item.source,
+        status: "needs_check" as const,
+        note: "Актуальность нормы требует проверки юристом по официальному источнику.",
+      };
+    }
+
+    if (!opts.externalVerificationPerformed) {
+      return {
+        source: item.source,
+        status: "requires_actuality_check" as const,
+        note: "Источник найден, но актуальность редакции не проверена автоматически.",
+      };
+    }
+
+    return item;
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -384,6 +414,12 @@ Deno.serve(async (req) => {
     parsed.sources = normalizedSources as any;
 
     const metrics = computeMetrics(parsed, { externalVerificationPerformed });
+
+    parsed.source_actuality = sanitizeSourceActuality(
+      parsed.source_actuality,
+      parsed.sources,
+      { externalVerificationPerformed },
+    );
 
     const { error: updErr } = await sb
       .from("document_intake_ai_runs")
