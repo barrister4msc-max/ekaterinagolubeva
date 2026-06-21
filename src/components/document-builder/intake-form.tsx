@@ -160,28 +160,8 @@ const [isAiFilling, setIsAiFilling] = useState(false);
   const handleGenerateDraft = async () => {
   try {
     setIsSavingDraft(true);
-
-    const session = await createOrLoadIntakeSession({
-      matterId: intakeContext?.matterId ?? null,
-      clientId: intakeContext?.clientId ?? null,
-      leadId: intakeContext?.leadId ?? null,
-      documentId: intakeContext?.documentId ?? null,
-      draftKey: intakeSessionId,
-      templateCode: state.templateCode,
-      jurisdiction: state.jurisdiction,
-      language: state.language,
-    });
-
-    setIntakeSessionId(session.id);
-
-    await saveIntakeAnswers({
-      sessionId: session.id,
-      schema,
-      answers: state.answers,
-      valueSource: "manual",
-    });
-
-    onSubmit(state, session.id);
+    const sessionId = await ensureSession();
+    onSubmit(state, sessionId);
   } catch (e) {
     console.error("Failed to save intake before generation", e);
     alert("Не удалось сохранить опросник перед генерацией документа");
