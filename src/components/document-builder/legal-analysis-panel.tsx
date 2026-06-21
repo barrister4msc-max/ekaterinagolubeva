@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Loader2, Sparkles, AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
+import { Loader2, Sparkles, AlertTriangle, CheckCircle2, ExternalLink, FileText } from "lucide-react";
 import {
   fetchLatestLegalAnalysis,
   runLegalAnalysis,
+  hasSessionDocumentsWithText,
   type LegalAnalysisRun,
 } from "@/lib/legal-analysis";
 
