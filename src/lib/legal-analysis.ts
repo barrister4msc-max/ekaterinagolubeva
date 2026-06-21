@@ -67,6 +67,9 @@ export type LegalAnalysisDocAudit = {
     | "technical_file"
     | "duplicate"
     | "irrelevant";
+  research_query?: LegalResearchQuery;
+  documents_audit?: { used: LegalAnalysisDocAudit[]; rejected: LegalAnalysisDocAudit[] };
+  research_summary?: Record<string, number>;
 };
 
 export type LegalResearchQuery = {
