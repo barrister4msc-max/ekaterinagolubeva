@@ -394,6 +394,10 @@ const storagePath = `builder/${session.id}/${Date.now()}-${crypto.randomUUID()}.
             </div>
           </div>
 
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <LegalAnalysisPanel sessionId={intakeSessionId} onEnsureSession={ensureSession} />
+          </div>
+
           <div>
             <div className="db-section-label">{currentStep.title}</div>
             {currentStep.description && (
