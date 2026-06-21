@@ -196,24 +196,29 @@ Deno.serve(async (req) => {
       documents: docsForPrompt,
       sources: merged,
     });
-    const { text, model } = await callGeminiPro(prompt);
+    const { text, rawResponse, model } = await callGeminiPro(prompt);
 
     let parsed: any;
     try {
+      if (!text) throw new Error("empty model output");
       parsed = extractJson(text);
     } catch (e) {
       const parseMsg = (e as Error).message ?? String(e);
-      const preview = (text ?? "").slice(0, 4000);
+      // Full raw response goes into ai_result.raw_response (NOT truncated).
+      // Preview is first 4000 chars for quick UI inspection.
+      const fullRaw = rawResponse ?? "";
+      const preview = fullRaw.slice(0, 4000);
       await sb
         .from("document_intake_ai_runs")
         .update({
           status: "failed",
           completed_at: new Date().toISOString(),
           model_name: model,
-          error_message: `parse_failed: ${parseMsg}`,
+          error_message: parseMsg,
           ai_result: {
             error: "parse_failed",
             message: parseMsg,
+            raw_response: fullRaw,
             raw_response_preview: preview,
           } as any,
           source_verification_status: "no_sources",

@@ -112,7 +112,9 @@ ${kbBlock}
 }`;
 }
 
-export async function callGeminiPro(prompt: string): Promise<{ text: string; model: string }> {
+export async function callGeminiPro(
+  prompt: string,
+): Promise<{ text: string; rawResponse: string; model: string }> {
   const KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
   const MODEL = "gemini-2.5-pro";
   if (!KEY) throw new Error("GEMINI_API_KEY is not set");
@@ -129,13 +131,19 @@ export async function callGeminiPro(prompt: string): Promise<{ text: string; mod
       },
     }),
   });
+  // Capture the FULL raw response body BEFORE any JSON.parse so callers
+  // can persist it for diagnostics on parse failures.
+  const rawResponse = await res.text();
   if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gemini ${res.status}: ${body.slice(0, 500)}`);
+    throw new Error(`Gemini ${res.status}: ${rawResponse.slice(0, 1000)}`);
   }
-  const data = await res.json();
+  let data: any = null;
+  try {
+    data = JSON.parse(rawResponse);
+  } catch {
+    // Leave data null; caller sees empty text + full rawResponse.
+  }
   const text =
     data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? "").join("") ?? "";
-  if (!text) throw new Error("empty model output");
-  return { text, model: MODEL };
+  return { text, rawResponse, model: MODEL };
 }
