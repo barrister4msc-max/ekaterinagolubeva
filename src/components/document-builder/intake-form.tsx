@@ -153,6 +153,35 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     return session.id;
   };
 
+  const refreshSessionDocuments = useCallback(async (sid: string | null) => {
+    if (!sid) {
+      setSessionDocuments([]);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("documents")
+      .select("id, title, file_name, ocr_text")
+      .filter("metadata->>intake_session_id", "eq", sid)
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("Failed to load session documents", error);
+      return;
+    }
+    setSessionDocuments(
+      (data ?? []).map((d: any) => ({
+        id: d.id,
+        title: d.title,
+        file_name: d.file_name,
+        ocr_text_length: typeof d.ocr_text === "string" ? d.ocr_text.length : 0,
+      })),
+    );
+  }, []);
+
+  useEffect(() => {
+    refreshSessionDocuments(intakeSessionId);
+  }, [intakeSessionId, refreshSessionDocuments]);
+
+
   const handleSaveDraft = async () => {
   try {
     setIsSavingDraft(true);
