@@ -22,16 +22,39 @@ export type LegalAnalysisRisk = {
 
 export type LegalAnalysisSource = {
   id?: string;
+  source_id?: string;
+  source_table?: string;
+  source_type?: string;
+  bucket?: string;
   title: string;
   url?: string;
+  official_url?: string | null;
   type?: string;
   cited_for?: string;
+  why_selected?: string;
+  used_for?: string;
+  verification_status?: string;
+  actuality_status?: string;
 };
 
 export type LegalAnalysisActuality = {
   source: string;
-  status: "actual" | "outdated" | "unknown";
+  status: "actual" | "outdated" | "unknown" | "needs_check" | "requires_actuality_check";
   note?: string;
+};
+
+export type LegalAnalysisDocAudit = {
+  id: string;
+  title: string;
+  ocr_length: number;
+  used: boolean;
+  reason?:
+    | "no_ocr"
+    | "text_too_short"
+    | "archive_zip"
+    | "technical_file"
+    | "duplicate"
+    | "irrelevant";
 };
 
 export type LegalAnalysisResult = {
@@ -40,7 +63,7 @@ export type LegalAnalysisResult = {
   main_legal_position: string;
   tax_authority_position: string;
   taxpayer_position: string;
-  applicable_laws: LegalAnalysisLaw[];
+  applicable_laws: Array<LegalAnalysisLaw & { source_id?: string; why_selected?: string; used_for?: string; official_url?: string | null }>;
   fact_to_law_mapping: LegalAnalysisMapping[];
   alternative_positions: string[];
   rejected_laws: Array<{ law: string; reason: string }>;
@@ -49,13 +72,18 @@ export type LegalAnalysisResult = {
   weak_points: string[];
   missing_evidence: string[];
   risks: LegalAnalysisRisk[];
-  court_practice: Array<{ case?: string; court?: string; date?: string; conclusion?: string; url?: string }>;
-  fns_letters: Array<{ number?: string; date?: string; topic?: string; url?: string }>;
-  minfin_letters: Array<{ number?: string; date?: string; topic?: string; url?: string }>;
-  ekaterina_practice: Array<{ case?: string; year?: string; outcome?: string }>;
+  court_practice: Array<{ case?: string; court?: string; date?: string; conclusion?: string; url?: string; source_id?: string; why_selected?: string; used_for?: string }>;
+  rejected_court_practice?: Array<{ case: string; reason: string }>;
+  fns_letters: Array<{ number?: string; date?: string; topic?: string; url?: string; source_id?: string; used_for?: string }>;
+  minfin_letters: Array<{ number?: string; date?: string; topic?: string; url?: string; source_id?: string; used_for?: string }>;
+  ekaterina_practice: Array<{ case?: string; year?: string; outcome?: string; title?: string; source_id?: string; used_for?: string }>;
+  manuals?: Array<{ source_id?: string; title?: string; used_for?: string }>;
   sources: LegalAnalysisSource[];
   source_actuality: LegalAnalysisActuality[];
+  recommendations?: string[];
   generation_instructions: string[];
+  documents_audit?: { used: LegalAnalysisDocAudit[]; rejected: LegalAnalysisDocAudit[] };
+  research_summary?: Record<string, number>;
 };
 
 export type LegalAnalysisRun = {
