@@ -262,6 +262,36 @@ function normalizeSources(
   });
 }
 
+function sanitizeSourceActuality(
+  items: AnalysisResult["source_actuality"],
+  sources: AnalysisResult["sources"],
+  opts: { externalVerificationPerformed: boolean },
+): AnalysisResult["source_actuality"] {
+  return (items ?? []).map((item) => {
+    const src = sources.find((s) => s.title === item.source);
+    const url = ((src as any)?.url || (src as any)?.official_url || "").toString().trim();
+    const hasUrl = url.length > 0;
+
+    if (!hasUrl) {
+      return {
+        source: item.source,
+        status: "needs_check" as const,
+        note: "Актуальность нормы требует проверки юристом по официальному источнику.",
+      };
+    }
+
+    if (!opts.externalVerificationPerformed) {
+      return {
+        source: item.source,
+        status: "requires_actuality_check" as const,
+        note: "Источник найден, но актуальность редакции не проверена автоматически.",
+      };
+    }
+
+    return item;
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
