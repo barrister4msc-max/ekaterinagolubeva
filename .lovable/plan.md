@@ -1,123 +1,139 @@
-# Legal Research Engine — Этап 1
+# Legal Research Engine — Этап 2
 
-Расширяем существующую edge function `analyze-document-legal-position` до полноценного research-движка. Ни схема БД, ни generator, ни review, ни AI Fill, ни Document Generator не меняются.
+Расширяем edge function `analyze-document-legal-position` (без изменений других функций и схемы БД). Чтобы остаться обозримым, разбиваем монолитный `index.ts` на модули внутри той же папки функции — Deno подтягивает их относительными import'ами.
 
-## Что меняется
+## Новая структура каталога функции
 
-### 1. `supabase/functions/analyze-document-legal-position/index.ts` (расширение)
-
-Перед вызовом Gemini добавляется **каскадный поиск источников**. Текущий простой запрос `legal_knowledge_chunks WHERE category = practice_area` заменяется на 6 параллельных запросов с фильтром по `metadata->>'source_type'` (плюс fallback на колонку `source_type`):
-
-```
-laws            → source_type IN ('law_full_text','federal_law','law_full_text_placeholder')
-court_practice  → source_type IN ('court_practice','vs_review')
-fns_letters     → source_type = 'fns_letter'
-minfin_letters  → source_type = 'minfin_letter'
-ekaterina       → source_type = 'ekaterina_practice'
-                  + practice_document_legal_analysis (use_in_rag=true)
-                  + practice_legal_analysis_sources (relevance_score desc)
-manuals         → source_type IN ('manual','manual_seed','template')
+```text
+supabase/functions/analyze-document-legal-position/
+  index.ts             — оркестратор (handler)
+  fact-extraction.ts   — Layer 1: OCR → ResearchQuery (Gemini Flash)
+  repositories.ts      — Layer 2: Law/Court/FNS/Minfin/Practice/Manual repositories
+  ranking.ts           — Layer 3: scoring (semantic/keyword/priority/relevance/final)
+  dedupe.ts            — Layer 4: объединение норм/актов из разных таблиц
+  prompt.ts            — Layer 5: построение prompt для Gemini Pro
+  merge.ts             — Layer 6: пост-обработка ответа модели + URL из реестра
 ```
 
-Каждый bucket лимитируется (10/8/6/6/6/4) и упорядочивается. Для каждого источника собирается единый ResearchSource:
+## Слои
+
+### 1. Fact Extraction Layer (`fact-extraction.ts`)
+Между OCR-документами и Research. Один быстрый вызов Gemini-2.5-Flash с low temperature на конкатенированном OCR + ответах опросника. Возвращает `ResearchQuery`:
 
 ```ts
-{ source_table, source_id, source_type, title, official_url, citation,
-  verification_status, actuality_status, why_selected, used_for }
+type ResearchQuery = {
+  practice_area: string | null;
+  subcategory: string | null;
+  document_type: string | null;
+  facts: string[];
+  parties: string[];
+  amounts: string[];
+  dates: string[];
+  legal_issues: string[];      // "уменьшение УК", "оспаривание решения ФНС", ...
+  research_topics: string[];   // ключевые слова для поиска
+  keywords: string[];          // расширенные синонимы
+};
 ```
 
-Параллельно строится **document audit**: проходим все `documents` сессии (без фильтра по тексту), для каждого вычисляем `used | rejected` + `reason` (`no_ocr` / `text_too_short` / `archive_zip` / `technical_file` / `duplicate` / `irrelevant`). Использованные документы — те, что попадают в подсказку Gemini.
+ResearchQuery идёт во все репозитории и сохраняется в `ai_result.research_query`.
 
-Prompt дополняется блоками `LAWS / COURT_PRACTICE / FNS / MINFIN / EKATERINA / MANUALS` (вместо одной общей KB-кучи) и требует от модели:
+Опционально (если есть `LOVABLE_API_KEY`) считается query embedding через Lovable AI Gateway (`google/gemini-embedding-001`, 3072) — используется потом для semantic scoring.
 
-- разделять `applicable_laws` / `rejected_laws`
-- разделять `court_practice` / `rejected_court_practice`
-- сопоставлять каждый источник с одним из переданных id (поле `source_id`), чтобы избежать выдумки
-- заполнить `generation_instructions`, `risks`, `missing_evidence`, `recommendations`
+### 2. Repository Layer (`repositories.ts`)
+Каждый репозиторий — отдельный класс с единым интерфейсом `search(query, opts) → RawSource[]`. Сохраняем уже работающий каскад из этапа 1, но теперь источники инкапсулированы:
 
-Post-processing:
-- список ResearchSource объединяется с тем, что вернула модель (по `source_id`); URL/verification берутся из БД, а не из ответа модели — это снимает риск галлюцинаций URL
-- `source_actuality` пересчитывается уже существующей `sanitizeSourceActuality` (правило needs_check / requires_actuality_check / actual)
-- метрики `legal_accuracy_score`, `hallucination_risk`, `source_verification_status`, `needs_lawyer_review` считаются как и сейчас, но с учётом наличия URL в реестре
+- `LawRepository`        — `legal_knowledge_chunks` (`law_full_text`, `federal_law`, `law_full_text_placeholder`)
+- `CourtRepository`      — `legal_knowledge_chunks` (`court_practice`, `vs_review`)
+- `FNSRepository`        — `legal_knowledge_chunks` (`fns_letter`)
+- `MinfinRepository`     — `legal_knowledge_chunks` (`minfin_letter`)
+- `PracticeRepository`   — `legal_knowledge_chunks` (`ekaterina_practice`) + `practice_document_legal_analysis` + `practice_legal_analysis_sources`
+- `ManualRepository`     — `legal_knowledge_chunks` (`manual`, `manual_seed`, `template`)
 
-Результат сохраняется в **существующие** колонки `document_intake_ai_runs`:
-- `ai_result` — новый объект `legal_analysis` (см. пример ниже)
-- `used_sources` — массив ResearchSource
-- `input_snapshot` — сводка (documents used/rejected/total, по бакетам сколько найдено)
-- `recommendations`, `required_fixes`, `problems`, `source_verification_status`, `hallucination_risk`, `legal_accuracy_score`, `needs_lawyer_review`
+Все шесть запускаются `Promise.all`. Каждый возвращает однородный `RawSource` (плюс служебные поля для дальнейшего scoring/dedupe).
 
-Никаких новых колонок и таблиц.
+### 3. Ranking Engine (`ranking.ts`)
+Для каждого `RawSource` считает:
 
-### 2. `src/lib/legal-analysis.ts` (типы)
-
-Расширяю `LegalAnalysisResult`: `rejected_laws`, `rejected_court_practice`, `rejected_fns_letters`, `manuals`, `documents_audit: { used: [...], rejected: [{ title, reason }] }`, `research_summary`. Все поля опциональные — обратная совместимость со старыми runs.
-
-### 3. `src/components/document-builder/legal-analysis-panel.tsx` (UI)
-
-Добавляю секции:
-- «Использованные документы» / «Неиспользованные документы (с причиной)»
-- «Альтернативные / отклонённые нормы и практика»
-- «Сводка исследования» (счётчики по бакетам)
-- В существующем списке источников показываю `why_selected` и `used_for`
-
-Никакая логика проверки документов и кнопки запуска не трогается.
-
-## Что НЕ меняется (подтверждение)
-
-- `supabase/functions/generate-legal-document-v2/*` — не трогаю
-- `supabase/functions/review-generated-legal-document/*` — не трогаю
-- AI Fill (`document-intake-ai-fill`) — не трогаю
-- `src/lib/generate-legal-document.ts`, `intake-form.tsx` — не трогаю
-- Схема БД (таблицы, колонки, RLS, политики) — без миграций
-
-Контракт между Research Engine и Generator уже сейчас идёт через `ai_result` поле в `document_intake_ai_runs`. Generator получит более богатый объект в том же поле — обратная совместимость сохранена (все новые поля опциональны).
-
-## Пример новой структуры `legal_analysis`
-
-```jsonc
+```ts
 {
-  "facts": ["..."],
-  "legal_qualification": "...",
-  "main_legal_position": "...",
-  "taxpayer_position": "...",
-  "tax_authority_position": "...",
-
-  "applicable_laws":  [{ "source_id": "...", "code": "НК РФ", "article": "54.1", "title": "...", "official_url": "...", "why_selected": "...", "used_for": "..." }],
-  "rejected_laws":    [{ "law": "...", "reason": "..." }],
-
-  "court_practice":          [{ "source_id": "...", "case": "...", "court": "...", "date": "...", "url": "...", "why_selected": "...", "used_for": "..." }],
-  "rejected_court_practice": [{ "case": "...", "reason": "..." }],
-
-  "fns_letters":     [{ "source_id": "...", "number": "...", "date": "...", "url": "...", "used_for": "..." }],
-  "minfin_letters":  [{ "source_id": "...", "number": "...", "date": "...", "url": "...", "used_for": "..." }],
-  "ekaterina_practice": [{ "source_id": "...", "title": "...", "similarity": 0.82, "used_for": "..." }],
-  "manuals":         [{ "source_id": "...", "title": "...", "used_for": "..." }],
-
-  "fact_to_law_mapping": [{ "fact": "...", "law": "...", "reasoning": "...", "conclusion": "..." }],
-  "counter_arguments":   ["..."],
-  "weak_points":         ["..."],
-  "missing_evidence":    ["..."],
-  "risks":               [{ "risk": "...", "severity": "high", "mitigation": "..." }],
-  "recommendations":     ["..."],
-  "generation_instructions": ["..."],
-
-  "documents_audit": {
-    "used":     [{ "id": "...", "title": "...", "ocr_length": 367, "used_for": ["facts","fact_to_law_mapping[2]"] }],
-    "rejected": [{ "id": "...", "title": "архив.zip", "reason": "archive_zip" }]
-  },
-
-  "sources":          [/* ResearchSource[] — единый список, на который ссылаются source_id выше */],
-  "source_actuality": [/* needs_check / requires_actuality_check / actual */],
-
-  "research_summary": {
-    "documents_total": 5, "documents_used": 3, "documents_rejected": 2,
-    "laws_found": 7, "court_practice_found": 4,
-    "fns_found": 2, "minfin_found": 1,
-    "ekaterina_found": 2, "manuals_found": 1
-  }
+  semantic_score: number,   // cos(query_embedding, chunk_embedding) ∈ [0..1], 0 если embedding нет
+  keyword_score:  number,   // доля terms из ResearchQuery.legal_issues+research_topics+keywords, найденных в title+content
+  priority_score: number,   // metadata.priority: critical=1.0, high=0.75, medium=0.5, low=0.3
+  relevance_score: number,  // bucket weight: laws=1.0, court=0.9, ekaterina=0.85, fns=0.8, minfin=0.8, manuals=0.6
+  final_score:    number    // 0.45*semantic + 0.25*keyword + 0.15*priority + 0.15*relevance
 }
 ```
 
-## Отчёт после реализации
+Semantic_score берём через RPC `match_legal_knowledge(query_embedding, match_count=50, category_filter=practice_area)` — она уже есть в БД и возвращает similarity. Маппим её обратно по `id` на наши `RawSource`. Если эмбеддингов нет (`LOVABLE_API_KEY` пуст), semantic=0 и веса автоматически перераспределяются в пользу keyword/priority/relevance.
 
-Будет выдан список изменённых файлов, перечень новых helper-функций (`runCascadeResearch`, `buildDocumentAudit`, `mergeModelSourcesWithRegistry`), пример сохранённого `ai_result` и явное подтверждение, что `generate-legal-document-v2` и `review-generated-legal-document` не трогались.
+После scoring каждый bucket сортируется по `final_score` desc и обрезается до лимита (laws=10, court=8, fns=6, minfin=6, ekaterina=8, manuals=4).
+
+### 4. Deduplicate Engine (`dedupe.ts`)
+Объединяет одинаковые сущности, найденные в разных репозиториях / таблицах:
+
+- `laws`: ключ = `${code}|${article}|${part ?? ''}` (нормализовано) — например, «НК РФ 54.1» из `legal_knowledge_chunks` и из практики Екатерины слипаются в одну запись.
+- `court_practice`: ключ = нормализованный номер дела (`metadata.case_number` или regex `А\d+-\d+/\d+` по title).
+- `fns_letters` / `minfin_letters`: ключ = `number|date`.
+- `ekaterina` / `manuals`: ключ = `source_id` (уже уникален).
+
+Победителем становится запись с максимальным `final_score`; в неё добавляются поля `merged_from: [{ source_table, source_id }]` и `appearances: N` — это даёт реальный буст уверенности для норм, всплывших в нескольких источниках.
+
+### 5. Prompt + Merge (`prompt.ts`, `merge.ts`)
+Перенос текущего `buildPrompt` + `mergeModelSourcesWithRegistry` без изменений контракта. Дополнено:
+
+- prompt передаёт модели готовый `ResearchQuery` (вместо сырых ответов опросника + всего OCR).
+- prompt требует для каждого использованного документа массив `used_for` из закрытого набора: `facts | legal_qualification | taxpayer_position | court_practice | risks | recommendations | generation`.
+- merge применяет ответ модели поверх `documents_audit.used[].used_for` — если модель не указала, оставляем `["facts"]` по умолчанию.
+
+### 6. Index / orchestrator (`index.ts`)
+Последовательность:
+
+```text
+load session + answers + documents
+   │
+   ▼
+classify documents → used / rejected
+   │ (если used = 0 → fail no_documents, как сейчас)
+   ▼
+FactExtraction(used docs + answers)  →  ResearchQuery (+ query_embedding)
+   │
+   ▼
+Promise.all(
+  LawRepo, CourtRepo, FNSRepo, MinfinRepo, PracticeRepo, ManualRepo
+).search(query)
+   │
+   ▼
+RankingEngine.score(all sources, query, query_embedding)
+   │
+   ▼
+DedupEngine.merge(scored sources)
+   │
+   ▼
+Gemini-2.5-Pro (prompt с ResearchQuery + ранжированными источниками)
+   │
+   ▼
+Merge(model output ↔ registry: URL и verification из БД)
+   │
+   ▼
+documents_audit.used[].used_for  ←  из ответа модели
+   │
+   ▼
+document_intake_ai_runs.update({ status='completed', ai_result, used_sources, metrics, input_snapshot })
+```
+
+`ai_result` получает два новых опциональных поля поверх этапа 1:
+- `research_query: ResearchQuery`
+- каждый объект в `sources` получает `scores: { semantic, keyword, priority, relevance, final }`, `merged_from`, `appearances`
+- `documents_audit.used[].used_for: string[]`
+
+## Что НЕ меняется
+
+- `generate-legal-document-v2/*` — не открывается
+- `review-generated-legal-document/*` — не открывается
+- `document-intake-ai-fill` — не трогается
+- Схема БД, RLS, миграции — без изменений
+- Frontend (`legal-analysis.ts`, `legal-analysis-panel.tsx`) получит только мелкое расширение типов (опциональные `scores`, `merged_from`, `appearances`, `research_query`) и опциональный показ `used_for` рядом с использованными документами
+
+## После реализации
+
+Покажу новую архитектурную схему (Mermaid) + список добавленных модулей и функций.
