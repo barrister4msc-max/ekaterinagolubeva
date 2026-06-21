@@ -55,11 +55,6 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
   };
 
   const a = run?.analysis;
-  const noDocs =
-    run?.status === "failed" &&
-    (run as any)?.analysis?.error === "no_documents";
-  const friendlyNoDocsMsg =
-    "Сначала прикрепите документы. После извлечения текста запустите AI правовой анализ.";
 
   return (
     <div>
