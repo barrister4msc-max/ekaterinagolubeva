@@ -10,7 +10,7 @@ import { extractFacts, embedQuery, queryToSearchString } from "./fact-extraction
 import { runAllRepositories } from "./repositories.ts";
 import { rankSources } from "./ranking.ts";
 import { dedupe } from "./dedupe.ts";
-import { buildPrompt, callGeminiPro } from "./prompt.ts";
+import { buildPrompt, callGeminiPro, limitSources, summarizeDocument } from "./prompt.ts";
 import {
   applyDocumentUsage,
   computeMetrics,
@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
     // Layer 1: Fact Extraction
     const docTextById = new Map<string, string>();
     for (const d of docs ?? []) docTextById.set(d.id as string, ((d.ocr_text as string | null) ?? "").trim());
-    const docsForPrompt = usedDocs.map((d) => ({
+    const docsForExtraction = usedDocs.map((d) => ({
       id: d.id,
       title: d.title,
       text: docTextById.get(d.id) ?? "",
@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
       templateCode: session.template_code as string,
       practiceArea,
       answers,
-      documents: docsForPrompt,
+      documents: docsForExtraction,
     });
     const queryEmbedding = await embedQuery(queryToSearchString(researchQuery));
 
@@ -184,8 +184,33 @@ Deno.serve(async (req) => {
       practiceArea,
     });
 
-    // Layer 4: Dedupe
-    const merged = dedupe(scored);
+    // Layer 4: Dedupe + per-bucket caps (keeps prompt small).
+    const mergedAll = dedupe(scored);
+    const merged = limitSources(mergedAll);
+
+    // Compact document summaries (no full OCR in prompt).
+    const queryFacts = Array.isArray(researchQuery.facts) ? (researchQuery.facts as string[]) : [];
+    const usedSummaries = usedDocs.map((d) =>
+      summarizeDocument({
+        id: d.id,
+        title: d.title,
+        fileName: null,
+        ocrText: docTextById.get(d.id) ?? "",
+        status: "used",
+        queryFacts,
+      }),
+    );
+    const rejectedSummaries = rejectedDocs.map((d) =>
+      summarizeDocument({
+        id: d.id,
+        title: d.title,
+        fileName: null,
+        ocrText: docTextById.get(d.id) ?? "",
+        status: "rejected",
+        queryFacts,
+      }),
+    );
+    const docSummaries = [...usedSummaries, ...rejectedSummaries];
 
     // Layer 5: Gemini Pro
     const prompt = buildPrompt({
@@ -193,7 +218,7 @@ Deno.serve(async (req) => {
       jurisdiction: (session.jurisdiction as string) ?? "ru",
       language: (session.language as string) ?? "ru",
       query: researchQuery,
-      documents: docsForPrompt,
+      documents: docSummaries,
       sources: merged,
     });
     const { text, rawResponse, model } = await callGeminiPro(prompt);
@@ -256,7 +281,8 @@ Deno.serve(async (req) => {
       documents_rejected: rejectedDocs.length,
       sources_raw: rawSources.length,
       sources_after_ranking: scored.length,
-      sources_after_dedupe: merged.length,
+      sources_after_dedupe: mergedAll.length,
+      sources_after_caps: merged.length,
       sources_used_by_model: combined_sources.length,
       ...counts,
       semantic_enabled: queryEmbedding ? 1 : 0,
