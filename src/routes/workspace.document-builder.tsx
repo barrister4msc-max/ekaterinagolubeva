@@ -231,12 +231,20 @@ function DocumentBuilderPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
+      const latestAnalysis = sessionId
+        ? await (await import("@/lib/legal-analysis")).fetchLatestLegalAnalysis(sessionId).catch(() => null)
+        : null;
       const payload = {
-  ...buildGenerateRequest(selected, safeState, intakeSchemaQuery.data),
+  ...buildGenerateRequest(selected, safeState, intakeSchemaQuery.data, {
+    intakeSessionId: sessionId ?? null,
+    legalAnalysis: latestAnalysis?.analysis ?? null,
+    legalAnalysisRunId: latestAnalysis?.id ?? null,
+  }),
   session_id: sessionId,
   intake_session_id: sessionId,
 };
       const result = await invokeGenerateLegalDocument(payload);
+
       setGenerated(result);
       setSubmitted(true);
     } catch (e) {
