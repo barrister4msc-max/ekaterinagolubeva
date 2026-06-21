@@ -67,6 +67,8 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
 
   const a = run?.analysis;
 
+  const canRun = hasDocs === true;
+
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -74,13 +76,20 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
         <button
           type="button"
           onClick={handleRun}
-          disabled={running}
+          disabled={running || !canRun}
           className="db-cta"
         >
           {running ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
           {running ? "Анализ…" : run ? "Перезапустить AI правовой анализ" : "AI правовой анализ"}
         </button>
       </div>
+
+      {!canRun && !checkingDocs && (
+        <div className="mt-2 flex items-start gap-2 text-xs text-white/60">
+          <FileText size={14} className="mt-0.5 shrink-0" />
+          <span>Для правового анализа прикрепите документы с извлеченным текстом.</span>
+        </div>
+      )}
 
       {error && (
         <div className="db-warning mt-3 flex items-start gap-2">
