@@ -1855,6 +1855,7 @@ export type Database = {
           ai_detected_risks: Json
           ai_summary: string | null
           analysis_status: string
+          batch_id: string | null
           client_id: string | null
           created_at: string
           document_category: string | null
@@ -1885,6 +1886,7 @@ export type Database = {
           ai_detected_risks?: Json
           ai_summary?: string | null
           analysis_status?: string
+          batch_id?: string | null
           client_id?: string | null
           created_at?: string
           document_category?: string | null
@@ -1915,6 +1917,7 @@ export type Database = {
           ai_detected_risks?: Json
           ai_summary?: string | null
           analysis_status?: string
+          batch_id?: string | null
           client_id?: string | null
           created_at?: string
           document_category?: string | null
@@ -1941,6 +1944,27 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "practice_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_batch_legal_analysis_stats"
+            referencedColumns: ["batch_id"]
+          },
+          {
+            foreignKeyName: "documents_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_batches_dashboard"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_client_id_fkey"
             columns: ["client_id"]
@@ -2054,6 +2078,96 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_document_sources: {
+        Row: {
+          created_at: string
+          current_status: string
+          fact_to_law_link: string | null
+          generated_document_id: string
+          id: string
+          knowledge_chunk_id: string | null
+          last_checked_at: string | null
+          metadata: Json
+          official_url: string | null
+          source_registry_id: string | null
+          source_title: string
+          source_type: string
+          used_for: string | null
+          verification_status: string
+          why_used: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_status?: string
+          fact_to_law_link?: string | null
+          generated_document_id: string
+          id?: string
+          knowledge_chunk_id?: string | null
+          last_checked_at?: string | null
+          metadata?: Json
+          official_url?: string | null
+          source_registry_id?: string | null
+          source_title: string
+          source_type: string
+          used_for?: string | null
+          verification_status?: string
+          why_used?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_status?: string
+          fact_to_law_link?: string | null
+          generated_document_id?: string
+          id?: string
+          knowledge_chunk_id?: string | null
+          last_checked_at?: string | null
+          metadata?: Json
+          official_url?: string | null
+          source_registry_id?: string | null
+          source_title?: string
+          source_type?: string
+          used_for?: string | null
+          verification_status?: string
+          why_used?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_document_sources_generated_document_id_fkey"
+            columns: ["generated_document_id"]
+            isOneToOne: false
+            referencedRelation: "generated_legal_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_document_sources_generated_document_id_fkey"
+            columns: ["generated_document_id"]
+            isOneToOne: false
+            referencedRelation: "v_generated_document_sources"
+            referencedColumns: ["generated_document_id"]
+          },
+          {
+            foreignKeyName: "generated_document_sources_knowledge_chunk_id_fkey"
+            columns: ["knowledge_chunk_id"]
+            isOneToOne: false
+            referencedRelation: "legal_knowledge_chunks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_document_sources_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "legal_source_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_document_sources_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_analysis_sources"
+            referencedColumns: ["source_registry_id"]
+          },
+        ]
+      }
       generated_legal_documents: {
         Row: {
           ai_review_status: string | null
@@ -2145,6 +2259,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "generated_legal_documents"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_generated_legal_documents_parent_document"
+            columns: ["parent_document_id"]
+            isOneToOne: false
+            referencedRelation: "v_generated_document_sources"
+            referencedColumns: ["generated_document_id"]
           },
           {
             foreignKeyName: "generated_legal_documents_lead_id_fkey"
@@ -2300,6 +2421,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "generated_legal_documents"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lawyer_document_actions_generated_document_id_fkey"
+            columns: ["generated_document_id"]
+            isOneToOne: false
+            referencedRelation: "v_generated_document_sources"
+            referencedColumns: ["generated_document_id"]
           },
           {
             foreignKeyName: "lawyer_document_actions_matter_id_fkey"
@@ -3177,11 +3305,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "legal_document_revision_decisions_created_document_id_fkey"
+            columns: ["created_document_id"]
+            isOneToOne: false
+            referencedRelation: "v_generated_document_sources"
+            referencedColumns: ["generated_document_id"]
+          },
+          {
             foreignKeyName: "legal_document_revision_decisions_generated_document_id_fkey"
             columns: ["generated_document_id"]
             isOneToOne: false
             referencedRelation: "generated_legal_documents"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_document_revision_decisions_generated_document_id_fkey"
+            columns: ["generated_document_id"]
+            isOneToOne: false
+            referencedRelation: "v_generated_document_sources"
+            referencedColumns: ["generated_document_id"]
           },
         ]
       }
@@ -3823,6 +3965,54 @@ export type Database = {
           },
         ]
       }
+      legal_research_sources: {
+        Row: {
+          authority_level: string
+          created_at: string
+          external_id: string | null
+          id: string
+          is_active: boolean
+          is_external: boolean
+          jurisdiction: string
+          metadata: Json
+          practice_area: string | null
+          source_type: string
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          authority_level?: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          jurisdiction?: string
+          metadata?: Json
+          practice_area?: string | null
+          source_type: string
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          authority_level?: string
+          created_at?: string
+          external_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          jurisdiction?: string
+          metadata?: Json
+          practice_area?: string | null
+          source_type?: string
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       legal_risks: {
         Row: {
           created_at: string
@@ -3915,6 +4105,93 @@ export type Database = {
           source_review_id?: string | null
           status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      legal_source_registry: {
+        Row: {
+          authority_level: string
+          authority_name: string | null
+          citation: string | null
+          created_at: string
+          current_status: string
+          document_number: string | null
+          effective_from: string | null
+          effective_to: string | null
+          external_id: string | null
+          id: string
+          is_active: boolean
+          is_external: boolean
+          is_official: boolean
+          jurisdiction: string
+          last_checked_at: string | null
+          metadata: Json
+          mirror_url: string | null
+          official_url: string | null
+          practice_area: string | null
+          publication_date: string | null
+          retrieved_at: string | null
+          revision_date: string | null
+          source_type: string
+          title: string
+          updated_at: string
+          verification_status: string
+        }
+        Insert: {
+          authority_level?: string
+          authority_name?: string | null
+          citation?: string | null
+          created_at?: string
+          current_status?: string
+          document_number?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          external_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          is_official?: boolean
+          jurisdiction?: string
+          last_checked_at?: string | null
+          metadata?: Json
+          mirror_url?: string | null
+          official_url?: string | null
+          practice_area?: string | null
+          publication_date?: string | null
+          retrieved_at?: string | null
+          revision_date?: string | null
+          source_type: string
+          title: string
+          updated_at?: string
+          verification_status?: string
+        }
+        Update: {
+          authority_level?: string
+          authority_name?: string | null
+          citation?: string | null
+          created_at?: string
+          current_status?: string
+          document_number?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          external_id?: string | null
+          id?: string
+          is_active?: boolean
+          is_external?: boolean
+          is_official?: boolean
+          jurisdiction?: string
+          last_checked_at?: string | null
+          metadata?: Json
+          mirror_url?: string | null
+          official_url?: string | null
+          practice_area?: string | null
+          publication_date?: string | null
+          retrieved_at?: string | null
+          revision_date?: string | null
+          source_type?: string
+          title?: string
+          updated_at?: string
+          verification_status?: string
         }
         Relationships: []
       }
@@ -4117,6 +4394,197 @@ export type Database = {
           },
         ]
       }
+      practice_batches: {
+        Row: {
+          archive_name: string | null
+          classification_status: string
+          created_at: string
+          id: string
+          kb_status: string
+          lawyer_review_status: string
+          legal_analysis_status: string
+          metadata: Json
+          ocr_status: string
+          status: string
+          text_extraction_status: string
+          title: string
+          total_documents: number
+          total_docx: number
+          total_errors: number
+          total_files: number
+          total_images: number
+          total_pdfs: number
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          archive_name?: string | null
+          classification_status?: string
+          created_at?: string
+          id?: string
+          kb_status?: string
+          lawyer_review_status?: string
+          legal_analysis_status?: string
+          metadata?: Json
+          ocr_status?: string
+          status?: string
+          text_extraction_status?: string
+          title: string
+          total_documents?: number
+          total_docx?: number
+          total_errors?: number
+          total_files?: number
+          total_images?: number
+          total_pdfs?: number
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          archive_name?: string | null
+          classification_status?: string
+          created_at?: string
+          id?: string
+          kb_status?: string
+          lawyer_review_status?: string
+          legal_analysis_status?: string
+          metadata?: Json
+          ocr_status?: string
+          status?: string
+          text_extraction_status?: string
+          title?: string
+          total_documents?: number
+          total_docx?: number
+          total_errors?: number
+          total_files?: number
+          total_images?: number
+          total_pdfs?: number
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      practice_document_legal_analysis: {
+        Row: {
+          ai_result: Json
+          alternative_positions: Json
+          applicable_laws: Json
+          batch_id: string | null
+          counter_arguments: Json
+          court_practice: Json
+          created_at: string
+          document_id: string
+          document_role: string | null
+          document_type: string | null
+          fact_to_law_mapping: Json
+          fns_letters: Json
+          id: string
+          legal_position: string | null
+          legal_reasoning: string | null
+          minfin_letters: Json
+          missing_evidence: Json
+          practice_area: string | null
+          quality_level: string | null
+          quality_score: number | null
+          recommended_use: string | null
+          requires_lawyer_review: boolean
+          status: string
+          updated_at: string
+          use_in_generation: boolean
+          use_in_rag: boolean
+          weak_points: Json
+          why_quality_level: string | null
+        }
+        Insert: {
+          ai_result?: Json
+          alternative_positions?: Json
+          applicable_laws?: Json
+          batch_id?: string | null
+          counter_arguments?: Json
+          court_practice?: Json
+          created_at?: string
+          document_id: string
+          document_role?: string | null
+          document_type?: string | null
+          fact_to_law_mapping?: Json
+          fns_letters?: Json
+          id?: string
+          legal_position?: string | null
+          legal_reasoning?: string | null
+          minfin_letters?: Json
+          missing_evidence?: Json
+          practice_area?: string | null
+          quality_level?: string | null
+          quality_score?: number | null
+          recommended_use?: string | null
+          requires_lawyer_review?: boolean
+          status?: string
+          updated_at?: string
+          use_in_generation?: boolean
+          use_in_rag?: boolean
+          weak_points?: Json
+          why_quality_level?: string | null
+        }
+        Update: {
+          ai_result?: Json
+          alternative_positions?: Json
+          applicable_laws?: Json
+          batch_id?: string | null
+          counter_arguments?: Json
+          court_practice?: Json
+          created_at?: string
+          document_id?: string
+          document_role?: string | null
+          document_type?: string | null
+          fact_to_law_mapping?: Json
+          fns_letters?: Json
+          id?: string
+          legal_position?: string | null
+          legal_reasoning?: string | null
+          minfin_letters?: Json
+          missing_evidence?: Json
+          practice_area?: string | null
+          quality_level?: string | null
+          quality_score?: number | null
+          recommended_use?: string | null
+          requires_lawyer_review?: boolean
+          status?: string
+          updated_at?: string
+          use_in_generation?: boolean
+          use_in_rag?: boolean
+          weak_points?: Json
+          why_quality_level?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_document_legal_analysis_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "practice_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_document_legal_analysis_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_batch_legal_analysis_stats"
+            referencedColumns: ["batch_id"]
+          },
+          {
+            foreignKeyName: "practice_document_legal_analysis_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_batches_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_document_legal_analysis_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_import_queue: {
         Row: {
           approved_at: string | null
@@ -4194,6 +4662,97 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      practice_legal_analysis_sources: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          id: string
+          knowledge_chunk_id: string | null
+          metadata: Json
+          relevance_score: number | null
+          source_id: string | null
+          source_registry_id: string | null
+          source_title: string
+          source_type: string
+          source_url: string | null
+          used_for: string | null
+          why_used: string | null
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          id?: string
+          knowledge_chunk_id?: string | null
+          metadata?: Json
+          relevance_score?: number | null
+          source_id?: string | null
+          source_registry_id?: string | null
+          source_title: string
+          source_type: string
+          source_url?: string | null
+          used_for?: string | null
+          why_used?: string | null
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          id?: string
+          knowledge_chunk_id?: string | null
+          metadata?: Json
+          relevance_score?: number | null
+          source_id?: string | null
+          source_registry_id?: string | null
+          source_title?: string
+          source_type?: string
+          source_url?: string | null
+          used_for?: string | null
+          why_used?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_legal_analysis_sources_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "practice_document_legal_analysis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_legal_analysis_sources_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_analysis_sources"
+            referencedColumns: ["analysis_id"]
+          },
+          {
+            foreignKeyName: "practice_legal_analysis_sources_knowledge_chunk_id_fkey"
+            columns: ["knowledge_chunk_id"]
+            isOneToOne: false
+            referencedRelation: "legal_knowledge_chunks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_legal_analysis_sources_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "legal_research_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_legal_analysis_sources_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "legal_source_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_legal_analysis_sources_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_analysis_sources"
+            referencedColumns: ["source_registry_id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -5390,6 +5949,23 @@ export type Database = {
         }
         Relationships: []
       }
+      v_generated_document_sources: {
+        Row: {
+          created_at: string | null
+          current_status: string | null
+          document_title: string | null
+          fact_to_law_link: string | null
+          generated_document_id: string | null
+          last_checked_at: string | null
+          official_url: string | null
+          source_title: string | null
+          source_type: string | null
+          used_for: string | null
+          verification_status: string | null
+          why_used: string | null
+        }
+        Relationships: []
+      }
       v_legal_regulatory_alerts_dashboard: {
         Row: {
           ai_impact_analysis: Json | null
@@ -5506,6 +6082,91 @@ export type Database = {
           title: string | null
           updated_at: string | null
           usage_count: number | null
+        }
+        Relationships: []
+      }
+      v_practice_analysis_sources: {
+        Row: {
+          analysis_id: string | null
+          batch_id: string | null
+          current_status: string | null
+          document_id: string | null
+          last_checked_at: string | null
+          official_url: string | null
+          relevance_score: number | null
+          source_registry_id: string | null
+          source_title: string | null
+          source_type: string | null
+          used_for: string | null
+          verification_status: string | null
+          why_used: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_document_legal_analysis_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "practice_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_document_legal_analysis_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_batch_legal_analysis_stats"
+            referencedColumns: ["batch_id"]
+          },
+          {
+            foreignKeyName: "practice_document_legal_analysis_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_batches_dashboard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_document_legal_analysis_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: true
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_practice_batch_legal_analysis_stats: {
+        Row: {
+          analyzed_count: number | null
+          batch_id: string | null
+          bronze_count: number | null
+          generation_ready_count: number | null
+          gold_count: number | null
+          needs_lawyer_review_count: number | null
+          rag_ready_count: number | null
+          reject_count: number | null
+          silver_count: number | null
+          title: string | null
+        }
+        Relationships: []
+      }
+      v_practice_batches_dashboard: {
+        Row: {
+          archive_name: string | null
+          classification_status: string | null
+          created_at: string | null
+          documents_count: number | null
+          docx_count: number | null
+          extraction_failed_count: number | null
+          id: string | null
+          image_count: number | null
+          kb_status: string | null
+          lawyer_review_status: string | null
+          legal_analysis_status: string | null
+          metadata: Json | null
+          ocr_status: string | null
+          pdf_count: number | null
+          status: string | null
+          text_extracted_count: number | null
+          text_extraction_status: string | null
+          title: string | null
         }
         Relationships: []
       }
