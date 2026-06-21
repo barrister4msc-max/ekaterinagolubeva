@@ -92,9 +92,11 @@ export function mergeWithRegistry(
       return {
         ...item,
         title: item.title ?? reg.title,
+        citation: item.citation ?? reg.citation,
+        source_type: reg.source_type,
+        source_table: reg.source_table,
         official_url: reg.official_url,
         url: reg.official_url ?? item.url,
-        source_table: reg.source_table,
         verification_status: reg.official_url ? "needs_check" : "missing_url",
         actuality_status: reg.official_url ? "requires_actuality_check" : "requires_manual_verification",
       };
