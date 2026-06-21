@@ -540,7 +540,7 @@ function PracticePage() {
             <Sparkles className="size-4 mr-1" /> AI Экспертиза документов
 
           </Button>
-          <ZipUploadDialog onUploaded={reload} />
+          <ZipUploadDialog onUploaded={() => { reload(); setTab("uploads"); reloadBatches(); }} />
         </div>
       </div>
 
