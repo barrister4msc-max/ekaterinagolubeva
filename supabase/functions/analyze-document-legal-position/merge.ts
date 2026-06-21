@@ -28,12 +28,48 @@ const ALLOWED_USED_FOR = new Set([
 ]);
 
 export function extractJson(text: string): unknown {
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const raw = (fence?.[1] ?? text).trim();
-  const start = raw.indexOf("{");
-  const end = raw.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("no JSON object in model output");
-  return JSON.parse(raw.slice(start, end + 1));
+  return safeParseGeminiJson(text);
+}
+
+/**
+ * Robust parser for Gemini output.
+ * 1) try JSON.parse(raw)
+ * 2) strip markdown fences, slice between first { / [ and last } / ], retry
+ * 3) throw with a descriptive message; caller is responsible for persisting diagnostics
+ */
+export function safeParseGeminiJson(raw: string): unknown {
+  const original = raw ?? "";
+  // Attempt 1: direct
+  try {
+    return JSON.parse(original);
+  } catch {
+    /* fallthrough */
+  }
+
+  // Attempt 2: cleanup
+  let cleaned = original.trim();
+  // Remove ```json ... ``` or ``` ... ``` fences
+  const fence = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence?.[1]) cleaned = fence[1].trim();
+  cleaned = cleaned.replace(/^```(?:json)?/i, "").replace(/```$/g, "").trim();
+
+  if (!(cleaned.startsWith("{") || cleaned.startsWith("["))) {
+    const firstObj = cleaned.indexOf("{");
+    const firstArr = cleaned.indexOf("[");
+    const candidates = [firstObj, firstArr].filter((i) => i >= 0);
+    const start = candidates.length ? Math.min(...candidates) : -1;
+    const end = Math.max(cleaned.lastIndexOf("}"), cleaned.lastIndexOf("]"));
+    if (start >= 0 && end > start) cleaned = cleaned.slice(start, end + 1);
+  } else {
+    const end = Math.max(cleaned.lastIndexOf("}"), cleaned.lastIndexOf("]"));
+    if (end > 0) cleaned = cleaned.slice(0, end + 1);
+  }
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    throw new Error((e as Error).message || "invalid JSON");
+  }
 }
 
 export function mergeWithRegistry(
