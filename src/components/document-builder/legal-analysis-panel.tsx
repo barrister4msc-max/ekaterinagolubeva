@@ -17,11 +17,14 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasDocs, setHasDocs] = useState<boolean | null>(null);
+  const [checkingDocs, setCheckingDocs] = useState(false);
 
   useEffect(() => {
     let alive = true;
     if (!sessionId) {
       setRun(null);
+      setHasDocs(null);
       return;
     }
     setLoading(true);
@@ -29,6 +32,13 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
       .then((r) => alive && setRun(r))
       .catch((e) => alive && setError((e as Error).message))
       .finally(() => alive && setLoading(false));
+
+    setCheckingDocs(true);
+    hasSessionDocumentsWithText(sessionId)
+      .then((ok) => alive && setHasDocs(ok))
+      .catch(() => alive && setHasDocs(false))
+      .finally(() => alive && setCheckingDocs(false));
+
     return () => {
       alive = false;
     };
