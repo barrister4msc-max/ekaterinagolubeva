@@ -23,6 +23,7 @@ import type {
   IntakeAttachment,
 } from "./document-intake-schemas";
 import type { DocumentTemplate } from "./document-templates";
+import type { LegalAnalysisResult } from "./legal-analysis";
 
 export type GenerateLegalDocumentRequest = {
   template_code: string;
@@ -39,6 +40,9 @@ export type GenerateLegalDocumentRequest = {
   intake: IntakeAnswers;
   attachments: IntakeAttachment[];
   special_instructions: string;
+  intake_session_id?: string | null;
+  legal_analysis?: LegalAnalysisResult | null;
+  legal_analysis_run_id?: string | null;
   schema: {
     title: string;
     required_fields: string[];
@@ -46,10 +50,16 @@ export type GenerateLegalDocumentRequest = {
   } | null;
 };
 
+
 export function buildGenerateRequest(
   template: DocumentTemplate,
   state: IntakeState,
   schema: DocumentIntakeSchema | null,
+  extras?: {
+    intakeSessionId?: string | null;
+    legalAnalysis?: LegalAnalysisResult | null;
+    legalAnalysisRunId?: string | null;
+  },
 ): GenerateLegalDocumentRequest {
   return {
     template_code: template.code,
@@ -66,6 +76,9 @@ export function buildGenerateRequest(
     intake: state.answers,
     attachments: state.attachments,
     special_instructions: state.specialInstructions,
+    intake_session_id: extras?.intakeSessionId ?? null,
+    legal_analysis: extras?.legalAnalysis ?? null,
+    legal_analysis_run_id: extras?.legalAnalysisRunId ?? null,
     schema: schema
       ? {
           title: schema.title,
@@ -75,6 +88,7 @@ export function buildGenerateRequest(
       : null,
   };
 }
+
 
 export type GeneratedDocumentResult = {
   generated_document_id: string;

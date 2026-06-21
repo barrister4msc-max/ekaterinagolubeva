@@ -23,6 +23,8 @@ import {
   saveIntakeAnswers,
 } from "@/lib/document-intake-storage";
 import { supabase } from "@/integrations/supabase/client";
+import { LegalAnalysisPanel } from "@/components/document-builder/legal-analysis-panel";
+
 type IntakeContext = {
   matterId?: string | null;
   clientId?: string | null;
@@ -448,8 +450,30 @@ const storagePath = `builder/${session.id}/${Date.now()}-${crypto.randomUUID()}.
           onRemoveAttachment={removeAttachment}
           answers={state.answers}
           availableModes={availableModes}
+          sessionId={intakeSessionId}
+          onEnsureSession={async () => {
+            const session = await createOrLoadIntakeSession({
+              matterId: intakeContext?.matterId ?? null,
+              clientId: intakeContext?.clientId ?? null,
+              leadId: intakeContext?.leadId ?? null,
+              documentId: intakeContext?.documentId ?? null,
+              draftKey: intakeSessionId,
+              templateCode: state.templateCode,
+              jurisdiction: state.jurisdiction,
+              language: state.language,
+            });
+            setIntakeSessionId(session.id);
+            await saveIntakeAnswers({
+              sessionId: session.id,
+              schema,
+              answers: state.answers,
+              valueSource: "manual",
+            });
+            return session.id;
+          }}
         />
       )} 
+
       <div className="flex items-center justify-between pt-2">
         <button type="button" onClick={goPrev} className="db-ghost">
           <ArrowLeft size={14} /> Назад
@@ -780,6 +804,8 @@ function ReviewStep({
   onRemoveAttachment,
   answers,
   availableModes,
+  sessionId,
+  onEnsureSession,
 }: {
   schema: DocumentIntakeSchema;
   state: IntakeState;
@@ -791,7 +817,10 @@ function ReviewStep({
   onRemoveAttachment: (id: string) => void;
   answers: IntakeAnswers;
   availableModes?: Array<IntakeState["generationMode"]>;
+  sessionId: string | null;
+  onEnsureSession: () => Promise<string>;
 }) {
+
   const [showJson, setShowJson] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -926,7 +955,9 @@ function ReviewStep({
         </div>
       </div>
 
+
       {missing.length > 0 && (
+
         <div className="db-warning">
           Не заполнены обязательные поля: {missing.map((m) => m.label).join(", ")}.
         </div>
@@ -952,6 +983,9 @@ function ReviewStep({
           )}
         </div>
       </div>
+
+      <LegalAnalysisPanel sessionId={sessionId} onEnsureSession={onEnsureSession} />
+
 
       <div>
         <div className="db-section-label">Особые указания</div>
