@@ -304,6 +304,72 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             </div>
           </div>
 
+          {a.documents_audit && (
+            <div>
+              <div className="db-section-label">Документы исследования</div>
+              <div className="mt-2 grid gap-2 md:grid-cols-2">
+                <div className="db-subcard text-xs">
+                  <div className="font-semibold text-emerald-200 mb-1">Использованы ({a.documents_audit.used.length})</div>
+                  {a.documents_audit.used.length === 0 ? <Empty /> : (
+                    <ul className="space-y-1">
+                      {a.documents_audit.used.map((d) => (
+                        <li key={d.id} className="text-white/80">
+                          {d.title} <span className="text-white/45">({d.ocr_length} симв.)</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div className="db-subcard text-xs">
+                  <div className="font-semibold text-amber-200 mb-1">Не использованы ({a.documents_audit.rejected.length})</div>
+                  {a.documents_audit.rejected.length === 0 ? <Empty /> : (
+                    <ul className="space-y-1">
+                      {a.documents_audit.rejected.map((d) => (
+                        <li key={d.id} className="text-white/80">
+                          {d.title} <span className="text-white/55">— {d.reason ?? "не определено"}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {((a.rejected_laws?.length ?? 0) > 0 || (a.rejected_court_practice?.length ?? 0) > 0) && (
+            <div>
+              <div className="db-section-label">Отклонённые нормы и практика</div>
+              <div className="mt-2 space-y-2">
+                {(a.rejected_laws ?? []).map((r, i) => (
+                  <div key={`rl-${i}`} className="db-subcard text-xs">
+                    <div className="font-semibold text-white/85">{r.law}</div>
+                    <div className="text-white/65">{r.reason}</div>
+                  </div>
+                ))}
+                {(a.rejected_court_practice ?? []).map((r, i) => (
+                  <div key={`rc-${i}`} className="db-subcard text-xs">
+                    <div className="font-semibold text-white/85">{r.case}</div>
+                    <div className="text-white/65">{r.reason}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {a.research_summary && Object.keys(a.research_summary).length > 0 && (
+            <div>
+              <div className="db-section-label">Сводка исследования</div>
+              <div className="mt-2 db-subcard text-xs flex flex-wrap gap-2">
+                {Object.entries(a.research_summary).map(([k, v]) => (
+                  <span key={k} className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-white/80">
+                    {k}: {v}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <ListSection title="Рекомендации" items={a.recommendations ?? []} />
           <ListSection title="Инструкции для генерации документа" items={a.generation_instructions} />
         </div>
       )}
