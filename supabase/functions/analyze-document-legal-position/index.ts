@@ -46,7 +46,7 @@ type AnalysisResult = {
   minfin_letters: Array<{ number?: string; date?: string; topic?: string; url?: string }>;
   ekaterina_practice: Array<{ case?: string; year?: string; outcome?: string }>;
   sources: Array<{ id?: string; title: string; url?: string; type?: string; cited_for?: string }>;
-  source_actuality: Array<{ source: string; status: "actual" | "outdated" | "unknown"; note?: string }>;
+  source_actuality: Array<{ source: string; status: "actual" | "outdated" | "unknown" | "needs_check" | "requires_actuality_check"; note?: string }>;
   generation_instructions: string[];
 };
 
