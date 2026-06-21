@@ -142,7 +142,12 @@ function PracticePage() {
   const [search, setSearch] = useState("");
   const [anonTarget, setAnonTarget] = useState<ArchiveItem | null>(null);
   const [statsMap, setStatsMap] = useState<Record<string, { total: number; gold: number; templates: number; unclassified: number; pending_approval: number }>>({});
-  const [batchRows, setBatchRows] = useState<{ id: string; count: number; created_at: string }[]>([]);
+  const [batchRows, setBatchRows] = useState<BatchStats[]>([]);
+  const approveGoldFn = useServerFn(archiveApproveBatchGold);
+  const sendGoldKbFn = useServerFn(archiveSendBatchGoldToKb);
+  const [analyzeMode, setAnalyzeMode] = useState<null | "selected" | "unprocessed" | "all">(null);
+  const [analyzeBatchId, setAnalyzeBatchId] = useState<string | null>(null);
+
   const [matters, setMatters] = useState<{ id: string; title: string | null; matter_number: string | null }[]>([]);
   const [attachOpen, setAttachOpen] = useState<ArchiveItem | null>(null);
   const [attachMatterId, setAttachMatterId] = useState("");
