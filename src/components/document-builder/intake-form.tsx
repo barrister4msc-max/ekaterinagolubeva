@@ -125,10 +125,7 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     }
     goNext();
   };
-  const handleSaveDraft = async () => {
-  try {
-    setIsSavingDraft(true);
-
+  const ensureSession = async () => {
     const session = await createOrLoadIntakeSession({
       matterId: intakeContext?.matterId ?? null,
       clientId: intakeContext?.clientId ?? null,
@@ -139,22 +136,27 @@ const [isAiFilling, setIsAiFilling] = useState(false);
       jurisdiction: state.jurisdiction,
       language: state.language,
     });
-
     setIntakeSessionId(session.id);
-
     await saveIntakeAnswers({
       sessionId: session.id,
       schema,
       answers: state.answers,
       valueSource: "manual",
     });
+    return session.id;
+  };
+
+  const handleSaveDraft = async () => {
+  try {
+    setIsSavingDraft(true);
+    await ensureSession();
   } catch (e) {
     console.error("Failed to save intake draft", e);
     alert("Не удалось сохранить опросник");
   } finally {
     setIsSavingDraft(false);
   }
-};  
+};
   const handleGenerateDraft = async () => {
   try {
     setIsSavingDraft(true);
