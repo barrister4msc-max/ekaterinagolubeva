@@ -118,3 +118,25 @@ export async function fetchLatestLegalAnalysis(
     analysis: (data.ai_result as unknown as LegalAnalysisResult | null) ?? null,
   };
 }
+
+export async function hasSessionDocumentsWithText(sessionId: string): Promise<boolean> {
+  const { data: docs, error } = await supabase
+    .from("documents")
+    .select("id, ocr_text, metadata")
+    .eq("metadata->>intake_session_id", sessionId)
+    .limit(20);
+  if (error) throw error;
+  if (!docs || docs.length === 0) return false;
+
+  for (const d of docs) {
+    const md = (d.metadata ?? {}) as Record<string, any>;
+    const text = (
+      (d.ocr_text as string | null) ??
+      (typeof md.extracted_text === "string" ? md.extracted_text : null) ??
+      (typeof md.content === "string" ? md.content : null) ??
+      ""
+    ).trim();
+    if (text.length > 50) return true;
+  }
+  return false;
+}
