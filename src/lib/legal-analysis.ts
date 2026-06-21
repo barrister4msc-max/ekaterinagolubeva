@@ -110,6 +110,7 @@ export type LegalAnalysisResult = {
   generation_instructions: string[];
   documents_audit?: { used: LegalAnalysisDocAudit[]; rejected: LegalAnalysisDocAudit[] };
   research_summary?: Record<string, number>;
+  research_query?: LegalResearchQuery;
 };
 
 export type LegalAnalysisRun = {
