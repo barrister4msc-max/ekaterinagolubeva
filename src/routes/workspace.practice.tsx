@@ -39,8 +39,12 @@ import {
   archiveProcessBatchFully,
   archiveAiAnalyzeBatch,
   archiveGetAiAnalysis,
+  archiveApproveBatchGold,
+  archiveSendBatchGoldToKb,
   matterList,
+  type BatchStats,
 } from "@/lib/lawyer-matters.functions";
+
 import { ZipUploadDialog } from "@/components/practice/zip-upload-dialog";
 import { AnonymizeDialog } from "@/components/practice/anonymize-dialog";
 
