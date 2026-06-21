@@ -20,6 +20,14 @@ export type LegalAnalysisRisk = {
   mitigation?: string;
 };
 
+export type LegalAnalysisScores = {
+  semantic: number;
+  keyword: number;
+  priority: number;
+  relevance: number;
+  final: number;
+};
+
 export type LegalAnalysisSource = {
   id?: string;
   source_id?: string;
@@ -35,12 +43,43 @@ export type LegalAnalysisSource = {
   used_for?: string;
   verification_status?: string;
   actuality_status?: string;
+  scores?: LegalAnalysisScores;
+  appearances?: number;
+  merged_from?: Array<{ source_table: string; source_id: string }>;
 };
 
 export type LegalAnalysisActuality = {
   source: string;
   status: "actual" | "outdated" | "unknown" | "needs_check" | "requires_actuality_check";
   note?: string;
+};
+
+export type LegalAnalysisDocAudit = {
+  id: string;
+  title: string;
+  ocr_length: number;
+  used: boolean;
+  used_for?: string[];
+  reason?:
+    | "no_ocr"
+    | "text_too_short"
+    | "archive_zip"
+    | "technical_file"
+    | "duplicate"
+    | "irrelevant";
+};
+
+export type LegalResearchQuery = {
+  practice_area: string | null;
+  subcategory: string | null;
+  document_type: string | null;
+  facts: string[];
+  parties: string[];
+  amounts: string[];
+  dates: string[];
+  legal_issues: string[];
+  research_topics: string[];
+  keywords: string[];
 };
 
 export type LegalAnalysisDocAudit = {
