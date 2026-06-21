@@ -75,6 +75,15 @@ ${kbBlock}
 9. document_usage — для КАЖДОГО doc_id из [${docIds}] укажи массив used_for из закрытого набора:
    ["facts","legal_qualification","taxpayer_position","court_practice","risks","recommendations","generation"].
 
+ФОРМАТ ОТВЕТА (СТРОГО):
+- Верни строго валидный JSON.
+- Не используй markdown и не оборачивай в \`\`\`.
+- Не добавляй комментарии (// или /* */).
+- Не добавляй trailing commas.
+- Все строки должны быть корректно экранированы (\\", \\n, \\\\).
+- Если данных нет — верни [] для массивов и "" для строк.
+- Никакого текста до или после JSON.
+
 ВЕРНИ СТРОГО ОДИН JSON:
 {
   "facts":[string],
@@ -100,8 +109,7 @@ ${kbBlock}
   "recommendations":[string],
   "generation_instructions":[string],
   "document_usage":[{"doc_id":string,"used_for":[string]}]
-}
-Никакого текста кроме JSON.`;
+}`;
 }
 
 export async function callGeminiPro(prompt: string): Promise<{ text: string; model: string }> {
