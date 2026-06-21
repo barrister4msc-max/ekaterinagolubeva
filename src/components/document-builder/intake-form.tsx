@@ -23,6 +23,8 @@ import {
   saveIntakeAnswers,
 } from "@/lib/document-intake-storage";
 import { supabase } from "@/integrations/supabase/client";
+import { LegalAnalysisPanel } from "@/components/document-builder/legal-analysis-panel";
+
 type IntakeContext = {
   matterId?: string | null;
   clientId?: string | null;
