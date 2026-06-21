@@ -50,7 +50,14 @@ export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [intakeSessionId, setIntakeSessionId] = useState<string | null>(null);
-  const [uploadedDocumentId, setUploadedDocumentId] = useState<string | null>(null);
+
+type SessionDocument = {
+  id: string;
+  title: string | null;
+  file_name: string | null;
+  ocr_text_length: number;
+};
+const [sessionDocuments, setSessionDocuments] = useState<SessionDocument[]>([]);
 
 const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
