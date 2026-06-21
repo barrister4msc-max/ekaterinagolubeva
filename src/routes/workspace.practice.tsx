@@ -113,6 +113,105 @@ function familyLabel(v?: string | null) {
   return DOC_FAMILIES.find((x) => x.v === v)?.l ?? (v || "—");
 }
 
+function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+  return (
+    <div className="rounded-md border bg-card/40 px-2 py-1.5">
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="text-sm font-semibold">{value}</div>
+      {hint && <div className="text-[10px] text-muted-foreground">{hint}</div>}
+    </div>
+  );
+}
+
+function BatchCard({
+  b, busy,
+  onExtract, onOcr, onClassify, onAnalyze, onProcessAll, onApproveGold, onSendGoldKb,
+}: {
+  b: BatchStats;
+  busy: boolean;
+  onExtract: () => void;
+  onOcr: () => void;
+  onClassify: () => void;
+  onAnalyze: () => void;
+  onProcessAll: () => void;
+  onApproveGold: () => void;
+  onSendGoldKb: () => void;
+}) {
+  const title = b.title || b.archive_name || b.id;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-base">{title}</CardTitle>
+            <div className="text-xs text-muted-foreground font-mono">{b.id}</div>
+            <div className="text-xs text-muted-foreground">
+              Загружено: {new Date(b.created_at).toLocaleString("ru-RU")}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline">Файлов: {b.total}</Badge>
+            {b.gold > 0 && <Badge className="bg-amber-500/20 text-amber-700">Gold {b.gold}</Badge>}
+            {b.silver > 0 && <Badge className="bg-zinc-300/40 text-zinc-800">Silver {b.silver}</Badge>}
+            {b.bronze > 0 && <Badge className="bg-orange-500/20 text-orange-700">Bronze {b.bronze}</Badge>}
+            {b.private_count > 0 && <Badge variant="destructive">Private {b.private_count}</Badge>}
+            {b.rag_ready > 0 && <Badge className="bg-emerald-500/20 text-emerald-700">RAG {b.rag_ready}</Badge>}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+          <Stat label="Текст" value={`${b.with_content} / ${b.total}`} />
+          <Stat label="OCR required" value={b.ocr_required} />
+          <Stat label="OCR failed" value={b.ocr_failed} />
+          <Stat label="Классификация" value={`${b.classified} / ${b.total}`} />
+          <Stat label="AI Экспертиза" value={`${b.ai_analysis_completed} / ${b.total}`} />
+          <Stat label="Reject" value={b.reject} />
+          <Stat label="Technical" value={b.technical} />
+          <Stat label="RAG Ready" value={b.rag_ready} />
+          <Stat label="Approved" value={b.approved} />
+          <Stat label="Sent to KB" value={b.sent_to_kb} />
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          <Button size="sm" variant="outline" disabled={busy} onClick={onExtract}>
+            <FileText className="size-4 mr-1" /> Извлечь текст
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onOcr}>
+            <Eye className="size-4 mr-1" /> OCR сканов
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onClassify}>
+            <Wand2 className="size-4 mr-1" /> AI классификация
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onAnalyze}>
+            <Sparkles className="size-4 mr-1" /> AI Экспертиза
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy || b.gold === 0} onClick={onApproveGold}>
+            <ShieldCheck className="size-4 mr-1" /> Одобрить Gold
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy || b.gold === 0} onClick={onSendGoldKb}>
+            <Send className="size-4 mr-1" /> Отправить Gold в KB
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onOcr} title="Повторить OCR">
+            <Eye className="size-4 mr-1" /> Повторить OCR
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onClassify} title="Повторить AI классификацию">
+            <Wand2 className="size-4 mr-1" /> Повторить классиф.
+          </Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={onAnalyze} title="Повторить AI Экспертизу">
+            <Sparkles className="size-4 mr-1" /> Повторить Экспертизу
+          </Button>
+          <Button size="sm" disabled={busy} onClick={onProcessAll}>
+            <Layers className="size-4 mr-1" /> Обработать полностью
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
+
 function PracticePage() {
   const list = useServerFn(archivePracticeList);
   const stats = useServerFn(archivePracticeStats);
