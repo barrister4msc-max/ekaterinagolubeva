@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Copy, Plus, Trash2, Upload, Sparkles, AlertTriangle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, Check, Copy, FileText, Plus, Trash2, Upload, Sparkles, AlertTriangle, X } from "lucide-react";
 import {
   type DocumentIntakeSchema,
   type IntakeField,
