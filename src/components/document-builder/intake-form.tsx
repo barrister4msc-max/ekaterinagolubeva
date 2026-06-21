@@ -448,8 +448,30 @@ const storagePath = `builder/${session.id}/${Date.now()}-${crypto.randomUUID()}.
           onRemoveAttachment={removeAttachment}
           answers={state.answers}
           availableModes={availableModes}
+          sessionId={intakeSessionId}
+          onEnsureSession={async () => {
+            const session = await createOrLoadIntakeSession({
+              matterId: intakeContext?.matterId ?? null,
+              clientId: intakeContext?.clientId ?? null,
+              leadId: intakeContext?.leadId ?? null,
+              documentId: intakeContext?.documentId ?? null,
+              draftKey: intakeSessionId,
+              templateCode: state.templateCode,
+              jurisdiction: state.jurisdiction,
+              language: state.language,
+            });
+            setIntakeSessionId(session.id);
+            await saveIntakeAnswers({
+              sessionId: session.id,
+              schema,
+              answers: state.answers,
+              valueSource: "manual",
+            });
+            return session.id;
+          }}
         />
       )} 
+
       <div className="flex items-center justify-between pt-2">
         <button type="button" onClick={goPrev} className="db-ghost">
           <ArrowLeft size={14} /> Назад
