@@ -412,9 +412,10 @@ const [isAiFilling, setIsAiFilling] = useState(false);
             <div className="flex flex-wrap items-center gap-2">
               <label className="db-ghost cursor-pointer">
                 <Upload size={14} />
-                {isUploadingDocument ? "Загрузка…" : "Загрузить документ"}
+                {isUploadingDocument ? "Загрузка…" : "Загрузить документы"}
                 <input
                   type="file"
+                  multiple
                   className="hidden"
                   accept=".pdf,.doc,.docx,.txt,.rtf,.html,.htm,.jpg,.jpeg,.png,.webp"
                   onChange={handleUploadDocument}
@@ -426,19 +427,60 @@ const [isAiFilling, setIsAiFilling] = useState(false);
                 type="button"
                 className="db-cta"
                 onClick={handleAiFillFromDocument}
-                disabled={!uploadedDocumentId || isAiFilling}
+                disabled={
+                  isAiFilling ||
+                  sessionDocuments.filter((d) => d.ocr_text_length > 50).length === 0
+                }
               >
                 <Sparkles size={14} />
                 {isAiFilling ? "AI заполняет…" : "AI заполнить поля"}
               </button>
 
-              {uploadedDocumentId && (
+              {sessionDocuments.length > 0 && (
                 <span className="text-xs text-white/60">
-                  Документ загружен
+                  Прикреплено: {sessionDocuments.length}
                 </span>
               )}
             </div>
+
+            {sessionDocuments.length > 0 && (
+              <ul className="space-y-2">
+                {sessionDocuments.map((doc) => {
+                  const ready = doc.ocr_text_length > 50;
+                  return (
+                    <li
+                      key={doc.id}
+                      className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+                    >
+                      <FileText size={14} className="text-white/60 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-white truncate">
+                          {doc.title || doc.file_name || doc.id}
+                        </div>
+                        <div className="text-[11px] text-white/60">
+                          OCR: {doc.ocr_text_length} симв.{" "}
+                          {ready ? (
+                            <span className="text-emerald-300">— готов</span>
+                          ) : (
+                            <span className="text-amber-300">— нет текста</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-white/50 hover:text-red-400 p-1"
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        title="Удалить"
+                      >
+                        <X size={14} />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
+
 
           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <LegalAnalysisPanel sessionId={intakeSessionId} onEnsureSession={ensureSession} />
