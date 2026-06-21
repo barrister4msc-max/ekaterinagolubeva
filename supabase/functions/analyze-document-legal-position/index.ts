@@ -362,11 +362,62 @@ Deno.serve(async (req) => {
       .filter("metadata->>intake_session_id", "eq", sessionId)
       .limit(20);
     const documents = (docs ?? [])
-      .map((d: any) => ({
-        title: (d.title || d.file_name || "Документ") as string,
-        text: ((d.ocr_text as string | null) ?? "").trim(),
-      }))
-      .filter((d) => d.text.length > 0);
+      .map((d: any) => {
+        const text = (
+          (d.ocr_text as string | null) ??
+          (d.extracted_text as string | null) ??
+          (d.content as string | null) ??
+          ""
+        ).trim();
+        return {
+          title: (d.title || d.file_name || "Документ") as string,
+          text,
+        };
+      })
+      .filter((d) => d.text.length > 50);
+
+    // 4a. Mandatory pre-check: no usable documents → fail fast, do NOT call Gemini.
+    // ZIP-only / unextracted attachments are treated the same as no_documents.
+    if (documents.length === 0) {
+      const failPayload = {
+        error: "no_documents",
+        message:
+          "Для правового анализа необходимо прикрепить документы с извлеченным текстом.",
+      };
+      const { error: failErr } = await sb
+        .from("document_intake_ai_runs")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          ai_result: failPayload as any,
+          problems: [
+            "Нет прикрепленных документов или извлеченного текста",
+          ] as any,
+          source_verification_status: "no_sources",
+          hallucination_risk: "high",
+          legal_accuracy_score: 0,
+          needs_lawyer_review: true,
+          error_message: failPayload.message,
+          input_snapshot: {
+            documents: 0,
+            attached_raw: (docs ?? []).length,
+            template_code: session.template_code,
+            practice_area: practiceArea,
+            reason: "no_usable_document_text",
+          } as any,
+        })
+        .eq("id", runId);
+      if (failErr) throw new Error(`update_run: ${failErr.message}`);
+      return json(
+        {
+          success: false,
+          run_id: runId,
+          error: "no_documents",
+          message: failPayload.message,
+        },
+        200,
+      );
+    }
 
     // 5. Load relevant KB chunks (filter by category=practice_area if any)
     let chunksQuery = sb
