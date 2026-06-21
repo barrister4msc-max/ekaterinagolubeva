@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { Loader2, Sparkles, AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
+import { Loader2, Sparkles, AlertTriangle, CheckCircle2, ExternalLink, FileText } from "lucide-react";
 import {
   fetchLatestLegalAnalysis,
   runLegalAnalysis,
+  hasSessionDocumentsWithText,
   type LegalAnalysisRun,
 } from "@/lib/legal-analysis";
 
@@ -16,11 +17,14 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasDocs, setHasDocs] = useState<boolean | null>(null);
+  const [checkingDocs, setCheckingDocs] = useState(false);
 
   useEffect(() => {
     let alive = true;
     if (!sessionId) {
       setRun(null);
+      setHasDocs(null);
       return;
     }
     setLoading(true);
@@ -28,6 +32,13 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
       .then((r) => alive && setRun(r))
       .catch((e) => alive && setError((e as Error).message))
       .finally(() => alive && setLoading(false));
+
+    setCheckingDocs(true);
+    hasSessionDocumentsWithText(sessionId)
+      .then((ok) => alive && setHasDocs(ok))
+      .catch(() => alive && setHasDocs(false))
+      .finally(() => alive && setCheckingDocs(false));
+
     return () => {
       alive = false;
     };
@@ -56,6 +67,8 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
 
   const a = run?.analysis;
 
+  const canRun = hasDocs === true;
+
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -63,13 +76,20 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
         <button
           type="button"
           onClick={handleRun}
-          disabled={running}
+          disabled={running || !canRun}
           className="db-cta"
         >
           {running ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
           {running ? "Анализ…" : run ? "Перезапустить AI правовой анализ" : "AI правовой анализ"}
         </button>
       </div>
+
+      {!canRun && !checkingDocs && (
+        <div className="mt-2 flex items-start gap-2 text-xs text-white/60">
+          <FileText size={14} className="mt-0.5 shrink-0" />
+          <span>Для правового анализа прикрепите документы с извлеченным текстом.</span>
+        </div>
+      )}
 
       {error && (
         <div className="db-warning mt-3 flex items-start gap-2">
