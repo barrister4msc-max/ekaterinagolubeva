@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Sparkles, AlertTriangle, CheckCircle2, ExternalLink, FileText } from "lucide-react";
 import {
   fetchLatestLegalAnalysis,
   runLegalAnalysis,
-  hasSessionDocumentsWithText,
   type LegalAnalysisRun,
 } from "@/lib/legal-analysis";
+import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
   sessionId: string | null;
@@ -17,38 +17,109 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasDocs, setHasDocs] = useState<boolean | null>(null);
+  const [hasDocuments, setHasDocuments] = useState<boolean | null>(null);
   const [checkingDocs, setCheckingDocs] = useState(false);
+  const aliveRef = useRef(true);
 
   useEffect(() => {
-    let alive = true;
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
+
+  const refreshHasDocuments = useCallback(async (sid: string) => {
+    setCheckingDocs(true);
+    try {
+      const { data, error } = await supabase
+        .from("documents")
+        .select("id, ocr_text")
+        .filter("metadata->>intake_session_id", "eq", sid);
+      if (error) throw error;
+      const ok = (data ?? []).some((doc) => {
+        const text = ((doc.ocr_text as string | null) ?? "").trim();
+        return text.length > 50;
+      });
+      if (aliveRef.current) setHasDocuments(ok);
+    } catch {
+      if (aliveRef.current) setHasDocuments(false);
+    } finally {
+      if (aliveRef.current) setCheckingDocs(false);
+    }
+  }, []);
+
+  // Initial load + on sessionId change: fetch latest analysis and check docs
+  useEffect(() => {
     if (!sessionId) {
       setRun(null);
-      setHasDocs(null);
+      setHasDocuments(null);
       return;
     }
     setLoading(true);
     fetchLatestLegalAnalysis(sessionId)
-      .then((r) => alive && setRun(r))
-      .catch((e) => alive && setError((e as Error).message))
-      .finally(() => alive && setLoading(false));
+      .then((r) => aliveRef.current && setRun(r))
+      .catch((e) => aliveRef.current && setError((e as Error).message))
+      .finally(() => aliveRef.current && setLoading(false));
 
-    setCheckingDocs(true);
-    hasSessionDocumentsWithText(sessionId)
-      .then((ok) => alive && setHasDocs(ok))
-      .catch(() => alive && setHasDocs(false))
-      .finally(() => alive && setCheckingDocs(false));
+    void refreshHasDocuments(sessionId);
+  }, [sessionId, refreshHasDocuments]);
 
+  // Realtime: re-check when documents table changes
+  useEffect(() => {
+    if (!sessionId) return;
+    const channel = supabase
+      .channel(`legal-analysis-docs-${sessionId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "documents" },
+        () => {
+          void refreshHasDocuments(sessionId);
+        },
+      )
+      .subscribe();
     return () => {
-      alive = false;
+      supabase.removeChannel(channel);
     };
-  }, [sessionId]);
+  }, [sessionId, refreshHasDocuments]);
+
+  // Fallback polling while docs not yet detected
+  useEffect(() => {
+    if (!sessionId || hasDocuments === true) return;
+    const t = setInterval(() => {
+      void refreshHasDocuments(sessionId);
+    }, 4000);
+    return () => clearInterval(t);
+  }, [sessionId, hasDocuments, refreshHasDocuments]);
+
+  // Refresh on window focus / visibility change
+  useEffect(() => {
+    if (!sessionId) return;
+    const onFocus = () => void refreshHasDocuments(sessionId);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [sessionId, refreshHasDocuments]);
+
+  // Listen to custom event so other parts of the form can trigger a recheck
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ sessionId?: string }>).detail;
+      const sid = detail?.sessionId ?? sessionId;
+      if (sid) void refreshHasDocuments(sid);
+    };
+    window.addEventListener("intake-documents-updated", handler as EventListener);
+    return () => window.removeEventListener("intake-documents-updated", handler as EventListener);
+  }, [sessionId, refreshHasDocuments]);
 
   const handleRun = async () => {
     setError(null);
     setRunning(true);
     try {
       const id = sessionId ?? (await onEnsureSession());
+      await refreshHasDocuments(id);
       const result = await runLegalAnalysis(id);
       setRun(result);
     } catch (e) {
@@ -67,7 +138,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
 
   const a = run?.analysis;
 
-  const canRun = hasDocs === true;
+  const canRun = hasDocuments === true;
 
   return (
     <div>
