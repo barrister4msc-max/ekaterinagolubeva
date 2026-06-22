@@ -1525,6 +1525,19 @@ function DocumentDetailPage() {
         .doc-prose hr { border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0; }
         .doc-prose code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
         .doc-highlight { background: #fde68a !important; transition: background-color 0.4s ease; border-radius: 4px; box-shadow: 0 0 0 4px #fde68a; }
+        .doc-arg-active {
+          background: linear-gradient(90deg, rgba(16,185,129,0.18), rgba(16,185,129,0.06)) !important;
+          border-left: 3px solid #10b981;
+          padding-left: 10px;
+          margin-left: -13px;
+          border-radius: 4px;
+          animation: argpulse 1.4s ease-out;
+        }
+        @keyframes argpulse {
+          0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.45); }
+          70% { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+          100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+        }
 
         @media print {
           .no-print { display: none !important; }
