@@ -1476,50 +1476,41 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
       <div className="grid gap-3 md:grid-cols-2">
         {courtPractice.length > 0 && (
           <ReasoningCard tone="default" title={`Судебная практика · ${courtPractice.length}`}>
-            <ul className="space-y-1.5 text-xs">
+            <div className="space-y-2">
               {courtPractice.map((c: any, k: number) => (
-                <li key={k} className="rounded border border-white/10 bg-black/20 p-2">
-                  <div className="text-foreground/90">{renderText(c?.title ?? c?.case ?? c?.number ?? c)}</div>
-                  {(c?.relevance ?? c?.why_relevant) && (
-                    <div className="mt-1 text-foreground/65">{renderText(c?.relevance ?? c?.why_relevant)}</div>
-                  )}
-                </li>
+                <SourceCitation key={k} source={{ kind: "court", ...c }} setTab={setTab} />
               ))}
-            </ul>
+            </div>
           </ReasoningCard>
         )}
         {rejectedPractice.length > 0 && (
           <ReasoningCard tone="default" title={`Отклонённая практика · ${rejectedPractice.length}`}>
-            <ul className="space-y-1.5 text-xs">
+            <div className="space-y-2">
               {rejectedPractice.map((c: any, k: number) => (
-                <li key={k} className="rounded border border-white/10 bg-black/20 p-2">
-                  <div className="text-foreground/90">{renderText(c?.title ?? c?.case ?? c?.number ?? c)}</div>
-                  {(c?.reason ?? c?.why_rejected) && (
-                    <div className="mt-1 text-foreground/65">{renderText(c?.reason ?? c?.why_rejected)}</div>
-                  )}
-                </li>
+                <SourceCitation key={k} source={{ kind: "court", ...c }} setTab={setTab} />
               ))}
-            </ul>
+            </div>
           </ReasoningCard>
         )}
         {fnsLetters.length > 0 && (
           <ReasoningCard tone="default" title={`Письма ФНС · ${fnsLetters.length}`}>
-            <ul className="space-y-1 text-xs">
+            <div className="space-y-2">
               {fnsLetters.map((c: any, k: number) => (
-                <li key={k}>{renderText(c?.title ?? c?.number ?? c)}</li>
+                <SourceCitation key={k} source={{ kind: "fns", ...c }} setTab={setTab} />
               ))}
-            </ul>
+            </div>
           </ReasoningCard>
         )}
         {minfinLetters.length > 0 && (
           <ReasoningCard tone="default" title={`Письма Минфина · ${minfinLetters.length}`}>
-            <ul className="space-y-1 text-xs">
+            <div className="space-y-2">
               {minfinLetters.map((c: any, k: number) => (
-                <li key={k}>{renderText(c?.title ?? c?.number ?? c)}</li>
+                <SourceCitation key={k} source={{ kind: "minfin", ...c }} setTab={setTab} />
               ))}
-            </ul>
+            </div>
           </ReasoningCard>
         )}
+
         {counterArguments.length > 0 && (
           <ReasoningCard tone="default" title={`Контраргументы · ${counterArguments.length}`}>
             <ul className="space-y-1 text-xs">
