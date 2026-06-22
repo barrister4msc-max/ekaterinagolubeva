@@ -1063,11 +1063,40 @@ function DocumentDetailPage() {
           <div
             id="generated-doc-content"
             className="doc-prose min-h-[900px]"
+            onClick={(e) => {
+              const tgt = (e.target as HTMLElement)?.closest?.(
+                "p, li, h1, h2, h3, h4, blockquote",
+              ) as HTMLElement | null;
+              if (!tgt || argumentsList.length === 0) return;
+              const text = (tgt.innerText || "").toLowerCase();
+              if (text.length < 8) return;
+              let best = -1;
+              let bestLen = 0;
+              for (let i = 0; i < argumentsList.length; i++) {
+                const a = argumentsList[i];
+                const needles: string[] = [];
+                if (a.factText) needles.push(a.factText.toLowerCase().slice(0, 40));
+                for (const loc of a.allLocations) {
+                  if (loc.quote) needles.push(String(loc.quote).toLowerCase().slice(0, 40));
+                }
+                for (const n of needles) {
+                  if (n.length >= 8 && text.includes(n) && n.length > bestLen) {
+                    best = i;
+                    bestLen = n.length;
+                  }
+                }
+              }
+              if (best >= 0) {
+                setSelectedArgIndex(best);
+                setTab("reasoning");
+              }
+            }}
             style={{
               fontFamily: '"Times New Roman", Times, serif',
               fontSize: `${docFontSize}px`,
               lineHeight: 1.9,
               color: "#111827",
+              cursor: argumentsList.length > 0 ? "pointer" : "auto",
             }}
           >
             {edited ? (
