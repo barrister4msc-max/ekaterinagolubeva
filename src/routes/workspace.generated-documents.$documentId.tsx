@@ -1590,18 +1590,18 @@ function ReasoningCard({
   children: React.ReactNode;
 }) {
   const toneCls: Record<string, string> = {
-    default: "border-white/15 bg-white/5",
-    fact: "border-sky-300/30 bg-sky-400/10",
-    evidence: "border-emerald-300/30 bg-emerald-400/10",
-    law: "border-violet-300/30 bg-violet-400/10",
-    why: "border-amber-300/30 bg-amber-400/10",
-    conclusion: "border-emerald-400/40 bg-emerald-500/15",
-    warn: "border-red-400/40 bg-red-500/15",
+    default: "border-slate-700/70 bg-slate-800/85",
+    fact: "border-sky-400/40 bg-sky-500/15",
+    evidence: "border-emerald-400/40 bg-emerald-500/15",
+    law: "border-violet-400/40 bg-violet-500/15",
+    why: "border-amber-400/40 bg-amber-500/15",
+    conclusion: "border-emerald-400/60 bg-emerald-500/25",
+    warn: "border-red-400/60 bg-red-500/20",
   };
   return (
     <div className={`rounded-xl border p-3 ${toneCls[tone]}`}>
-      <div className="text-[10px] uppercase tracking-wider text-foreground/60">{title}</div>
-      <div className="mt-1 text-sm text-foreground/90">{children}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-200/90">{title}</div>
+      <div className="mt-1 text-[14px] leading-relaxed text-slate-50">{children}</div>
     </div>
   );
 }
