@@ -27,6 +27,17 @@ import {
   BookOpen,
   ClipboardCheck,
   Columns,
+  Scale,
+  Search,
+  Filter,
+  Target,
+  ChevronRight,
+  ChevronDown,
+  Gavel,
+  FileSearch,
+  Landmark,
+  AlertCircle,
+  Link2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Document, Packer, Paragraph, TextRun } from "docx";
@@ -614,11 +625,18 @@ function DocumentDetailPage() {
   const [edited, setEdited] = useState<string>("");
   const [dirty, setDirty] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [viewMode, setViewMode] = useState<"read" | "review" | "compare">("review");
+  const [viewMode, setViewMode] = useState<"workspace" | "read" | "review" | "compare">("workspace");
   const [zoom, setZoom] = useState<number>(100);
   const [fit, setFit] = useState<"none" | "width" | "page">("none");
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [tocOpen, setTocOpen] = useState(false);
+  const [selectedArgIndex, setSelectedArgIndex] = useState<number>(0);
+  const [argFilter, setArgFilter] = useState<"all" | "high" | "medium" | "low" | "no_evidence" | "ai_issues" | "needs_review">("all");
+  const [argSearch, setArgSearch] = useState<string>("");
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
+    fact: true, evidence: true, law: true, why: true, rejected: false, practice: true, letters: false, counter: false, review: true, conclusion: true,
+  });
+  const toggleNode = (k: string) => setExpandedNodes((s) => ({ ...s, [k]: !s[k] }));
 
   const { data: doc, isLoading, error } = useQuery({
     queryKey: ["generated-document", documentId],
@@ -890,7 +908,62 @@ function DocumentDetailPage() {
 
   const PANEL_TABS = TABS.filter((t) => t.id !== "document");
 
-  const showPanel = viewMode !== "read" && !panelCollapsed;
+  // Build the argument list (the central object of the workspace).
+  const argumentsList = useMemo(() => buildArguments(analysis, meta), [analysis, meta]);
+  const reviewProblems: any[] = useMemo(
+    () => [
+      ...((review?.problems as any[]) ?? pickArray(meta, "problems")),
+      ...((review?.required_fixes as any[]) ?? pickArray(meta, "required_fixes")),
+      ...((review?.recommendations as any[]) ?? pickArray(meta, "recommendations")),
+    ],
+    [review, meta],
+  );
+
+  // Filter + search arguments
+  const filteredArguments = useMemo(() => {
+    const q = argSearch.trim().toLowerCase();
+    return argumentsList.filter((a) => {
+      if (q) {
+        const hay = `${a.title} ${a.factText} ${a.lawLabel}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      switch (argFilter) {
+        case "high":
+          return a.trust.level === "low"; // high risk = low trust
+        case "medium":
+          return a.trust.level === "medium";
+        case "low":
+          return a.trust.level === "high";
+        case "no_evidence":
+          return a.evidenceDocs.length === 0;
+        case "ai_issues":
+          return matchReviewForArg(a, reviewProblems).length > 0;
+        case "needs_review":
+          return a.needsReview;
+        default:
+          return true;
+      }
+    });
+  }, [argumentsList, argFilter, argSearch, reviewProblems]);
+
+  // Clamp selectedArgIndex to valid range
+  useEffect(() => {
+    if (argumentsList.length === 0) return;
+    if (selectedArgIndex >= argumentsList.length) setSelectedArgIndex(0);
+  }, [argumentsList.length, selectedArgIndex]);
+
+  // Sync: when selected argument changes, highlight all its mentions in the document.
+  useEffect(() => {
+    if (viewMode !== "workspace") return;
+    const arg = argumentsList[selectedArgIndex];
+    if (!arg) return;
+    const t = window.setTimeout(() => highlightArgumentInDoc(arg), 80);
+    return () => window.clearTimeout(t);
+  }, [selectedArgIndex, viewMode, argumentsList]);
+
+  const selectedArg = argumentsList[selectedArgIndex] ?? null;
+
+  const showPanel = viewMode !== "read" && viewMode !== "workspace" && !panelCollapsed;
   const gridCols =
     viewMode === "compare" && showPanel
       ? "lg:grid-cols-[minmax(0,1fr)_minmax(440px,1fr)]"
@@ -898,15 +971,16 @@ function DocumentDetailPage() {
         ? "lg:grid-cols-[minmax(0,1fr)_minmax(420px,480px)]"
         : "lg:grid-cols-1";
 
-  // Word-like document widths: 1366→~900, 1600→~1000, 1920→~1150, 2560→~1250.
   const docMaxWidth =
     fit === "width"
       ? "100%"
       : viewMode === "read"
         ? "clamp(900px, 72vw, 1250px)"
-        : viewMode === "compare"
+        : viewMode === "workspace"
           ? "100%"
-          : "clamp(880px, 66vw, 1150px)";
+          : viewMode === "compare"
+            ? "100%"
+            : "clamp(880px, 66vw, 1150px)";
   const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
 
   const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
@@ -1265,6 +1339,7 @@ function DocumentDetailPage() {
 
           {/* Mode switcher */}
           <div className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 p-1">
+            <ModeBtn mode="workspace" icon={Scale} label="Workspace" />
             <ModeBtn mode="read" icon={BookOpen} label="Чтение" />
             <ModeBtn mode="review" icon={ClipboardCheck} label="Проверка" />
             <ModeBtn mode="compare" icon={Columns} label="Сравнение" />
@@ -1399,7 +1474,34 @@ function DocumentDetailPage() {
       </header>
 
       {/* Workspace layout */}
-      {viewMode === "read" || !showPanel ? (
+      {viewMode === "workspace" ? (
+        <div className="grid gap-4 transition-all duration-300 ease-out lg:grid-cols-[300px_minmax(0,1fr)_460px] xl:grid-cols-[320px_minmax(0,1fr)_500px]">
+          <aside className="no-print min-w-0 lg:sticky lg:top-3 lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto lg:pr-1">
+            <ArgumentNavigator
+              args={argumentsList}
+              filtered={filteredArguments}
+              selectedIndex={selectedArgIndex}
+              onSelect={setSelectedArgIndex}
+              filter={argFilter}
+              onFilterChange={setArgFilter}
+              search={argSearch}
+              onSearchChange={setArgSearch}
+              reviewProblems={reviewProblems}
+            />
+          </aside>
+          <div className="min-w-0">{DocumentPane}</div>
+          <aside className="no-print min-w-0 lg:sticky lg:top-3 lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto lg:pr-1">
+            <ArgumentTree
+              arg={selectedArg}
+              reviewProblems={reviewProblems}
+              expanded={expandedNodes}
+              onToggle={toggleNode}
+              onJumpDoc={() => selectedArg && highlightArgumentInDoc(selectedArg)}
+              setTab={setTab}
+            />
+          </aside>
+        </div>
+      ) : viewMode === "read" || !showPanel ? (
         <div className="min-w-0 transition-all duration-300 ease-out">{DocumentPane}</div>
       ) : (
         <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
@@ -1423,6 +1525,19 @@ function DocumentDetailPage() {
         .doc-prose hr { border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0; }
         .doc-prose code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
         .doc-highlight { background: #fde68a !important; transition: background-color 0.4s ease; border-radius: 4px; box-shadow: 0 0 0 4px #fde68a; }
+        .doc-arg-active {
+          background: linear-gradient(90deg, rgba(16,185,129,0.18), rgba(16,185,129,0.06)) !important;
+          border-left: 3px solid #10b981;
+          padding-left: 10px;
+          margin-left: -13px;
+          border-radius: 4px;
+          animation: argpulse 1.4s ease-out;
+        }
+        @keyframes argpulse {
+          0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.45); }
+          70% { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+          100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+        }
 
         @media print {
           .no-print { display: none !important; }
@@ -1902,5 +2017,657 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
         )}
       </div>
     </section>
+  );
+}
+
+/* ================================================================
+   ARGUMENT-CENTRIC WORKSPACE — Argument model, sync, components
+   ================================================================ */
+
+type ArgRecord = {
+  index: number;
+  title: string;
+  factText: string;
+  factKey: string;
+  lawObj: any;
+  lawLabel: string;
+  whyApplicable: string;
+  conclusion: string;
+  evidenceDocs: any[];
+  supportingResolved: any[];
+  rejectedAlts: any[];
+  factMissing: any[];
+  factWeak: any[];
+  courtPractice: any[];
+  fnsLetters: any[];
+  minfinLetters: any[];
+  counterArguments: any[];
+  location: LocationRef | null;
+  allLocations: LocationRef[];
+  trust: ReturnType<typeof computeLocalTrust>;
+  needsReview: boolean;
+  raw: any;
+};
+
+function buildArguments(analysis: any, meta: any): ArgRecord[] {
+  const factToLaw: any[] = Array.isArray(analysis?.fact_to_law_mapping) ? analysis.fact_to_law_mapping : [];
+  const factToEvidence = getFactToEvidenceMapping(analysis, meta);
+  const applicableLaws: any[] = Array.isArray(analysis?.applicable_laws) ? analysis.applicable_laws : [];
+  const rejectedLaws: any[] = Array.isArray(analysis?.rejected_laws) ? analysis.rejected_laws : [];
+  const sources: any[] = Array.isArray(analysis?.sources) ? analysis.sources : [];
+  const missingEvidence: any[] = Array.isArray(analysis?.missing_evidence) ? analysis.missing_evidence : [];
+  const weakPoints: any[] = Array.isArray(analysis?.weak_points) ? analysis.weak_points : [];
+  const courtPractice: any[] = Array.isArray(analysis?.court_practice) ? analysis.court_practice : [];
+  const fnsLetters: any[] = Array.isArray(analysis?.fns_letters) ? analysis.fns_letters : [];
+  const minfinLetters: any[] = Array.isArray(analysis?.minfin_letters) ? analysis.minfin_letters : [];
+  const counterArgs: any[] = Array.isArray(analysis?.counter_arguments) ? analysis.counter_arguments : [];
+
+  const findLaw = (key: any) => {
+    if (!key) return null;
+    const k = String(key).toLowerCase();
+    return (
+      applicableLaws.find((l: any) =>
+        [l?.id, l?.law_id, l?.code, l?.article, l?.title, l?.name]
+          .filter(Boolean)
+          .some((x: any) => String(x).toLowerCase() === k || String(x).toLowerCase().includes(k)),
+      ) ?? null
+    );
+  };
+  const findSource = (ref: any) => {
+    if (!ref) return null;
+    const k = String(ref).toLowerCase();
+    return (
+      sources.find((s: any) =>
+        [s?.id, s?.source_id, s?.title, s?.name, s?.url]
+          .filter(Boolean)
+          .some((x: any) => String(x).toLowerCase() === k || String(x).toLowerCase().includes(k)),
+      ) ?? null
+    );
+  };
+
+  const matchByFact = <T,>(arr: T[], factKey: string): T[] =>
+    arr.filter((it: any) => {
+      const f = it?.fact ?? it?.fact_id ?? it?.related_fact ?? it?.fact_key ?? "";
+      return f && String(f).toLowerCase().includes(String(factKey).toLowerCase());
+    });
+
+  return factToLaw.map((m: any, i: number) => {
+    const factText = String(m?.fact ?? m?.fact_text ?? m?.fact_description ?? m?.description ?? "");
+    const factKey = String(m?.fact_id ?? m?.fact_key ?? m?.fact ?? factText ?? i);
+    const lawRef = m?.law ?? m?.law_id ?? m?.article ?? m?.code;
+    const lawObj = (typeof lawRef === "object" ? lawRef : findLaw(lawRef)) ?? null;
+    const lawLabel =
+      (lawObj && (lawObj.title ?? lawObj.name ?? lawObj.article ?? lawObj.code)) ?? String(lawRef ?? "—");
+    const whyApplicable = String(
+      m?.why_applicable ?? m?.reasoning ?? m?.justification ?? m?.why ?? lawObj?.why_applicable ?? lawObj?.reasoning ?? "",
+    );
+    const conclusion = String(m?.conclusion ?? m?.outcome ?? m?.result ?? "");
+
+    const supportingRefs: any[] =
+      (Array.isArray(m?.supporting_sources) && m.supporting_sources) ||
+      (Array.isArray(m?.sources) && m.sources) ||
+      [];
+    const supportingResolved = supportingRefs.map((r: any) => (typeof r === "object" ? r : findSource(r) ?? r));
+
+    const evidenceForFact = findEvidenceForFact(factKey, factToEvidence);
+    const evidenceDocs = evidenceForFact.flatMap((e: any) => {
+      const docs = e?.documents ?? e?.evidence ?? e?.document ?? e?.evidence_documents;
+      if (Array.isArray(docs)) return docs;
+      if (docs) return [docs];
+      return [];
+    });
+
+    const rejectedAlts: any[] = Array.isArray(m?.rejected_alternatives)
+      ? m.rejected_alternatives
+      : rejectedLaws.filter((rl: any) => {
+          const linked = rl?.related_fact ?? rl?.fact ?? rl?.fact_id;
+          return linked && String(linked).toLowerCase().includes(String(factKey).toLowerCase());
+        });
+
+    const factMissing = matchByFact(missingEvidence, factKey);
+    const factWeak = matchByFact(weakPoints, factKey);
+    const linkedCourt = matchByFact(courtPractice, factKey);
+    const linkedFns = matchByFact(fnsLetters, factKey);
+    const linkedMinfin = matchByFact(minfinLetters, factKey);
+    const linkedCounter = matchByFact(counterArgs, factKey);
+
+    // Pick locations
+    const primaryLoc = pickLocation(m) ?? pickLocation(m?.used_in) ?? null;
+    const allLocs: LocationRef[] = [];
+    if (primaryLoc) allLocs.push(primaryLoc);
+    const more = Array.isArray(m?.used_in_all) ? m.used_in_all : Array.isArray(m?.locations) ? m.locations : [];
+    for (const l of more) {
+      const loc = pickLocation(l);
+      if (loc) allLocs.push(loc);
+    }
+    // Synthesize a quote-based location from factText if nothing
+    if (allLocs.length === 0 && factText) {
+      allLocs.push({ quote: factText.slice(0, 80) });
+    }
+
+    const needsReview = evidenceDocs.length === 0 || (!lawObj && !lawRef);
+    const trust = computeLocalTrust({
+      evidenceCount: evidenceDocs.length,
+      hasLaw: Boolean(lawObj || lawRef),
+      supportingCount: supportingResolved.length,
+      missingCount: factMissing.length,
+      weakCount: factWeak.length,
+    });
+
+    const title = (factText || lawLabel || `Аргумент №${i + 1}`).slice(0, 120);
+
+    return {
+      index: i,
+      title,
+      factText,
+      factKey,
+      lawObj,
+      lawLabel,
+      whyApplicable,
+      conclusion,
+      evidenceDocs,
+      supportingResolved,
+      rejectedAlts,
+      factMissing,
+      factWeak,
+      courtPractice: linkedCourt,
+      fnsLetters: linkedFns,
+      minfinLetters: linkedMinfin,
+      counterArguments: linkedCounter,
+      location: allLocs[0] ?? null,
+      allLocations: allLocs,
+      trust,
+      needsReview,
+      raw: m,
+    };
+  });
+}
+
+function matchReviewForArg(arg: ArgRecord, items: any[]): any[] {
+  if (!arg || !items || items.length === 0) return [];
+  const needles = [arg.factText, arg.lawLabel, arg.factKey]
+    .filter(Boolean)
+    .map((s) => String(s).toLowerCase().slice(0, 30));
+  return items.filter((it: any) => {
+    if (it?.argument_id != null && Number(it.argument_id) === arg.index) return true;
+    if (it?.fact_id != null && String(it.fact_id).toLowerCase() === arg.factKey.toLowerCase()) return true;
+    const hay = JSON.stringify(it ?? "").toLowerCase();
+    return needles.some((n) => n && hay.includes(n));
+  });
+}
+
+function highlightArgumentInDoc(arg: ArgRecord | null) {
+  if (typeof document === "undefined") return;
+  const root = document.getElementById("generated-doc-content");
+  if (!root) return;
+  // Clear previous persistent highlights
+  root.querySelectorAll(".doc-arg-active").forEach((n) => n.classList.remove("doc-arg-active"));
+  if (!arg) return;
+
+  const targets: HTMLElement[] = [];
+  const nodes = Array.from(root.querySelectorAll("p, li, h1, h2, h3, h4, blockquote")) as HTMLElement[];
+
+  for (const loc of arg.allLocations) {
+    if (loc.anchor) {
+      const el = document.getElementById(loc.anchor);
+      if (el) targets.push(el);
+    }
+    if (loc.quote) {
+      const needle = String(loc.quote).trim().slice(0, 40).toLowerCase();
+      if (needle) {
+        for (const n of nodes) {
+          if (n.innerText.toLowerCase().includes(needle) && !targets.includes(n)) targets.push(n);
+        }
+      }
+    }
+  }
+  // Also try fact text directly (substring match)
+  if (targets.length === 0 && arg.factText) {
+    const needle = arg.factText.toLowerCase().slice(0, 30);
+    if (needle.length >= 6) {
+      for (const n of nodes) {
+        if (n.innerText.toLowerCase().includes(needle) && !targets.includes(n)) targets.push(n);
+      }
+    }
+  }
+
+  targets.forEach((t, i) => {
+    t.classList.add("doc-arg-active");
+    if (i === 0) t.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+}
+
+/* ============ Argument Navigator (left rail) ============ */
+
+const FILTER_BUTTONS: { id: any; label: string }[] = [
+  { id: "all", label: "Все" },
+  { id: "high", label: "Высокий риск" },
+  { id: "medium", label: "Средний" },
+  { id: "low", label: "Низкий" },
+  { id: "no_evidence", label: "Нет доказательств" },
+  { id: "ai_issues", label: "Замечания AI" },
+  { id: "needs_review", label: "Требует проверки" },
+];
+
+function trustDot(level: "high" | "medium" | "low") {
+  return level === "high"
+    ? "bg-emerald-400"
+    : level === "medium"
+      ? "bg-amber-400"
+      : "bg-red-400";
+}
+
+function ArgumentNavigator({
+  args,
+  filtered,
+  selectedIndex,
+  onSelect,
+  filter,
+  onFilterChange,
+  search,
+  onSearchChange,
+  reviewProblems,
+}: {
+  args: ArgRecord[];
+  filtered: ArgRecord[];
+  selectedIndex: number;
+  onSelect: (i: number) => void;
+  filter: string;
+  onFilterChange: (f: any) => void;
+  search: string;
+  onSearchChange: (v: string) => void;
+  reviewProblems: any[];
+}) {
+  return (
+    <div className={`${PANEL} flex h-full flex-col p-3`}>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-white">
+          <Target size={14} /> Аргументы
+        </h3>
+        <span className="rounded-full bg-slate-700/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100">
+          {filtered.length}/{args.length}
+        </span>
+      </div>
+
+      <div className="relative mt-2">
+        <Search size={12} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          placeholder="Поиск по аргументам / нормам…"
+          className="w-full rounded-lg border border-slate-700 bg-slate-800 py-1.5 pl-7 pr-2 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-400/60"
+        />
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1">
+        {FILTER_BUTTONS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => onFilterChange(f.id)}
+            className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
+              filter === f.id
+                ? "border-emerald-300/60 bg-emerald-500/30 text-white"
+                : "border-slate-700 bg-slate-800/70 text-slate-300 hover:bg-slate-700"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto pr-1">
+        {args.length === 0 && (
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/60 p-3 text-xs text-slate-300">
+            Аргументы не обнаружены (нет fact_to_law_mapping).
+          </div>
+        )}
+        {filtered.length === 0 && args.length > 0 && (
+          <div className="rounded-lg border border-slate-700/60 bg-slate-800/60 p-3 text-xs text-slate-300">
+            Ничего не найдено по фильтру.
+          </div>
+        )}
+        {filtered.map((a) => {
+          const issues = matchReviewForArg(a, reviewProblems);
+          const active = a.index === selectedIndex;
+          return (
+            <button
+              key={a.index}
+              type="button"
+              onClick={() => onSelect(a.index)}
+              className={`group block w-full rounded-xl border p-2.5 text-left transition ${
+                active
+                  ? "border-emerald-400/70 bg-emerald-500/15 shadow-lg shadow-emerald-500/10"
+                  : "border-slate-700/70 bg-slate-800/70 hover:border-slate-500 hover:bg-slate-700/80"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <span className={`inline-block h-2 w-2 rounded-full ${trustDot(a.trust.level)}`} />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-300">
+                    Аргумент №{a.index + 1}
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold text-slate-100">{a.trust.score}%</span>
+              </div>
+              <div className="mt-1 line-clamp-2 text-[12.5px] font-medium leading-snug text-slate-50">
+                {a.title || "—"}
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[10px] text-slate-300">
+                <span className="rounded bg-slate-900/70 px-1.5 py-0.5">
+                  <FileSearch size={9} className="-mt-0.5 mr-0.5 inline" /> {a.evidenceDocs.length}
+                </span>
+                {a.lawObj || a.lawLabel !== "—" ? (
+                  <span className="rounded bg-violet-500/20 px-1.5 py-0.5 text-violet-100">
+                    <Landmark size={9} className="-mt-0.5 mr-0.5 inline" /> норма
+                  </span>
+                ) : (
+                  <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-red-100">нет нормы</span>
+                )}
+                {issues.length > 0 && (
+                  <span className="rounded bg-amber-500/25 px-1.5 py-0.5 text-amber-100">
+                    <AlertCircle size={9} className="-mt-0.5 mr-0.5 inline" /> AI {issues.length}
+                  </span>
+                )}
+                {a.needsReview && (
+                  <span className="rounded bg-red-500/25 px-1.5 py-0.5 text-red-100">проверка</span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ============ Argument Tree (right column) ============ */
+
+function TreeNode({
+  id,
+  title,
+  count,
+  icon: Icon,
+  tone = "default",
+  expanded,
+  onToggle,
+  children,
+}: {
+  id: string;
+  title: string;
+  count?: number;
+  icon: any;
+  tone?: "default" | "fact" | "evidence" | "law" | "why" | "conclusion" | "warn" | "practice";
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const toneCls: Record<string, string> = {
+    default: "border-slate-700/70 bg-slate-800/80",
+    fact: "border-sky-400/40 bg-sky-500/10",
+    evidence: "border-emerald-400/40 bg-emerald-500/10",
+    law: "border-violet-400/40 bg-violet-500/10",
+    why: "border-amber-400/40 bg-amber-500/10",
+    practice: "border-indigo-400/40 bg-indigo-500/10",
+    conclusion: "border-emerald-400/60 bg-emerald-500/20",
+    warn: "border-red-400/50 bg-red-500/15",
+  };
+  return (
+    <div className={`rounded-xl border ${toneCls[tone]}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left"
+      >
+        <span className="flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wider text-slate-100">
+          <Icon size={12} /> {title}
+          {typeof count === "number" && (
+            <span className="rounded-full bg-slate-900/60 px-1.5 py-0.5 text-[10px] text-slate-200">{count}</span>
+          )}
+        </span>
+        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+      </button>
+      {expanded && <div className="border-t border-white/10 px-3 py-2 text-[13px] text-slate-50">{children}</div>}
+    </div>
+  );
+}
+
+function ArgumentTree({
+  arg,
+  reviewProblems,
+  expanded,
+  onToggle,
+  onJumpDoc,
+  setTab,
+}: {
+  arg: ArgRecord | null;
+  reviewProblems: any[];
+  expanded: Record<string, boolean>;
+  onToggle: (k: string) => void;
+  onJumpDoc: () => void;
+  setTab: (t: TabId) => void;
+}) {
+  if (!arg) {
+    return (
+      <div className={`${PANEL} p-4 text-sm text-slate-300`}>
+        Выберите аргумент слева, чтобы увидеть полную цепочку обоснования.
+      </div>
+    );
+  }
+  const reviewItems = matchReviewForArg(arg, reviewProblems);
+  return (
+    <div className={`${PANEL} space-y-3 p-3`}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className={PANEL_LABEL}>Аргумент №{arg.index + 1}</div>
+          <h3 className="mt-0.5 text-[15px] font-semibold leading-snug text-white">{arg.title}</h3>
+        </div>
+        <button
+          type="button"
+          onClick={onJumpDoc}
+          className="shrink-0 rounded-lg border border-sky-400/40 bg-sky-500/20 px-2 py-1 text-[11px] font-semibold text-sky-50 hover:bg-sky-500/30"
+          title="Подсветить в документе"
+        >
+          <Link2 size={11} className="-mt-0.5 mr-1 inline" /> В документ
+        </button>
+      </div>
+
+      <TrustIndex trust={arg.trust} />
+
+      {arg.needsReview && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-400/40 bg-red-500/15 p-2 text-[12px] text-red-50">
+          <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+          <span>Требуется проверка юриста: не хватает доказательств или нормы.</span>
+        </div>
+      )}
+
+      <TreeNode id="fact" title="Факт" icon={Target} tone="fact" expanded={expanded.fact} onToggle={() => onToggle("fact")}>
+        <div className="whitespace-pre-wrap">{arg.factText || "—"}</div>
+      </TreeNode>
+
+      <TreeNode
+        id="evidence"
+        title="Доказательства"
+        count={arg.evidenceDocs.length}
+        icon={FileSearch}
+        tone="evidence"
+        expanded={expanded.evidence}
+        onToggle={() => onToggle("evidence")}
+      >
+        {arg.evidenceDocs.length === 0 ? (
+          <span className="text-slate-300">Доказательства не привязаны.</span>
+        ) : (
+          <div className="space-y-2">
+            {arg.evidenceDocs.map((d: any, k: number) => (
+              <SourceCitation key={k} source={{ kind: "client_doc", ...d }} setTab={setTab} />
+            ))}
+          </div>
+        )}
+      </TreeNode>
+
+      <TreeNode id="law" title="Норма" icon={Landmark} tone="law" expanded={expanded.law} onToggle={() => onToggle("law")}>
+        <SourceCitation
+          source={
+            arg.lawObj && typeof arg.lawObj === "object"
+              ? { kind: "law", ...arg.lawObj }
+              : { kind: "law", title: arg.lawLabel }
+          }
+          setTab={setTab}
+        />
+      </TreeNode>
+
+      {arg.whyApplicable && (
+        <TreeNode id="why" title="Почему применима" icon={Sparkles} tone="why" expanded={expanded.why} onToggle={() => onToggle("why")}>
+          <div className="whitespace-pre-wrap">{arg.whyApplicable}</div>
+        </TreeNode>
+      )}
+
+      {arg.rejectedAlts.length > 0 && (
+        <TreeNode
+          id="rejected"
+          title="Почему НЕ применима другая"
+          count={arg.rejectedAlts.length}
+          icon={AlertCircle}
+          expanded={expanded.rejected}
+          onToggle={() => onToggle("rejected")}
+        >
+          <ul className="space-y-1.5">
+            {arg.rejectedAlts.map((r: any, k: number) => (
+              <li key={k} className="rounded border border-white/10 bg-black/20 p-2 text-xs">
+                <div className="text-slate-100">
+                  {renderText(r?.title ?? r?.name ?? r?.article ?? r?.code ?? r)}
+                </div>
+                {(r?.reason ?? r?.why_rejected) && (
+                  <div className="mt-1 text-slate-300">{renderText(r?.reason ?? r?.why_rejected)}</div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </TreeNode>
+      )}
+
+      {(arg.courtPractice.length > 0) && (
+        <TreeNode
+          id="practice"
+          title="Судебная практика"
+          count={arg.courtPractice.length}
+          icon={Gavel}
+          tone="practice"
+          expanded={expanded.practice}
+          onToggle={() => onToggle("practice")}
+        >
+          <div className="space-y-2">
+            {arg.courtPractice.map((c: any, k: number) => (
+              <SourceCitation key={k} source={{ kind: "court", ...c }} setTab={setTab} />
+            ))}
+          </div>
+        </TreeNode>
+      )}
+
+      {(arg.fnsLetters.length > 0 || arg.minfinLetters.length > 0) && (
+        <TreeNode
+          id="letters"
+          title="Письма ФНС / Минфина"
+          count={arg.fnsLetters.length + arg.minfinLetters.length}
+          icon={FileText}
+          expanded={expanded.letters}
+          onToggle={() => onToggle("letters")}
+        >
+          <div className="space-y-2">
+            {arg.fnsLetters.map((c: any, k: number) => (
+              <SourceCitation key={`f-${k}`} source={{ kind: "fns", ...c }} setTab={setTab} />
+            ))}
+            {arg.minfinLetters.map((c: any, k: number) => (
+              <SourceCitation key={`m-${k}`} source={{ kind: "minfin", ...c }} setTab={setTab} />
+            ))}
+          </div>
+        </TreeNode>
+      )}
+
+      {arg.counterArguments.length > 0 && (
+        <TreeNode
+          id="counter"
+          title="Контраргументы"
+          count={arg.counterArguments.length}
+          icon={AlertCircle}
+          expanded={expanded.counter}
+          onToggle={() => onToggle("counter")}
+        >
+          <ul className="space-y-1 text-xs">
+            {arg.counterArguments.map((c: any, k: number) => (
+              <li key={k} className="rounded border border-white/10 bg-black/20 p-2">
+                {renderText(c?.text ?? c?.description ?? c)}
+              </li>
+            ))}
+          </ul>
+        </TreeNode>
+      )}
+
+      <TreeNode
+        id="review"
+        title="AI Review"
+        count={reviewItems.length}
+        icon={ClipboardCheck}
+        tone={reviewItems.length > 0 ? "warn" : "default"}
+        expanded={expanded.review}
+        onToggle={() => onToggle("review")}
+      >
+        {reviewItems.length === 0 ? (
+          <span className="text-slate-300">Замечаний по этому аргументу нет.</span>
+        ) : (
+          <div className="space-y-2">
+            {reviewItems.map((it: any, i: number) => (
+              <ReviewProblemCard key={i} index={i + 1} item={it} setTab={setTab} />
+            ))}
+          </div>
+        )}
+      </TreeNode>
+
+      {(arg.factMissing.length > 0 || arg.factWeak.length > 0) && (
+        <TreeNode
+          id="weak"
+          title="Слабые места"
+          count={arg.factMissing.length + arg.factWeak.length}
+          icon={AlertTriangle}
+          tone="warn"
+          expanded={true}
+          onToggle={() => onToggle("weak")}
+        >
+          {arg.factMissing.length > 0 && (
+            <div>
+              <div className="text-[10px] uppercase text-slate-300">Недостающие доказательства</div>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs">
+                {arg.factMissing.map((me: any, k: number) => (
+                  <li key={k}>{renderText(me?.description ?? me?.text ?? me)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {arg.factWeak.length > 0 && (
+            <div className="mt-2">
+              <div className="text-[10px] uppercase text-slate-300">Слабые места</div>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs">
+                {arg.factWeak.map((wp: any, k: number) => (
+                  <li key={k}>{renderText(wp?.description ?? wp?.text ?? wp)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </TreeNode>
+      )}
+
+      {arg.conclusion && (
+        <TreeNode
+          id="conclusion"
+          title="Вывод"
+          icon={CheckCircle2}
+          tone="conclusion"
+          expanded={expanded.conclusion}
+          onToggle={() => onToggle("conclusion")}
+        >
+          <div className="whitespace-pre-wrap font-medium">{arg.conclusion}</div>
+        </TreeNode>
+      )}
+    </div>
   );
 }
