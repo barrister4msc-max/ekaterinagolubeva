@@ -24,6 +24,18 @@ import type {
 } from "./document-intake-schemas";
 import type { DocumentTemplate } from "./document-templates";
 import type { LegalAnalysisResult } from "./legal-analysis";
+import {
+  tryBuildDocumentContext,
+  type DocumentContext,
+} from "./document-context-builder";
+
+/**
+ * Safe test-mode threshold. DocumentContext is only sent to the generator
+ * (and used as the primary source) when its quality score is >= this value.
+ * Otherwise the edge function receives `document_context = null` and MUST
+ * fall back to the legacy generation path.
+ */
+export const DOCUMENT_CONTEXT_MIN_QUALITY = 60;
 
 export type GenerateLegalDocumentRequest = {
   template_code: string;
@@ -43,6 +55,13 @@ export type GenerateLegalDocumentRequest = {
   intake_session_id?: string | null;
   legal_analysis?: LegalAnalysisResult | null;
   legal_analysis_run_id?: string | null;
+  /**
+   * DocumentContext — populated only when quality >= DOCUMENT_CONTEXT_MIN_QUALITY.
+   * Null → legacy generation mode (backwards compatible).
+   */
+  document_context: DocumentContext | null;
+  document_context_quality: number | null;
+  document_context_summary: string | null;
   schema: {
     title: string;
     required_fields: string[];
@@ -61,6 +80,26 @@ export function buildGenerateRequest(
     legalAnalysisRunId?: string | null;
   },
 ): GenerateLegalDocumentRequest {
+  const analysis = extras?.legalAnalysis ?? null;
+
+  // Safe test-mode gating:
+  //  - no analysis → null (legacy mode)
+  //  - tryBuildDocumentContext fails → null (legacy mode)
+  //  - quality < threshold → null (legacy mode)
+  //  - quality >= threshold → DocumentContext promoted as primary source
+  let documentContext: DocumentContext | null = null;
+  let documentContextQuality: number | null = null;
+  let documentContextSummary: string | null = null;
+
+  if (analysis) {
+    const built = tryBuildDocumentContext(analysis);
+    if (built.ok && built.context.document_context_quality >= DOCUMENT_CONTEXT_MIN_QUALITY) {
+      documentContext = built.context;
+      documentContextQuality = built.context.document_context_quality;
+      documentContextSummary = built.context.document_context_summary;
+    }
+  }
+
   return {
     template_code: template.code,
     template: {
@@ -77,8 +116,11 @@ export function buildGenerateRequest(
     attachments: state.attachments,
     special_instructions: state.specialInstructions,
     intake_session_id: extras?.intakeSessionId ?? null,
-    legal_analysis: extras?.legalAnalysis ?? null,
+    legal_analysis: analysis,
     legal_analysis_run_id: extras?.legalAnalysisRunId ?? null,
+    document_context: documentContext,
+    document_context_quality: documentContextQuality,
+    document_context_summary: documentContextSummary,
     schema: schema
       ? {
           title: schema.title,
