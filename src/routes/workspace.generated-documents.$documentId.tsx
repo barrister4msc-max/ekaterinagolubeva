@@ -963,33 +963,27 @@ function DocumentDetailPage() {
 
   // Sync: when selected argument changes, highlight all its mentions in the document.
   useEffect(() => {
-    if (viewMode !== "workspace") return;
     const arg = argumentsList[selectedArgIndex];
     if (!arg) return;
     const t = window.setTimeout(() => highlightArgumentInDoc(arg), 80);
     return () => window.clearTimeout(t);
-  }, [selectedArgIndex, viewMode, argumentsList]);
+  }, [selectedArgIndex, argumentsList]);
 
   const selectedArg = argumentsList[selectedArgIndex] ?? null;
 
-  const showPanel = viewMode !== "read" && viewMode !== "workspace" && !panelCollapsed;
-  const gridCols =
-    viewMode === "compare" && showPanel
-      ? "lg:grid-cols-[minmax(0,1fr)_minmax(440px,1fr)]"
-      : viewMode === "review" && showPanel
-        ? "lg:grid-cols-[minmax(0,1fr)_minmax(420px,480px)]"
-        : "lg:grid-cols-1";
+  const showPanel = viewMode !== "read" && viewMode !== "compare" && !panelCollapsed;
+  const gridCols = showPanel
+    ? "lg:grid-cols-[minmax(0,1fr)_minmax(420px,500px)]"
+    : "lg:grid-cols-1";
 
   const docMaxWidth =
     fit === "width"
       ? "100%"
       : viewMode === "read"
-        ? "clamp(900px, 72vw, 1250px)"
-        : viewMode === "workspace"
+        ? "clamp(950px, 78vw, 1300px)"
+        : viewMode === "compare"
           ? "100%"
-          : viewMode === "compare"
-            ? "100%"
-            : "clamp(880px, 66vw, 1150px)";
+          : "clamp(950px, 70vw, 1300px)";
   const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
 
   const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
