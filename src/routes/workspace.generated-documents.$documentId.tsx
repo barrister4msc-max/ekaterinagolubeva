@@ -893,20 +893,20 @@ function DocumentDetailPage() {
   const showPanel = viewMode !== "read" && !panelCollapsed;
   const gridCols =
     viewMode === "compare" && showPanel
-      ? "lg:grid-cols-[1fr_1fr]"
+      ? "lg:grid-cols-[minmax(0,1fr)_minmax(440px,1fr)]"
       : viewMode === "review" && showPanel
-        ? "lg:grid-cols-[1fr_minmax(340px,30%)]"
+        ? "lg:grid-cols-[minmax(0,1fr)_minmax(420px,480px)]"
         : "lg:grid-cols-1";
 
-  // A4-ish responsive widths. clamp() handles 1366/1600/1920 targets.
+  // Word-like document widths: 1366→~900, 1600→~1000, 1920→~1150, 2560→~1250.
   const docMaxWidth =
     fit === "width"
       ? "100%"
       : viewMode === "read"
-        ? "clamp(900px, 62vw, 1100px)"
+        ? "clamp(900px, 72vw, 1250px)"
         : viewMode === "compare"
           ? "100%"
-          : "clamp(820px, 60vw, 1050px)";
+          : "clamp(880px, 66vw, 1150px)";
   const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
 
   const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
