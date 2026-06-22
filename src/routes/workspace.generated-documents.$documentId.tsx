@@ -966,8 +966,8 @@ function DocumentDetailPage() {
   // Right panel is a fixed compact column; document fills the rest.
   const gridCols = showPanel
     ? viewMode === "compare"
-      ? "min-[1600px]:grid-cols-[minmax(900px,1fr)_minmax(900px,1fr)]"
-      : "lg:grid-cols-[minmax(900px,1fr)_380px] 2xl:grid-cols-[minmax(1000px,1fr)_400px]"
+      ? "min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+      : "lg:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]"
     : "lg:grid-cols-1";
 
   // In Review/Compare the doc fills its column; only Read centers as A4-ish paper.
