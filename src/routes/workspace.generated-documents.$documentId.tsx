@@ -1430,22 +1430,11 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
 
             {supportingResolved.length > 0 && (
               <ReasoningCard tone="default" title={`Источники · ${supportingResolved.length}`}>
-                <ul className="space-y-1.5">
+                <div className="space-y-2">
                   {supportingResolved.map((s: any, k: number) => (
-                    <li key={k} className="rounded border border-white/10 bg-black/20 p-2 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-foreground/90">
-                          {renderText(s?.title ?? s?.name ?? s?.source_id ?? s)}
-                        </span>
-                        {s?.url && (
-                          <a href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-200 hover:underline">
-                            <ExternalLink size={11} /> ссылка
-                          </a>
-                        )}
-                      </div>
-                    </li>
+                    <SourceCitation key={k} source={s} setTab={setTab} />
                   ))}
-                </ul>
+                </div>
               </ReasoningCard>
             )}
 
