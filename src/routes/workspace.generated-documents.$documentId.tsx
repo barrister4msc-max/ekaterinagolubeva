@@ -841,28 +841,9 @@ function DocumentDetailPage() {
     }
   };
 
-  if (isNestedRoute) {
-    return <Outlet />;
-  }
-  if (isLoading) {
-    return (
-      <div className={`${GLASS} flex items-center gap-2 p-6 text-sm text-foreground/80`}>
-        <Loader2 size={14} className="animate-spin" /> Загрузка документа…
-      </div>
-    );
-  }
-  if (error || !doc) {
-    return (
-      <div className={`${GLASS} p-6 text-sm text-red-200`}>
-        {(error as Error)?.message ?? "Документ не найден"}
-        <div className="mt-3">
-          <Link to="/workspace/generated-documents" className="underline text-foreground/80">
-            ← К списку
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  // NOTE: early returns moved below all hooks to keep hook order stable across renders.
+
+
 
 
   // Markdown headings → TOC entries
