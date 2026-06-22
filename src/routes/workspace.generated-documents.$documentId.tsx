@@ -478,39 +478,32 @@ function TrustIndex({
         ? "Требует уточнения"
         : "Нужна проверка юриста";
   return (
-    <div className={`rounded-xl border p-3 ${tone}`}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider opacity-80">
+    <div className={`rounded-lg border px-2.5 py-1.5 ${tone}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[9px] font-semibold uppercase tracking-wider opacity-80">
             Индекс доверия
           </div>
-          <div className="mt-0.5 text-base font-bold">
+          <div className="text-[13px] font-bold leading-tight">
             {trust.score}% · {label}
           </div>
         </div>
-        <div className="h-12 w-12 shrink-0">
+        <div className="h-7 w-7 shrink-0">
           <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
-            <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="3" />
+            <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="4" />
             <circle
               cx="18"
               cy="18"
               r="15"
               fill="none"
               stroke="currentColor"
-              strokeWidth="3"
+              strokeWidth="4"
               strokeLinecap="round"
               strokeDasharray={`${(trust.score / 100) * 94.2} 94.2`}
             />
           </svg>
         </div>
       </div>
-      {trust.reasons.length > 0 && (
-        <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[12px] opacity-95">
-          {trust.reasons.map((r, i) => (
-            <li key={i}>{r}</li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
@@ -641,7 +634,7 @@ function DocumentDetailPage() {
   const [argFilter, setArgFilter] = useState<"all" | "high" | "medium" | "low" | "no_evidence" | "ai_issues" | "needs_review">("all");
   const [argSearch, setArgSearch] = useState<string>("");
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
-    fact: true, evidence: true, law: true, why: true, rejected: false, practice: true, letters: false, counter: false, review: true, conclusion: true,
+    fact: true, evidence: false, law: true, why: false, rejected: false, practice: false, letters: false, counter: false, review: false, conclusion: false,
   });
   const toggleNode = (k: string) => setExpandedNodes((s) => ({ ...s, [k]: !s[k] }));
 
@@ -969,19 +962,23 @@ function DocumentDetailPage() {
 
   const selectedArg = argumentsList[selectedArgIndex] ?? null;
 
-  const showPanel = viewMode !== "read" && viewMode !== "compare" && !panelCollapsed;
+  const showPanel = viewMode !== "read" && !panelCollapsed;
+  // Right panel: fixed compact width. Doc gets all remaining space — panel
+  // never squeezes the document below its min.
   const gridCols = showPanel
-    ? "lg:grid-cols-[minmax(0,1fr)_minmax(420px,500px)]"
+    ? viewMode === "compare"
+      ? "min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+      : "lg:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]"
     : "lg:grid-cols-1";
 
   const docMaxWidth =
     fit === "width"
       ? "100%"
       : viewMode === "read"
-        ? "clamp(950px, 78vw, 1300px)"
+        ? "clamp(1000px, 82vw, 1200px)"
         : viewMode === "compare"
           ? "100%"
-          : "clamp(950px, 70vw, 1300px)";
+          : "clamp(850px, calc(100vw - 460px), 1400px)";
   const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
 
   const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
@@ -1035,7 +1032,7 @@ function DocumentDetailPage() {
       )}
 
       <div
-        className="doc-paper mx-auto w-full px-[60px] py-[70px] shadow-[0_10px_40px_rgba(0,0,0,0.25)] ring-1 ring-black/10"
+        className="doc-paper mx-auto w-full px-6 py-8 shadow-[0_10px_40px_rgba(0,0,0,0.25)] ring-1 ring-black/10 sm:px-10 sm:py-12 lg:px-[60px] lg:py-[70px]"
         style={{ backgroundColor: "#ffffff", maxWidth: docMaxWidth }}
       >
         {editMode ? (
@@ -1535,44 +1532,50 @@ function DocumentDetailPage() {
         </div>
       </div>
 
-      {/* Document header */}
-      <header className={`${GLASS} p-5 no-print`}>
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-foreground/60">
-          {doc.template_key ?? "—"}
-        </div>
-        <h1 className="mt-1 font-display text-2xl text-white">{doc.title || "Без названия"}</h1>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className={CHIP}>v{doc.version_number}</span>
-          <span className={CHIP}>статус: {doc.status}</span>
-          {doc.ai_review_status && (
-            <span className={CHIP}>
-              <Sparkles size={11} /> AI: {doc.ai_review_status}
-            </span>
-          )}
-          {usedContext && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] text-sky-100">
-              DocumentContext{contextQuality != null ? ` · ${contextQuality}` : ""}
-            </span>
-          )}
-          {doc.lawyer_approved_at && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] text-emerald-100">
-              <ShieldCheck size={11} /> Одобрен {fmt(doc.lawyer_approved_at)}
-            </span>
-          )}
-        </div>
-        <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-foreground/60">
-          <span>создан: {fmt(doc.created_at)}</span>
-          <span>обновлён: {fmt(doc.updated_at)}</span>
+      {/* Document header — compact */}
+      <header className={`${GLASS} px-4 py-2.5 no-print`}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span className="text-[10px] uppercase tracking-wide text-foreground/55 shrink-0">
+            {doc.template_key ?? "—"}
+          </span>
+          <h1 className="font-display text-base font-semibold text-white truncate min-w-0">
+            {doc.title || "Без названия"}
+          </h1>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={CHIP}>v{doc.version_number}</span>
+            <span className={CHIP}>{doc.status}</span>
+            {doc.ai_review_status && (
+              <span className={CHIP}>
+                <Sparkles size={10} /> {doc.ai_review_status}
+              </span>
+            )}
+            {usedContext && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] text-sky-100">
+                Ctx{contextQuality != null ? `·${contextQuality}` : ""}
+              </span>
+            )}
+            {doc.lawyer_approved_at && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-100">
+                <ShieldCheck size={10} /> Одобрен
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Workspace layout — two areas only: document + analytical panel */}
+      {/* Workspace layout */}
       {viewMode === "read" || !showPanel ? (
         <div className="min-w-0 transition-all duration-300 ease-out">{DocumentPane}</div>
-      ) : (
+      ) : viewMode === "compare" ? (
+        // Compare: side-by-side at >=1600px, stacked (doc on top, panel below) otherwise.
         <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
           <div className="min-w-0">{DocumentPane}</div>
           <aside className="no-print min-w-0">{PanelPane}</aside>
+        </div>
+      ) : (
+        <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
+          <div className="min-w-0">{DocumentPane}</div>
+          <aside className="no-print min-w-0 hidden lg:block">{PanelPane}</aside>
         </div>
       )}
 
