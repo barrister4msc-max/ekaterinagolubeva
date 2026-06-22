@@ -64,6 +64,7 @@ const CHIP =
 
 const TABS = [
   { id: "document", label: "Документ" },
+  { id: "reasoning", label: "Обоснование" },
   { id: "analysis", label: "AI правовой анализ" },
   { id: "sources", label: "Источники" },
   { id: "review", label: "AI Review" },
