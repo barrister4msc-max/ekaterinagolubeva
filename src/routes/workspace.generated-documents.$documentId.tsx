@@ -478,39 +478,32 @@ function TrustIndex({
         ? "Требует уточнения"
         : "Нужна проверка юриста";
   return (
-    <div className={`rounded-xl border p-3 ${tone}`}>
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[10px] font-semibold uppercase tracking-wider opacity-80">
+    <div className={`rounded-lg border px-2.5 py-1.5 ${tone}`}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[9px] font-semibold uppercase tracking-wider opacity-80">
             Индекс доверия
           </div>
-          <div className="mt-0.5 text-base font-bold">
+          <div className="text-[13px] font-bold leading-tight">
             {trust.score}% · {label}
           </div>
         </div>
-        <div className="h-12 w-12 shrink-0">
+        <div className="h-7 w-7 shrink-0">
           <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
-            <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="3" />
+            <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="4" />
             <circle
               cx="18"
               cy="18"
               r="15"
               fill="none"
               stroke="currentColor"
-              strokeWidth="3"
+              strokeWidth="4"
               strokeLinecap="round"
               strokeDasharray={`${(trust.score / 100) * 94.2} 94.2`}
             />
           </svg>
         </div>
       </div>
-      {trust.reasons.length > 0 && (
-        <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[12px] opacity-95">
-          {trust.reasons.map((r, i) => (
-            <li key={i}>{r}</li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
