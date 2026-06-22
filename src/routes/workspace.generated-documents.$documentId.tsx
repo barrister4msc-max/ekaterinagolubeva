@@ -27,7 +27,6 @@ import {
   BookOpen,
   ClipboardCheck,
   Columns,
-  Scale,
   Search,
   Filter,
   Target,
@@ -38,7 +37,6 @@ import {
   Landmark,
   AlertCircle,
   Link2,
-  Menu,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Document, Packer, Paragraph, TextRun } from "docx";
