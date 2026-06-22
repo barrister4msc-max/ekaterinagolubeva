@@ -1655,7 +1655,7 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
   const hasAnyMapping = factToLaw.length > 0;
 
   return (
-    <section className={`${GLASS} space-y-5 p-5 text-sm text-foreground/85`}>
+    <section className={`${PANEL} space-y-5 p-5 text-sm text-slate-100`}>
       <div>
         <h2 className="font-display text-lg text-white">Юридическое обоснование</h2>
         <p className="mt-1 text-xs text-foreground/65">
