@@ -1062,8 +1062,14 @@ function DocumentDetailPage() {
 
   // The aux/check panel (reasoning / analysis / sources / review / history / export)
   const PanelPane = (
-    <div className={`min-w-0 space-y-3 ${viewMode === "compare" ? "lg:overflow-y-auto lg:max-h-[calc(100vh-160px)]" : ""}`}>
-      <div className="sticky top-3 z-30 flex flex-wrap gap-1.5 rounded-2xl border border-white/15 bg-slate-950/75 p-2 shadow-2xl backdrop-blur-xl">
+    <div
+      className={`min-w-0 space-y-3 ${
+        viewMode !== "read"
+          ? "lg:sticky lg:top-3 lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto lg:pr-1"
+          : ""
+      }`}
+    >
+      <div className="sticky top-0 z-30 flex flex-wrap gap-1.5 rounded-2xl border border-slate-700/70 bg-slate-950/95 p-2 shadow-2xl">
         {PANEL_TABS.map((t) => (
           <button
             key={t.id}
@@ -1072,7 +1078,7 @@ function DocumentDetailPage() {
             className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${
               tab === t.id
                 ? "border-emerald-300/60 bg-emerald-500/30 text-white"
-                : "border-white/20 bg-black/40 text-white/85 hover:border-white/35 hover:bg-white/15"
+                : "border-slate-700/70 bg-slate-800/80 text-slate-100 hover:border-slate-500 hover:bg-slate-700/80"
             }`}
           >
             {t.label}
