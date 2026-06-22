@@ -1400,9 +1400,9 @@ function DocumentDetailPage() {
 
       {/* Workspace layout */}
       {viewMode === "read" || !showPanel ? (
-        <div className="min-w-0">{DocumentPane}</div>
+        <div className="min-w-0 transition-all duration-300 ease-out">{DocumentPane}</div>
       ) : (
-        <div className={`grid gap-6 ${gridCols}`}>
+        <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
           <div className="min-w-0">{DocumentPane}</div>
           <aside className="no-print min-w-0">{PanelPane}</aside>
         </div>
