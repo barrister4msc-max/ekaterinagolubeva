@@ -168,6 +168,8 @@ function DocumentBuilderPage() {
     return Array.from(map.entries());
   }, [filtered]);
 
+  const navigate = useNavigate();
+
     const selected = useMemo(
     () => sortedTemplates.find((t) => t.code === selectedCode) ?? null,
     [sortedTemplates, selectedCode],
