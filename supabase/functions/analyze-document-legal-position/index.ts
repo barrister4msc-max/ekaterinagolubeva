@@ -304,6 +304,12 @@ Deno.serve(async (req) => {
       ...counts,
       semantic_enabled: queryEmbedding ? 1 : 0,
     };
+    parsed.diagnostics = {
+      ...(parsed.diagnostics ?? {}),
+      model_attempts: modelAttempts,
+      final_model: model,
+      fallback_used,
+    };
 
     const metrics = computeMetrics(combined_sources, parsed);
 
