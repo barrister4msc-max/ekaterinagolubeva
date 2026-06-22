@@ -60,6 +60,10 @@ type DocRow = {
 };
 
 const GLASS = "rounded-2xl border border-white/15 bg-white/10 backdrop-blur-md";
+// High-contrast solid panel surfaces (right workspace panel).
+const PANEL = "rounded-2xl border border-slate-700/70 bg-slate-900/95 shadow-xl";
+const PANEL_SUB = "rounded-xl border border-slate-700/60 bg-slate-800/90";
+const PANEL_LABEL = "text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400";
 const BTN =
   "inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50";
 const BTN_PRIMARY =
@@ -351,49 +355,144 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
   }
 
   return (
-    <div className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs text-foreground/85">
+    <div className="rounded-xl border border-slate-700/70 bg-slate-800/95 p-3 text-sm text-slate-100 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-foreground/75">
+        <span className="rounded-full border border-slate-600/80 bg-slate-700/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-100">
           {KIND_LABEL[kind]}
         </span>
         <div className="flex flex-wrap items-center gap-2">
           {source.verification_status && (
-            <span className={CHIP}>verif: {String(source.verification_status)}</span>
+            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-medium text-emerald-100">
+              verif: {String(source.verification_status)}
+            </span>
           )}
           {source.actuality_status && (
-            <span className={CHIP}>actuality: {String(source.actuality_status)}</span>
+            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-100">
+              акт.: {String(source.actuality_status)}
+            </span>
           )}
           {url && (
             <a
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-sky-200 hover:underline"
+              className="inline-flex items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-50 hover:bg-sky-500/30"
             >
-              <ExternalLink size={11} /> {kind === "law" ? "Перейти к статье" : "Открыть"}
+              <ExternalLink size={11} /> {kind === "law" ? "Перейти к статье" : "Открыть источник"}
             </a>
           )}
         </div>
       </div>
       {rows.length > 0 && (
-        <dl className="mt-2 grid grid-cols-[130px_1fr] gap-x-3 gap-y-0.5">
+        <dl className="mt-2 grid grid-cols-[130px_1fr] gap-x-3 gap-y-1 text-[13px]">
           {rows.map(([label, value], i) => (
             <Fragment key={i}>
-              <dt className="text-foreground/55">{label}</dt>
-              <dd className="break-words text-foreground/90">{String(value)}</dd>
+              <dt className="text-slate-400">{label}</dt>
+              <dd className="break-words font-medium text-slate-50">{String(value)}</dd>
             </Fragment>
           ))}
         </dl>
       )}
       <ExpandableQuote quote={typeof quote === "string" ? quote : undefined} />
       {loc && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 p-2">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/70 bg-slate-900/80 p-2">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] uppercase text-foreground/55">Использовано в документе</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Использовано в документе</span>
             <LocationBadge loc={loc} />
           </div>
           <GoToButton loc={loc} setTab={setTab} />
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ============ Local Trust Index ============ */
+
+function computeLocalTrust(input: {
+  evidenceCount: number;
+  hasLaw: boolean;
+  supportingCount: number;
+  missingCount: number;
+  weakCount: number;
+}): { score: number; level: "high" | "medium" | "low"; reasons: string[] } {
+  let score = 30;
+  const reasons: string[] = [];
+  if (input.hasLaw) {
+    score += 25;
+    reasons.push("Норма указана");
+  } else {
+    reasons.push("Норма не указана");
+  }
+  if (input.evidenceCount > 0) {
+    score += Math.min(25, 10 + input.evidenceCount * 5);
+    reasons.push(`Доказательств: ${input.evidenceCount}`);
+  } else {
+    reasons.push("Доказательства не привязаны");
+  }
+  if (input.supportingCount > 0) {
+    score += Math.min(20, 5 + input.supportingCount * 4);
+    reasons.push(`Поддерживающих источников: ${input.supportingCount}`);
+  }
+  score -= input.missingCount * 8;
+  if (input.missingCount > 0) reasons.push(`Не хватает доказательств: ${input.missingCount}`);
+  score -= input.weakCount * 6;
+  if (input.weakCount > 0) reasons.push(`Слабых мест: ${input.weakCount}`);
+  score = Math.max(0, Math.min(100, score));
+  const level: "high" | "medium" | "low" = score >= 80 ? "high" : score >= 55 ? "medium" : "low";
+  return { score, level, reasons };
+}
+
+function TrustIndex({
+  trust,
+}: {
+  trust: { score: number; level: "high" | "medium" | "low"; reasons: string[] };
+}) {
+  const tone =
+    trust.level === "high"
+      ? "border-emerald-400/50 bg-emerald-500/15 text-emerald-50"
+      : trust.level === "medium"
+        ? "border-amber-400/50 bg-amber-500/15 text-amber-50"
+        : "border-red-400/50 bg-red-500/15 text-red-50";
+  const label =
+    trust.level === "high"
+      ? "Подтверждено"
+      : trust.level === "medium"
+        ? "Требует уточнения"
+        : "Нужна проверка юриста";
+  return (
+    <div className={`rounded-xl border p-3 ${tone}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider opacity-80">
+            Индекс доверия
+          </div>
+          <div className="mt-0.5 text-base font-bold">
+            {trust.score}% · {label}
+          </div>
+        </div>
+        <div className="h-12 w-12 shrink-0">
+          <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
+            <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="3" />
+            <circle
+              cx="18"
+              cy="18"
+              r="15"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray={`${(trust.score / 100) * 94.2} 94.2`}
+            />
+          </svg>
+        </div>
+      </div>
+      {trust.reasons.length > 0 && (
+        <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[12px] opacity-95">
+          {trust.reasons.map((r, i) => (
+            <li key={i}>{r}</li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -438,29 +537,29 @@ function ReviewProblemCard({
     item.recommendation ?? item.fix ?? item.suggested_fix ?? item.action ?? item.advice;
   const fragment = item.text_fragment ?? item.fragment ?? item.quote ?? item.excerpt;
   return (
-    <div className="rounded-xl border border-white/15 bg-white/5 p-4 text-sm text-foreground/85">
+    <div className="rounded-xl border border-slate-700/70 bg-slate-800/90 p-4 text-sm text-slate-100 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[11px] uppercase text-foreground/55">Проблема №{index}</div>
+          <div className={PANEL_LABEL}>Проблема №{index}</div>
           <div className="mt-1 font-semibold text-white">{String(title)}</div>
         </div>
         {severity && (
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${severityTone(String(severity))}`}>
+          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${severityTone(String(severity))}`}>
             {String(severity)}
           </span>
         )}
       </div>
       {loc && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 p-2">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/70 bg-slate-900/80 p-2">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] uppercase text-foreground/55">Где найдено</span>
+            <span className={PANEL_LABEL}>Где найдено</span>
             <LocationBadge loc={loc} />
           </div>
           <GoToButton loc={loc} setTab={setTab} />
         </div>
       )}
       {fragment && (
-        <blockquote className="mt-2 whitespace-pre-wrap border-l-2 border-white/20 bg-black/20 p-2 text-xs italic text-foreground/80">
+        <blockquote className="mt-2 whitespace-pre-wrap border-l-2 border-slate-500 bg-slate-900/70 p-2 text-xs italic text-slate-100">
           «{String(fragment).trim()}»
         </blockquote>
       )}
@@ -794,20 +893,20 @@ function DocumentDetailPage() {
   const showPanel = viewMode !== "read" && !panelCollapsed;
   const gridCols =
     viewMode === "compare" && showPanel
-      ? "lg:grid-cols-[1fr_1fr]"
+      ? "lg:grid-cols-[minmax(0,1fr)_minmax(440px,1fr)]"
       : viewMode === "review" && showPanel
-        ? "lg:grid-cols-[1fr_minmax(340px,30%)]"
+        ? "lg:grid-cols-[minmax(0,1fr)_minmax(420px,480px)]"
         : "lg:grid-cols-1";
 
-  // A4-ish responsive widths. clamp() handles 1366/1600/1920 targets.
+  // Word-like document widths: 1366→~900, 1600→~1000, 1920→~1150, 2560→~1250.
   const docMaxWidth =
     fit === "width"
       ? "100%"
       : viewMode === "read"
-        ? "clamp(900px, 62vw, 1100px)"
+        ? "clamp(900px, 72vw, 1250px)"
         : viewMode === "compare"
           ? "100%"
-          : "clamp(820px, 60vw, 1050px)";
+          : "clamp(880px, 66vw, 1150px)";
   const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
 
   const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
@@ -963,8 +1062,14 @@ function DocumentDetailPage() {
 
   // The aux/check panel (reasoning / analysis / sources / review / history / export)
   const PanelPane = (
-    <div className={`min-w-0 space-y-3 ${viewMode === "compare" ? "lg:overflow-y-auto lg:max-h-[calc(100vh-160px)]" : ""}`}>
-      <div className="sticky top-3 z-30 flex flex-wrap gap-1.5 rounded-2xl border border-white/15 bg-slate-950/75 p-2 shadow-2xl backdrop-blur-xl">
+    <div
+      className={`min-w-0 space-y-3 ${
+        viewMode !== "read"
+          ? "lg:sticky lg:top-3 lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto lg:pr-1"
+          : ""
+      }`}
+    >
+      <div className="sticky top-0 z-30 flex flex-wrap gap-1.5 rounded-2xl border border-slate-700/70 bg-slate-950/95 p-2 shadow-2xl">
         {PANEL_TABS.map((t) => (
           <button
             key={t.id}
@@ -973,7 +1078,7 @@ function DocumentDetailPage() {
             className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${
               tab === t.id
                 ? "border-emerald-300/60 bg-emerald-500/30 text-white"
-                : "border-white/20 bg-black/40 text-white/85 hover:border-white/35 hover:bg-white/15"
+                : "border-slate-700/70 bg-slate-800/80 text-slate-100 hover:border-slate-500 hover:bg-slate-700/80"
             }`}
           >
             {t.label}
@@ -984,8 +1089,9 @@ function DocumentDetailPage() {
       {tab === "reasoning" && <ReasoningTab analysis={analysis} meta={meta} setTab={setTab} />}
 
       {tab === "analysis" && (
-        <section className={`${GLASS} p-5 space-y-4 text-sm text-foreground/85`}>
-          {!analysisRun && <p className="text-foreground/70">Правовой анализ не привязан к документу.</p>}
+        <section className={`${PANEL} p-5 space-y-4 text-sm text-slate-100`}>
+          <h2 className="font-display text-lg text-white">AI правовой анализ</h2>
+          {!analysisRun && <p className="text-slate-300">Правовой анализ не привязан к документу.</p>}
           {analysisRun && (
             <>
               <AnalysisField label="Правовая квалификация" value={analysis?.legal_qualification ?? analysis?.qualification} />
@@ -997,8 +1103,9 @@ function DocumentDetailPage() {
               <AnalysisList label="Слабые места" items={analysis?.weak_points} />
               <AnalysisList label="Недостающие доказательства" items={analysis?.missing_evidence} />
               <AnalysisList label="Инструкции для генератора" items={analysis?.generation_instructions} />
-              <div className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs">
-                document_context_quality: <span className="text-white">{contextQuality ?? "—"}</span>
+              <div className={`${PANEL_SUB} p-3 text-xs text-slate-200`}>
+                document_context_quality:{" "}
+                <span className="font-semibold text-white">{contextQuality ?? "—"}</span>
               </div>
             </>
           )}
@@ -1006,14 +1113,14 @@ function DocumentDetailPage() {
       )}
 
       {tab === "sources" && (
-        <section className={`${GLASS} p-5 space-y-3`}>
+        <section className={`${PANEL} p-5 space-y-3`}>
           <div>
             <h2 className="font-display text-lg text-white">Источники</h2>
-            <p className="mt-1 text-xs text-foreground/65">
+            <p className="mt-1 text-xs text-slate-300">
               Точная локализация: статья, пункт, абзац, страница, цитата. Кнопка «Перейти» открывает место в документе.
             </p>
           </div>
-          {sources.length === 0 && <p className="text-sm text-foreground/70">Источники не указаны.</p>}
+          {sources.length === 0 && <p className="text-sm text-slate-300">Источники не указаны.</p>}
           <div className="space-y-2">
             {sources.map((s: any, i: number) => (
               <SourceCitation key={i} source={s} setTab={setTab} />
@@ -1023,14 +1130,14 @@ function DocumentDetailPage() {
       )}
 
       {tab === "review" && (
-        <section className={`${GLASS} p-5 space-y-4`}>
+        <section className={`${PANEL} p-5 space-y-4`}>
           <div>
             <h2 className="font-display text-lg text-white">AI Review</h2>
-            <p className="mt-1 text-xs text-foreground/65">
+            <p className="mt-1 text-xs text-slate-300">
               Найденные проблемы, причины и рекомендации. Каждый блок содержит ссылку на место в документе.
             </p>
           </div>
-          {!reviewRun && <p className="text-sm text-foreground/70">AI Review для этого документа не найден.</p>}
+          {!reviewRun && <p className="text-sm text-slate-300">AI Review для этого документа не найден.</p>}
           {reviewRun && (
             <>
               <div className="grid gap-3 sm:grid-cols-3">
@@ -1043,7 +1150,7 @@ function DocumentDetailPage() {
                 const fixes = (review?.required_fixes ?? pickArray(meta, "required_fixes")) as any[];
                 const recs = (review?.recommendations ?? pickArray(meta, "recommendations")) as any[];
                 const total = (problems?.length ?? 0) + (fixes?.length ?? 0) + (recs?.length ?? 0);
-                if (total === 0) return <p className="text-sm text-foreground/70">Замечаний нет.</p>;
+                if (total === 0) return <p className="text-sm text-slate-300">Замечаний нет.</p>;
                 return (
                   <>
                     <ReviewSection title="Проблемы" items={problems} setTab={setTab} />
@@ -1058,7 +1165,8 @@ function DocumentDetailPage() {
       )}
 
       {tab === "history" && (
-        <section className={`${GLASS} p-5 space-y-3 text-sm text-foreground/85`}>
+        <section className={`${PANEL} p-5 space-y-3 text-sm text-slate-100`}>
+          <h2 className="font-display text-lg text-white">История и метаданные</h2>
           <Row label="Создан" value={fmt(doc.created_at)} />
           <Row label="Обновлён" value={fmt(doc.updated_at)} />
           <Row label="Версия" value={String(doc.version_number)} />
@@ -1069,11 +1177,11 @@ function DocumentDetailPage() {
           <Row label="generation_used_document_context" value={String(usedContext)} />
           {sessionDocs && sessionDocs.length > 0 && (
             <div>
-              <div className="mt-3 text-[11px] uppercase text-foreground/60">Документы сессии</div>
+              <div className={`mt-3 ${PANEL_LABEL}`}>Документы сессии</div>
               <ul className="mt-2 space-y-1">
                 {sessionDocs.map((d: any) => (
-                  <li key={d.id} className="text-xs text-foreground/75">
-                    {d.file_name} <span className="text-foreground/50">· {fmt(d.created_at)}</span>
+                  <li key={d.id} className="text-xs text-slate-200">
+                    {d.file_name} <span className="text-slate-400">· {fmt(d.created_at)}</span>
                   </li>
                 ))}
               </ul>
@@ -1104,8 +1212,9 @@ function DocumentDetailPage() {
       )}
 
       {tab === "export" && (
-        <section className={`${GLASS} p-5 space-y-3`}>
-          <p className="text-sm text-foreground/80">Скачайте документ или отправьте на печать.</p>
+        <section className={`${PANEL} p-5 space-y-3`}>
+          <h2 className="font-display text-lg text-white">Экспорт</h2>
+          <p className="text-sm text-slate-300">Скачайте документ или отправьте на печать.</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={downloadDocx} className={BTN}>
               <Download size={12} /> DOCX
@@ -1121,7 +1230,7 @@ function DocumentDetailPage() {
             </button>
           </div>
 
-          <div className={`${GLASS} mt-4 space-y-2 p-3 text-xs text-foreground/85`}>
+          <div className={`${PANEL_SUB} mt-4 grid grid-cols-2 gap-3 p-3 text-xs text-slate-100`}>
             <SideRow label="Статус" value={doc.status} />
             <SideRow label="Шаблон" value={doc.template_key ?? "—"} />
             <SideRow label="Язык" value={language ?? "—"} />
@@ -1131,7 +1240,7 @@ function DocumentDetailPage() {
             <SideRow label="legal_analysis_run_id" value={legalAnalysisRunId ? `${legalAnalysisRunId.slice(0, 8)}…` : "—"} />
             <SideRow label="created_at" value={fmt(doc.created_at)} />
             {contextSummary && (
-              <div className="rounded-lg border border-white/15 bg-white/5 p-2 text-foreground/75">
+              <div className={`col-span-2 ${PANEL_SUB} p-2 text-slate-200`}>
                 {String(contextSummary)}
               </div>
             )}
@@ -1291,9 +1400,9 @@ function DocumentDetailPage() {
 
       {/* Workspace layout */}
       {viewMode === "read" || !showPanel ? (
-        <div className="min-w-0">{DocumentPane}</div>
+        <div className="min-w-0 transition-all duration-300 ease-out">{DocumentPane}</div>
       ) : (
-        <div className={`grid gap-6 ${gridCols}`}>
+        <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
           <div className="min-w-0">{DocumentPane}</div>
           <aside className="no-print min-w-0">{PanelPane}</aside>
         </div>
@@ -1338,39 +1447,61 @@ function DocumentDetailPage() {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-1.5">
-      <span className="text-[11px] uppercase text-foreground/55">{label}</span>
-      <span className="text-foreground/90">{value}</span>
+    <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-1.5">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{label}</span>
+      <span className="text-slate-100">{value}</span>
     </div>
   );
 }
 
 function SideRow({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wider text-foreground/55">{label}</div>
-      <div className="text-foreground/90">{value}</div>
+    <div className="rounded-lg border border-slate-700/60 bg-slate-900/70 p-2">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</div>
+      <div className="mt-0.5 text-slate-50">{value}</div>
     </div>
   );
 }
 
 function Stat({ label, value }: { label: string; value: any }) {
   return (
-    <div className="rounded-lg border border-white/15 bg-white/5 p-3">
-      <div className="text-[11px] uppercase text-foreground/60">{label}</div>
-      <div className="mt-1 text-sm text-white">{value != null && value !== "" ? String(value) : "—"}</div>
+    <div className="rounded-xl border border-slate-700/70 bg-slate-800/90 p-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{label}</div>
+      <div className="mt-1 text-base font-semibold text-white">{value != null && value !== "" ? String(value) : "—"}</div>
     </div>
   );
 }
 
+function humanizeItem(it: any): string {
+  if (it == null) return "—";
+  if (typeof it === "string") return it;
+  if (typeof it === "number" || typeof it === "boolean") return String(it);
+  if (typeof it === "object") {
+    for (const k of [
+      "text",
+      "description",
+      "title",
+      "name",
+      "summary",
+      "value",
+      "fact",
+      "argument",
+      "instruction",
+      "label",
+    ]) {
+      if (typeof it[k] === "string" && it[k].trim()) return it[k];
+    }
+  }
+  return "";
+}
+
 function AnalysisField({ label, value }: { label: string; value: any }) {
   if (value == null || value === "") return null;
+  const text = typeof value === "string" ? value : humanizeItem(value) || JSON.stringify(value);
   return (
-    <div>
-      <div className="text-[11px] uppercase text-foreground/60">{label}</div>
-      <div className="mt-1 whitespace-pre-wrap text-foreground/90">
-        {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
-      </div>
+    <div className={`${PANEL_SUB} p-3`}>
+      <div className={PANEL_LABEL}>{label}</div>
+      <div className="mt-1 whitespace-pre-wrap text-[14px] leading-relaxed text-slate-50">{text}</div>
     </div>
   );
 }
@@ -1379,13 +1510,25 @@ function AnalysisList({ label, items }: { label: string; items: any }) {
   if (!Array.isArray(items) || items.length === 0) return null;
   return (
     <div>
-      <div className="text-[11px] uppercase text-foreground/60">{label} · {items.length}</div>
-      <ul className="mt-1 space-y-1.5">
-        {items.map((it: any, i: number) => (
-          <li key={i} className="rounded-lg border border-white/15 bg-white/5 p-2 text-xs text-foreground/85">
-            {typeof it === "string" ? it : JSON.stringify(it)}
-          </li>
-        ))}
+      <div className={PANEL_LABEL}>
+        {label} · <span className="text-slate-200">{items.length}</span>
+      </div>
+      <ul className="mt-1.5 space-y-1.5">
+        {items.map((it: any, i: number) => {
+          const text = humanizeItem(it);
+          const why = typeof it === "object" ? it?.reasoning ?? it?.why ?? it?.note : null;
+          return (
+            <li
+              key={i}
+              className="rounded-lg border border-slate-700/60 bg-slate-800/80 p-2.5 text-[13px] leading-relaxed text-slate-100"
+            >
+              {text || "—"}
+              {why && (
+                <div className="mt-1 text-[12px] text-slate-300">{String(why)}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -1400,9 +1543,9 @@ function RiskList({ title, items }: { title: string; items: any[] }) {
         {items.map((it, i) => (
           <li
             key={i}
-            className="rounded-lg border border-white/15 bg-white/5 p-2.5 text-xs text-foreground/80"
+            className="rounded-lg border border-slate-700/60 bg-slate-800/80 p-2.5 text-xs text-slate-100"
           >
-            {typeof it === "string" ? it : JSON.stringify(it)}
+            {humanizeItem(it) || "—"}
           </li>
         ))}
       </ul>
@@ -1447,18 +1590,18 @@ function ReasoningCard({
   children: React.ReactNode;
 }) {
   const toneCls: Record<string, string> = {
-    default: "border-white/15 bg-white/5",
-    fact: "border-sky-300/30 bg-sky-400/10",
-    evidence: "border-emerald-300/30 bg-emerald-400/10",
-    law: "border-violet-300/30 bg-violet-400/10",
-    why: "border-amber-300/30 bg-amber-400/10",
-    conclusion: "border-emerald-400/40 bg-emerald-500/15",
-    warn: "border-red-400/40 bg-red-500/15",
+    default: "border-slate-700/70 bg-slate-800/85",
+    fact: "border-sky-400/40 bg-sky-500/15",
+    evidence: "border-emerald-400/40 bg-emerald-500/15",
+    law: "border-violet-400/40 bg-violet-500/15",
+    why: "border-amber-400/40 bg-amber-500/15",
+    conclusion: "border-emerald-400/60 bg-emerald-500/25",
+    warn: "border-red-400/60 bg-red-500/20",
   };
   return (
     <div className={`rounded-xl border p-3 ${toneCls[tone]}`}>
-      <div className="text-[10px] uppercase tracking-wider text-foreground/60">{title}</div>
-      <div className="mt-1 text-sm text-foreground/90">{children}</div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-200/90">{title}</div>
+      <div className="mt-1 text-[14px] leading-relaxed text-slate-50">{children}</div>
     </div>
   );
 }
@@ -1512,7 +1655,7 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
   const hasAnyMapping = factToLaw.length > 0;
 
   return (
-    <section className={`${GLASS} space-y-5 p-5 text-sm text-foreground/85`}>
+    <section className={`${PANEL} space-y-5 p-5 text-sm text-slate-100`}>
       <div>
         <h2 className="font-display text-lg text-white">Юридическое обоснование</h2>
         <p className="mt-1 text-xs text-foreground/65">
@@ -1574,23 +1717,30 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
           return f && String(f).toLowerCase().includes(String(factKey).toLowerCase());
         });
 
-        const needsReview = evidenceDocs.length === 0 || !lawObj && !lawRef;
+        const needsReview = evidenceDocs.length === 0 || (!lawObj && !lawRef);
+        const trust = computeLocalTrust({
+          evidenceCount: evidenceDocs.length,
+          hasLaw: Boolean(lawObj || lawRef),
+          supportingCount: supportingResolved.length,
+          missingCount: factMissing.length,
+          weakCount: factWeak.length,
+        });
 
         return (
           <div
             key={i}
-            className="space-y-3 rounded-2xl border border-white/15 bg-black/20 p-4"
+            className="space-y-3 rounded-2xl border border-slate-700/70 bg-slate-900/70 p-4"
           >
             <div className="flex items-center justify-between gap-2">
-              <div className="text-[10px] uppercase tracking-wider text-foreground/55">
-                Цепочка обоснования #{i + 1}
-              </div>
+              <div className={PANEL_LABEL}>Цепочка обоснования #{i + 1}</div>
               {needsReview && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[11px] text-red-100">
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/25 px-2 py-0.5 text-[11px] font-semibold text-red-50">
                   <AlertTriangle size={11} /> Требуется проверка юристом
                 </span>
               )}
             </div>
+
+            <TrustIndex trust={trust} />
 
             <ReasoningCard tone="fact" title="Факт">
               {factText || "—"}
