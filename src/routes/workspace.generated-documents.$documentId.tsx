@@ -27,6 +27,17 @@ import {
   BookOpen,
   ClipboardCheck,
   Columns,
+  Scale,
+  Search,
+  Filter,
+  Target,
+  ChevronRight,
+  ChevronDown,
+  Gavel,
+  FileSearch,
+  Landmark,
+  AlertCircle,
+  Link2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Document, Packer, Paragraph, TextRun } from "docx";
