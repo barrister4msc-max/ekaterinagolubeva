@@ -558,7 +558,12 @@ function DocumentDetailPage() {
             </section>
           )}
 
+          {tab === "reasoning" && (
+            <ReasoningTab analysis={analysis} meta={meta} />
+          )}
+
           {tab === "analysis" && (
+
             <section className={`${GLASS} p-5 space-y-4 text-sm text-foreground/85`}>
               {!analysisRun && (
                 <p className="text-foreground/70">Правовой анализ не привязан к документу.</p>
