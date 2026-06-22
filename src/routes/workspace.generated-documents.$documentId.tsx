@@ -1717,23 +1717,30 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
           return f && String(f).toLowerCase().includes(String(factKey).toLowerCase());
         });
 
-        const needsReview = evidenceDocs.length === 0 || !lawObj && !lawRef;
+        const needsReview = evidenceDocs.length === 0 || (!lawObj && !lawRef);
+        const trust = computeLocalTrust({
+          evidenceCount: evidenceDocs.length,
+          hasLaw: Boolean(lawObj || lawRef),
+          supportingCount: supportingResolved.length,
+          missingCount: factMissing.length,
+          weakCount: factWeak.length,
+        });
 
         return (
           <div
             key={i}
-            className="space-y-3 rounded-2xl border border-white/15 bg-black/20 p-4"
+            className="space-y-3 rounded-2xl border border-slate-700/70 bg-slate-900/70 p-4"
           >
             <div className="flex items-center justify-between gap-2">
-              <div className="text-[10px] uppercase tracking-wider text-foreground/55">
-                Цепочка обоснования #{i + 1}
-              </div>
+              <div className={PANEL_LABEL}>Цепочка обоснования #{i + 1}</div>
               {needsReview && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[11px] text-red-100">
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/25 px-2 py-0.5 text-[11px] font-semibold text-red-50">
                   <AlertTriangle size={11} /> Требуется проверка юристом
                 </span>
               )}
             </div>
+
+            <TrustIndex trust={trust} />
 
             <ReasoningCard tone="fact" title="Факт">
               {factText || "—"}
