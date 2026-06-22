@@ -18,6 +18,15 @@ import {
   FileText,
   Printer,
   ExternalLink,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  PanelRightOpen,
+  PanelRightClose,
+  List,
+  BookOpen,
+  ClipboardCheck,
+  Columns,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Document, Packer, Paragraph, TextRun } from "docx";
