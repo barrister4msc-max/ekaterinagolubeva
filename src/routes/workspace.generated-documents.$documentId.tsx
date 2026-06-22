@@ -1395,8 +1395,14 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
             </ReasoningCard>
 
             <ReasoningCard tone="law" title="Норма">
-              <div className="font-medium text-white">{lawLabel}</div>
-              {lawObj?.text && <div className="mt-1 whitespace-pre-wrap text-xs text-foreground/75">{lawObj.text}</div>}
+              <SourceCitation
+                source={
+                  lawObj && typeof lawObj === "object"
+                    ? { kind: "law", ...lawObj }
+                    : { kind: "law", title: lawLabel }
+                }
+                setTab={setTab}
+              />
             </ReasoningCard>
 
             {whyApplicable && (
