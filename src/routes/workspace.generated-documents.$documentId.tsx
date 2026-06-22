@@ -625,11 +625,18 @@ function DocumentDetailPage() {
   const [edited, setEdited] = useState<string>("");
   const [dirty, setDirty] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [viewMode, setViewMode] = useState<"read" | "review" | "compare">("review");
+  const [viewMode, setViewMode] = useState<"workspace" | "read" | "review" | "compare">("workspace");
   const [zoom, setZoom] = useState<number>(100);
   const [fit, setFit] = useState<"none" | "width" | "page">("none");
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [tocOpen, setTocOpen] = useState(false);
+  const [selectedArgIndex, setSelectedArgIndex] = useState<number>(0);
+  const [argFilter, setArgFilter] = useState<"all" | "high" | "medium" | "low" | "no_evidence" | "ai_issues" | "needs_review">("all");
+  const [argSearch, setArgSearch] = useState<string>("");
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
+    fact: true, evidence: true, law: true, why: true, rejected: false, practice: true, letters: false, counter: false, review: true, conclusion: true,
+  });
+  const toggleNode = (k: string) => setExpandedNodes((s) => ({ ...s, [k]: !s[k] }));
 
   const { data: doc, isLoading, error } = useQuery({
     queryKey: ["generated-document", documentId],
