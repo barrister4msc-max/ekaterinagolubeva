@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -117,6 +117,382 @@ function pickScalar(meta: any, ...keys: string[]): any {
     }
   }
   return undefined;
+}
+
+/* ============ Location / Navigation ============ */
+
+type LocationRef = {
+  section?: string | number;
+  subsection?: string | number;
+  paragraph?: string | number;
+  sentence?: string | number;
+  anchor?: string;
+  quote?: string;
+};
+
+function pickLocation(obj: any): LocationRef | null {
+  if (!obj || typeof obj !== "object") return null;
+  const loc = obj.used_in ?? obj.location ?? obj.usage ?? obj.placement ?? obj;
+  if (!loc || typeof loc !== "object") return null;
+  const out: LocationRef = {
+    section: loc.section ?? loc.раздел ?? loc.section_number,
+    subsection: loc.subsection ?? loc.подраздел,
+    paragraph: loc.paragraph ?? loc.абзац ?? loc.para ?? loc.paragraph_number,
+    sentence: loc.sentence ?? loc.предложение,
+    anchor: loc.anchor ?? loc.element_id ?? loc.id,
+    quote: loc.quote ?? loc.text_fragment ?? loc.fragment,
+  };
+  const hasAny = Object.values(out).some((v) => v != null && v !== "");
+  return hasAny ? out : null;
+}
+
+function navigateToLocation(loc: LocationRef | null, setTab: (t: TabId) => void) {
+  if (!loc) return;
+  setTab("document");
+  window.setTimeout(() => {
+    const root = document.getElementById("generated-doc-content");
+    if (!root) return;
+    let target: HTMLElement | null = null;
+    if (loc.anchor) target = document.getElementById(loc.anchor);
+    if (!target && loc.quote) {
+      const needle = String(loc.quote).trim().slice(0, 40).toLowerCase();
+      if (needle) {
+        const nodes = Array.from(
+          root.querySelectorAll("p, li, h1, h2, h3, h4, blockquote"),
+        ) as HTMLElement[];
+        target = nodes.find((n) => n.innerText.toLowerCase().includes(needle)) ?? null;
+      }
+    }
+    if (!target && loc.section) {
+      const needle = String(loc.section).toLowerCase();
+      const heads = Array.from(root.querySelectorAll("h1,h2,h3,h4")) as HTMLElement[];
+      target = heads.find((n) => n.innerText.toLowerCase().includes(needle)) ?? null;
+    }
+    if (!target && loc.paragraph != null) {
+      const idx = Number(loc.paragraph);
+      if (Number.isFinite(idx) && idx > 0) {
+        const paras = Array.from(root.querySelectorAll("p")) as HTMLElement[];
+        target = paras[idx - 1] ?? null;
+      }
+    }
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.classList.add("doc-highlight");
+      window.setTimeout(() => target?.classList.remove("doc-highlight"), 2400);
+    }
+  }, 140);
+}
+
+function LocationBadge({ loc }: { loc: LocationRef | null }) {
+  if (!loc) return null;
+  const parts: string[] = [];
+  if (loc.section != null && loc.section !== "") parts.push(`раздел ${loc.section}`);
+  if (loc.subsection != null && loc.subsection !== "") parts.push(`подраздел ${loc.subsection}`);
+  if (loc.paragraph != null && loc.paragraph !== "") parts.push(`абз. ${loc.paragraph}`);
+  if (loc.sentence != null && loc.sentence !== "") parts.push(`предл. ${loc.sentence}`);
+  if (parts.length === 0) return <span className="text-[11px] text-foreground/55">—</span>;
+  return <span className="text-[11px] text-foreground/80">{parts.join(" · ")}</span>;
+}
+
+function GoToButton({
+  loc,
+  setTab,
+  label = "Перейти",
+}: {
+  loc: LocationRef | null;
+  setTab: (t: TabId) => void;
+  label?: string;
+}) {
+  if (!loc) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => navigateToLocation(loc, setTab)}
+      className="inline-flex items-center gap-1 rounded-md border border-sky-300/40 bg-sky-400/15 px-2 py-0.5 text-[11px] text-sky-100 hover:bg-sky-400/25"
+    >
+      <ExternalLink size={10} /> {label}
+    </button>
+  );
+}
+
+function ExpandableQuote({ quote }: { quote?: string | null }) {
+  const [open, setOpen] = useState(false);
+  if (!quote || typeof quote !== "string" || !quote.trim()) return null;
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="text-[11px] text-sky-200 hover:underline"
+      >
+        {open ? "▲ Скрыть цитату" : "▼ Показать цитату"}
+      </button>
+      {open && (
+        <blockquote className="mt-1 whitespace-pre-wrap border-l-2 border-sky-300/40 bg-black/20 p-2 text-xs italic text-foreground/85">
+          «{quote.trim()}»
+        </blockquote>
+      )}
+    </div>
+  );
+}
+
+/* ============ Source Citation ============ */
+
+type CitationKind =
+  | "law"
+  | "court"
+  | "plenum"
+  | "fns"
+  | "minfin"
+  | "ekaterina"
+  | "client_doc"
+  | "generic";
+
+function detectKind(s: any): CitationKind {
+  const k = String(s?.kind ?? s?.type ?? s?.source_type ?? "").toLowerCase();
+  if (k.includes("plenum") || k.includes("пленум")) return "plenum";
+  if (k.includes("court") || k.includes("суд") || s?.case_number) return "court";
+  if (k.includes("fns") || k.includes("фнс")) return "fns";
+  if (k.includes("minfin") || k.includes("минфин")) return "minfin";
+  if (k.includes("ekaterina") || k.includes("екатерин") || k.includes("practice_archive")) return "ekaterina";
+  if (k.includes("client") || k.includes("intake") || k.includes("ocr") || s?.ocr_block != null) return "client_doc";
+  if (k.includes("law") || k.includes("норм") || k.includes("кодекс") || k.includes("статья") || s?.article) return "law";
+  return "generic";
+}
+
+const KIND_LABEL: Record<CitationKind, string> = {
+  law: "Закон",
+  court: "Судебная практика",
+  plenum: "Пленум",
+  fns: "Письмо ФНС",
+  minfin: "Письмо Минфина",
+  ekaterina: "Практика Екатерины",
+  client_doc: "Документ клиента",
+  generic: "Источник",
+};
+
+function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) => void }) {
+  if (!source || typeof source !== "object") {
+    return (
+      <div className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs text-foreground/85">
+        {String(source ?? "—")}
+      </div>
+    );
+  }
+  const kind = detectKind(source);
+  const loc = pickLocation(source);
+  const quote =
+    source.quote ?? source.cited_text ?? source.text_fragment ?? source.fragment ?? source.excerpt;
+  const url = source.url ?? source.link;
+  const rows: Array<[string, any]> = [];
+  const push = (label: string, value: any) => {
+    if (value != null && value !== "") rows.push([label, value]);
+  };
+
+  if (kind === "law") {
+    push("Нормативный акт", source.act ?? source.code ?? source.law ?? source.title ?? source.name);
+    push("Статья", source.article ?? source.статья);
+    push("Часть", source.part ?? source.часть);
+    push("Пункт", source.point ?? source.пункт);
+    push("Подпункт", source.subpoint ?? source.подпункт);
+    push("Абзац", source.paragraph ?? source.абзац);
+    push("Предложение", source.sentence ?? source.предложение);
+  } else if (kind === "court") {
+    push("Суд", source.court ?? source.суд);
+    push("Дело", source.case_number ?? source.case ?? source.number);
+    push("Дата", source.date ?? source.date_decided);
+    push("Документ", source.document_type ?? source.title ?? source.name);
+    push("Пункт", source.point);
+    push("Подпункт", source.subpoint);
+    push("Абзац", source.paragraph);
+    push("Страница", source.page);
+  } else if (kind === "plenum") {
+    push("Постановление", source.title ?? source.name ?? "Пленум");
+    push("Номер", source.number ?? source.case_number);
+    push("Дата", source.date);
+    push("Пункт", source.point);
+    push("Подпункт", source.subpoint);
+    push("Абзац", source.paragraph);
+  } else if (kind === "fns" || kind === "minfin") {
+    push(kind === "fns" ? "Письмо ФНС" : "Письмо Минфина", source.title ?? source.name ?? "Письмо");
+    push("Номер", source.number ?? source.letter_number);
+    push("Дата", source.date);
+    push("Раздел", source.section);
+    push("Пункт", source.point);
+    push("Подпункт", source.subpoint);
+    push("Абзац", source.paragraph);
+  } else if (kind === "ekaterina") {
+    push("Архив", source.archive ?? source.archive_name);
+    push("Файл", source.file ?? source.file_name);
+    push("Версия", source.version);
+    push("Страница", source.page);
+    push("Абзац", source.paragraph);
+  } else if (kind === "client_doc") {
+    push("Файл", source.file ?? source.file_name ?? source.document_name);
+    push("Страница", source.page);
+    push("OCR block", source.ocr_block);
+    push("Абзац", source.paragraph);
+    push(
+      "OCR координаты",
+      source.ocr_coords ? JSON.stringify(source.ocr_coords) : null,
+    );
+  } else {
+    push("Название", source.title ?? source.name ?? source.source_id);
+    push("Тип", source.type ?? source.kind);
+  }
+
+  return (
+    <div className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs text-foreground/85">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-foreground/75">
+          {KIND_LABEL[kind]}
+        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {source.verification_status && (
+            <span className={CHIP}>verif: {String(source.verification_status)}</span>
+          )}
+          {source.actuality_status && (
+            <span className={CHIP}>actuality: {String(source.actuality_status)}</span>
+          )}
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-sky-200 hover:underline"
+            >
+              <ExternalLink size={11} /> {kind === "law" ? "Перейти к статье" : "Открыть"}
+            </a>
+          )}
+        </div>
+      </div>
+      {rows.length > 0 && (
+        <dl className="mt-2 grid grid-cols-[130px_1fr] gap-x-3 gap-y-0.5">
+          {rows.map(([label, value], i) => (
+            <Fragment key={i}>
+              <dt className="text-foreground/55">{label}</dt>
+              <dd className="break-words text-foreground/90">{String(value)}</dd>
+            </Fragment>
+          ))}
+        </dl>
+      )}
+      <ExpandableQuote quote={typeof quote === "string" ? quote : undefined} />
+      {loc && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 p-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] uppercase text-foreground/55">Использовано в документе</span>
+            <LocationBadge loc={loc} />
+          </div>
+          <GoToButton loc={loc} setTab={setTab} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============ Review Problem Card ============ */
+
+function severityTone(sev?: string) {
+  const s = String(sev ?? "").toLowerCase();
+  if (s.includes("crit") || s.includes("high") || s.includes("крит") || s.includes("выс"))
+    return "border-red-400/40 bg-red-500/15 text-red-50";
+  if (s.includes("med") || s.includes("сред"))
+    return "border-amber-300/40 bg-amber-400/10 text-amber-50";
+  return "border-emerald-300/40 bg-emerald-400/10 text-emerald-50";
+}
+
+function ReviewProblemCard({
+  index,
+  item,
+  setTab,
+}: {
+  index: number;
+  item: any;
+  setTab: (t: TabId) => void;
+}) {
+  if (typeof item === "string") {
+    return (
+      <div className="rounded-xl border border-white/15 bg-white/5 p-3 text-sm text-foreground/85">
+        <div className="text-[11px] uppercase text-foreground/55">Проблема №{index}</div>
+        <div className="mt-1">{item}</div>
+      </div>
+    );
+  }
+  if (!item || typeof item !== "object") return null;
+  const title =
+    item.title ?? item.summary ?? item.problem ?? item.issue ?? item.message ?? `Проблема №${index}`;
+  const severity = item.severity ?? item.priority ?? item.risk;
+  const where = item.where ?? item.location ?? item.placement;
+  const loc = pickLocation(where ?? item);
+  const reason = item.reason ?? item.cause ?? item.why ?? item.description ?? item.detail;
+  const recommendation =
+    item.recommendation ?? item.fix ?? item.suggested_fix ?? item.action ?? item.advice;
+  const fragment = item.text_fragment ?? item.fragment ?? item.quote ?? item.excerpt;
+  return (
+    <div className="rounded-xl border border-white/15 bg-white/5 p-4 text-sm text-foreground/85">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[11px] uppercase text-foreground/55">Проблема №{index}</div>
+          <div className="mt-1 font-semibold text-white">{String(title)}</div>
+        </div>
+        {severity && (
+          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${severityTone(String(severity))}`}>
+            {String(severity)}
+          </span>
+        )}
+      </div>
+      {loc && (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 p-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] uppercase text-foreground/55">Где найдено</span>
+            <LocationBadge loc={loc} />
+          </div>
+          <GoToButton loc={loc} setTab={setTab} />
+        </div>
+      )}
+      {fragment && (
+        <blockquote className="mt-2 whitespace-pre-wrap border-l-2 border-white/20 bg-black/20 p-2 text-xs italic text-foreground/80">
+          «{String(fragment).trim()}»
+        </blockquote>
+      )}
+      {reason && (
+        <div className="mt-3">
+          <div className="text-[11px] uppercase text-foreground/55">Причина</div>
+          <p className="mt-0.5 whitespace-pre-wrap text-foreground/90">{String(reason)}</p>
+        </div>
+      )}
+      {recommendation && (
+        <div className="mt-3">
+          <div className="text-[11px] uppercase text-foreground/55">Рекомендация</div>
+          <p className="mt-0.5 whitespace-pre-wrap text-foreground/90">{String(recommendation)}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReviewSection({
+  title,
+  items,
+  setTab,
+  startIndex = 1,
+}: {
+  title: string;
+  items: any[];
+  setTab: (t: TabId) => void;
+  startIndex?: number;
+}) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      <h3 className="text-sm font-semibold text-white">{title}</h3>
+      <div className="space-y-2">
+        {items.map((it, i) => (
+          <ReviewProblemCard key={i} index={startIndex + i} item={it} setTab={setTab} />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function DocumentDetailPage() {
@@ -468,6 +844,7 @@ function DocumentDetailPage() {
                   />
                 ) : (
                   <div
+                    id="generated-doc-content"
                     className="doc-prose min-h-[900px]"
                     style={{
                       fontFamily: '"Times New Roman", Times, serif',
@@ -554,12 +931,13 @@ function DocumentDetailPage() {
                 .doc-prose blockquote { border-left: 3px solid #d1d5db; padding-left: 12px; color: #374151; margin: 10px 0; }
                 .doc-prose hr { border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0; }
                 .doc-prose code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+                .doc-highlight { background: #fde68a !important; transition: background-color 0.4s ease; border-radius: 4px; box-shadow: 0 0 0 4px #fde68a; }
               `}</style>
             </section>
           )}
 
           {tab === "reasoning" && (
-            <ReasoningTab analysis={analysis} meta={meta} />
+            <ReasoningTab analysis={analysis} meta={meta} setTab={setTab} />
           )}
 
           {tab === "analysis" && (
@@ -590,38 +968,31 @@ function DocumentDetailPage() {
 
           {tab === "sources" && (
             <section className={`${GLASS} p-5 space-y-3`}>
+              <div>
+                <h2 className="font-display text-lg text-white">Источники</h2>
+                <p className="mt-1 text-xs text-foreground/65">
+                  Точная локализация: статья, пункт, абзац, страница, цитата. Кнопка «Перейти» открывает место в документе, где источник был использован.
+                </p>
+              </div>
               {sources.length === 0 && (
                 <p className="text-sm text-foreground/70">Источники не указаны.</p>
               )}
-              <ul className="space-y-2">
+              <div className="space-y-2">
                 {sources.map((s: any, i: number) => (
-                  <li key={i} className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs text-foreground/85">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="font-medium text-white">{s.title ?? s.name ?? s.source_id ?? "Источник"}</div>
-                      {s.url && (
-                        <a href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-200 hover:underline">
-                          <ExternalLink size={11} /> ссылка
-                        </a>
-                      )}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-foreground/65">
-                      {s.type && <span className={CHIP}>type: {String(s.type)}</span>}
-                      {s.kind && <span className={CHIP}>kind: {String(s.kind)}</span>}
-                      {s.source_id && <span className={CHIP}>id: {String(s.source_id)}</span>}
-                      {s.verification_status && <span className={CHIP}>verif: {String(s.verification_status)}</span>}
-                      {s.actuality_status && <span className={CHIP}>actuality: {String(s.actuality_status)}</span>}
-                    </div>
-                    {(s.used_for || s.why_selected) && (
-                      <p className="mt-2 text-foreground/75">{s.used_for ?? s.why_selected}</p>
-                    )}
-                  </li>
+                  <SourceCitation key={i} source={s} setTab={setTab} />
                 ))}
-              </ul>
+              </div>
             </section>
           )}
 
           {tab === "review" && (
-            <section className={`${GLASS} p-5 space-y-3`}>
+            <section className={`${GLASS} p-5 space-y-4`}>
+              <div>
+                <h2 className="font-display text-lg text-white">AI Review</h2>
+                <p className="mt-1 text-xs text-foreground/65">
+                  Найденные проблемы, причины и рекомендации. Каждый блок содержит ссылку на место в документе.
+                </p>
+              </div>
               {!reviewRun && (
                 <p className="text-sm text-foreground/70">AI Review для этого документа не найден.</p>
               )}
@@ -632,13 +1003,29 @@ function DocumentDetailPage() {
                     <Stat label="Риск галлюцинаций" value={review?.hallucination_risk ?? pickScalar(meta, "hallucination_risk")} />
                     <Stat label="Нужен юрист" value={String(review?.needs_lawyer_review ?? "—")} />
                   </div>
-                  <RiskList title="Обязательные правки" items={review?.required_fixes ?? pickArray(meta, "required_fixes")} />
-                  <RiskList title="Рекомендации" items={review?.recommendations ?? pickArray(meta, "recommendations")} />
-                  <RiskList title="Проблемы" items={review?.problems ?? pickArray(meta, "problems")} />
+                  {(() => {
+                    const problems = (review?.problems ?? pickArray(meta, "problems")) as any[];
+                    const fixes = (review?.required_fixes ?? pickArray(meta, "required_fixes")) as any[];
+                    const recs = (review?.recommendations ?? pickArray(meta, "recommendations")) as any[];
+                    const total = (problems?.length ?? 0) + (fixes?.length ?? 0) + (recs?.length ?? 0);
+                    if (total === 0) {
+                      return (
+                        <p className="text-sm text-foreground/70">Замечаний нет.</p>
+                      );
+                    }
+                    return (
+                      <>
+                        <ReviewSection title="Проблемы" items={problems} setTab={setTab} />
+                        <ReviewSection title="Обязательные правки" items={fixes} setTab={setTab} startIndex={(problems?.length ?? 0) + 1} />
+                        <ReviewSection title="Рекомендации" items={recs} setTab={setTab} startIndex={(problems?.length ?? 0) + (fixes?.length ?? 0) + 1} />
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </section>
           )}
+
 
           {tab === "history" && (
             <section className={`${GLASS} p-5 space-y-3 text-sm text-foreground/85`}>
@@ -862,7 +1249,7 @@ function renderText(v: any): string {
   return JSON.stringify(v);
 }
 
-function ReasoningTab({ analysis, meta }: { analysis: any; meta: any }) {
+function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; setTab: (t: TabId) => void }) {
   const factToLaw: any[] = Array.isArray(analysis?.fact_to_law_mapping) ? analysis.fact_to_law_mapping : [];
   const factToEvidence: any[] = getFactToEvidenceMapping(analysis, meta);
   const applicableLaws: any[] = Array.isArray(analysis?.applicable_laws) ? analysis.applicable_laws : [];
@@ -1008,8 +1395,14 @@ function ReasoningTab({ analysis, meta }: { analysis: any; meta: any }) {
             </ReasoningCard>
 
             <ReasoningCard tone="law" title="Норма">
-              <div className="font-medium text-white">{lawLabel}</div>
-              {lawObj?.text && <div className="mt-1 whitespace-pre-wrap text-xs text-foreground/75">{lawObj.text}</div>}
+              <SourceCitation
+                source={
+                  lawObj && typeof lawObj === "object"
+                    ? { kind: "law", ...lawObj }
+                    : { kind: "law", title: lawLabel }
+                }
+                setTab={setTab}
+              />
             </ReasoningCard>
 
             {whyApplicable && (
@@ -1037,22 +1430,11 @@ function ReasoningTab({ analysis, meta }: { analysis: any; meta: any }) {
 
             {supportingResolved.length > 0 && (
               <ReasoningCard tone="default" title={`Источники · ${supportingResolved.length}`}>
-                <ul className="space-y-1.5">
+                <div className="space-y-2">
                   {supportingResolved.map((s: any, k: number) => (
-                    <li key={k} className="rounded border border-white/10 bg-black/20 p-2 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-foreground/90">
-                          {renderText(s?.title ?? s?.name ?? s?.source_id ?? s)}
-                        </span>
-                        {s?.url && (
-                          <a href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-200 hover:underline">
-                            <ExternalLink size={11} /> ссылка
-                          </a>
-                        )}
-                      </div>
-                    </li>
+                    <SourceCitation key={k} source={s} setTab={setTab} />
                   ))}
-                </ul>
+                </div>
               </ReasoningCard>
             )}
 
@@ -1094,50 +1476,41 @@ function ReasoningTab({ analysis, meta }: { analysis: any; meta: any }) {
       <div className="grid gap-3 md:grid-cols-2">
         {courtPractice.length > 0 && (
           <ReasoningCard tone="default" title={`Судебная практика · ${courtPractice.length}`}>
-            <ul className="space-y-1.5 text-xs">
+            <div className="space-y-2">
               {courtPractice.map((c: any, k: number) => (
-                <li key={k} className="rounded border border-white/10 bg-black/20 p-2">
-                  <div className="text-foreground/90">{renderText(c?.title ?? c?.case ?? c?.number ?? c)}</div>
-                  {(c?.relevance ?? c?.why_relevant) && (
-                    <div className="mt-1 text-foreground/65">{renderText(c?.relevance ?? c?.why_relevant)}</div>
-                  )}
-                </li>
+                <SourceCitation key={k} source={{ kind: "court", ...c }} setTab={setTab} />
               ))}
-            </ul>
+            </div>
           </ReasoningCard>
         )}
         {rejectedPractice.length > 0 && (
           <ReasoningCard tone="default" title={`Отклонённая практика · ${rejectedPractice.length}`}>
-            <ul className="space-y-1.5 text-xs">
+            <div className="space-y-2">
               {rejectedPractice.map((c: any, k: number) => (
-                <li key={k} className="rounded border border-white/10 bg-black/20 p-2">
-                  <div className="text-foreground/90">{renderText(c?.title ?? c?.case ?? c?.number ?? c)}</div>
-                  {(c?.reason ?? c?.why_rejected) && (
-                    <div className="mt-1 text-foreground/65">{renderText(c?.reason ?? c?.why_rejected)}</div>
-                  )}
-                </li>
+                <SourceCitation key={k} source={{ kind: "court", ...c }} setTab={setTab} />
               ))}
-            </ul>
+            </div>
           </ReasoningCard>
         )}
         {fnsLetters.length > 0 && (
           <ReasoningCard tone="default" title={`Письма ФНС · ${fnsLetters.length}`}>
-            <ul className="space-y-1 text-xs">
+            <div className="space-y-2">
               {fnsLetters.map((c: any, k: number) => (
-                <li key={k}>{renderText(c?.title ?? c?.number ?? c)}</li>
+                <SourceCitation key={k} source={{ kind: "fns", ...c }} setTab={setTab} />
               ))}
-            </ul>
+            </div>
           </ReasoningCard>
         )}
         {minfinLetters.length > 0 && (
           <ReasoningCard tone="default" title={`Письма Минфина · ${minfinLetters.length}`}>
-            <ul className="space-y-1 text-xs">
+            <div className="space-y-2">
               {minfinLetters.map((c: any, k: number) => (
-                <li key={k}>{renderText(c?.title ?? c?.number ?? c)}</li>
+                <SourceCitation key={k} source={{ kind: "minfin", ...c }} setTab={setTab} />
               ))}
-            </ul>
+            </div>
           </ReasoningCard>
         )}
+
         {counterArguments.length > 0 && (
           <ReasoningCard tone="default" title={`Контраргументы · ${counterArguments.length}`}>
             <ul className="space-y-1 text-xs">
