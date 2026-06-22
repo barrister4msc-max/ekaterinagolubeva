@@ -1249,7 +1249,7 @@ function renderText(v: any): string {
   return JSON.stringify(v);
 }
 
-function ReasoningTab({ analysis, meta }: { analysis: any; meta: any }) {
+function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; setTab: (t: TabId) => void }) {
   const factToLaw: any[] = Array.isArray(analysis?.fact_to_law_mapping) ? analysis.fact_to_law_mapping : [];
   const factToEvidence: any[] = getFactToEvidenceMapping(analysis, meta);
   const applicableLaws: any[] = Array.isArray(analysis?.applicable_laws) ? analysis.applicable_laws : [];
