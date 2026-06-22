@@ -1474,7 +1474,34 @@ function DocumentDetailPage() {
       </header>
 
       {/* Workspace layout */}
-      {viewMode === "read" || !showPanel ? (
+      {viewMode === "workspace" ? (
+        <div className="grid gap-4 transition-all duration-300 ease-out lg:grid-cols-[300px_minmax(0,1fr)_460px] xl:grid-cols-[320px_minmax(0,1fr)_500px]">
+          <aside className="no-print min-w-0 lg:sticky lg:top-3 lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto lg:pr-1">
+            <ArgumentNavigator
+              args={argumentsList}
+              filtered={filteredArguments}
+              selectedIndex={selectedArgIndex}
+              onSelect={setSelectedArgIndex}
+              filter={argFilter}
+              onFilterChange={setArgFilter}
+              search={argSearch}
+              onSearchChange={setArgSearch}
+              reviewProblems={reviewProblems}
+            />
+          </aside>
+          <div className="min-w-0">{DocumentPane}</div>
+          <aside className="no-print min-w-0 lg:sticky lg:top-3 lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto lg:pr-1">
+            <ArgumentTree
+              arg={selectedArg}
+              reviewProblems={reviewProblems}
+              expanded={expandedNodes}
+              onToggle={toggleNode}
+              onJumpDoc={() => selectedArg && highlightArgumentInDoc(selectedArg)}
+              setTab={setTab}
+            />
+          </aside>
+        </div>
+      ) : viewMode === "read" || !showPanel ? (
         <div className="min-w-0 transition-all duration-300 ease-out">{DocumentPane}</div>
       ) : (
         <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
