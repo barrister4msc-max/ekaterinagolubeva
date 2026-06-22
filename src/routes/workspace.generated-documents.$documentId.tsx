@@ -963,22 +963,20 @@ function DocumentDetailPage() {
   const selectedArg = argumentsList[selectedArgIndex] ?? null;
 
   const showPanel = viewMode !== "read" && !panelCollapsed;
-  // Right panel: fixed compact width. Doc gets all remaining space — panel
-  // never squeezes the document below its min.
+  // Right panel is a fixed compact column; document fills the rest.
   const gridCols = showPanel
     ? viewMode === "compare"
       ? "min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-      : "lg:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]"
+      : "lg:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_400px]"
     : "lg:grid-cols-1";
 
+  // In Review/Compare the doc fills its column; only Read centers as A4-ish paper.
   const docMaxWidth =
     fit === "width"
-      ? "100%"
+      ? "none"
       : viewMode === "read"
-        ? "clamp(1000px, 82vw, 1200px)"
-        : viewMode === "compare"
-          ? "100%"
-          : "clamp(850px, calc(100vw - 460px), 1400px)";
+        ? "min(1200px, calc(100vw - 160px))"
+        : "none";
   const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
 
   const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
@@ -1568,12 +1566,12 @@ function DocumentDetailPage() {
         <div className="min-w-0 transition-all duration-300 ease-out">{DocumentPane}</div>
       ) : viewMode === "compare" ? (
         // Compare: side-by-side at >=1600px, stacked (doc on top, panel below) otherwise.
-        <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
+        <div className={`grid gap-5 transition-all duration-300 ease-out ${gridCols}`}>
           <div className="min-w-0">{DocumentPane}</div>
           <aside className="no-print min-w-0">{PanelPane}</aside>
         </div>
       ) : (
-        <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
+        <div className={`grid gap-5 transition-all duration-300 ease-out ${gridCols}`}>
           <div className="min-w-0">{DocumentPane}</div>
           <aside className="no-print min-w-0 hidden lg:block">{PanelPane}</aside>
         </div>
@@ -1615,6 +1613,19 @@ function DocumentDetailPage() {
 
       {/* Print + doc styles */}
       <style>{`
+        /* Break out of the workspace .container-wide (max-width:1280px)
+           so the document can use the real viewport width. */
+        .container-wide:has(.ws-doc-root) {
+          max-width: none !important;
+          padding-inline: 1rem !important;
+        }
+        @media (min-width: 1280px) {
+          .container-wide:has(.ws-doc-root) { padding-inline: 1.5rem !important; }
+        }
+        main:has(> .ws-doc-root) { min-width: 0; }
+        .ws-doc-root { min-width: 0; }
+        .ws-doc-root, .ws-doc-root * { box-sizing: border-box; }
+        .doc-paper { width: 100%; }
         .doc-prose h1 { font-size: 1.34em; font-weight: 700; margin: 16px 0 12px; scroll-margin-top: 80px; }
         .doc-prose h2 { font-size: 1.18em; font-weight: 700; margin: 14px 0 10px; scroll-margin-top: 80px; }
         .doc-prose h3 { font-size: 1.06em; font-weight: 600; margin: 12px 0 8px; scroll-margin-top: 80px; }
