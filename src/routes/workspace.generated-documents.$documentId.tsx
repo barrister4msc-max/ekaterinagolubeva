@@ -1491,35 +1491,8 @@ function DocumentDetailPage() {
         </div>
       </header>
 
-      {/* Workspace layout */}
-      {viewMode === "workspace" ? (
-        <div className="grid gap-4 transition-all duration-300 ease-out lg:grid-cols-[300px_minmax(0,1fr)_460px] xl:grid-cols-[320px_minmax(0,1fr)_500px]">
-          <aside className="no-print min-w-0 lg:sticky lg:top-3 lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto lg:pr-1">
-            <ArgumentNavigator
-              args={argumentsList}
-              filtered={filteredArguments}
-              selectedIndex={selectedArgIndex}
-              onSelect={setSelectedArgIndex}
-              filter={argFilter}
-              onFilterChange={setArgFilter}
-              search={argSearch}
-              onSearchChange={setArgSearch}
-              reviewProblems={reviewProblems}
-            />
-          </aside>
-          <div className="min-w-0">{DocumentPane}</div>
-          <aside className="no-print min-w-0 lg:sticky lg:top-3 lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto lg:pr-1">
-            <ArgumentTree
-              arg={selectedArg}
-              reviewProblems={reviewProblems}
-              expanded={expandedNodes}
-              onToggle={toggleNode}
-              onJumpDoc={() => selectedArg && highlightArgumentInDoc(selectedArg)}
-              setTab={setTab}
-            />
-          </aside>
-        </div>
-      ) : viewMode === "read" || !showPanel ? (
+      {/* Workspace layout — two areas only: document + analytical panel */}
+      {viewMode === "read" || !showPanel ? (
         <div className="min-w-0 transition-all duration-300 ease-out">{DocumentPane}</div>
       ) : (
         <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
@@ -1527,6 +1500,40 @@ function DocumentDetailPage() {
           <aside className="no-print min-w-0">{PanelPane}</aside>
         </div>
       )}
+
+      {/* Arguments drawer */}
+      <Sheet open={argDrawerOpen} onOpenChange={setArgDrawerOpen}>
+        <SheetContent side="left" className="w-[400px] sm:max-w-[420px] border-slate-700 bg-slate-950 p-0 text-slate-100">
+          <SheetHeader className="border-b border-slate-800 px-4 py-3">
+            <SheetTitle className="text-white">Навигатор аргументов</SheetTitle>
+            <SheetDescription className="text-slate-400">
+              Выберите аргумент — документ прокрутится к нужному месту, правая панель покажет цепочку обоснования.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="h-[calc(100vh-110px)] overflow-y-auto p-3">
+            <ArgumentNavigator
+              args={argumentsList}
+              filtered={filteredArguments}
+              selectedIndex={selectedArgIndex}
+              onSelect={(i) => {
+                setSelectedArgIndex(i);
+                setArgDrawerOpen(false);
+                setTab("reasoning");
+                window.setTimeout(() => {
+                  const a = argumentsList[i];
+                  if (a) highlightArgumentInDoc(a);
+                }, 120);
+              }}
+              filter={argFilter}
+              onFilterChange={setArgFilter}
+              search={argSearch}
+              onSearchChange={setArgSearch}
+              reviewProblems={reviewProblems}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
 
       {/* Print + doc styles */}
       <style>{`
