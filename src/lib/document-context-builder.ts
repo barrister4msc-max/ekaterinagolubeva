@@ -405,7 +405,15 @@ export function buildDocumentContext(analysis: LegalAnalysisResult): DocumentCon
   const usedAudit = analysis.documents_audit?.used ?? [];
   const rejectedAudit = analysis.documents_audit?.rejected ?? [];
 
-  const { score, breakdown } = computeQuality(analysis);
+  const factToEvidence = buildFactToEvidenceMapping(
+    analysis.facts ?? [],
+    usedAudit,
+    analysis.fact_to_law_mapping ?? [],
+    analysis.missing_evidence ?? [],
+  );
+  const generationInstructions = expandGenerationInstructions(analysis);
+
+  const { score, breakdown } = computeQuality(analysis, factToEvidence, generationInstructions.length);
   const summary = buildSummary(analysis, score);
 
   return {
