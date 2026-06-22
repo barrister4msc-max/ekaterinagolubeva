@@ -1613,6 +1613,19 @@ function DocumentDetailPage() {
 
       {/* Print + doc styles */}
       <style>{`
+        /* Break out of the workspace .container-wide (max-width:1280px)
+           so the document can use the real viewport width. */
+        .container-wide:has(.ws-doc-root) {
+          max-width: none !important;
+          padding-inline: 1rem !important;
+        }
+        @media (min-width: 1280px) {
+          .container-wide:has(.ws-doc-root) { padding-inline: 1.5rem !important; }
+        }
+        main:has(> .ws-doc-root) { min-width: 0; }
+        .ws-doc-root { min-width: 0; }
+        .ws-doc-root, .ws-doc-root * { box-sizing: border-box; }
+        .doc-paper { width: 100%; }
         .doc-prose h1 { font-size: 1.34em; font-weight: 700; margin: 16px 0 12px; scroll-margin-top: 80px; }
         .doc-prose h2 { font-size: 1.18em; font-weight: 700; margin: 14px 0 10px; scroll-margin-top: 80px; }
         .doc-prose h3 { font-size: 1.06em; font-weight: 600; margin: 12px 0 8px; scroll-margin-top: 80px; }
