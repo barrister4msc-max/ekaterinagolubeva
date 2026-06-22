@@ -66,6 +66,14 @@ export type DocumentContextQualityBreakdown = {
   documents: number;
 };
 
+export type FactEvidenceLink = {
+  fact: string;
+  document_ids: string[];
+  document_titles: string[];
+  evidence: string[];
+  supporting_laws: string[];
+};
+
 export type DocumentContext = {
   // Core narrative
   facts: ContextSection<string[]>;
@@ -90,6 +98,7 @@ export type DocumentContext = {
   // Generator hand-off
   generation_instructions: string[];
   fact_to_law_mapping: LegalAnalysisMapping[];
+  fact_to_evidence_mapping: FactEvidenceLink[];
 
   // Provenance
   documents_used: LegalAnalysisDocAudit[];
