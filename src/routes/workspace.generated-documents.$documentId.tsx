@@ -931,6 +931,7 @@ function DocumentDetailPage() {
                 .doc-prose blockquote { border-left: 3px solid #d1d5db; padding-left: 12px; color: #374151; margin: 10px 0; }
                 .doc-prose hr { border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0; }
                 .doc-prose code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+                .doc-highlight { background: #fde68a !important; transition: background-color 0.4s ease; border-radius: 4px; box-shadow: 0 0 0 4px #fde68a; }
               `}</style>
             </section>
           )}
