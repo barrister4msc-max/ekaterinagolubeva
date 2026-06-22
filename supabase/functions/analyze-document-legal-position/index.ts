@@ -18,6 +18,7 @@ import {
   mergeWithRegistry,
   type DocAuditEntry,
 } from "./merge.ts";
+import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
