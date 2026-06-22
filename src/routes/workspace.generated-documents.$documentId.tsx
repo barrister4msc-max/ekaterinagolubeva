@@ -537,7 +537,10 @@ function ReviewProblemCard({
     item.recommendation ?? item.fix ?? item.suggested_fix ?? item.action ?? item.advice;
   const fragment = item.text_fragment ?? item.fragment ?? item.quote ?? item.excerpt;
   return (
-    <div className="rounded-xl border border-white/15 bg-white/5 p-4 text-sm text-foreground/85">
+    <div className="rounded-xl border border-slate-700/70 bg-slate-800/90 p-4 text-sm text-slate-100 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className={PANEL_LABEL}>Проблема №{index}</div>
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-[11px] uppercase text-foreground/55">Проблема №{index}</div>
