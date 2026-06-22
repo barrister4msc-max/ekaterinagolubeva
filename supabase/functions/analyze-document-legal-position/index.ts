@@ -341,6 +341,50 @@ Deno.serve(async (req) => {
     return json({ success: true, run_id: runId, analysis: parsed, metrics });
   } catch (e) {
     const msg = (e as Error).message ?? String(e);
+
+    if (e instanceof AllModelsFailedError) {
+      const aiResult = {
+        error: "all_models_failed",
+        model_attempts: e.attempts,
+        last_error: e.lastError,
+      };
+      await sb
+        .from("document_intake_ai_runs")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          model_name: e.attempts[e.attempts.length - 1]?.model ?? lastModel,
+          error_message: "all_models_failed",
+          ai_result: aiResult as any,
+          source_verification_status: "no_sources",
+          hallucination_risk: "high",
+          legal_accuracy_score: 0,
+          needs_lawyer_review: true,
+        })
+        .eq("id", runId);
+      return json({ success: false, error: "all_models_failed", run_id: runId, model_attempts: e.attempts, last_error: e.lastError }, 200);
+    }
+
+    if (e instanceof FatalGeminiError) {
+      const aiResult = {
+        error: "gemini_fatal",
+        http_status: e.httpStatus,
+        model_attempts: (e as FatalGeminiError).attempts,
+        last_error: msg,
+      };
+      await sb
+        .from("document_intake_ai_runs")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          model_name: (e as FatalGeminiError).attempts[0]?.model ?? lastModel,
+          error_message: msg,
+          ai_result: aiResult as any,
+        })
+        .eq("id", runId);
+      return json({ success: false, error: msg, run_id: runId }, 500);
+    }
+
     if (isParseFailedMessage(msg) && lastRawResponse) {
       await saveParseFailed(msg.replace(/^parse_failed:\s*/i, ""), lastRawResponse);
     } else {
