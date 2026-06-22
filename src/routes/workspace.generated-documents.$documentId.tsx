@@ -908,6 +908,61 @@ function DocumentDetailPage() {
 
   const PANEL_TABS = TABS.filter((t) => t.id !== "document");
 
+  // Build the argument list (the central object of the workspace).
+  const argumentsList = useMemo(() => buildArguments(analysis, meta), [analysis, meta]);
+  const reviewProblems: any[] = useMemo(
+    () => [
+      ...((review?.problems as any[]) ?? pickArray(meta, "problems")),
+      ...((review?.required_fixes as any[]) ?? pickArray(meta, "required_fixes")),
+      ...((review?.recommendations as any[]) ?? pickArray(meta, "recommendations")),
+    ],
+    [review, meta],
+  );
+
+  // Filter + search arguments
+  const filteredArguments = useMemo(() => {
+    const q = argSearch.trim().toLowerCase();
+    return argumentsList.filter((a) => {
+      if (q) {
+        const hay = `${a.title} ${a.factText} ${a.lawLabel}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      switch (argFilter) {
+        case "high":
+          return a.trust.level === "low"; // high risk = low trust
+        case "medium":
+          return a.trust.level === "medium";
+        case "low":
+          return a.trust.level === "high";
+        case "no_evidence":
+          return a.evidenceDocs.length === 0;
+        case "ai_issues":
+          return matchReviewForArg(a, reviewProblems).length > 0;
+        case "needs_review":
+          return a.needsReview;
+        default:
+          return true;
+      }
+    });
+  }, [argumentsList, argFilter, argSearch, reviewProblems]);
+
+  // Clamp selectedArgIndex to valid range
+  useEffect(() => {
+    if (argumentsList.length === 0) return;
+    if (selectedArgIndex >= argumentsList.length) setSelectedArgIndex(0);
+  }, [argumentsList.length, selectedArgIndex]);
+
+  // Sync: when selected argument changes, highlight all its mentions in the document.
+  useEffect(() => {
+    if (viewMode !== "workspace") return;
+    const arg = argumentsList[selectedArgIndex];
+    if (!arg) return;
+    const t = window.setTimeout(() => highlightArgumentInDoc(arg), 80);
+    return () => window.clearTimeout(t);
+  }, [selectedArgIndex, viewMode, argumentsList]);
+
+  const selectedArg = argumentsList[selectedArgIndex] ?? null;
+
   const showPanel = viewMode !== "read" && !panelCollapsed;
   const gridCols =
     viewMode === "compare" && showPanel
