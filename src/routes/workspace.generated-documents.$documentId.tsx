@@ -511,10 +511,15 @@ function DocumentDetailPage() {
   const isNestedRoute = /\/workspace\/generated-documents\/[^/]+\/(revise|versions)$/.test(pathname);
 
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabId>("document");
+  const [tab, setTab] = useState<TabId>("reasoning");
   const [edited, setEdited] = useState<string>("");
   const [dirty, setDirty] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [viewMode, setViewMode] = useState<"read" | "review" | "compare">("review");
+  const [zoom, setZoom] = useState<number>(100);
+  const [fit, setFit] = useState<"none" | "width" | "page">("none");
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [tocOpen, setTocOpen] = useState(false);
 
   const { data: doc, isLoading, error } = useQuery({
     queryKey: ["generated-document", documentId],
