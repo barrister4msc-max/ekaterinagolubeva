@@ -844,6 +844,7 @@ function DocumentDetailPage() {
                   />
                 ) : (
                   <div
+                    id="generated-doc-content"
                     className="doc-prose min-h-[900px]"
                     style={{
                       fontFamily: '"Times New Roman", Times, serif',
