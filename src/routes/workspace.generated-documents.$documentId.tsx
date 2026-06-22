@@ -1339,6 +1339,7 @@ function DocumentDetailPage() {
 
           {/* Mode switcher */}
           <div className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 p-1">
+            <ModeBtn mode="workspace" icon={Scale} label="Workspace" />
             <ModeBtn mode="read" icon={BookOpen} label="Чтение" />
             <ModeBtn mode="review" icon={ClipboardCheck} label="Проверка" />
             <ModeBtn mode="compare" icon={Columns} label="Сравнение" />
