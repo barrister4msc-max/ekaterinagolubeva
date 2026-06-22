@@ -1377,29 +1377,8 @@ function DocumentDetailPage() {
       )}
     </div>
   );
-  if (isNestedRoute) {
-    return <Outlet />;
-  }
-  if (isLoading) {
-    return (
-      <div className={`${GLASS} flex items-center gap-2 p-6 text-sm text-foreground/80`}>
-        <Loader2 size={14} className="animate-spin" /> Загружаем документ…
-      </div>
-    );
-  }
-  if (error || !doc) {
-    return (
-      <div className={`${GLASS} p-6 text-sm text-red-200`}>
-        <div className="mb-3">{(error as Error)?.message ?? "Документ не найден"}</div>
-        <Link
-          to="/workspace/generated-documents"
-          className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-foreground/90 hover:bg-white/20"
-        >
-          <ArrowLeft size={14} /> Назад к моим документам
-        </Link>
-      </div>
-    );
-  }
+
+
 
   return (
 
