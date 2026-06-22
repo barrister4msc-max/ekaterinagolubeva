@@ -154,28 +154,20 @@ async function callFlashViaLovable(prompt: string): Promise<string | null> {
   }
 }
 
+import { callGeminiWithFallback, FLASH_GEMINI_MODELS } from "./gemini-fallback.ts";
+
 async function callFlashViaGemini(prompt: string): Promise<string | null> {
   if (!GEMINI_API_KEY) return null;
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${FLASH_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 4096,
-          responseMimeType: "application/json",
-        },
-      }),
+    const { text } = await callGeminiWithFallback(prompt, {
+      models: FLASH_GEMINI_MODELS,
+      temperature: 0.1,
+      maxOutputTokens: 4096,
+      responseMimeType: "application/json",
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return (
-      data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? "").join("") ?? null
-    );
-  } catch {
+    return text || null;
+  } catch (e) {
+    console.error("[fact-extraction] gemini fallback exhausted:", (e as Error).message);
     return null;
   }
 }

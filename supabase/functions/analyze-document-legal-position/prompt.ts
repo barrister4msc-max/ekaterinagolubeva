@@ -159,38 +159,21 @@ ${kbBlock}
 }`;
 }
 
-export async function callGeminiPro(
-  prompt: string,
-): Promise<{ text: string; rawResponse: string; model: string }> {
-  const KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
-  const MODEL = "gemini-2.5-pro";
-  if (!KEY) throw new Error("GEMINI_API_KEY is not set");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 8192,
-        responseMimeType: "application/json",
-      },
-    }),
+import {
+  callGeminiWithFallback,
+  FULL_GEMINI_MODELS,
+  type GeminiCallResult,
+} from "./gemini-fallback.ts";
+
+// Backwards-compatible wrapper: now uses cross-model fallback under the hood.
+// Order: gemini-2.5-pro → 2.5-flash → 2.0-flash → 1.5-pro → 1.5-flash.
+export async function callGeminiPro(prompt: string): Promise<GeminiCallResult> {
+  return await callGeminiWithFallback(prompt, {
+    models: FULL_GEMINI_MODELS,
+    temperature: 0.2,
+    maxOutputTokens: 8192,
+    responseMimeType: "application/json",
   });
-  const rawResponse = await res.text();
-  if (!res.ok) {
-    throw new Error(`Gemini ${res.status}: ${rawResponse.slice(0, 1000)}`);
-  }
-  let data: any = null;
-  try {
-    data = JSON.parse(rawResponse);
-  } catch {
-    /* leave null; caller handles */
-  }
-  const text =
-    data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? "").join("") ?? "";
-  return { text, rawResponse, model: MODEL };
 }
 
 // Build a compact document summary from OCR + research query key facts.
