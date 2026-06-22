@@ -641,7 +641,7 @@ function DocumentDetailPage() {
   const [argFilter, setArgFilter] = useState<"all" | "high" | "medium" | "low" | "no_evidence" | "ai_issues" | "needs_review">("all");
   const [argSearch, setArgSearch] = useState<string>("");
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
-    fact: true, evidence: true, law: true, why: true, rejected: false, practice: true, letters: false, counter: false, review: true, conclusion: true,
+    fact: true, evidence: false, law: true, why: false, rejected: false, practice: false, letters: false, counter: false, review: false, conclusion: false,
   });
   const toggleNode = (k: string) => setExpandedNodes((s) => ({ ...s, [k]: !s[k] }));
 
