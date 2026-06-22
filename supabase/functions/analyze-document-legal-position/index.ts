@@ -36,6 +36,19 @@ function json(body: unknown, status = 200) {
   });
 }
 
+function parseFailedResult(message: string, rawResponse: string) {
+  return {
+    error: "parse_failed",
+    message,
+    raw_response: rawResponse,
+    raw_response_preview: rawResponse.slice(0, 4000),
+  };
+}
+
+function isParseFailedMessage(message: string) {
+  return /parse_failed|JSON|Expected|Unexpected|unterminated|empty model output|invalid JSON/i.test(message);
+}
+
 function classifyDocument(d: {
   id: string;
   title: string;
@@ -82,6 +95,29 @@ Deno.serve(async (req) => {
     .single();
   if (runInsertErr) return json({ error: runInsertErr.message }, 500);
   const runId = runRow.id;
+
+  let lastRawResponse = "";
+  let lastModel = MODEL_NAME;
+
+  async function saveParseFailed(message: string, rawResponse: string) {
+    const aiResult = parseFailedResult(message, rawResponse);
+    const { error: updErr } = await sb
+      .from("document_intake_ai_runs")
+      .update({
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        model_name: lastModel,
+        error_message: message,
+        ai_result: aiResult as any,
+        source_verification_status: "no_sources",
+        hallucination_risk: "high",
+        legal_accuracy_score: 0,
+        needs_lawyer_review: true,
+      })
+      .eq("id", runId);
+    if (updErr) console.error("save_parse_failed_diagnostics:", updErr.message);
+    return aiResult;
+  }
 
   try {
     // session
@@ -222,6 +258,8 @@ Deno.serve(async (req) => {
       sources: merged,
     });
     const { text, rawResponse, model } = await callGeminiPro(prompt);
+    lastRawResponse = rawResponse ?? "";
+    lastModel = model ?? MODEL_NAME;
 
     let parsed: any;
     try {
@@ -229,36 +267,14 @@ Deno.serve(async (req) => {
       parsed = extractJson(text);
     } catch (e) {
       const parseMsg = (e as Error).message ?? String(e);
-      // Full raw response goes into ai_result.raw_response (NOT truncated).
-      // Preview is first 4000 chars for quick UI inspection.
-      const fullRaw = rawResponse ?? "";
-      const preview = fullRaw.slice(0, 4000);
-      await sb
-        .from("document_intake_ai_runs")
-        .update({
-          status: "failed",
-          completed_at: new Date().toISOString(),
-          model_name: model,
-          error_message: parseMsg,
-          ai_result: {
-            error: "parse_failed",
-            message: parseMsg,
-            raw_response: fullRaw,
-            raw_response_preview: preview,
-          } as any,
-          source_verification_status: "no_sources",
-          hallucination_risk: "high",
-          legal_accuracy_score: 0,
-          needs_lawyer_review: true,
-        })
-        .eq("id", runId);
+      const diagnostics = await saveParseFailed(parseMsg, lastRawResponse);
       return json(
         {
           success: false,
           run_id: runId,
           error: "parse_failed",
           message: parseMsg,
-          raw_response_preview: preview,
+          raw_response_preview: diagnostics.raw_response_preview,
         },
         200,
       );
@@ -318,14 +334,18 @@ Deno.serve(async (req) => {
     return json({ success: true, run_id: runId, analysis: parsed, metrics });
   } catch (e) {
     const msg = (e as Error).message ?? String(e);
-    await sb
-      .from("document_intake_ai_runs")
-      .update({
-        status: "failed",
-        error_message: msg,
-        completed_at: new Date().toISOString(),
-      })
-      .eq("id", runId);
+    if (isParseFailedMessage(msg) && lastRawResponse) {
+      await saveParseFailed(msg.replace(/^parse_failed:\s*/i, ""), lastRawResponse);
+    } else {
+      await sb
+        .from("document_intake_ai_runs")
+        .update({
+          status: "failed",
+          error_message: msg,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", runId);
+    }
     return json({ success: false, error: msg, run_id: runId }, 500);
   }
 });
