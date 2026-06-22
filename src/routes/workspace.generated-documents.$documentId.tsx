@@ -1163,7 +1163,55 @@ function DocumentDetailPage() {
         ))}
       </div>
 
-      {tab === "reasoning" && <ReasoningTab analysis={analysis} meta={meta} setTab={setTab} />}
+      {tab === "reasoning" && (
+        <div className="space-y-3">
+          {argumentsList.length > 1 && (
+            <div className={`${PANEL} flex items-center justify-between gap-2 p-2`}>
+              <button
+                type="button"
+                onClick={() => setSelectedArgIndex((i) => Math.max(0, i - 1))}
+                disabled={selectedArgIndex <= 0}
+                className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100 disabled:opacity-40"
+              >
+                ← Пред.
+              </button>
+              <div className="text-center text-[11px] text-slate-300">
+                Аргумент <span className="font-semibold text-white">{selectedArgIndex + 1}</span>{" "}
+                из {argumentsList.length}
+                <button
+                  type="button"
+                  onClick={() => setArgDrawerOpen(true)}
+                  className="ml-2 underline decoration-dotted hover:text-white"
+                >
+                  список
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedArgIndex((i) => Math.min(argumentsList.length - 1, i + 1))
+                }
+                disabled={selectedArgIndex >= argumentsList.length - 1}
+                className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100 disabled:opacity-40"
+              >
+                След. →
+              </button>
+            </div>
+          )}
+          {selectedArg ? (
+            <ArgumentTree
+              arg={selectedArg}
+              reviewProblems={reviewProblems}
+              expanded={expandedNodes}
+              onToggle={toggleNode}
+              onJumpDoc={() => selectedArg && highlightArgumentInDoc(selectedArg)}
+              setTab={setTab}
+            />
+          ) : (
+            <ReasoningTab analysis={analysis} meta={meta} setTab={setTab} />
+          )}
+        </div>
+      )}
 
       {tab === "analysis" && (
         <section className={`${PANEL} p-5 space-y-4 text-sm text-slate-100`}>
