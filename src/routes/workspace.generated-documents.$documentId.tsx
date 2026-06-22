@@ -1566,12 +1566,12 @@ function DocumentDetailPage() {
         <div className="min-w-0 transition-all duration-300 ease-out">{DocumentPane}</div>
       ) : viewMode === "compare" ? (
         // Compare: side-by-side at >=1600px, stacked (doc on top, panel below) otherwise.
-        <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
+        <div className={`grid gap-5 transition-all duration-300 ease-out ${gridCols}`}>
           <div className="min-w-0">{DocumentPane}</div>
           <aside className="no-print min-w-0">{PanelPane}</aside>
         </div>
       ) : (
-        <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
+        <div className={`grid gap-5 transition-all duration-300 ease-out ${gridCols}`}>
           <div className="min-w-0">{DocumentPane}</div>
           <aside className="no-print min-w-0 hidden lg:block">{PanelPane}</aside>
         </div>
