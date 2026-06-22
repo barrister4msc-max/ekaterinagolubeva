@@ -963,7 +963,7 @@ function DocumentDetailPage() {
 
   const selectedArg = argumentsList[selectedArgIndex] ?? null;
 
-  const showPanel = viewMode !== "read" && !panelCollapsed;
+  const showPanel = viewMode !== "read" && viewMode !== "workspace" && !panelCollapsed;
   const gridCols =
     viewMode === "compare" && showPanel
       ? "lg:grid-cols-[minmax(0,1fr)_minmax(440px,1fr)]"
@@ -971,15 +971,16 @@ function DocumentDetailPage() {
         ? "lg:grid-cols-[minmax(0,1fr)_minmax(420px,480px)]"
         : "lg:grid-cols-1";
 
-  // Word-like document widths: 1366→~900, 1600→~1000, 1920→~1150, 2560→~1250.
   const docMaxWidth =
     fit === "width"
       ? "100%"
       : viewMode === "read"
         ? "clamp(900px, 72vw, 1250px)"
-        : viewMode === "compare"
+        : viewMode === "workspace"
           ? "100%"
-          : "clamp(880px, 66vw, 1150px)";
+          : viewMode === "compare"
+            ? "100%"
+            : "clamp(880px, 66vw, 1150px)";
   const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
 
   const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
