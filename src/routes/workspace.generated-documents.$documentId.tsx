@@ -27,7 +27,6 @@ import {
   BookOpen,
   ClipboardCheck,
   Columns,
-  Scale,
   Search,
   Filter,
   Target,
@@ -42,6 +41,13 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 import { saveAs } from "file-saver";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId")({
   head: () => ({
@@ -625,7 +631,8 @@ function DocumentDetailPage() {
   const [edited, setEdited] = useState<string>("");
   const [dirty, setDirty] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [viewMode, setViewMode] = useState<"workspace" | "read" | "review" | "compare">("workspace");
+  const [viewMode, setViewMode] = useState<"read" | "review" | "compare">("review");
+  const [argDrawerOpen, setArgDrawerOpen] = useState(false);
   const [zoom, setZoom] = useState<number>(100);
   const [fit, setFit] = useState<"none" | "width" | "page">("none");
   const [panelCollapsed, setPanelCollapsed] = useState(false);
@@ -954,33 +961,27 @@ function DocumentDetailPage() {
 
   // Sync: when selected argument changes, highlight all its mentions in the document.
   useEffect(() => {
-    if (viewMode !== "workspace") return;
     const arg = argumentsList[selectedArgIndex];
     if (!arg) return;
     const t = window.setTimeout(() => highlightArgumentInDoc(arg), 80);
     return () => window.clearTimeout(t);
-  }, [selectedArgIndex, viewMode, argumentsList]);
+  }, [selectedArgIndex, argumentsList]);
 
   const selectedArg = argumentsList[selectedArgIndex] ?? null;
 
-  const showPanel = viewMode !== "read" && viewMode !== "workspace" && !panelCollapsed;
-  const gridCols =
-    viewMode === "compare" && showPanel
-      ? "lg:grid-cols-[minmax(0,1fr)_minmax(440px,1fr)]"
-      : viewMode === "review" && showPanel
-        ? "lg:grid-cols-[minmax(0,1fr)_minmax(420px,480px)]"
-        : "lg:grid-cols-1";
+  const showPanel = viewMode !== "read" && viewMode !== "compare" && !panelCollapsed;
+  const gridCols = showPanel
+    ? "lg:grid-cols-[minmax(0,1fr)_minmax(420px,500px)]"
+    : "lg:grid-cols-1";
 
   const docMaxWidth =
     fit === "width"
       ? "100%"
       : viewMode === "read"
-        ? "clamp(900px, 72vw, 1250px)"
-        : viewMode === "workspace"
+        ? "clamp(950px, 78vw, 1300px)"
+        : viewMode === "compare"
           ? "100%"
-          : viewMode === "compare"
-            ? "100%"
-            : "clamp(880px, 66vw, 1150px)";
+          : "clamp(950px, 70vw, 1300px)";
   const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
 
   const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
@@ -1060,11 +1061,40 @@ function DocumentDetailPage() {
           <div
             id="generated-doc-content"
             className="doc-prose min-h-[900px]"
+            onClick={(e) => {
+              const tgt = (e.target as HTMLElement)?.closest?.(
+                "p, li, h1, h2, h3, h4, blockquote",
+              ) as HTMLElement | null;
+              if (!tgt || argumentsList.length === 0) return;
+              const text = (tgt.innerText || "").toLowerCase();
+              if (text.length < 8) return;
+              let best = -1;
+              let bestLen = 0;
+              for (let i = 0; i < argumentsList.length; i++) {
+                const a = argumentsList[i];
+                const needles: string[] = [];
+                if (a.factText) needles.push(a.factText.toLowerCase().slice(0, 40));
+                for (const loc of a.allLocations) {
+                  if (loc.quote) needles.push(String(loc.quote).toLowerCase().slice(0, 40));
+                }
+                for (const n of needles) {
+                  if (n.length >= 8 && text.includes(n) && n.length > bestLen) {
+                    best = i;
+                    bestLen = n.length;
+                  }
+                }
+              }
+              if (best >= 0) {
+                setSelectedArgIndex(best);
+                setTab("reasoning");
+              }
+            }}
             style={{
               fontFamily: '"Times New Roman", Times, serif',
               fontSize: `${docFontSize}px`,
               lineHeight: 1.9,
               color: "#111827",
+              cursor: argumentsList.length > 0 ? "pointer" : "auto",
             }}
           >
             {edited ? (
@@ -1160,7 +1190,55 @@ function DocumentDetailPage() {
         ))}
       </div>
 
-      {tab === "reasoning" && <ReasoningTab analysis={analysis} meta={meta} setTab={setTab} />}
+      {tab === "reasoning" && (
+        <div className="space-y-3">
+          {argumentsList.length > 1 && (
+            <div className={`${PANEL} flex items-center justify-between gap-2 p-2`}>
+              <button
+                type="button"
+                onClick={() => setSelectedArgIndex((i) => Math.max(0, i - 1))}
+                disabled={selectedArgIndex <= 0}
+                className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100 disabled:opacity-40"
+              >
+                ← Пред.
+              </button>
+              <div className="text-center text-[11px] text-slate-300">
+                Аргумент <span className="font-semibold text-white">{selectedArgIndex + 1}</span>{" "}
+                из {argumentsList.length}
+                <button
+                  type="button"
+                  onClick={() => setArgDrawerOpen(true)}
+                  className="ml-2 underline decoration-dotted hover:text-white"
+                >
+                  список
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedArgIndex((i) => Math.min(argumentsList.length - 1, i + 1))
+                }
+                disabled={selectedArgIndex >= argumentsList.length - 1}
+                className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-slate-100 disabled:opacity-40"
+              >
+                След. →
+              </button>
+            </div>
+          )}
+          {selectedArg ? (
+            <ArgumentTree
+              arg={selectedArg}
+              reviewProblems={reviewProblems}
+              expanded={expandedNodes}
+              onToggle={toggleNode}
+              onJumpDoc={() => selectedArg && highlightArgumentInDoc(selectedArg)}
+              setTab={setTab}
+            />
+          ) : (
+            <ReasoningTab analysis={analysis} meta={meta} setTab={setTab} />
+          )}
+        </div>
+      )}
 
       {tab === "analysis" && (
         <section className={`${PANEL} p-5 space-y-4 text-sm text-slate-100`}>
@@ -1339,11 +1417,26 @@ function DocumentDetailPage() {
 
           {/* Mode switcher */}
           <div className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 p-1">
-            <ModeBtn mode="workspace" icon={Scale} label="Workspace" />
             <ModeBtn mode="read" icon={BookOpen} label="Чтение" />
             <ModeBtn mode="review" icon={ClipboardCheck} label="Проверка" />
             <ModeBtn mode="compare" icon={Columns} label="Сравнение" />
           </div>
+
+          {/* Argument navigator drawer trigger */}
+          <button
+            type="button"
+            onClick={() => setArgDrawerOpen(true)}
+            className={`${BTN} whitespace-nowrap`}
+            title="Навигатор аргументов"
+          >
+            <Target size={12} /> Аргументы
+            {argumentsList.length > 0 && (
+              <span className="ml-1 rounded-full bg-emerald-500/30 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-50">
+                {argumentsList.length}
+              </span>
+            )}
+          </button>
+
 
           {/* TOC */}
           <div className="relative">
@@ -1473,35 +1566,8 @@ function DocumentDetailPage() {
         </div>
       </header>
 
-      {/* Workspace layout */}
-      {viewMode === "workspace" ? (
-        <div className="grid gap-4 transition-all duration-300 ease-out lg:grid-cols-[300px_minmax(0,1fr)_460px] xl:grid-cols-[320px_minmax(0,1fr)_500px]">
-          <aside className="no-print min-w-0 lg:sticky lg:top-3 lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto lg:pr-1">
-            <ArgumentNavigator
-              args={argumentsList}
-              filtered={filteredArguments}
-              selectedIndex={selectedArgIndex}
-              onSelect={setSelectedArgIndex}
-              filter={argFilter}
-              onFilterChange={setArgFilter}
-              search={argSearch}
-              onSearchChange={setArgSearch}
-              reviewProblems={reviewProblems}
-            />
-          </aside>
-          <div className="min-w-0">{DocumentPane}</div>
-          <aside className="no-print min-w-0 lg:sticky lg:top-3 lg:max-h-[calc(100vh-90px)] lg:overflow-y-auto lg:pr-1">
-            <ArgumentTree
-              arg={selectedArg}
-              reviewProblems={reviewProblems}
-              expanded={expandedNodes}
-              onToggle={toggleNode}
-              onJumpDoc={() => selectedArg && highlightArgumentInDoc(selectedArg)}
-              setTab={setTab}
-            />
-          </aside>
-        </div>
-      ) : viewMode === "read" || !showPanel ? (
+      {/* Workspace layout — two areas only: document + analytical panel */}
+      {viewMode === "read" || !showPanel ? (
         <div className="min-w-0 transition-all duration-300 ease-out">{DocumentPane}</div>
       ) : (
         <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
@@ -1509,6 +1575,40 @@ function DocumentDetailPage() {
           <aside className="no-print min-w-0">{PanelPane}</aside>
         </div>
       )}
+
+      {/* Arguments drawer */}
+      <Sheet open={argDrawerOpen} onOpenChange={setArgDrawerOpen}>
+        <SheetContent side="left" className="w-[400px] sm:max-w-[420px] border-slate-700 bg-slate-950 p-0 text-slate-100">
+          <SheetHeader className="border-b border-slate-800 px-4 py-3">
+            <SheetTitle className="text-white">Навигатор аргументов</SheetTitle>
+            <SheetDescription className="text-slate-400">
+              Выберите аргумент — документ прокрутится к нужному месту, правая панель покажет цепочку обоснования.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="h-[calc(100vh-110px)] overflow-y-auto p-3">
+            <ArgumentNavigator
+              args={argumentsList}
+              filtered={filteredArguments}
+              selectedIndex={selectedArgIndex}
+              onSelect={(i) => {
+                setSelectedArgIndex(i);
+                setArgDrawerOpen(false);
+                setTab("reasoning");
+                window.setTimeout(() => {
+                  const a = argumentsList[i];
+                  if (a) highlightArgumentInDoc(a);
+                }, 120);
+              }}
+              filter={argFilter}
+              onFilterChange={setArgFilter}
+              search={argSearch}
+              onSearchChange={setArgSearch}
+              reviewProblems={reviewProblems}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
 
       {/* Print + doc styles */}
       <style>{`
