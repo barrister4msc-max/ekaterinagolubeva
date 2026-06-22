@@ -1,8 +1,8 @@
-import { tryBuildDocumentContext } from "/dev-server/src/lib/document-context-builder.ts";
+import { tryBuildDocumentContext } from "../src/lib/document-context-builder";
 import { createClient } from "@supabase/supabase-js";
 
 const url = (process.env.SUPABASE_URL as string);
-const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || (process.env.SUPABASE_PUBLISHABLE_KEY as string);
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY || (process.env.SUPABASE_PUBLISHABLE_KEY as string);
 const sb = createClient(url, key);
 
 const { data, error } = await sb
