@@ -255,13 +255,11 @@ function DocumentBuilderPage() {
   };
 
   const openGeneratedDocument = () => {
-    if (!generated) return;
-    const md = generated.generated.content || generated.document.content || "";
-    const title = generated.document.title || generated.generated.title || "document";
-    const blob = new Blob([`# ${title}\n\n${md}`], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    if (!generated?.generated_document_id) return;
+    navigate({
+      to: "/workspace/generated-documents/$documentId",
+      params: { documentId: generated.generated_document_id },
+    });
   };
 
   return (
