@@ -1039,7 +1039,7 @@ function DocumentDetailPage() {
       )}
 
       <div
-        className="doc-paper mx-auto w-full px-[60px] py-[70px] shadow-[0_10px_40px_rgba(0,0,0,0.25)] ring-1 ring-black/10"
+        className="doc-paper mx-auto w-full px-6 py-8 shadow-[0_10px_40px_rgba(0,0,0,0.25)] ring-1 ring-black/10 sm:px-10 sm:py-12 lg:px-[60px] lg:py-[70px]"
         style={{ backgroundColor: "#ffffff", maxWidth: docMaxWidth }}
       >
         {editMode ? (
