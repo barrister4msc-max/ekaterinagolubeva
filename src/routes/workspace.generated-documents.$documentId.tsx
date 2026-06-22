@@ -1447,27 +1447,27 @@ function DocumentDetailPage() {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-1.5">
-      <span className="text-[11px] uppercase text-foreground/55">{label}</span>
-      <span className="text-foreground/90">{value}</span>
+    <div className="flex items-center justify-between gap-3 border-b border-slate-700/60 pb-1.5">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{label}</span>
+      <span className="text-slate-100">{value}</span>
     </div>
   );
 }
 
 function SideRow({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wider text-foreground/55">{label}</div>
-      <div className="text-foreground/90">{value}</div>
+    <div className="rounded-lg border border-slate-700/60 bg-slate-900/70 p-2">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</div>
+      <div className="mt-0.5 text-slate-50">{value}</div>
     </div>
   );
 }
 
 function Stat({ label, value }: { label: string; value: any }) {
   return (
-    <div className="rounded-lg border border-white/15 bg-white/5 p-3">
-      <div className="text-[11px] uppercase text-foreground/60">{label}</div>
-      <div className="mt-1 text-sm text-white">{value != null && value !== "" ? String(value) : "—"}</div>
+    <div className="rounded-xl border border-slate-700/70 bg-slate-800/90 p-3">
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{label}</div>
+      <div className="mt-1 text-base font-semibold text-white">{value != null && value !== "" ? String(value) : "—"}</div>
     </div>
   );
 }
