@@ -937,7 +937,7 @@ function DocumentDetailPage() {
           )}
 
           {tab === "reasoning" && (
-            <ReasoningTab analysis={analysis} meta={meta} />
+            <ReasoningTab analysis={analysis} meta={meta} setTab={setTab} />
           )}
 
           {tab === "analysis" && (
