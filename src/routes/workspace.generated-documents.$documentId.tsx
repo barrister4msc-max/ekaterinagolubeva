@@ -841,28 +841,9 @@ function DocumentDetailPage() {
     }
   };
 
-  if (isNestedRoute) {
-    return <Outlet />;
-  }
-  if (isLoading) {
-    return (
-      <div className={`${GLASS} flex items-center gap-2 p-6 text-sm text-foreground/80`}>
-        <Loader2 size={14} className="animate-spin" /> Загрузка документа…
-      </div>
-    );
-  }
-  if (error || !doc) {
-    return (
-      <div className={`${GLASS} p-6 text-sm text-red-200`}>
-        {(error as Error)?.message ?? "Документ не найден"}
-        <div className="mt-3">
-          <Link to="/workspace/generated-documents" className="underline text-foreground/80">
-            ← К списку
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  // NOTE: early returns moved below all hooks to keep hook order stable across renders.
+
+
 
 
   // Markdown headings → TOC entries
@@ -978,6 +959,32 @@ function DocumentDetailPage() {
         ? "min(1200px, calc(100vw - 160px))"
         : "none";
   const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
+
+  // ── Early returns AFTER all hooks (keeps hook order stable across renders) ──
+  if (isNestedRoute) {
+    return <Outlet />;
+  }
+  if (isLoading) {
+    return (
+      <div className={`${GLASS} flex items-center gap-2 p-6 text-sm text-foreground/80`}>
+        <Loader2 size={14} className="animate-spin" /> Загружаем документ…
+      </div>
+    );
+  }
+  if (error || !doc) {
+    return (
+      <div className={`${GLASS} p-6 text-sm text-red-200`}>
+        <div className="mb-3">{(error as Error)?.message ?? "Документ не найден"}</div>
+        <Link
+          to="/workspace/generated-documents"
+          className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-foreground/90 hover:bg-white/20"
+        >
+          <ArrowLeft size={14} /> Назад к моим документам
+        </Link>
+      </div>
+    );
+  }
+
 
   const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
   const zoomDec = () => {
@@ -1397,7 +1404,10 @@ function DocumentDetailPage() {
     </div>
   );
 
+
+
   return (
+
     <div className="ws-doc-root space-y-4">
       {/* Top toolbar */}
       <div className="ws-doc-toolbar no-print sticky top-0 z-50 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/15 bg-slate-950/80 p-3 shadow-2xl backdrop-blur-xl">
