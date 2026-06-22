@@ -968,38 +968,31 @@ function DocumentDetailPage() {
 
           {tab === "sources" && (
             <section className={`${GLASS} p-5 space-y-3`}>
+              <div>
+                <h2 className="font-display text-lg text-white">Источники</h2>
+                <p className="mt-1 text-xs text-foreground/65">
+                  Точная локализация: статья, пункт, абзац, страница, цитата. Кнопка «Перейти» открывает место в документе, где источник был использован.
+                </p>
+              </div>
               {sources.length === 0 && (
                 <p className="text-sm text-foreground/70">Источники не указаны.</p>
               )}
-              <ul className="space-y-2">
+              <div className="space-y-2">
                 {sources.map((s: any, i: number) => (
-                  <li key={i} className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs text-foreground/85">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="font-medium text-white">{s.title ?? s.name ?? s.source_id ?? "Источник"}</div>
-                      {s.url && (
-                        <a href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-200 hover:underline">
-                          <ExternalLink size={11} /> ссылка
-                        </a>
-                      )}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-foreground/65">
-                      {s.type && <span className={CHIP}>type: {String(s.type)}</span>}
-                      {s.kind && <span className={CHIP}>kind: {String(s.kind)}</span>}
-                      {s.source_id && <span className={CHIP}>id: {String(s.source_id)}</span>}
-                      {s.verification_status && <span className={CHIP}>verif: {String(s.verification_status)}</span>}
-                      {s.actuality_status && <span className={CHIP}>actuality: {String(s.actuality_status)}</span>}
-                    </div>
-                    {(s.used_for || s.why_selected) && (
-                      <p className="mt-2 text-foreground/75">{s.used_for ?? s.why_selected}</p>
-                    )}
-                  </li>
+                  <SourceCitation key={i} source={s} setTab={setTab} />
                 ))}
-              </ul>
+              </div>
             </section>
           )}
 
           {tab === "review" && (
-            <section className={`${GLASS} p-5 space-y-3`}>
+            <section className={`${GLASS} p-5 space-y-4`}>
+              <div>
+                <h2 className="font-display text-lg text-white">AI Review</h2>
+                <p className="mt-1 text-xs text-foreground/65">
+                  Найденные проблемы, причины и рекомендации. Каждый блок содержит ссылку на место в документе.
+                </p>
+              </div>
               {!reviewRun && (
                 <p className="text-sm text-foreground/70">AI Review для этого документа не найден.</p>
               )}
@@ -1010,13 +1003,29 @@ function DocumentDetailPage() {
                     <Stat label="Риск галлюцинаций" value={review?.hallucination_risk ?? pickScalar(meta, "hallucination_risk")} />
                     <Stat label="Нужен юрист" value={String(review?.needs_lawyer_review ?? "—")} />
                   </div>
-                  <RiskList title="Обязательные правки" items={review?.required_fixes ?? pickArray(meta, "required_fixes")} />
-                  <RiskList title="Рекомендации" items={review?.recommendations ?? pickArray(meta, "recommendations")} />
-                  <RiskList title="Проблемы" items={review?.problems ?? pickArray(meta, "problems")} />
+                  {(() => {
+                    const problems = (review?.problems ?? pickArray(meta, "problems")) as any[];
+                    const fixes = (review?.required_fixes ?? pickArray(meta, "required_fixes")) as any[];
+                    const recs = (review?.recommendations ?? pickArray(meta, "recommendations")) as any[];
+                    const total = (problems?.length ?? 0) + (fixes?.length ?? 0) + (recs?.length ?? 0);
+                    if (total === 0) {
+                      return (
+                        <p className="text-sm text-foreground/70">Замечаний нет.</p>
+                      );
+                    }
+                    return (
+                      <>
+                        <ReviewSection title="Проблемы" items={problems} setTab={setTab} />
+                        <ReviewSection title="Обязательные правки" items={fixes} setTab={setTab} startIndex={(problems?.length ?? 0) + 1} />
+                        <ReviewSection title="Рекомендации" items={recs} setTab={setTab} startIndex={(problems?.length ?? 0) + (fixes?.length ?? 0) + 1} />
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </section>
           )}
+
 
           {tab === "history" && (
             <section className={`${GLASS} p-5 space-y-3 text-sm text-foreground/85`}>
