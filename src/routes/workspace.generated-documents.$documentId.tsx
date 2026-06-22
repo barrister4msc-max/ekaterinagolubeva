@@ -541,28 +541,25 @@ function ReviewProblemCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className={PANEL_LABEL}>Проблема №{index}</div>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[11px] uppercase text-foreground/55">Проблема №{index}</div>
           <div className="mt-1 font-semibold text-white">{String(title)}</div>
         </div>
         {severity && (
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] ${severityTone(String(severity))}`}>
+          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${severityTone(String(severity))}`}>
             {String(severity)}
           </span>
         )}
       </div>
       {loc && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 p-2">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/70 bg-slate-900/80 p-2">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] uppercase text-foreground/55">Где найдено</span>
+            <span className={PANEL_LABEL}>Где найдено</span>
             <LocationBadge loc={loc} />
           </div>
           <GoToButton loc={loc} setTab={setTab} />
         </div>
       )}
       {fragment && (
-        <blockquote className="mt-2 whitespace-pre-wrap border-l-2 border-white/20 bg-black/20 p-2 text-xs italic text-foreground/80">
+        <blockquote className="mt-2 whitespace-pre-wrap border-l-2 border-slate-500 bg-slate-900/70 p-2 text-xs italic text-slate-100">
           «{String(fragment).trim()}»
         </blockquote>
       )}
