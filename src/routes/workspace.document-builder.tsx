@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText, AlertCircle } from "lucide-react";
@@ -168,6 +168,8 @@ function DocumentBuilderPage() {
     return Array.from(map.entries());
   }, [filtered]);
 
+  const navigate = useNavigate();
+
     const selected = useMemo(
     () => sortedTemplates.find((t) => t.code === selectedCode) ?? null,
     [sortedTemplates, selectedCode],
@@ -255,13 +257,11 @@ function DocumentBuilderPage() {
   };
 
   const openGeneratedDocument = () => {
-    if (!generated) return;
-    const md = generated.generated.content || generated.document.content || "";
-    const title = generated.document.title || generated.generated.title || "document";
-    const blob = new Blob([`# ${title}\n\n${md}`], { type: "text/markdown;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    if (!generated?.generated_document_id) return;
+    navigate({
+      to: "/workspace/generated-documents/$documentId",
+      params: { documentId: generated.generated_document_id },
+    });
   };
 
   return (
