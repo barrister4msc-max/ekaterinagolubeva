@@ -633,7 +633,8 @@ function DocumentDetailPage() {
   const [edited, setEdited] = useState<string>("");
   const [dirty, setDirty] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [viewMode, setViewMode] = useState<"workspace" | "read" | "review" | "compare">("workspace");
+  const [viewMode, setViewMode] = useState<"read" | "review" | "compare">("review");
+  const [argDrawerOpen, setArgDrawerOpen] = useState(false);
   const [zoom, setZoom] = useState<number>(100);
   const [fit, setFit] = useState<"none" | "width" | "page">("none");
   const [panelCollapsed, setPanelCollapsed] = useState(false);
