@@ -18,6 +18,15 @@ import {
   FileText,
   Printer,
   ExternalLink,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  PanelRightOpen,
+  PanelRightClose,
+  List,
+  BookOpen,
+  ClipboardCheck,
+  Columns,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Document, Packer, Paragraph, TextRun } from "docx";
@@ -502,10 +511,15 @@ function DocumentDetailPage() {
   const isNestedRoute = /\/workspace\/generated-documents\/[^/]+\/(revise|versions)$/.test(pathname);
 
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabId>("document");
+  const [tab, setTab] = useState<TabId>("reasoning");
   const [edited, setEdited] = useState<string>("");
   const [dirty, setDirty] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [viewMode, setViewMode] = useState<"read" | "review" | "compare">("review");
+  const [zoom, setZoom] = useState<number>(100);
+  const [fit, setFit] = useState<"none" | "width" | "page">("none");
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [tocOpen, setTocOpen] = useState(false);
 
   const { data: doc, isLoading, error } = useQuery({
     queryKey: ["generated-document", documentId],
@@ -733,6 +747,41 @@ function DocumentDetailPage() {
     );
   }
 
+
+  // Markdown headings → TOC entries
+  const slugify = (s: string, i: number) =>
+    `h-${i}-${s.toLowerCase().replace(/[^a-zа-я0-9]+/gi, "-").slice(0, 40)}`;
+  const headings: { level: number; text: string; slug: string }[] = [];
+  {
+    const lines = (edited || "").split("\n");
+    let idx = 0;
+    for (const line of lines) {
+      const m = /^(#{1,3})\s+(.+?)\s*$/.exec(line);
+      if (m) {
+        headings.push({ level: m[1].length, text: m[2], slug: slugify(m[2], idx++) });
+      }
+    }
+  }
+  const mdComponents = {
+    h1: ({ node: _n, children, ...rest }: any) => {
+      const t = String(children?.[0] ?? children ?? "");
+      return <h1 id={slugify(t, headingCounter(0))} {...rest}>{children}</h1>;
+    },
+    h2: ({ node: _n, children, ...rest }: any) => {
+      const t = String(children?.[0] ?? children ?? "");
+      return <h2 id={slugify(t, headingCounter(0))} {...rest}>{children}</h2>;
+    },
+    h3: ({ node: _n, children, ...rest }: any) => {
+      const t = String(children?.[0] ?? children ?? "");
+      return <h3 id={slugify(t, headingCounter(0))} {...rest}>{children}</h3>;
+    },
+  } as any;
+  // simple counter shared per render
+  const _counter = { i: 0 };
+  function headingCounter(_: number) {
+    return _counter.i++;
+  }
+
   const analysis = (analysisRun?.ai_result ?? {}) as Record<string, any>;
   const review = (reviewRun?.ai_result ?? {}) as Record<string, any>;
   const sources: any[] =
@@ -740,27 +789,477 @@ function DocumentDetailPage() {
     pickArray(meta, "sources") ||
     [];
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+  const PANEL_TABS = TABS.filter((t) => t.id !== "document");
+
+  const showPanel = viewMode !== "read" && !panelCollapsed;
+  const gridCols =
+    viewMode === "compare" && showPanel
+      ? "lg:grid-cols-[1fr_1fr]"
+      : viewMode === "review" && showPanel
+        ? "lg:grid-cols-[1fr_minmax(340px,30%)]"
+        : "lg:grid-cols-1";
+
+  // A4-ish responsive widths. clamp() handles 1366/1600/1920 targets.
+  const docMaxWidth =
+    fit === "width"
+      ? "100%"
+      : viewMode === "read"
+        ? "clamp(900px, 62vw, 1100px)"
+        : viewMode === "compare"
+          ? "100%"
+          : "clamp(820px, 60vw, 1050px)";
+  const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
+
+  const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
+  const zoomDec = () => {
+    setFit("none");
+    setZoom((z) => Math.max(60, z - 10));
+  };
+  const zoomInc = () => {
+    setFit("none");
+    setZoom((z) => Math.min(200, z + 10));
+  };
+  const zoomReset = () => {
+    setFit("none");
+    setZoom(100);
+  };
+
+  const ModeBtn = ({
+    mode,
+    icon: Icon,
+    label,
+  }: {
+    mode: typeof viewMode;
+    icon: any;
+    label: string;
+  }) => (
+    <button
+      type="button"
+      onClick={cycleMode(mode)}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+        viewMode === mode
+          ? "border-emerald-300/60 bg-emerald-500/30 text-white"
+          : "border-white/20 bg-white/5 text-foreground/85 hover:bg-white/15"
+      }`}
+      title={label}
+    >
+      <Icon size={13} /> {label}
+    </button>
+  );
+
+  // The document pane (used in all modes)
+  const DocumentPane = (
+    <section
+      id="document-pane"
+      className="relative space-y-0 pb-10"
+    >
+      {isApproved && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-xs text-amber-50 no-print">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>Одобренную или финальную версию нельзя изменить напрямую. Создайте новую версию.</span>
+        </div>
+      )}
+
+      <div
+        className="doc-paper mx-auto w-full px-[60px] py-[70px] shadow-[0_10px_40px_rgba(0,0,0,0.25)] ring-1 ring-black/10"
+        style={{ backgroundColor: "#ffffff", maxWidth: docMaxWidth }}
+      >
+        {editMode ? (
+          <textarea
+            value={edited}
+            onChange={(e) => {
+              setEdited(e.target.value);
+              setDirty(true);
+            }}
+            readOnly={isApproved}
+            spellCheck={false}
+            style={{
+              fontFamily: '"Times New Roman", Times, serif',
+              fontSize: `${docFontSize}px`,
+              lineHeight: 1.9,
+              backgroundColor: "#ffffff",
+              color: "#111827",
+            }}
+            className="block min-h-[900px] w-full resize-none border-0 p-0 outline-none placeholder:text-slate-500"
+            placeholder="Текст документа..."
+          />
+        ) : (
+          <div
+            id="generated-doc-content"
+            className="doc-prose min-h-[900px]"
+            style={{
+              fontFamily: '"Times New Roman", Times, serif',
+              fontSize: `${docFontSize}px`,
+              lineHeight: 1.9,
+              color: "#111827",
+            }}
+          >
+            {edited ? (
+              <ReactMarkdown components={mdComponents}>{edited}</ReactMarkdown>
+            ) : (
+              <span className="text-slate-500">Документ пуст</span>
+            )}
+          </div>
+        )}
+
+        <p className="mt-8 border-t border-slate-200 pt-3 text-center text-[11px] italic text-slate-500">
+          Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
+        </p>
+      </div>
+
+      <div className="doc-actions mx-auto flex w-full flex-nowrap items-center gap-3 overflow-x-auto border-t border-slate-200 bg-white px-[60px] py-6 no-print" style={{ maxWidth: docMaxWidth }}>
         <button
           type="button"
-          onClick={() => navigate({ to: "/workspace/generated-documents" })}
-          className={BTN}
+          onClick={() => setEditMode((v) => !v)}
+          className={`${BTN} whitespace-nowrap`}
         >
-          <ArrowLeft size={12} /> К списку
+          {editMode ? "Закрыть" : "Редактировать"}
         </button>
-        <div className="flex gap-2">
+        <button type="button" onClick={copyContent} className={`${BTN} whitespace-nowrap`}>
+          <Copy size={12} /> Скопировать
+        </button>
+        <button
+          type="button"
+          onClick={() => saveEdits.mutate()}
+          disabled={isApproved || !editMode || !dirty || saveEdits.isPending}
+          className={`${BTN_PRIMARY} whitespace-nowrap`}
+        >
+          {saveEdits.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+          Сохранить
+        </button>
+        <button
+          type="button"
+          onClick={() => createVersion.mutate()}
+          disabled={createVersion.isPending || !edited}
+          className={`${BTN_AMBER} whitespace-nowrap`}
+        >
+          {createVersion.isPending ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <GitBranch size={12} />
+          )}
+          Создать версию
+        </button>
+        {!isApproved && (
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Одобрить документ?")) approve.mutate();
+            }}
+            disabled={approve.isPending}
+            className={`${BTN_EMERALD} whitespace-nowrap`}
+          >
+            {approve.isPending ? (
+              <Loader2 size={12} className="animate-spin" />
+            ) : (
+              <CheckCircle2 size={12} />
+            )}
+            Одобрить
+          </button>
+        )}
+      </div>
+    </section>
+  );
+
+  // The aux/check panel (reasoning / analysis / sources / review / history / export)
+  const PanelPane = (
+    <div className={`min-w-0 space-y-3 ${viewMode === "compare" ? "lg:overflow-y-auto lg:max-h-[calc(100vh-160px)]" : ""}`}>
+      <div className="sticky top-3 z-30 flex flex-wrap gap-1.5 rounded-2xl border border-white/15 bg-slate-950/75 p-2 shadow-2xl backdrop-blur-xl">
+        {PANEL_TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold shadow-sm transition ${
+              tab === t.id
+                ? "border-emerald-300/60 bg-emerald-500/30 text-white"
+                : "border-white/20 bg-black/40 text-white/85 hover:border-white/35 hover:bg-white/15"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "reasoning" && <ReasoningTab analysis={analysis} meta={meta} setTab={setTab} />}
+
+      {tab === "analysis" && (
+        <section className={`${GLASS} p-5 space-y-4 text-sm text-foreground/85`}>
+          {!analysisRun && <p className="text-foreground/70">Правовой анализ не привязан к документу.</p>}
+          {analysisRun && (
+            <>
+              <AnalysisField label="Правовая квалификация" value={analysis?.legal_qualification ?? analysis?.qualification} />
+              <AnalysisField label="Основная позиция" value={analysis?.main_position ?? analysis?.position} />
+              <AnalysisField label="Позиция клиента" value={analysis?.client_position} />
+              <AnalysisField label="Позиция ФНС / оппонента" value={analysis?.opponent_position ?? analysis?.fns_position} />
+              <AnalysisList label="Факты" items={analysis?.facts} />
+              <AnalysisList label="Контраргументы" items={analysis?.counter_arguments} />
+              <AnalysisList label="Слабые места" items={analysis?.weak_points} />
+              <AnalysisList label="Недостающие доказательства" items={analysis?.missing_evidence} />
+              <AnalysisList label="Инструкции для генератора" items={analysis?.generation_instructions} />
+              <div className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs">
+                document_context_quality: <span className="text-white">{contextQuality ?? "—"}</span>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+      {tab === "sources" && (
+        <section className={`${GLASS} p-5 space-y-3`}>
+          <div>
+            <h2 className="font-display text-lg text-white">Источники</h2>
+            <p className="mt-1 text-xs text-foreground/65">
+              Точная локализация: статья, пункт, абзац, страница, цитата. Кнопка «Перейти» открывает место в документе.
+            </p>
+          </div>
+          {sources.length === 0 && <p className="text-sm text-foreground/70">Источники не указаны.</p>}
+          <div className="space-y-2">
+            {sources.map((s: any, i: number) => (
+              <SourceCitation key={i} source={s} setTab={setTab} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {tab === "review" && (
+        <section className={`${GLASS} p-5 space-y-4`}>
+          <div>
+            <h2 className="font-display text-lg text-white">AI Review</h2>
+            <p className="mt-1 text-xs text-foreground/65">
+              Найденные проблемы, причины и рекомендации. Каждый блок содержит ссылку на место в документе.
+            </p>
+          </div>
+          {!reviewRun && <p className="text-sm text-foreground/70">AI Review для этого документа не найден.</p>}
+          {reviewRun && (
+            <>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Stat label="Юридическая точность" value={review?.legal_accuracy_score ?? pickScalar(meta, "legal_accuracy_score")} />
+                <Stat label="Риск галлюцинаций" value={review?.hallucination_risk ?? pickScalar(meta, "hallucination_risk")} />
+                <Stat label="Нужен юрист" value={String(review?.needs_lawyer_review ?? "—")} />
+              </div>
+              {(() => {
+                const problems = (review?.problems ?? pickArray(meta, "problems")) as any[];
+                const fixes = (review?.required_fixes ?? pickArray(meta, "required_fixes")) as any[];
+                const recs = (review?.recommendations ?? pickArray(meta, "recommendations")) as any[];
+                const total = (problems?.length ?? 0) + (fixes?.length ?? 0) + (recs?.length ?? 0);
+                if (total === 0) return <p className="text-sm text-foreground/70">Замечаний нет.</p>;
+                return (
+                  <>
+                    <ReviewSection title="Проблемы" items={problems} setTab={setTab} />
+                    <ReviewSection title="Обязательные правки" items={fixes} setTab={setTab} startIndex={(problems?.length ?? 0) + 1} />
+                    <ReviewSection title="Рекомендации" items={recs} setTab={setTab} startIndex={(problems?.length ?? 0) + (fixes?.length ?? 0) + 1} />
+                  </>
+                );
+              })()}
+            </>
+          )}
+        </section>
+      )}
+
+      {tab === "history" && (
+        <section className={`${GLASS} p-5 space-y-3 text-sm text-foreground/85`}>
+          <Row label="Создан" value={fmt(doc.created_at)} />
+          <Row label="Обновлён" value={fmt(doc.updated_at)} />
+          <Row label="Версия" value={String(doc.version_number)} />
+          <Row label="Режим генерации" value={generationMode ?? "—"} />
+          <Row label="Модель" value={generationModel ?? "—"} />
+          <Row label="legal_analysis_run_id" value={legalAnalysisRunId ?? "—"} />
+          <Row label="document_context_quality" value={contextQuality != null ? String(contextQuality) : "—"} />
+          <Row label="generation_used_document_context" value={String(usedContext)} />
+          {sessionDocs && sessionDocs.length > 0 && (
+            <div>
+              <div className="mt-3 text-[11px] uppercase text-foreground/60">Документы сессии</div>
+              <ul className="mt-2 space-y-1">
+                {sessionDocs.map((d: any) => (
+                  <li key={d.id} className="text-xs text-foreground/75">
+                    {d.file_name} <span className="text-foreground/50">· {fmt(d.created_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Link
+              to="/workspace/generated-documents/$documentId/versions"
+              params={{ documentId: doc.id }}
+              className={BTN}
+            >
+              <GitBranch size={12} /> История версий
+            </Link>
+            <button
+              type="button"
+              onClick={() =>
+                navigate({
+                  to: "/workspace/generated-documents/$documentId/revise",
+                  params: { documentId },
+                })
+              }
+              className={BTN_AMBER}
+            >
+              <RefreshCcw size={12} /> Пересмотр
+            </button>
+          </div>
+        </section>
+      )}
+
+      {tab === "export" && (
+        <section className={`${GLASS} p-5 space-y-3`}>
+          <p className="text-sm text-foreground/80">Скачайте документ или отправьте на печать.</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={downloadDocx} className={BTN}>
+              <Download size={12} /> DOCX
+            </button>
+            <button type="button" onClick={downloadPdf} className={BTN}>
+              <FileText size={12} /> PDF
+            </button>
+            <button type="button" onClick={downloadMarkdown} className={BTN}>
+              <Download size={12} /> Markdown
+            </button>
+            <button type="button" onClick={() => window.print()} className={BTN}>
+              <Printer size={12} /> Печать
+            </button>
+          </div>
+
+          <div className={`${GLASS} mt-4 space-y-2 p-3 text-xs text-foreground/85`}>
+            <SideRow label="Статус" value={doc.status} />
+            <SideRow label="Шаблон" value={doc.template_key ?? "—"} />
+            <SideRow label="Язык" value={language ?? "—"} />
+            <SideRow label="Юрисдикция" value={jurisdiction ?? "—"} />
+            <SideRow label="used_context" value={String(usedContext)} />
+            <SideRow label="context_quality" value={contextQuality != null ? String(contextQuality) : "—"} />
+            <SideRow label="legal_analysis_run_id" value={legalAnalysisRunId ? `${legalAnalysisRunId.slice(0, 8)}…` : "—"} />
+            <SideRow label="created_at" value={fmt(doc.created_at)} />
+            {contextSummary && (
+              <div className="rounded-lg border border-white/15 bg-white/5 p-2 text-foreground/75">
+                {String(contextSummary)}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="ws-doc-root space-y-4">
+      {/* Top toolbar */}
+      <div className="ws-doc-toolbar no-print sticky top-0 z-50 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/15 bg-slate-950/80 p-3 shadow-2xl backdrop-blur-xl">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/workspace/generated-documents" })}
+            className={`${BTN} whitespace-nowrap`}
+          >
+            <ArrowLeft size={12} /> Назад
+          </button>
+
+          {/* Mode switcher */}
+          <div className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 p-1">
+            <ModeBtn mode="read" icon={BookOpen} label="Чтение" />
+            <ModeBtn mode="review" icon={ClipboardCheck} label="Проверка" />
+            <ModeBtn mode="compare" icon={Columns} label="Сравнение" />
+          </div>
+
+          {/* TOC */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setTocOpen((v) => !v)}
+              className={`${BTN} whitespace-nowrap`}
+              title="Оглавление"
+            >
+              <List size={12} /> Оглавление
+            </button>
+            {tocOpen && headings.length > 0 && (
+              <div className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-[60vh] w-[320px] overflow-y-auto rounded-xl border border-white/15 bg-slate-950/95 p-2 text-xs shadow-2xl backdrop-blur-xl">
+                {headings.map((h) => (
+                  <button
+                    key={h.slug}
+                    type="button"
+                    onClick={() => {
+                      setTocOpen(false);
+                      window.setTimeout(() => {
+                        const el = document.getElementById(h.slug);
+                        if (el) {
+                          el.scrollIntoView({ behavior: "smooth", block: "start" });
+                          el.classList.add("doc-highlight");
+                          window.setTimeout(() => el.classList.remove("doc-highlight"), 1800);
+                        }
+                      }, 50);
+                    }}
+                    className="block w-full truncate rounded-md px-2 py-1 text-left text-foreground/85 hover:bg-white/10"
+                    style={{ paddingLeft: 8 + (h.level - 1) * 12 }}
+                  >
+                    {h.text}
+                  </button>
+                ))}
+              </div>
+            )}
+            {tocOpen && headings.length === 0 && (
+              <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-[260px] rounded-xl border border-white/15 bg-slate-950/95 p-3 text-xs text-foreground/70 shadow-2xl">
+                Заголовков в документе не найдено.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Zoom */}
+          <div className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 p-1">
+            <button type="button" onClick={zoomDec} className="rounded-md p-1.5 text-foreground/85 hover:bg-white/10" title="Уменьшить">
+              <ZoomOut size={14} />
+            </button>
+            <button type="button" onClick={zoomReset} className="min-w-[52px] rounded-md px-2 py-1 text-xs text-foreground/90 hover:bg-white/10" title="Сбросить">
+              {zoom}%
+            </button>
+            <button type="button" onClick={zoomInc} className="rounded-md p-1.5 text-foreground/85 hover:bg-white/10" title="Увеличить">
+              <ZoomIn size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setFit(fit === "width" ? "none" : "width")}
+              className={`rounded-md px-2 py-1 text-[11px] ${fit === "width" ? "bg-emerald-500/30 text-white" : "text-foreground/85 hover:bg-white/10"}`}
+              title="Fit Width"
+            >
+              Fit W
+            </button>
+            <button
+              type="button"
+              onClick={() => setFit(fit === "page" ? "none" : "page")}
+              className={`rounded-md px-2 py-1 text-[11px] ${fit === "page" ? "bg-emerald-500/30 text-white" : "text-foreground/85 hover:bg-white/10"}`}
+              title="Fit Page"
+            >
+              <Maximize2 size={12} className="inline" /> Page
+            </button>
+          </div>
+
+          {viewMode !== "read" && (
+            <button
+              type="button"
+              onClick={() => setPanelCollapsed((v) => !v)}
+              className={`${BTN} whitespace-nowrap`}
+              title={panelCollapsed ? "Показать панель" : "Скрыть панель"}
+            >
+              {panelCollapsed ? <PanelRightOpen size={12} /> : <PanelRightClose size={12} />}
+              {panelCollapsed ? "Панель" : "Скрыть"}
+            </button>
+          )}
+
           <button type="button" onClick={downloadDocx} className={BTN}>
             <Download size={12} /> DOCX
           </button>
           <button type="button" onClick={downloadPdf} className={BTN}>
-            <Download size={12} /> PDF
+            <FileText size={12} /> PDF
+          </button>
+          <button type="button" onClick={() => window.print()} className={BTN}>
+            <Printer size={12} /> Печать
           </button>
         </div>
       </div>
 
-      <header className={`${GLASS} p-5`}>
+      {/* Document header */}
+      <header className={`${GLASS} p-5 no-print`}>
         <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-foreground/60">
           {doc.template_key ?? "—"}
         </div>
@@ -790,327 +1289,49 @@ function DocumentDetailPage() {
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <div className="min-w-0 space-y-4">
-          {/* Tabs */}
-          <div className="sticky top-3 z-40 flex flex-wrap gap-2 rounded-2xl border border-white/15 bg-slate-950/75 p-3 shadow-2xl backdrop-blur-xl">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={`rounded-xl border px-4 py-2 text-sm font-semibold shadow-sm transition ${
-                  tab === t.id
-                    ? "border-emerald-300/60 bg-emerald-500/30 text-white"
-                    : "border-white/20 bg-black/40 text-white/85 hover:border-white/35 hover:bg-white/15"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {tab === "document" && (
-            <section className="relative space-y-0 pb-10">
-              {isApproved && (
-                <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-xs text-amber-50">
-                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                  <span>Одобренную или финальную версию нельзя изменить напрямую. Создайте новую версию.</span>
-                </div>
-              )}
-
-              <div
-                className="mx-auto w-full max-w-[900px] px-[60px] py-[70px] shadow-[0_10px_40px_rgba(0,0,0,0.25)] ring-1 ring-black/10"
-                style={{ backgroundColor: "#ffffff" }}
-              >
-                {editMode ? (
-                  <textarea
-                    value={edited}
-                    onChange={(e) => {
-                      setEdited(e.target.value);
-                      setDirty(true);
-                    }}
-                    readOnly={isApproved}
-                    spellCheck={false}
-                    style={{
-                      fontFamily: '"Times New Roman", Times, serif',
-                      fontSize: "18px",
-                      lineHeight: 1.9,
-                      backgroundColor: "#ffffff",
-                      color: "#111827",
-                    }}
-                    className="block min-h-[900px] w-full resize-none border-0 p-0 outline-none placeholder:text-slate-500"
-                    placeholder="Текст документа..."
-                  />
-                ) : (
-                  <div
-                    id="generated-doc-content"
-                    className="doc-prose min-h-[900px]"
-                    style={{
-                      fontFamily: '"Times New Roman", Times, serif',
-                      fontSize: "18px",
-                      lineHeight: 1.9,
-                      color: "#111827",
-                    }}
-                  >
-                    {edited ? (
-                      <ReactMarkdown>{edited}</ReactMarkdown>
-                    ) : (
-                      <span className="text-slate-500">Документ пуст</span>
-                    )}
-                  </div>
-                )}
-
-                <p className="mt-8 border-t border-slate-200 pt-3 text-center text-[11px] italic text-slate-500">
-                  Рабочий текст документа. Правки юриста сохраняются в соответствии со статусом версии.
-                </p>
-              </div>
-
-              <div className="mx-auto flex w-full max-w-[900px] flex-nowrap items-center gap-3 overflow-x-auto border-t border-slate-200 bg-white px-[60px] py-6">
-                <button
-                  type="button"
-                  onClick={() => setEditMode((v) => !v)}
-                  className={`${BTN} whitespace-nowrap`}
-                >
-                  {editMode ? "Закрыть" : "Редактировать"}
-                </button>
-                <button type="button" onClick={copyContent} className={`${BTN} whitespace-nowrap`}>
-                  <Copy size={12} /> Скопировать
-                </button>
-                <button
-                  type="button"
-                  onClick={() => saveEdits.mutate()}
-                  disabled={isApproved || !editMode || !dirty || saveEdits.isPending}
-                  className={`${BTN_PRIMARY} whitespace-nowrap`}
-                >
-                  {saveEdits.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                  Сохранить
-                </button>
-                <button
-                  type="button"
-                  onClick={() => createVersion.mutate()}
-                  disabled={createVersion.isPending || !edited}
-                  className={`${BTN_AMBER} whitespace-nowrap`}
-                >
-                  {createVersion.isPending ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : (
-                    <GitBranch size={12} />
-                  )}
-                  Создать версию
-                </button>
-                {!isApproved && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (confirm("Одобрить документ?")) approve.mutate();
-                    }}
-                    disabled={approve.isPending}
-                    className={`${BTN_EMERALD} whitespace-nowrap`}
-                  >
-                    {approve.isPending ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <CheckCircle2 size={12} />
-                    )}
-                    Одобрить
-                  </button>
-                )}
-              </div>
-
-              <style>{`
-                .doc-prose h1 { font-size: 24px; font-weight: 700; margin: 16px 0 12px; }
-                .doc-prose h2 { font-size: 21px; font-weight: 700; margin: 14px 0 10px; }
-                .doc-prose h3 { font-size: 19px; font-weight: 600; margin: 12px 0 8px; }
-                .doc-prose p { margin: 8px 0; }
-                .doc-prose ul { list-style: disc; padding-left: 28px; margin: 8px 0; }
-                .doc-prose ol { list-style: decimal; padding-left: 28px; margin: 8px 0; }
-                .doc-prose li { margin: 4px 0; }
-                .doc-prose strong { font-weight: 700; }
-                .doc-prose em { font-style: italic; }
-                .doc-prose blockquote { border-left: 3px solid #d1d5db; padding-left: 12px; color: #374151; margin: 10px 0; }
-                .doc-prose hr { border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0; }
-                .doc-prose code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
-                .doc-highlight { background: #fde68a !important; transition: background-color 0.4s ease; border-radius: 4px; box-shadow: 0 0 0 4px #fde68a; }
-              `}</style>
-            </section>
-          )}
-
-          {tab === "reasoning" && (
-            <ReasoningTab analysis={analysis} meta={meta} setTab={setTab} />
-          )}
-
-          {tab === "analysis" && (
-
-            <section className={`${GLASS} p-5 space-y-4 text-sm text-foreground/85`}>
-              {!analysisRun && (
-                <p className="text-foreground/70">Правовой анализ не привязан к документу.</p>
-              )}
-              {analysisRun && (
-                <>
-                  <AnalysisField label="Правовая квалификация" value={analysis?.legal_qualification ?? analysis?.qualification} />
-                  <AnalysisField label="Основная позиция" value={analysis?.main_position ?? analysis?.position} />
-                  <AnalysisField label="Позиция клиента" value={analysis?.client_position} />
-                  <AnalysisField label="Позиция ФНС / оппонента" value={analysis?.opponent_position ?? analysis?.fns_position} />
-                  <AnalysisList label="Факты" items={analysis?.facts} />
-                  <AnalysisList label="Контраргументы" items={analysis?.counter_arguments} />
-                  <AnalysisList label="Слабые места" items={analysis?.weak_points} />
-                  <AnalysisList label="Недостающие доказательства" items={analysis?.missing_evidence} />
-                  <AnalysisList label="Инструкции для генератора" items={analysis?.generation_instructions} />
-                  <div className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs">
-                    document_context_quality:{" "}
-                    <span className="text-white">{contextQuality ?? "—"}</span>
-                  </div>
-                </>
-              )}
-            </section>
-          )}
-
-          {tab === "sources" && (
-            <section className={`${GLASS} p-5 space-y-3`}>
-              <div>
-                <h2 className="font-display text-lg text-white">Источники</h2>
-                <p className="mt-1 text-xs text-foreground/65">
-                  Точная локализация: статья, пункт, абзац, страница, цитата. Кнопка «Перейти» открывает место в документе, где источник был использован.
-                </p>
-              </div>
-              {sources.length === 0 && (
-                <p className="text-sm text-foreground/70">Источники не указаны.</p>
-              )}
-              <div className="space-y-2">
-                {sources.map((s: any, i: number) => (
-                  <SourceCitation key={i} source={s} setTab={setTab} />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {tab === "review" && (
-            <section className={`${GLASS} p-5 space-y-4`}>
-              <div>
-                <h2 className="font-display text-lg text-white">AI Review</h2>
-                <p className="mt-1 text-xs text-foreground/65">
-                  Найденные проблемы, причины и рекомендации. Каждый блок содержит ссылку на место в документе.
-                </p>
-              </div>
-              {!reviewRun && (
-                <p className="text-sm text-foreground/70">AI Review для этого документа не найден.</p>
-              )}
-              {reviewRun && (
-                <>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <Stat label="Юридическая точность" value={review?.legal_accuracy_score ?? pickScalar(meta, "legal_accuracy_score")} />
-                    <Stat label="Риск галлюцинаций" value={review?.hallucination_risk ?? pickScalar(meta, "hallucination_risk")} />
-                    <Stat label="Нужен юрист" value={String(review?.needs_lawyer_review ?? "—")} />
-                  </div>
-                  {(() => {
-                    const problems = (review?.problems ?? pickArray(meta, "problems")) as any[];
-                    const fixes = (review?.required_fixes ?? pickArray(meta, "required_fixes")) as any[];
-                    const recs = (review?.recommendations ?? pickArray(meta, "recommendations")) as any[];
-                    const total = (problems?.length ?? 0) + (fixes?.length ?? 0) + (recs?.length ?? 0);
-                    if (total === 0) {
-                      return (
-                        <p className="text-sm text-foreground/70">Замечаний нет.</p>
-                      );
-                    }
-                    return (
-                      <>
-                        <ReviewSection title="Проблемы" items={problems} setTab={setTab} />
-                        <ReviewSection title="Обязательные правки" items={fixes} setTab={setTab} startIndex={(problems?.length ?? 0) + 1} />
-                        <ReviewSection title="Рекомендации" items={recs} setTab={setTab} startIndex={(problems?.length ?? 0) + (fixes?.length ?? 0) + 1} />
-                      </>
-                    );
-                  })()}
-                </>
-              )}
-            </section>
-          )}
-
-
-          {tab === "history" && (
-            <section className={`${GLASS} p-5 space-y-3 text-sm text-foreground/85`}>
-              <Row label="Создан" value={fmt(doc.created_at)} />
-              <Row label="Обновлён" value={fmt(doc.updated_at)} />
-              <Row label="Версия" value={String(doc.version_number)} />
-              <Row label="Режим генерации" value={generationMode ?? "—"} />
-              <Row label="Модель" value={generationModel ?? "—"} />
-              <Row label="legal_analysis_run_id" value={legalAnalysisRunId ?? "—"} />
-              <Row label="document_context_quality" value={contextQuality != null ? String(contextQuality) : "—"} />
-              <Row label="generation_used_document_context" value={String(usedContext)} />
-              {sessionDocs && sessionDocs.length > 0 && (
-                <div>
-                  <div className="mt-3 text-[11px] uppercase text-foreground/60">Документы сессии</div>
-                  <ul className="mt-2 space-y-1">
-                    {sessionDocs.map((d: any) => (
-                      <li key={d.id} className="text-xs text-foreground/75">
-                        {d.file_name} <span className="text-foreground/50">· {fmt(d.created_at)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Link
-                  to="/workspace/generated-documents/$documentId/versions"
-                  params={{ documentId: doc.id }}
-                  className={BTN}
-                >
-                  <GitBranch size={12} /> История версий
-                </Link>
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate({
-                      to: "/workspace/generated-documents/$documentId/revise",
-                      params: { documentId },
-                    })
-                  }
-                  className={BTN_AMBER}
-                >
-                  <RefreshCcw size={12} /> Пересмотр
-                </button>
-              </div>
-            </section>
-          )}
-
-          {tab === "export" && (
-            <section className={`${GLASS} p-5 space-y-3`}>
-              <p className="text-sm text-foreground/80">Скачайте документ или отправьте на печать.</p>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={downloadDocx} className={BTN}>
-                  <Download size={12} /> DOCX
-                </button>
-                <button type="button" onClick={downloadPdf} className={BTN}>
-                  <FileText size={12} /> PDF
-                </button>
-                <button type="button" onClick={downloadMarkdown} className={BTN}>
-                  <Download size={12} /> Markdown
-                </button>
-                <button type="button" onClick={() => window.print()} className={BTN}>
-                  <Printer size={12} /> Печать
-                </button>
-              </div>
-            </section>
-          )}
+      {/* Workspace layout */}
+      {viewMode === "read" || !showPanel ? (
+        <div className="min-w-0">{DocumentPane}</div>
+      ) : (
+        <div className={`grid gap-6 ${gridCols}`}>
+          <div className="min-w-0">{DocumentPane}</div>
+          <aside className="no-print min-w-0">{PanelPane}</aside>
         </div>
+      )}
 
-        {/* Sidebar */}
-        <aside className={`${GLASS} h-fit space-y-3 p-4 text-xs text-foreground/85 lg:sticky lg:top-3`}>
-          <SideRow label="Статус" value={doc.status} />
-          <SideRow label="Шаблон" value={doc.template_key ?? "—"} />
-          <SideRow label="Язык" value={language ?? "—"} />
-          <SideRow label="Юрисдикция" value={jurisdiction ?? "—"} />
-          <SideRow label="used_context" value={String(usedContext)} />
-          <SideRow label="context_quality" value={contextQuality != null ? String(contextQuality) : "—"} />
-          <SideRow label="legal_analysis_run_id" value={legalAnalysisRunId ? `${legalAnalysisRunId.slice(0, 8)}…` : "—"} />
-          <SideRow label="created_at" value={fmt(doc.created_at)} />
-          {contextSummary && (
-            <div className="rounded-lg border border-white/15 bg-white/5 p-2 text-foreground/75">
-              {String(contextSummary)}
-            </div>
-          )}
-        </aside>
-      </div>
+      {/* Print + doc styles */}
+      <style>{`
+        .doc-prose h1 { font-size: 1.34em; font-weight: 700; margin: 16px 0 12px; scroll-margin-top: 80px; }
+        .doc-prose h2 { font-size: 1.18em; font-weight: 700; margin: 14px 0 10px; scroll-margin-top: 80px; }
+        .doc-prose h3 { font-size: 1.06em; font-weight: 600; margin: 12px 0 8px; scroll-margin-top: 80px; }
+        .doc-prose p { margin: 8px 0; }
+        .doc-prose ul { list-style: disc; padding-left: 28px; margin: 8px 0; }
+        .doc-prose ol { list-style: decimal; padding-left: 28px; margin: 8px 0; }
+        .doc-prose li { margin: 4px 0; }
+        .doc-prose strong { font-weight: 700; }
+        .doc-prose em { font-style: italic; }
+        .doc-prose blockquote { border-left: 3px solid #d1d5db; padding-left: 12px; color: #374151; margin: 10px 0; }
+        .doc-prose hr { border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0; }
+        .doc-prose code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+        .doc-highlight { background: #fde68a !important; transition: background-color 0.4s ease; border-radius: 4px; box-shadow: 0 0 0 4px #fde68a; }
+
+        @media print {
+          .no-print { display: none !important; }
+          body, html { background: #ffffff !important; }
+          .ws-doc-root { background: #ffffff !important; }
+          .ws-doc-root > * { margin: 0 !important; }
+          .doc-paper {
+            box-shadow: none !important;
+            ring: 0 !important;
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .doc-actions { display: none !important; }
+          aside { display: none !important; }
+          @page { size: A4; margin: 18mm 16mm; }
+        }
+      `}</style>
     </div>
   );
 }
