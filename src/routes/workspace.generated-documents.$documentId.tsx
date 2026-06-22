@@ -1539,44 +1539,50 @@ function DocumentDetailPage() {
         </div>
       </div>
 
-      {/* Document header */}
-      <header className={`${GLASS} p-5 no-print`}>
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-foreground/60">
-          {doc.template_key ?? "—"}
-        </div>
-        <h1 className="mt-1 font-display text-2xl text-white">{doc.title || "Без названия"}</h1>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className={CHIP}>v{doc.version_number}</span>
-          <span className={CHIP}>статус: {doc.status}</span>
-          {doc.ai_review_status && (
-            <span className={CHIP}>
-              <Sparkles size={11} /> AI: {doc.ai_review_status}
-            </span>
-          )}
-          {usedContext && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] text-sky-100">
-              DocumentContext{contextQuality != null ? ` · ${contextQuality}` : ""}
-            </span>
-          )}
-          {doc.lawyer_approved_at && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] text-emerald-100">
-              <ShieldCheck size={11} /> Одобрен {fmt(doc.lawyer_approved_at)}
-            </span>
-          )}
-        </div>
-        <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-foreground/60">
-          <span>создан: {fmt(doc.created_at)}</span>
-          <span>обновлён: {fmt(doc.updated_at)}</span>
+      {/* Document header — compact */}
+      <header className={`${GLASS} px-4 py-2.5 no-print`}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <span className="text-[10px] uppercase tracking-wide text-foreground/55 shrink-0">
+            {doc.template_key ?? "—"}
+          </span>
+          <h1 className="font-display text-base font-semibold text-white truncate min-w-0">
+            {doc.title || "Без названия"}
+          </h1>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={CHIP}>v{doc.version_number}</span>
+            <span className={CHIP}>{doc.status}</span>
+            {doc.ai_review_status && (
+              <span className={CHIP}>
+                <Sparkles size={10} /> {doc.ai_review_status}
+              </span>
+            )}
+            {usedContext && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] text-sky-100">
+                Ctx{contextQuality != null ? `·${contextQuality}` : ""}
+              </span>
+            )}
+            {doc.lawyer_approved_at && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-100">
+                <ShieldCheck size={10} /> Одобрен
+              </span>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Workspace layout — two areas only: document + analytical panel */}
+      {/* Workspace layout */}
       {viewMode === "read" || !showPanel ? (
         <div className="min-w-0 transition-all duration-300 ease-out">{DocumentPane}</div>
-      ) : (
+      ) : viewMode === "compare" ? (
+        // Compare: side-by-side at >=1600px, stacked (doc on top, panel below) otherwise.
         <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
           <div className="min-w-0">{DocumentPane}</div>
           <aside className="no-print min-w-0">{PanelPane}</aside>
+        </div>
+      ) : (
+        <div className={`grid gap-6 transition-all duration-300 ease-out ${gridCols}`}>
+          <div className="min-w-0">{DocumentPane}</div>
+          <aside className="no-print min-w-0 hidden lg:block">{PanelPane}</aside>
         </div>
       )}
 
