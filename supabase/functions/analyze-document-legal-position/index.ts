@@ -258,7 +258,7 @@ Deno.serve(async (req) => {
       documents: docSummaries,
       sources: merged,
     });
-    const { text, rawResponse, model } = await callGeminiPro(prompt);
+    const { text, rawResponse, model, attempts: modelAttempts, fallback_used } = await callGeminiPro(prompt);
     lastRawResponse = rawResponse ?? "";
     lastModel = model ?? MODEL_NAME;
 
