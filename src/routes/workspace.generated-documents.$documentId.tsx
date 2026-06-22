@@ -963,22 +963,20 @@ function DocumentDetailPage() {
   const selectedArg = argumentsList[selectedArgIndex] ?? null;
 
   const showPanel = viewMode !== "read" && !panelCollapsed;
-  // Right panel: fixed compact width. Doc gets all remaining space — panel
-  // never squeezes the document below its min.
+  // Right panel is a fixed compact column; document fills the rest.
   const gridCols = showPanel
     ? viewMode === "compare"
-      ? "min-[1600px]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
-      : "lg:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]"
+      ? "min-[1600px]:grid-cols-[minmax(900px,1fr)_minmax(900px,1fr)]"
+      : "lg:grid-cols-[minmax(900px,1fr)_380px] 2xl:grid-cols-[minmax(1000px,1fr)_400px]"
     : "lg:grid-cols-1";
 
+  // In Review/Compare the doc fills its column; only Read centers as A4-ish paper.
   const docMaxWidth =
     fit === "width"
-      ? "100%"
+      ? "none"
       : viewMode === "read"
-        ? "clamp(1000px, 82vw, 1200px)"
-        : viewMode === "compare"
-          ? "100%"
-          : "clamp(850px, calc(100vw - 460px), 1400px)";
+        ? "min(1200px, calc(100vw - 160px))"
+        : "none";
   const docFontSize = fit === "page" ? 16 : Math.round((18 * zoom) / 100);
 
   const cycleMode = (m: typeof viewMode) => () => setViewMode(m);
