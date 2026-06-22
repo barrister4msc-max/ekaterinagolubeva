@@ -1472,14 +1472,36 @@ function Stat({ label, value }: { label: string; value: any }) {
   );
 }
 
+function humanizeItem(it: any): string {
+  if (it == null) return "—";
+  if (typeof it === "string") return it;
+  if (typeof it === "number" || typeof it === "boolean") return String(it);
+  if (typeof it === "object") {
+    for (const k of [
+      "text",
+      "description",
+      "title",
+      "name",
+      "summary",
+      "value",
+      "fact",
+      "argument",
+      "instruction",
+      "label",
+    ]) {
+      if (typeof it[k] === "string" && it[k].trim()) return it[k];
+    }
+  }
+  return "";
+}
+
 function AnalysisField({ label, value }: { label: string; value: any }) {
   if (value == null || value === "") return null;
+  const text = typeof value === "string" ? value : humanizeItem(value) || JSON.stringify(value);
   return (
-    <div>
-      <div className="text-[11px] uppercase text-foreground/60">{label}</div>
-      <div className="mt-1 whitespace-pre-wrap text-foreground/90">
-        {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
-      </div>
+    <div className={`${PANEL_SUB} p-3`}>
+      <div className={PANEL_LABEL}>{label}</div>
+      <div className="mt-1 whitespace-pre-wrap text-[14px] leading-relaxed text-slate-50">{text}</div>
     </div>
   );
 }
@@ -1488,13 +1510,25 @@ function AnalysisList({ label, items }: { label: string; items: any }) {
   if (!Array.isArray(items) || items.length === 0) return null;
   return (
     <div>
-      <div className="text-[11px] uppercase text-foreground/60">{label} · {items.length}</div>
-      <ul className="mt-1 space-y-1.5">
-        {items.map((it: any, i: number) => (
-          <li key={i} className="rounded-lg border border-white/15 bg-white/5 p-2 text-xs text-foreground/85">
-            {typeof it === "string" ? it : JSON.stringify(it)}
-          </li>
-        ))}
+      <div className={PANEL_LABEL}>
+        {label} · <span className="text-slate-200">{items.length}</span>
+      </div>
+      <ul className="mt-1.5 space-y-1.5">
+        {items.map((it: any, i: number) => {
+          const text = humanizeItem(it);
+          const why = typeof it === "object" ? it?.reasoning ?? it?.why ?? it?.note : null;
+          return (
+            <li
+              key={i}
+              className="rounded-lg border border-slate-700/60 bg-slate-800/80 p-2.5 text-[13px] leading-relaxed text-slate-100"
+            >
+              {text || "—"}
+              {why && (
+                <div className="mt-1 text-[12px] text-slate-300">{String(why)}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
@@ -1509,9 +1543,9 @@ function RiskList({ title, items }: { title: string; items: any[] }) {
         {items.map((it, i) => (
           <li
             key={i}
-            className="rounded-lg border border-white/15 bg-white/5 p-2.5 text-xs text-foreground/80"
+            className="rounded-lg border border-slate-700/60 bg-slate-800/80 p-2.5 text-xs text-slate-100"
           >
-            {typeof it === "string" ? it : JSON.stringify(it)}
+            {humanizeItem(it) || "—"}
           </li>
         ))}
       </ul>
