@@ -355,49 +355,144 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
   }
 
   return (
-    <div className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs text-foreground/85">
+    <div className="rounded-xl border border-slate-700/70 bg-slate-800/95 p-3 text-sm text-slate-100 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-foreground/75">
+        <span className="rounded-full border border-slate-600/80 bg-slate-700/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-100">
           {KIND_LABEL[kind]}
         </span>
         <div className="flex flex-wrap items-center gap-2">
           {source.verification_status && (
-            <span className={CHIP}>verif: {String(source.verification_status)}</span>
+            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-medium text-emerald-100">
+              verif: {String(source.verification_status)}
+            </span>
           )}
           {source.actuality_status && (
-            <span className={CHIP}>actuality: {String(source.actuality_status)}</span>
+            <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-100">
+              акт.: {String(source.actuality_status)}
+            </span>
           )}
           {url && (
             <a
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-sky-200 hover:underline"
+              className="inline-flex items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-50 hover:bg-sky-500/30"
             >
-              <ExternalLink size={11} /> {kind === "law" ? "Перейти к статье" : "Открыть"}
+              <ExternalLink size={11} /> {kind === "law" ? "Перейти к статье" : "Открыть источник"}
             </a>
           )}
         </div>
       </div>
       {rows.length > 0 && (
-        <dl className="mt-2 grid grid-cols-[130px_1fr] gap-x-3 gap-y-0.5">
+        <dl className="mt-2 grid grid-cols-[130px_1fr] gap-x-3 gap-y-1 text-[13px]">
           {rows.map(([label, value], i) => (
             <Fragment key={i}>
-              <dt className="text-foreground/55">{label}</dt>
-              <dd className="break-words text-foreground/90">{String(value)}</dd>
+              <dt className="text-slate-400">{label}</dt>
+              <dd className="break-words font-medium text-slate-50">{String(value)}</dd>
             </Fragment>
           ))}
         </dl>
       )}
       <ExpandableQuote quote={typeof quote === "string" ? quote : undefined} />
       {loc && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-black/20 p-2">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/70 bg-slate-900/80 p-2">
           <div className="flex flex-col gap-0.5">
-            <span className="text-[10px] uppercase text-foreground/55">Использовано в документе</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Использовано в документе</span>
             <LocationBadge loc={loc} />
           </div>
           <GoToButton loc={loc} setTab={setTab} />
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ============ Local Trust Index ============ */
+
+function computeLocalTrust(input: {
+  evidenceCount: number;
+  hasLaw: boolean;
+  supportingCount: number;
+  missingCount: number;
+  weakCount: number;
+}): { score: number; level: "high" | "medium" | "low"; reasons: string[] } {
+  let score = 30;
+  const reasons: string[] = [];
+  if (input.hasLaw) {
+    score += 25;
+    reasons.push("Норма указана");
+  } else {
+    reasons.push("Норма не указана");
+  }
+  if (input.evidenceCount > 0) {
+    score += Math.min(25, 10 + input.evidenceCount * 5);
+    reasons.push(`Доказательств: ${input.evidenceCount}`);
+  } else {
+    reasons.push("Доказательства не привязаны");
+  }
+  if (input.supportingCount > 0) {
+    score += Math.min(20, 5 + input.supportingCount * 4);
+    reasons.push(`Поддерживающих источников: ${input.supportingCount}`);
+  }
+  score -= input.missingCount * 8;
+  if (input.missingCount > 0) reasons.push(`Не хватает доказательств: ${input.missingCount}`);
+  score -= input.weakCount * 6;
+  if (input.weakCount > 0) reasons.push(`Слабых мест: ${input.weakCount}`);
+  score = Math.max(0, Math.min(100, score));
+  const level: "high" | "medium" | "low" = score >= 80 ? "high" : score >= 55 ? "medium" : "low";
+  return { score, level, reasons };
+}
+
+function TrustIndex({
+  trust,
+}: {
+  trust: { score: number; level: "high" | "medium" | "low"; reasons: string[] };
+}) {
+  const tone =
+    trust.level === "high"
+      ? "border-emerald-400/50 bg-emerald-500/15 text-emerald-50"
+      : trust.level === "medium"
+        ? "border-amber-400/50 bg-amber-500/15 text-amber-50"
+        : "border-red-400/50 bg-red-500/15 text-red-50";
+  const label =
+    trust.level === "high"
+      ? "Подтверждено"
+      : trust.level === "medium"
+        ? "Требует уточнения"
+        : "Нужна проверка юриста";
+  return (
+    <div className={`rounded-xl border p-3 ${tone}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider opacity-80">
+            Индекс доверия
+          </div>
+          <div className="mt-0.5 text-base font-bold">
+            {trust.score}% · {label}
+          </div>
+        </div>
+        <div className="h-12 w-12 shrink-0">
+          <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90">
+            <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="3" />
+            <circle
+              cx="18"
+              cy="18"
+              r="15"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray={`${(trust.score / 100) * 94.2} 94.2`}
+            />
+          </svg>
+        </div>
+      </div>
+      {trust.reasons.length > 0 && (
+        <ul className="mt-2 list-disc space-y-0.5 pl-5 text-[12px] opacity-95">
+          {trust.reasons.map((r, i) => (
+            <li key={i}>{r}</li>
+          ))}
+        </ul>
       )}
     </div>
   );
