@@ -1089,8 +1089,9 @@ function DocumentDetailPage() {
       {tab === "reasoning" && <ReasoningTab analysis={analysis} meta={meta} setTab={setTab} />}
 
       {tab === "analysis" && (
-        <section className={`${GLASS} p-5 space-y-4 text-sm text-foreground/85`}>
-          {!analysisRun && <p className="text-foreground/70">Правовой анализ не привязан к документу.</p>}
+        <section className={`${PANEL} p-5 space-y-4 text-sm text-slate-100`}>
+          <h2 className="font-display text-lg text-white">AI правовой анализ</h2>
+          {!analysisRun && <p className="text-slate-300">Правовой анализ не привязан к документу.</p>}
           {analysisRun && (
             <>
               <AnalysisField label="Правовая квалификация" value={analysis?.legal_qualification ?? analysis?.qualification} />
@@ -1102,8 +1103,9 @@ function DocumentDetailPage() {
               <AnalysisList label="Слабые места" items={analysis?.weak_points} />
               <AnalysisList label="Недостающие доказательства" items={analysis?.missing_evidence} />
               <AnalysisList label="Инструкции для генератора" items={analysis?.generation_instructions} />
-              <div className="rounded-lg border border-white/15 bg-white/5 p-3 text-xs">
-                document_context_quality: <span className="text-white">{contextQuality ?? "—"}</span>
+              <div className={`${PANEL_SUB} p-3 text-xs text-slate-200`}>
+                document_context_quality:{" "}
+                <span className="font-semibold text-white">{contextQuality ?? "—"}</span>
               </div>
             </>
           )}
@@ -1111,14 +1113,14 @@ function DocumentDetailPage() {
       )}
 
       {tab === "sources" && (
-        <section className={`${GLASS} p-5 space-y-3`}>
+        <section className={`${PANEL} p-5 space-y-3`}>
           <div>
             <h2 className="font-display text-lg text-white">Источники</h2>
-            <p className="mt-1 text-xs text-foreground/65">
+            <p className="mt-1 text-xs text-slate-300">
               Точная локализация: статья, пункт, абзац, страница, цитата. Кнопка «Перейти» открывает место в документе.
             </p>
           </div>
-          {sources.length === 0 && <p className="text-sm text-foreground/70">Источники не указаны.</p>}
+          {sources.length === 0 && <p className="text-sm text-slate-300">Источники не указаны.</p>}
           <div className="space-y-2">
             {sources.map((s: any, i: number) => (
               <SourceCitation key={i} source={s} setTab={setTab} />
@@ -1128,14 +1130,14 @@ function DocumentDetailPage() {
       )}
 
       {tab === "review" && (
-        <section className={`${GLASS} p-5 space-y-4`}>
+        <section className={`${PANEL} p-5 space-y-4`}>
           <div>
             <h2 className="font-display text-lg text-white">AI Review</h2>
-            <p className="mt-1 text-xs text-foreground/65">
+            <p className="mt-1 text-xs text-slate-300">
               Найденные проблемы, причины и рекомендации. Каждый блок содержит ссылку на место в документе.
             </p>
           </div>
-          {!reviewRun && <p className="text-sm text-foreground/70">AI Review для этого документа не найден.</p>}
+          {!reviewRun && <p className="text-sm text-slate-300">AI Review для этого документа не найден.</p>}
           {reviewRun && (
             <>
               <div className="grid gap-3 sm:grid-cols-3">
@@ -1148,7 +1150,7 @@ function DocumentDetailPage() {
                 const fixes = (review?.required_fixes ?? pickArray(meta, "required_fixes")) as any[];
                 const recs = (review?.recommendations ?? pickArray(meta, "recommendations")) as any[];
                 const total = (problems?.length ?? 0) + (fixes?.length ?? 0) + (recs?.length ?? 0);
-                if (total === 0) return <p className="text-sm text-foreground/70">Замечаний нет.</p>;
+                if (total === 0) return <p className="text-sm text-slate-300">Замечаний нет.</p>;
                 return (
                   <>
                     <ReviewSection title="Проблемы" items={problems} setTab={setTab} />
@@ -1163,7 +1165,8 @@ function DocumentDetailPage() {
       )}
 
       {tab === "history" && (
-        <section className={`${GLASS} p-5 space-y-3 text-sm text-foreground/85`}>
+        <section className={`${PANEL} p-5 space-y-3 text-sm text-slate-100`}>
+          <h2 className="font-display text-lg text-white">История и метаданные</h2>
           <Row label="Создан" value={fmt(doc.created_at)} />
           <Row label="Обновлён" value={fmt(doc.updated_at)} />
           <Row label="Версия" value={String(doc.version_number)} />
@@ -1174,11 +1177,11 @@ function DocumentDetailPage() {
           <Row label="generation_used_document_context" value={String(usedContext)} />
           {sessionDocs && sessionDocs.length > 0 && (
             <div>
-              <div className="mt-3 text-[11px] uppercase text-foreground/60">Документы сессии</div>
+              <div className={`mt-3 ${PANEL_LABEL}`}>Документы сессии</div>
               <ul className="mt-2 space-y-1">
                 {sessionDocs.map((d: any) => (
-                  <li key={d.id} className="text-xs text-foreground/75">
-                    {d.file_name} <span className="text-foreground/50">· {fmt(d.created_at)}</span>
+                  <li key={d.id} className="text-xs text-slate-200">
+                    {d.file_name} <span className="text-slate-400">· {fmt(d.created_at)}</span>
                   </li>
                 ))}
               </ul>
@@ -1209,8 +1212,9 @@ function DocumentDetailPage() {
       )}
 
       {tab === "export" && (
-        <section className={`${GLASS} p-5 space-y-3`}>
-          <p className="text-sm text-foreground/80">Скачайте документ или отправьте на печать.</p>
+        <section className={`${PANEL} p-5 space-y-3`}>
+          <h2 className="font-display text-lg text-white">Экспорт</h2>
+          <p className="text-sm text-slate-300">Скачайте документ или отправьте на печать.</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={downloadDocx} className={BTN}>
               <Download size={12} /> DOCX
@@ -1226,7 +1230,7 @@ function DocumentDetailPage() {
             </button>
           </div>
 
-          <div className={`${GLASS} mt-4 space-y-2 p-3 text-xs text-foreground/85`}>
+          <div className={`${PANEL_SUB} mt-4 grid grid-cols-2 gap-3 p-3 text-xs text-slate-100`}>
             <SideRow label="Статус" value={doc.status} />
             <SideRow label="Шаблон" value={doc.template_key ?? "—"} />
             <SideRow label="Язык" value={language ?? "—"} />
@@ -1236,7 +1240,7 @@ function DocumentDetailPage() {
             <SideRow label="legal_analysis_run_id" value={legalAnalysisRunId ? `${legalAnalysisRunId.slice(0, 8)}…` : "—"} />
             <SideRow label="created_at" value={fmt(doc.created_at)} />
             {contextSummary && (
-              <div className="rounded-lg border border-white/15 bg-white/5 p-2 text-foreground/75">
+              <div className={`col-span-2 ${PANEL_SUB} p-2 text-slate-200`}>
                 {String(contextSummary)}
               </div>
             )}
