@@ -747,12 +747,6 @@ function DocumentDetailPage() {
     );
   }
 
-  const analysis = (analysisRun?.ai_result ?? {}) as Record<string, any>;
-  const review = (reviewRun?.ai_result ?? {}) as Record<string, any>;
-  const sources: any[] =
-    (Array.isArray(analysis?.sources) && analysis.sources) ||
-    pickArray(meta, "sources") ||
-    [];
 
   // Markdown headings → TOC entries
   const slugify = (s: string, i: number) =>
