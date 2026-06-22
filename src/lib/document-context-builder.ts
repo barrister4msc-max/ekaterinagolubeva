@@ -183,20 +183,140 @@ function clampScore(n: number): number {
 // Quality scoring
 // ──────────────────────────────────────────────────────────────────────────────
 
-function computeQuality(a: LegalAnalysisResult): {
+function normalizeText(s: string | undefined | null): string {
+  return (s ?? "").toLowerCase().replace(/[«»"'.,;:()\[\]]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function tokens(s: string): string[] {
+  return normalizeText(s).split(" ").filter((t) => t.length >= 4);
+}
+
+function overlapScore(a: string, b: string): number {
+  const ta = new Set(tokens(a));
+  const tb = tokens(b);
+  if (ta.size === 0 || tb.length === 0) return 0;
+  let hits = 0;
+  for (const t of tb) if (ta.has(t)) hits++;
+  return hits / Math.max(ta.size, 1);
+}
+
+function isKeyLaw(law: { article?: string; title?: string; code?: string }): boolean {
+  const blob = `${law.code ?? ""} ${law.article ?? ""} ${law.title ?? ""}`.toLowerCase();
+  // Heuristic: core anti-avoidance / tax / GK articles
+  return /(54\.1|169|171|172|252|346|45\.1|252\.1)/.test(blob) || /ст\.?\s*\d+/.test(blob);
+}
+
+function buildFactToEvidenceMapping(
+  facts: string[],
+  usedDocs: LegalAnalysisDocAudit[],
+  mappings: LegalAnalysisMapping[],
+  missingEvidence: string[],
+): FactEvidenceLink[] {
+  return facts.map((fact) => {
+    // Match mappings whose `fact` text overlaps with this fact
+    const linkedMappings = mappings.filter((m) => overlapScore(fact, m.fact) >= 0.25 || normalizeText(m.fact).includes(normalizeText(fact).slice(0, 40)));
+    const supporting_laws = Array.from(
+      new Set(linkedMappings.map((m) => m.law).filter(Boolean)),
+    );
+    // Match docs: title or used_for tag overlap
+    const linkedDocs = usedDocs.filter((d) => {
+      const blob = `${d.title} ${(d.used_for ?? []).join(" ")}`;
+      return overlapScore(fact, blob) >= 0.15;
+    });
+    const docs = linkedDocs.length > 0 ? linkedDocs : usedDocs; // fallback: all used docs cover the fact
+    const evidence: string[] = [];
+    for (const m of linkedMappings) {
+      if (m.reasoning) evidence.push(m.reasoning);
+      if (m.conclusion) evidence.push(m.conclusion);
+    }
+    // Note known gaps for this fact
+    for (const me of missingEvidence) {
+      if (overlapScore(fact, me) >= 0.2) evidence.push(`[gap] ${me}`);
+    }
+    return {
+      fact,
+      document_ids: docs.map((d) => d.id),
+      document_titles: docs.map((d) => d.title),
+      evidence: Array.from(new Set(evidence)),
+      supporting_laws,
+    };
+  });
+}
+
+function expandGenerationInstructions(a: LegalAnalysisResult): string[] {
+  const base = Array.isArray(a.generation_instructions) ? [...a.generation_instructions] : [];
+  const add = (s: string | undefined | null) => {
+    const t = (s ?? "").trim();
+    if (t && !base.some((b) => normalizeText(b) === normalizeText(t))) base.push(t);
+  };
+
+  if (a.legal_qualification?.trim()) add(`Опираться на юридическую квалификацию: ${a.legal_qualification.trim()}.`);
+  if (a.main_legal_position?.trim()) add(`Изложить основную правовую позицию: ${a.main_legal_position.trim()}.`);
+  if (a.taxpayer_position?.trim()) add(`Развернуть позицию налогоплательщика: ${a.taxpayer_position.trim()}.`);
+  if (a.tax_authority_position?.trim()) add(`Опровергнуть позицию оппонента: ${a.tax_authority_position.trim()}.`);
+
+  for (const law of a.applicable_laws ?? []) {
+    const ref = [law.code, law.article, law.title].filter(Boolean).join(" ").trim();
+    if (ref) add(`Сослаться на норму: ${ref}${law.why_selected ? ` — ${law.why_selected}` : ""}.`);
+  }
+  for (const m of a.fact_to_law_mapping ?? []) {
+    if (m.fact && m.law) add(`Связать факт «${m.fact}» с нормой ${m.law}: ${m.conclusion ?? m.reasoning ?? ""}`.trim());
+  }
+  for (const cp of (a.court_practice ?? []).slice(0, 3)) {
+    const ref = [cp.case, cp.court, cp.date].filter(Boolean).join(", ");
+    if (ref) add(`Привести судебную практику: ${ref}${cp.conclusion ? ` — ${cp.conclusion}` : ""}.`);
+  }
+  for (const wp of a.weak_points ?? []) add(`Учесть слабое место позиции: ${wp}`);
+  for (const ca of a.counter_arguments ?? []) add(`Подготовить контраргумент: ${ca}`);
+  for (const me of a.missing_evidence ?? []) add(`Указать на необходимость доказательства: ${me}`);
+  for (const r of a.recommendations ?? []) add(`Рекомендация: ${r}`);
+
+  add("Структурировать документ: вводная часть, описательная часть, мотивировочная часть, просительная часть.");
+  add("Ссылки на нормы и судебную практику оформлять точно по реквизитам из контекста; не выдумывать источники.");
+  add("Соблюдать деловой юридический стиль; избегать оценочных суждений без подтверждения.");
+
+  return base;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Quality scoring
+// ──────────────────────────────────────────────────────────────────────────────
+
+function computeQuality(
+  a: LegalAnalysisResult,
+  factEvidence: FactEvidenceLink[],
+  instructionsCount: number,
+): {
   score: number;
   breakdown: DocumentContextQualityBreakdown;
 } {
-  const factsScore = clampScore((Math.min(a.facts?.length ?? 0, 8) / 8) * 100);
+  const factsCount = a.facts?.length ?? 0;
+  const factsScore = clampScore((Math.min(factsCount, 8) / 8) * 100);
   const sourcesScore = clampScore((Math.min(a.sources?.length ?? 0, 10) / 10) * 100);
-  const evidenceScore = clampScore(
-    100 - Math.min((a.missing_evidence?.length ?? 0) * 20, 100),
-  );
-  const lawsScore = clampScore((Math.min(a.applicable_laws?.length ?? 0, 6) / 6) * 100);
+
+  // Evidence: positive — count facts that have document coverage + mapping/reasoning
+  const usedDocs = a.documents_audit?.used?.length ?? 0;
+  const factsWithEvidence = factEvidence.filter(
+    (f) => f.document_ids.length > 0 && (f.evidence.length > 0 || f.supporting_laws.length > 0),
+  ).length;
+  const factsWithDocs = factEvidence.filter((f) => f.document_ids.length > 0).length;
+  const mappingCount = a.fact_to_law_mapping?.length ?? 0;
+  const coverage = factsCount > 0 ? factsWithEvidence / factsCount : 0;
+  const docsTerm = (Math.min(usedDocs, 5) / 5) * 30;
+  const mappingTerm = (Math.min(mappingCount, 5) / 5) * 20;
+  const missingPenalty = Math.min((a.missing_evidence?.length ?? 0) * 5, 25);
+  const evidenceScore = clampScore(coverage * 50 + docsTerm + mappingTerm - missingPenalty + (factsWithDocs > 0 ? 10 : 0));
+
+  // Laws: weight key articles and mapping richness over raw count
+  const laws = a.applicable_laws ?? [];
+  const lawCountTerm = (Math.min(laws.length, 4) / 4) * 50;
+  const keyLawBonus = laws.some(isKeyLaw) ? 30 : 0;
+  const mappingBonus = (Math.min(mappingCount, 4) / 4) * 20;
+  const lawsScore = clampScore(lawCountTerm + keyLawBonus + mappingBonus);
+
   const courtScore = clampScore(
     (Math.min(a.court_practice?.length ?? 0, 5) / 5) * 100,
   );
-  const usedDocs = a.documents_audit?.used?.length ?? 0;
   const documentsScore = clampScore((Math.min(usedDocs, 5) / 5) * 100);
 
   const breakdown: DocumentContextQualityBreakdown = {
@@ -208,14 +328,17 @@ function computeQuality(a: LegalAnalysisResult): {
     documents: documentsScore,
   };
 
-  // Weighted average
+  // Slight bonus when generator has enough instructions (>=8)
+  const instructionsBonus = instructionsCount >= 8 ? 5 : 0;
+
   const score = clampScore(
     factsScore * 0.2 +
-      sourcesScore * 0.2 +
-      evidenceScore * 0.15 +
+      sourcesScore * 0.15 +
+      evidenceScore * 0.2 +
       lawsScore * 0.2 +
       courtScore * 0.15 +
-      documentsScore * 0.1,
+      documentsScore * 0.1 +
+      instructionsBonus,
   );
 
   return { score, breakdown };
