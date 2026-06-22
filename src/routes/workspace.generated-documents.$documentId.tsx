@@ -801,3 +801,362 @@ function RiskList({ title, items }: { title: string; items: any[] }) {
     </div>
   );
 }
+
+/* ============ Reasoning Tab ============ */
+
+function getFactToEvidenceMapping(analysis: any, meta: any): any[] {
+  const candidates = [
+    analysis?.fact_to_evidence_mapping,
+    analysis?.document_context?.fact_to_evidence_mapping,
+    meta?.document_context?.fact_to_evidence_mapping,
+    meta?.fact_to_evidence_mapping,
+  ];
+  for (const c of candidates) {
+    if (Array.isArray(c) && c.length) return c;
+  }
+  return [];
+}
+
+function findEvidenceForFact(factKey: string, evidenceMap: any[]): any[] {
+  if (!evidenceMap.length) return [];
+  return evidenceMap.filter((m: any) => {
+    const f = m?.fact ?? m?.fact_id ?? m?.fact_key ?? m?.fact_text ?? "";
+    return (
+      String(f).toLowerCase() === String(factKey).toLowerCase() ||
+      String(f).toLowerCase().includes(String(factKey).toLowerCase()) ||
+      String(factKey).toLowerCase().includes(String(f).toLowerCase())
+    );
+  });
+}
+
+function ReasoningCard({
+  tone = "default",
+  title,
+  children,
+}: {
+  tone?: "default" | "fact" | "evidence" | "law" | "why" | "conclusion" | "warn";
+  title: string;
+  children: React.ReactNode;
+}) {
+  const toneCls: Record<string, string> = {
+    default: "border-white/15 bg-white/5",
+    fact: "border-sky-300/30 bg-sky-400/10",
+    evidence: "border-emerald-300/30 bg-emerald-400/10",
+    law: "border-violet-300/30 bg-violet-400/10",
+    why: "border-amber-300/30 bg-amber-400/10",
+    conclusion: "border-emerald-400/40 bg-emerald-500/15",
+    warn: "border-red-400/40 bg-red-500/15",
+  };
+  return (
+    <div className={`rounded-xl border p-3 ${toneCls[tone]}`}>
+      <div className="text-[10px] uppercase tracking-wider text-foreground/60">{title}</div>
+      <div className="mt-1 text-sm text-foreground/90">{children}</div>
+    </div>
+  );
+}
+
+function renderText(v: any): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return JSON.stringify(v);
+}
+
+function ReasoningTab({ analysis, meta }: { analysis: any; meta: any }) {
+  const factToLaw: any[] = Array.isArray(analysis?.fact_to_law_mapping) ? analysis.fact_to_law_mapping : [];
+  const factToEvidence: any[] = getFactToEvidenceMapping(analysis, meta);
+  const applicableLaws: any[] = Array.isArray(analysis?.applicable_laws) ? analysis.applicable_laws : [];
+  const rejectedLaws: any[] = Array.isArray(analysis?.rejected_laws) ? analysis.rejected_laws : [];
+  const courtPractice: any[] = Array.isArray(analysis?.court_practice) ? analysis.court_practice : [];
+  const rejectedPractice: any[] = Array.isArray(analysis?.rejected_court_practice) ? analysis.rejected_court_practice : [];
+  const fnsLetters: any[] = Array.isArray(analysis?.fns_letters) ? analysis.fns_letters : [];
+  const minfinLetters: any[] = Array.isArray(analysis?.minfin_letters) ? analysis.minfin_letters : [];
+  const sources: any[] = Array.isArray(analysis?.sources) ? analysis.sources : [];
+  const missingEvidence: any[] = Array.isArray(analysis?.missing_evidence) ? analysis.missing_evidence : [];
+  const weakPoints: any[] = Array.isArray(analysis?.weak_points) ? analysis.weak_points : [];
+  const counterArguments: any[] = Array.isArray(analysis?.counter_arguments) ? analysis.counter_arguments : [];
+  const generationInstructions: any[] = Array.isArray(analysis?.generation_instructions) ? analysis.generation_instructions : [];
+
+  const findLaw = (key: any) => {
+    if (!key) return null;
+    const k = String(key).toLowerCase();
+    return (
+      applicableLaws.find((l: any) =>
+        [l?.id, l?.law_id, l?.code, l?.article, l?.title, l?.name]
+          .filter(Boolean)
+          .some((x: any) => String(x).toLowerCase() === k || String(x).toLowerCase().includes(k)),
+      ) ?? null
+    );
+  };
+
+  const findSource = (ref: any) => {
+    if (!ref) return null;
+    const k = String(ref).toLowerCase();
+    return (
+      sources.find((s: any) =>
+        [s?.id, s?.source_id, s?.title, s?.name, s?.url]
+          .filter(Boolean)
+          .some((x: any) => String(x).toLowerCase() === k || String(x).toLowerCase().includes(k)),
+      ) ?? null
+    );
+  };
+
+  const hasAnyMapping = factToLaw.length > 0;
+
+  return (
+    <section className={`${GLASS} space-y-5 p-5 text-sm text-foreground/85`}>
+      <div>
+        <h2 className="font-display text-lg text-white">Юридическое обоснование</h2>
+        <p className="mt-1 text-xs text-foreground/65">
+          Цепочка: факт → доказательство → норма → почему применима → отклонённые альтернативы → судебная практика → вывод.
+        </p>
+      </div>
+
+      {!hasAnyMapping && (
+        <div className="rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-xs text-amber-50">
+          fact_to_law_mapping отсутствует в правовом анализе. Обоснование построить нельзя.
+        </div>
+      )}
+
+      {factToEvidence.length === 0 && hasAnyMapping && (
+        <div className="rounded-lg border border-amber-300/30 bg-amber-400/5 p-3 text-xs text-amber-50/90">
+          Связка факт → доказательство пока не сформирована.
+        </div>
+      )}
+
+      {factToLaw.map((m: any, i: number) => {
+        const factText = renderText(m?.fact ?? m?.fact_text ?? m?.fact_description ?? m?.description);
+        const factKey = String(m?.fact_id ?? m?.fact_key ?? m?.fact ?? factText ?? "");
+        const lawRef = m?.law ?? m?.law_id ?? m?.article ?? m?.code;
+        const lawObj = (typeof lawRef === "object" ? lawRef : findLaw(lawRef)) ?? null;
+        const lawLabel =
+          (lawObj && (lawObj.title ?? lawObj.name ?? lawObj.article ?? lawObj.code)) ??
+          renderText(lawRef) ??
+          "—";
+        const whyApplicable =
+          m?.why_applicable ?? m?.reasoning ?? m?.justification ?? m?.why ?? lawObj?.why_applicable ?? lawObj?.reasoning;
+        const conclusion = m?.conclusion ?? m?.outcome ?? m?.result;
+        const supportingRefs: any[] =
+          (Array.isArray(m?.supporting_sources) && m.supporting_sources) ||
+          (Array.isArray(m?.sources) && m.sources) ||
+          [];
+        const supportingResolved = supportingRefs.map((r: any) => (typeof r === "object" ? r : findSource(r) ?? r));
+
+        const evidenceForFact = findEvidenceForFact(factKey, factToEvidence);
+        const evidenceDocs = evidenceForFact.flatMap((e: any) => {
+          const docs = e?.documents ?? e?.evidence ?? e?.document ?? e?.evidence_documents;
+          if (Array.isArray(docs)) return docs;
+          if (docs) return [docs];
+          return [];
+        });
+
+        const rejectedAlts: any[] = Array.isArray(m?.rejected_alternatives)
+          ? m.rejected_alternatives
+          : rejectedLaws.filter((rl: any) => {
+              const linked = rl?.related_fact ?? rl?.fact ?? rl?.fact_id;
+              return linked && String(linked).toLowerCase().includes(String(factKey).toLowerCase());
+            });
+
+        const factMissing = missingEvidence.filter((me: any) => {
+          const f = me?.fact ?? me?.fact_id ?? me?.related_fact ?? "";
+          return f && String(f).toLowerCase().includes(String(factKey).toLowerCase());
+        });
+        const factWeak = weakPoints.filter((wp: any) => {
+          const f = wp?.fact ?? wp?.related_fact ?? "";
+          return f && String(f).toLowerCase().includes(String(factKey).toLowerCase());
+        });
+
+        const needsReview = evidenceDocs.length === 0 || !lawObj && !lawRef;
+
+        return (
+          <div
+            key={i}
+            className="space-y-3 rounded-2xl border border-white/15 bg-black/20 p-4"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[10px] uppercase tracking-wider text-foreground/55">
+                Цепочка обоснования #{i + 1}
+              </div>
+              {needsReview && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[11px] text-red-100">
+                  <AlertTriangle size={11} /> Требуется проверка юристом
+                </span>
+              )}
+            </div>
+
+            <ReasoningCard tone="fact" title="Факт">
+              {factText || "—"}
+            </ReasoningCard>
+
+            <ReasoningCard tone="evidence" title={`Доказательства · ${evidenceDocs.length}`}>
+              {evidenceDocs.length === 0 ? (
+                <span className="text-foreground/60">Доказательства не привязаны.</span>
+              ) : (
+                <ul className="space-y-1.5">
+                  {evidenceDocs.map((d: any, k: number) => (
+                    <li key={k} className="rounded border border-white/10 bg-black/20 p-2 text-xs">
+                      <div className="text-foreground/90">
+                        {renderText(d?.title ?? d?.file_name ?? d?.name ?? d?.document_id ?? d)}
+                      </div>
+                      {(d?.relevance || d?.why_relevant) && (
+                        <div className="mt-1 text-foreground/65">{renderText(d?.relevance ?? d?.why_relevant)}</div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ReasoningCard>
+
+            <ReasoningCard tone="law" title="Норма">
+              <div className="font-medium text-white">{lawLabel}</div>
+              {lawObj?.text && <div className="mt-1 whitespace-pre-wrap text-xs text-foreground/75">{lawObj.text}</div>}
+            </ReasoningCard>
+
+            {whyApplicable && (
+              <ReasoningCard tone="why" title="Почему применима">
+                <div className="whitespace-pre-wrap">{renderText(whyApplicable)}</div>
+              </ReasoningCard>
+            )}
+
+            {rejectedAlts.length > 0 && (
+              <ReasoningCard tone="default" title={`Отклонённые альтернативы · ${rejectedAlts.length}`}>
+                <ul className="space-y-1.5">
+                  {rejectedAlts.map((r: any, k: number) => (
+                    <li key={k} className="rounded border border-white/10 bg-black/20 p-2 text-xs">
+                      <div className="text-foreground/90">
+                        {renderText(r?.title ?? r?.name ?? r?.article ?? r?.code ?? r)}
+                      </div>
+                      {(r?.reason ?? r?.why_rejected) && (
+                        <div className="mt-1 text-foreground/65">{renderText(r?.reason ?? r?.why_rejected)}</div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </ReasoningCard>
+            )}
+
+            {supportingResolved.length > 0 && (
+              <ReasoningCard tone="default" title={`Источники · ${supportingResolved.length}`}>
+                <ul className="space-y-1.5">
+                  {supportingResolved.map((s: any, k: number) => (
+                    <li key={k} className="rounded border border-white/10 bg-black/20 p-2 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-foreground/90">
+                          {renderText(s?.title ?? s?.name ?? s?.source_id ?? s)}
+                        </span>
+                        {s?.url && (
+                          <a href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-200 hover:underline">
+                            <ExternalLink size={11} /> ссылка
+                          </a>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </ReasoningCard>
+            )}
+
+            {(factMissing.length > 0 || factWeak.length > 0) && (
+              <ReasoningCard tone="warn" title="Слабые места / нехватка доказательств">
+                {factMissing.length > 0 && (
+                  <div>
+                    <div className="text-[11px] uppercase text-foreground/60">Недостающие доказательства</div>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs">
+                      {factMissing.map((me: any, k: number) => (
+                        <li key={k}>{renderText(me?.description ?? me?.text ?? me)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {factWeak.length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-[11px] uppercase text-foreground/60">Слабые места</div>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs">
+                      {factWeak.map((wp: any, k: number) => (
+                        <li key={k}>{renderText(wp?.description ?? wp?.text ?? wp)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </ReasoningCard>
+            )}
+
+            {conclusion && (
+              <ReasoningCard tone="conclusion" title="Вывод">
+                <div className="whitespace-pre-wrap">{renderText(conclusion)}</div>
+              </ReasoningCard>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Global blocks */}
+      <div className="grid gap-3 md:grid-cols-2">
+        {courtPractice.length > 0 && (
+          <ReasoningCard tone="default" title={`Судебная практика · ${courtPractice.length}`}>
+            <ul className="space-y-1.5 text-xs">
+              {courtPractice.map((c: any, k: number) => (
+                <li key={k} className="rounded border border-white/10 bg-black/20 p-2">
+                  <div className="text-foreground/90">{renderText(c?.title ?? c?.case ?? c?.number ?? c)}</div>
+                  {(c?.relevance ?? c?.why_relevant) && (
+                    <div className="mt-1 text-foreground/65">{renderText(c?.relevance ?? c?.why_relevant)}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </ReasoningCard>
+        )}
+        {rejectedPractice.length > 0 && (
+          <ReasoningCard tone="default" title={`Отклонённая практика · ${rejectedPractice.length}`}>
+            <ul className="space-y-1.5 text-xs">
+              {rejectedPractice.map((c: any, k: number) => (
+                <li key={k} className="rounded border border-white/10 bg-black/20 p-2">
+                  <div className="text-foreground/90">{renderText(c?.title ?? c?.case ?? c?.number ?? c)}</div>
+                  {(c?.reason ?? c?.why_rejected) && (
+                    <div className="mt-1 text-foreground/65">{renderText(c?.reason ?? c?.why_rejected)}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </ReasoningCard>
+        )}
+        {fnsLetters.length > 0 && (
+          <ReasoningCard tone="default" title={`Письма ФНС · ${fnsLetters.length}`}>
+            <ul className="space-y-1 text-xs">
+              {fnsLetters.map((c: any, k: number) => (
+                <li key={k}>{renderText(c?.title ?? c?.number ?? c)}</li>
+              ))}
+            </ul>
+          </ReasoningCard>
+        )}
+        {minfinLetters.length > 0 && (
+          <ReasoningCard tone="default" title={`Письма Минфина · ${minfinLetters.length}`}>
+            <ul className="space-y-1 text-xs">
+              {minfinLetters.map((c: any, k: number) => (
+                <li key={k}>{renderText(c?.title ?? c?.number ?? c)}</li>
+              ))}
+            </ul>
+          </ReasoningCard>
+        )}
+        {counterArguments.length > 0 && (
+          <ReasoningCard tone="default" title={`Контраргументы · ${counterArguments.length}`}>
+            <ul className="space-y-1 text-xs">
+              {counterArguments.map((c: any, k: number) => (
+                <li key={k}>{renderText(c?.text ?? c?.description ?? c)}</li>
+              ))}
+            </ul>
+          </ReasoningCard>
+        )}
+        {generationInstructions.length > 0 && (
+          <ReasoningCard tone="default" title={`Инструкции для генератора · ${generationInstructions.length}`}>
+            <ul className="space-y-1 text-xs">
+              {generationInstructions.map((c: any, k: number) => (
+                <li key={k}>{renderText(c?.text ?? c?.description ?? c)}</li>
+              ))}
+            </ul>
+          </ReasoningCard>
+        )}
+      </div>
+    </section>
+  );
+}
