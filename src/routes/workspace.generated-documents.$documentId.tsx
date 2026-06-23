@@ -63,10 +63,15 @@ type DocRow = {
   id: string;
   title: string | null;
   template_key: string | null;
+  template_id: string | null;
+  category: string | null;
   status: string;
   ai_review_status: string | null;
   version_number: number;
   parent_document_id: string | null;
+  source_document_id: string | null;
+  lead_id: string | null;
+  crm_lead_id: string | null;
   lawyer_approved_at: string | null;
   lawyer_approved_by: string | null;
   created_at: string;
@@ -644,7 +649,7 @@ function DocumentDetailPage() {
       const { data, error } = await supabase
         .from("generated_legal_documents")
         .select(
-          "id,title,template_key,status,ai_review_status,version_number,parent_document_id,lawyer_approved_at,lawyer_approved_by,created_at,updated_at,content,metadata,intake_session_id",
+          "id,title,template_key,template_id,category,status,ai_review_status,version_number,parent_document_id,source_document_id,lead_id,crm_lead_id,lawyer_approved_at,lawyer_approved_by,created_at,updated_at,content,metadata,intake_session_id",
         )
         .eq("id", documentId)
         .maybeSingle();
@@ -752,17 +757,71 @@ function DocumentDetailPage() {
   const createVersion = useMutation({
     mutationFn: async () => {
       if (!doc) return null;
-      const insert = {
-        title: doc.title ?? "Без названия",
-        template_key: doc.template_key ?? "unknown",
-        parent_document_id: doc.id,
-        version_number: (doc.version_number ?? 1) + 1,
-        content: edited,
-        status: "lawyer_review",
-        ai_review_status: null,
-        intake_session_id: doc.intake_session_id,
-        metadata: { created_from_version: doc.version_number, created_via: "manual_edit" },
+
+      const original = doc;
+      const originalMetadata: Record<string, any> = (original.metadata ?? {}) as Record<string, any>;
+
+      // Provenance guard: never silently drop AI links
+      const hasAnalysisRunId = Boolean(
+        originalMetadata?.legal_analysis_run_id ?? originalMetadata?.legal_analysis?.run_id,
+      );
+
+      const inheritedMetadata: Record<string, any> = { ...originalMetadata };
+      const newMetadata: Record<string, any> = {
+        ...inheritedMetadata,
+        created_via: "manual_edit",
+        created_from_document_id: original.id,
+        created_from_version: original.version_number ?? 1,
+        provenance_inherited: true,
       };
+
+      if (hasAnalysisRunId && !newMetadata.legal_analysis_run_id && !newMetadata.legal_analysis?.run_id) {
+        throw new Error("Нельзя создать версию: потеряна связь с AI-анализом.");
+      }
+
+      // Root document for version chain
+      const rootDocumentId = original.parent_document_id ?? original.id;
+
+      // Compute next version number from DB max across the chain
+      let nextVersionNumber = (original.version_number ?? 1) + 1;
+      try {
+        const { data: maxRows } = await supabase
+          .from("generated_legal_documents")
+          .select("version_number")
+          .or(`id.eq.${rootDocumentId},parent_document_id.eq.${rootDocumentId}`)
+          .order("version_number", { ascending: false })
+          .limit(1);
+        const maxVersion = Array.isArray(maxRows) && maxRows.length > 0 ? (maxRows[0] as any).version_number : null;
+        if (typeof maxVersion === "number" && Number.isFinite(maxVersion)) {
+          nextVersionNumber = maxVersion + 1;
+        }
+      } catch {
+        // fall back to original+1
+      }
+
+      const { data: userRes } = await supabase.auth.getUser();
+      const userId = userRes?.user?.id ?? null;
+
+      const insert: Record<string, any> = {
+        title: original.title ?? "Без названия",
+        template_key: original.template_key ?? "unknown",
+        template_id: original.template_id ?? null,
+        category: original.category ?? null,
+        parent_document_id: rootDocumentId,
+        source_document_id: original.source_document_id ?? null,
+        version_number: nextVersionNumber,
+        content: edited,
+        status: "draft",
+        ai_review_status: null,
+        intake_session_id: original.intake_session_id ?? null,
+        lead_id: original.lead_id ?? null,
+        crm_lead_id: original.crm_lead_id ?? null,
+        lawyer_approved_at: null,
+        lawyer_approved_by: null,
+        created_by: userId,
+        metadata: newMetadata,
+      };
+
       const { data, error } = await supabase
         .from("generated_legal_documents")
         .insert(insert as any)
@@ -1903,8 +1962,12 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
       </div>
 
       {!hasAnyMapping && (
-        <div className="rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-xs text-amber-50">
-          fact_to_law_mapping отсутствует в правовом анализе. Обоснование построить нельзя.
+        <div className="space-y-3 rounded-xl border border-amber-300/40 bg-amber-400/10 p-4 text-sm text-amber-50">
+          <div className="font-medium text-amber-50">Юридическое обоснование недоступно.</div>
+          <p className="text-xs leading-relaxed text-amber-100/90">
+            AI не сформировал цепочку: Факт → Доказательство → Норма → Практика → Вывод.
+            Документ не соответствует требованиям качества для утверждения.
+          </p>
         </div>
       )}
 
