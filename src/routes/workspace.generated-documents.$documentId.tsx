@@ -1962,8 +1962,12 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
       </div>
 
       {!hasAnyMapping && (
-        <div className="rounded-lg border border-amber-300/40 bg-amber-400/10 p-3 text-xs text-amber-50">
-          fact_to_law_mapping отсутствует в правовом анализе. Обоснование построить нельзя.
+        <div className="space-y-3 rounded-xl border border-amber-300/40 bg-amber-400/10 p-4 text-sm text-amber-50">
+          <div className="font-medium text-amber-50">Юридическое обоснование недоступно.</div>
+          <p className="text-xs leading-relaxed text-amber-100/90">
+            AI не сформировал цепочку: Факт → Доказательство → Норма → Практика → Вывод.
+            Документ не соответствует требованиям качества для утверждения.
+          </p>
         </div>
       )}
 
