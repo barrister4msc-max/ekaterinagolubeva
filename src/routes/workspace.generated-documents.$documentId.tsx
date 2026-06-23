@@ -932,6 +932,45 @@ function DocumentDetailPage() {
     onError: (e: any) => toast.error(e?.message ?? "Не удалось одобрить"),
   });
 
+  // Re-run legal analysis for the current intake session
+  const rerunAnalysis = useMutation({
+    mutationFn: async () => {
+      if (!sessionId) throw new Error("Нет привязанной intake-сессии.");
+      const { data, error } = await supabase.functions.invoke<{
+        success?: boolean;
+        error?: string;
+        run_id?: string;
+      }>("analyze-document-legal-position", { body: { session_id: sessionId } });
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error ?? "Анализ не выполнен");
+      return data;
+    },
+    onSuccess: async () => {
+      toast.success("AI-анализ обновлён. Можно сформировать новую редакцию.");
+      await Promise.all([refetchLatestAnalysis(), refetchLatestRun()]);
+      queryClient.invalidateQueries({ queryKey: ["legal-analysis-run"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Не удалось запустить AI-анализ"),
+  });
+
+  // Approved flow: create a new draft version, navigate to it, then trigger re-analysis
+  const createVersionAndReanalyze = useMutation({
+    mutationFn: async () => {
+      const newId = await createVersion.mutateAsync();
+      if (sessionId) {
+        // Fire-and-forget; user will see the analysis update on the new draft route
+        supabase.functions
+          .invoke("analyze-document-legal-position", { body: { session_id: sessionId } })
+          .catch(() => null);
+      }
+      return newId;
+    },
+    onSuccess: () => {
+      toast.success("Создана новая редакция, AI-анализ запущен.");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Не удалось создать редакцию"),
+  });
+
   const getSafeFileName = () =>
     `${(doc?.title ?? "document").replace(/[^\wа-яА-ЯёЁ\-]+/g, "_")}_v${doc?.version_number ?? 1}`;
 
