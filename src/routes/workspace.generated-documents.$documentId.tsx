@@ -63,10 +63,15 @@ type DocRow = {
   id: string;
   title: string | null;
   template_key: string | null;
+  template_id: string | null;
+  category: string | null;
   status: string;
   ai_review_status: string | null;
   version_number: number;
   parent_document_id: string | null;
+  source_document_id: string | null;
+  lead_id: string | null;
+  crm_lead_id: string | null;
   lawyer_approved_at: string | null;
   lawyer_approved_by: string | null;
   created_at: string;
