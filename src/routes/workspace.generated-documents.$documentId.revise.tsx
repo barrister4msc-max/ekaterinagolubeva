@@ -558,13 +558,54 @@ if (hasRawOnlyMaterials) {
       // Create new document version if needed
       let createdDocumentId: string | null = null;
       if (decision === "create_new_version") {
-        const nextVersion = (doc.version_number ?? 1) + 1;
+        const originalMetadata: Record<string, any> = (doc.metadata ?? {}) as Record<string, any>;
+        const hasAnalysisRunId = Boolean(
+          originalMetadata?.legal_analysis_run_id ?? originalMetadata?.legal_analysis?.run_id,
+        );
+
+        const newMetadata: Record<string, any> = {
+          ...originalMetadata,
+          created_via: "manual_edit",
+          created_from_document_id: doc.id,
+          created_from_version: doc.version_number ?? 1,
+          provenance_inherited: true,
+          revision_of: doc.id,
+          revision_analysis: currentAnalysis ?? null,
+          created_from_revision: {
+            source_document_id: doc.id,
+            decision_reason: lawyerComment.trim(),
+            based_on_analysis_at: new Date().toISOString(),
+          },
+        };
+
+        if (hasAnalysisRunId && !newMetadata.legal_analysis_run_id && !newMetadata.legal_analysis?.run_id) {
+          throw new Error("Нельзя создать версию: потеряна связь с AI-анализом.");
+        }
+
+        const rootDocumentId = doc.parent_document_id ?? doc.id;
+
+        let nextVersion = (doc.version_number ?? 1) + 1;
+        try {
+          const { data: maxRows } = await supabase
+            .from("generated_legal_documents")
+            .select("version_number")
+            .or(`id.eq.${rootDocumentId},parent_document_id.eq.${rootDocumentId}`)
+            .order("version_number", { ascending: false })
+            .limit(1);
+          const maxVersion = Array.isArray(maxRows) && maxRows.length > 0 ? (maxRows[0] as any).version_number : null;
+          if (typeof maxVersion === "number" && Number.isFinite(maxVersion)) {
+            nextVersion = maxVersion + 1;
+          }
+        } catch {
+          /* fall back */
+        }
+
         const insertPayload: Record<string, any> = {
           title: doc.title,
           content: doc.content,
           status: "draft",
-          ai_review_status: "pending",
-          parent_document_id: doc.id,
+          ai_review_status: null,
+          parent_document_id: rootDocumentId,
           version_number: nextVersion,
           template_key: doc.template_key,
           template_id: doc.template_id,
@@ -572,16 +613,10 @@ if (hasRawOnlyMaterials) {
           intake_session_id: doc.intake_session_id,
           lead_id: doc.lead_id,
           crm_lead_id: doc.crm_lead_id,
-          metadata: {
-            ...(doc.metadata ?? {}),
-            revision_of: doc.id,
-            revision_analysis: currentAnalysis ?? null,
-            created_from_revision: {
-              source_document_id: doc.id,
-              decision_reason: lawyerComment.trim(),
-              based_on_analysis_at: new Date().toISOString(),
-            },
-          },
+          lawyer_approved_at: null,
+          lawyer_approved_by: null,
+          created_by: userId,
+          metadata: newMetadata,
         };
         const { data: created, error: createErr } = await supabase
           .from("generated_legal_documents")
