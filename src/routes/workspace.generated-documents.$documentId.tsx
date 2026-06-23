@@ -1411,6 +1411,20 @@ function DocumentDetailPage() {
       {tab === "analysis" && (
         <section className={`${PANEL} p-5 space-y-4 text-sm text-slate-100`}>
           <h2 className="font-display text-lg text-white">AI правовой анализ</h2>
+          <AnalysisFreshness
+            sessionId={sessionId}
+            lastAnalysisAt={lastAnalysisAt}
+            lastDocUploadAt={lastDocUploadAt}
+            docsTotal={sessionSourceDocs?.length ?? 0}
+            docsAfter={docsAfterAnalysis.length}
+            outdated={analysisOutdated}
+            latestRunFailed={latestRunFailed}
+            latestRunError={latestSessionRun?.error_message ?? null}
+            isApproved={isApproved}
+            isRunning={rerunAnalysis.isPending || createVersionAndReanalyze.isPending}
+            onRerun={() => rerunAnalysis.mutate()}
+            onCreateVersionAndRerun={() => createVersionAndReanalyze.mutate()}
+          />
           {!analysisRun && <p className="text-slate-300">Правовой анализ не привязан к документу.</p>}
           {analysisRun && (
             <>
