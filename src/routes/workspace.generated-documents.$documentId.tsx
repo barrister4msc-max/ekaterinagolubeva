@@ -649,7 +649,7 @@ function DocumentDetailPage() {
       const { data, error } = await supabase
         .from("generated_legal_documents")
         .select(
-          "id,title,template_key,status,ai_review_status,version_number,parent_document_id,lawyer_approved_at,lawyer_approved_by,created_at,updated_at,content,metadata,intake_session_id",
+          "id,title,template_key,template_id,category,status,ai_review_status,version_number,parent_document_id,source_document_id,lead_id,crm_lead_id,lawyer_approved_at,lawyer_approved_by,created_at,updated_at,content,metadata,intake_session_id",
         )
         .eq("id", documentId)
         .maybeSingle();
