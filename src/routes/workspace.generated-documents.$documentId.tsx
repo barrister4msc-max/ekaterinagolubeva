@@ -730,6 +730,74 @@ function DocumentDetailPage() {
     },
   });
 
+  // Latest legal_analysis run for the intake session (independent of doc.metadata)
+  const sessionId = doc?.intake_session_id ?? null;
+  const { data: latestSessionAnalysis, refetch: refetchLatestAnalysis } = useQuery({
+    queryKey: ["latest-legal-analysis", sessionId],
+    enabled: !!sessionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("document_intake_ai_runs")
+        .select("id,status,error_message,created_at,completed_at")
+        .eq("session_id", sessionId!)
+        .eq("run_type", "legal_analysis")
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+  });
+
+  // Latest run regardless of status — to surface failed reruns
+  const { data: latestSessionRun, refetch: refetchLatestRun } = useQuery({
+    queryKey: ["latest-legal-analysis-any", sessionId],
+    enabled: !!sessionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("document_intake_ai_runs")
+        .select("id,status,error_message,created_at,completed_at")
+        .eq("session_id", sessionId!)
+        .eq("run_type", "legal_analysis")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+  });
+
+  // Source documents attached to the intake session (the corpus the AI analyzed)
+  const { data: sessionSourceDocs } = useQuery({
+    queryKey: ["session-source-documents", sessionId],
+    enabled: !!sessionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("documents")
+        .select("id,created_at,metadata")
+        .eq("metadata->>intake_session_id", sessionId!)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) return [];
+      return (data ?? []) as Array<{ id: string; created_at: string }>;
+    },
+  });
+
+  const lastAnalysisAt = latestSessionAnalysis?.created_at ?? null;
+  const lastDocUploadAt = (sessionSourceDocs?.[0]?.created_at as string | undefined) ?? null;
+  const docsAfterAnalysis = useMemo(() => {
+    if (!sessionSourceDocs || sessionSourceDocs.length === 0) return [];
+    if (!lastAnalysisAt) return sessionSourceDocs;
+    return sessionSourceDocs.filter((d) => (d.created_at ?? "") > lastAnalysisAt);
+  }, [sessionSourceDocs, lastAnalysisAt]);
+  const analysisOutdated = docsAfterAnalysis.length > 0;
+  const latestRunFailed =
+    !!latestSessionRun &&
+    latestSessionRun.status !== "completed" &&
+    latestSessionRun.status !== "running" &&
+    latestSessionRun.status !== "pending";
+
   const isApproved = useMemo(
     () => (doc ? APPROVED_STATUSES.has((doc.status ?? "").toLowerCase()) || Boolean(doc.lawyer_approved_at) : false),
     [doc],
