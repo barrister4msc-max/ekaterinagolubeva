@@ -730,6 +730,74 @@ function DocumentDetailPage() {
     },
   });
 
+  // Latest legal_analysis run for the intake session (independent of doc.metadata)
+  const sessionId = doc?.intake_session_id ?? null;
+  const { data: latestSessionAnalysis, refetch: refetchLatestAnalysis } = useQuery({
+    queryKey: ["latest-legal-analysis", sessionId],
+    enabled: !!sessionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("document_intake_ai_runs")
+        .select("id,status,error_message,created_at,completed_at")
+        .eq("session_id", sessionId!)
+        .eq("run_type", "legal_analysis")
+        .eq("status", "completed")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+  });
+
+  // Latest run regardless of status — to surface failed reruns
+  const { data: latestSessionRun, refetch: refetchLatestRun } = useQuery({
+    queryKey: ["latest-legal-analysis-any", sessionId],
+    enabled: !!sessionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("document_intake_ai_runs")
+        .select("id,status,error_message,created_at,completed_at")
+        .eq("session_id", sessionId!)
+        .eq("run_type", "legal_analysis")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+  });
+
+  // Source documents attached to the intake session (the corpus the AI analyzed)
+  const { data: sessionSourceDocs } = useQuery({
+    queryKey: ["session-source-documents", sessionId],
+    enabled: !!sessionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("documents")
+        .select("id,created_at,metadata")
+        .eq("metadata->>intake_session_id", sessionId!)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (error) return [];
+      return (data ?? []) as Array<{ id: string; created_at: string }>;
+    },
+  });
+
+  const lastAnalysisAt = latestSessionAnalysis?.created_at ?? null;
+  const lastDocUploadAt = (sessionSourceDocs?.[0]?.created_at as string | undefined) ?? null;
+  const docsAfterAnalysis = useMemo(() => {
+    if (!sessionSourceDocs || sessionSourceDocs.length === 0) return [];
+    if (!lastAnalysisAt) return sessionSourceDocs;
+    return sessionSourceDocs.filter((d) => (d.created_at ?? "") > lastAnalysisAt);
+  }, [sessionSourceDocs, lastAnalysisAt]);
+  const analysisOutdated = docsAfterAnalysis.length > 0;
+  const latestRunFailed =
+    !!latestSessionRun &&
+    latestSessionRun.status !== "completed" &&
+    latestSessionRun.status !== "running" &&
+    latestSessionRun.status !== "pending";
+
   const isApproved = useMemo(
     () => (doc ? APPROVED_STATUSES.has((doc.status ?? "").toLowerCase()) || Boolean(doc.lawyer_approved_at) : false),
     [doc],
@@ -862,6 +930,45 @@ function DocumentDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["generated-documents"] });
     },
     onError: (e: any) => toast.error(e?.message ?? "Не удалось одобрить"),
+  });
+
+  // Re-run legal analysis for the current intake session
+  const rerunAnalysis = useMutation({
+    mutationFn: async () => {
+      if (!sessionId) throw new Error("Нет привязанной intake-сессии.");
+      const { data, error } = await supabase.functions.invoke<{
+        success?: boolean;
+        error?: string;
+        run_id?: string;
+      }>("analyze-document-legal-position", { body: { session_id: sessionId } });
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error ?? "Анализ не выполнен");
+      return data;
+    },
+    onSuccess: async () => {
+      toast.success("AI-анализ обновлён. Можно сформировать новую редакцию.");
+      await Promise.all([refetchLatestAnalysis(), refetchLatestRun()]);
+      queryClient.invalidateQueries({ queryKey: ["legal-analysis-run"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Не удалось запустить AI-анализ"),
+  });
+
+  // Approved flow: create a new draft version, navigate to it, then trigger re-analysis
+  const createVersionAndReanalyze = useMutation({
+    mutationFn: async () => {
+      const newId = await createVersion.mutateAsync();
+      if (sessionId) {
+        // Fire-and-forget; user will see the analysis update on the new draft route
+        supabase.functions
+          .invoke("analyze-document-legal-position", { body: { session_id: sessionId } })
+          .catch(() => null);
+      }
+      return newId;
+    },
+    onSuccess: () => {
+      toast.success("Создана новая редакция, AI-анализ запущен.");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Не удалось создать редакцию"),
   });
 
   const getSafeFileName = () =>
@@ -1304,6 +1411,20 @@ function DocumentDetailPage() {
       {tab === "analysis" && (
         <section className={`${PANEL} p-5 space-y-4 text-sm text-slate-100`}>
           <h2 className="font-display text-lg text-white">AI правовой анализ</h2>
+          <AnalysisFreshness
+            sessionId={sessionId}
+            lastAnalysisAt={lastAnalysisAt}
+            lastDocUploadAt={lastDocUploadAt}
+            docsTotal={sessionSourceDocs?.length ?? 0}
+            docsAfter={docsAfterAnalysis.length}
+            outdated={analysisOutdated}
+            latestRunFailed={latestRunFailed}
+            latestRunError={latestSessionRun?.error_message ?? null}
+            isApproved={isApproved}
+            isRunning={rerunAnalysis.isPending || createVersionAndReanalyze.isPending}
+            onRerun={() => rerunAnalysis.mutate()}
+            onCreateVersionAndRerun={() => createVersionAndReanalyze.mutate()}
+          />
           {!analysisRun && <p className="text-slate-300">Правовой анализ не привязан к документу.</p>}
           {analysisRun && (
             <>
@@ -1800,6 +1921,102 @@ function AnalysisField({ label, value }: { label: string; value: any }) {
     <div className={`${PANEL_SUB} p-3`}>
       <div className={PANEL_LABEL}>{label}</div>
       <div className="mt-1 whitespace-pre-wrap text-[14px] leading-relaxed text-slate-50">{text}</div>
+    </div>
+  );
+}
+
+function AnalysisFreshness({
+  sessionId,
+  lastAnalysisAt,
+  lastDocUploadAt,
+  docsTotal,
+  docsAfter,
+  outdated,
+  latestRunFailed,
+  latestRunError,
+  isApproved,
+  isRunning,
+  onRerun,
+  onCreateVersionAndRerun,
+}: {
+  sessionId: string | null;
+  lastAnalysisAt: string | null;
+  lastDocUploadAt: string | null;
+  docsTotal: number;
+  docsAfter: number;
+  outdated: boolean;
+  latestRunFailed: boolean;
+  latestRunError: string | null;
+  isApproved: boolean;
+  isRunning: boolean;
+  onRerun: () => void;
+  onCreateVersionAndRerun: () => void;
+}) {
+  if (!sessionId) return null;
+  const status = outdated ? "Устарел" : lastAnalysisAt ? "Актуален" : "Нет анализа";
+  const tone = outdated
+    ? "border-amber-400/50 bg-amber-500/10 text-amber-50"
+    : lastAnalysisAt
+    ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-50"
+    : "border-slate-600/60 bg-slate-800/60 text-slate-200";
+
+  return (
+    <div className={`rounded-2xl border ${tone} p-4 space-y-3`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          {outdated ? <AlertTriangle size={16} /> : <ShieldCheck size={16} />}
+          <span>Статус AI-анализа: {status}</span>
+        </div>
+        <span className="rounded-full bg-black/30 px-2 py-0.5 text-[11px]">
+          Документов: {docsTotal}
+          {docsAfter > 0 ? ` · +${docsAfter} после анализа` : ""}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs text-slate-200/90">
+        <div>
+          <div className="opacity-70">Последний AI-анализ</div>
+          <div className="font-medium text-slate-50">{lastAnalysisAt ? fmt(lastAnalysisAt) : "—"}</div>
+        </div>
+        <div>
+          <div className="opacity-70">Последний документ</div>
+          <div className="font-medium text-slate-50">{lastDocUploadAt ? fmt(lastDocUploadAt) : "—"}</div>
+        </div>
+      </div>
+
+      {latestRunFailed && (
+        <div className="rounded-lg border border-red-400/40 bg-red-500/15 p-2 text-xs text-red-50">
+          Последний запуск AI-анализа завершился с ошибкой
+          {latestRunError ? `: ${latestRunError}` : "."} Предыдущий завершённый анализ сохранён.
+        </div>
+      )}
+
+      {outdated && (
+        <div className="text-xs text-amber-50/90">
+          Добавлены новые документы. Требуется повторный AI правовой анализ.
+        </div>
+      )}
+
+      {outdated &&
+        (isApproved ? (
+          <button
+            onClick={onCreateVersionAndRerun}
+            disabled={isRunning}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-amber-400 disabled:opacity-60"
+          >
+            {isRunning ? <Loader2 className="animate-spin" size={14} /> : <GitBranch size={14} />}
+            Создать новую редакцию и запустить AI-анализ
+          </button>
+        ) : (
+          <button
+            onClick={onRerun}
+            disabled={isRunning}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-sky-500 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-400 disabled:opacity-60"
+          >
+            {isRunning ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
+            Запустить повторный AI-анализ
+          </button>
+        ))}
     </div>
   );
 }
