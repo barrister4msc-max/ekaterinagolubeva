@@ -56,6 +56,15 @@ import {
   ConsistencyCheck,
   type ConsistencyResult,
 } from "@/components/quality-gate";
+import {
+  AttachmentsTab,
+  AttachmentDrawer,
+  useSessionAttachments,
+} from "@/components/document-workspace/attachments-viewer";
+import {
+  EvidenceMatrixTab,
+  FactCheckDrawer,
+} from "@/components/document-workspace/evidence-matrix";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId")({
   head: () => ({
