@@ -48,6 +48,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  buildConsistencyChecks,
+  QualityGate,
+  QualityGateSummary,
+  ConsistencyCheck,
+  type ConsistencyResult,
+} from "@/components/quality-gate";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId")({
   head: () => ({
@@ -1535,6 +1542,26 @@ function DocumentDetailPage() {
 
   const selectedArg = argumentsList[selectedArgIndex] ?? null;
 
+  // Phase 4: Quality Gate / Consistency
+  const consistency: ConsistencyResult = useMemo(
+    () =>
+      buildConsistencyChecks({
+        doc: doc ?? null,
+        legalAnalysisRunId,
+        analysisRun: analysisRun ?? null,
+        reviewRun: reviewRun ?? null,
+        analysis,
+        review,
+        meta,
+        argumentsCount: argumentsList.length,
+        sources,
+        usedContext,
+        contextQuality,
+      }),
+    [doc, legalAnalysisRunId, analysisRun, reviewRun, analysis, review, meta, argumentsList.length, sources, usedContext, contextQuality],
+  );
+  const approveBlocked = !consistency.ready;
+
   const showPanel = viewMode !== "read" && !panelCollapsed;
   // Right panel is a fixed compact column; document fills the rest.
   const gridCols = showPanel
@@ -1741,9 +1768,15 @@ function DocumentDetailPage() {
           <button
             type="button"
             onClick={() => {
+              if (approveBlocked) {
+                toast.error(consistency.blockReason ?? "Документ не прошёл проверку качества.");
+                setTab("review");
+                return;
+              }
               if (confirm("Одобрить документ?")) approve.mutate();
             }}
-            disabled={approve.isPending}
+            disabled={approve.isPending || approveBlocked}
+            title={approveBlocked ? (consistency.blockReason ?? "Quality Gate не пройден") : undefined}
             className={`${BTN_EMERALD} whitespace-nowrap`}
           >
             {approve.isPending ? (
@@ -1753,6 +1786,11 @@ function DocumentDetailPage() {
             )}
             Одобрить
           </button>
+        )}
+        {isApproved && !consistency.ready && (
+          <span className="inline-flex items-center gap-1 rounded-lg border border-amber-400/60 bg-amber-500/15 px-2.5 py-1.5 text-xs text-amber-100">
+            <AlertTriangle size={12} /> Утверждён, но Quality Gate не пройден
+          </span>
         )}
       </div>
     </section>
@@ -1783,6 +1821,14 @@ function DocumentDetailPage() {
           </button>
         ))}
       </div>
+
+      <QualityGateSummary
+        result={consistency}
+        approved={isApproved}
+        onClick={() => setTab("review")}
+      />
+
+
 
       {tab === "reasoning" && (
         <div className="space-y-3">
@@ -1900,6 +1946,9 @@ function DocumentDetailPage() {
               Найденные проблемы, причины и рекомендации. Каждый блок содержит ссылку на место в документе.
             </p>
           </div>
+
+          <QualityGate result={consistency} approved={isApproved} />
+
           {!reviewRun && <p className="text-sm text-slate-300">AI Review для этого документа не найден.</p>}
           {reviewRun && (
             <>
