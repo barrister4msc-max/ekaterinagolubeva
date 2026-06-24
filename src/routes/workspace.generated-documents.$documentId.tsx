@@ -48,6 +48,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import {
+  buildConsistencyChecks,
+  QualityGate,
+  QualityGateSummary,
+  ConsistencyCheck,
+  type ConsistencyResult,
+} from "@/components/quality-gate";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId")({
   head: () => ({
