@@ -2208,9 +2208,19 @@ function DocumentDetailPage() {
             </p>
           </div>
 
-          <QualityGate result={consistency} approved={isApproved} />
+          <ReviewActionPanel
+            reviewRun={reviewRun ?? null}
+            reviewRunning={reviewRunning}
+            reviewFailed={reviewFailed}
+            reviewErrorMessage={reviewErrorMessage}
+            analysisCompleted={analysisCompleted}
+            analysisOutdated={analysisOutdated}
+            isApproved={isApproved}
+            isPending={runReview.isPending}
+            onRun={() => runReview.mutate()}
+          />
 
-          {!reviewRun && <p className="text-sm text-slate-300">AI Review для этого документа не найден.</p>}
+          <QualityGate result={consistency} approved={isApproved} />
           {reviewRun && (
             <>
               <div className="grid gap-3 sm:grid-cols-3">
