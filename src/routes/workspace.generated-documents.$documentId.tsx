@@ -488,6 +488,16 @@ function SourceViewerDrawer({ setTab }: { setTab: (t: TabId) => void }) {
                 <ExternalLink size={12} /> Открыть в новой вкладке
               </a>
             )}
+            <button
+              type="button"
+              onClick={async () => {
+                const ok = await copyCitationToClipboard(source);
+                ok ? toast.success("Ссылка скопирована") : toast.error("Не удалось скопировать");
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-500 bg-slate-800 px-2.5 py-1 text-[12px] font-medium text-slate-50 hover:bg-slate-700"
+            >
+              <Copy size={12} /> Копировать ссылку
+            </button>
             {kind === "client_doc" && (
               <button
                 type="button"
