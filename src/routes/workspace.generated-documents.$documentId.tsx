@@ -2237,6 +2237,9 @@ function DocumentDetailPage() {
         </SheetContent>
       </Sheet>
 
+      {/* Phase 3: Unified Source Viewer */}
+      <SourceViewerDrawer setTab={setTab} />
+
 
       {/* Print + doc styles */}
       <style>{`
