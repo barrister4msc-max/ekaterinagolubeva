@@ -1405,6 +1405,30 @@ function DocumentDetailPage() {
     onError: (e: any) => toast.error(e?.message ?? "Не удалось запустить AI-анализ"),
   });
 
+  // Run AI Review for the current generated document (uses existing edge function).
+  const runReview = useMutation({
+    mutationFn: async () => {
+      if (!doc) throw new Error("Документ не загружен");
+      const { data, error } = await supabase.functions.invoke<{
+        success?: boolean;
+        review?: { overall_score?: number };
+        error?: string;
+      }>("review-generated-legal-document", { body: { document_id: doc.id } });
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error ?? "AI Review не выполнен");
+      return data;
+    },
+    onSuccess: (data) => {
+      const score = data?.review?.overall_score;
+      toast.success(score != null ? `AI Review завершён: ${score}/100` : "AI Review завершён");
+      queryClient.invalidateQueries({ queryKey: ["review-run", documentId] });
+      queryClient.invalidateQueries({ queryKey: ["generated-document", documentId] });
+      queryClient.invalidateQueries({ queryKey: ["legal-analysis-run", legalAnalysisRunId] });
+      queryClient.invalidateQueries({ queryKey: ["generated-documents"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Не удалось запустить AI Review"),
+  });
+
   // Approved flow: create a new draft version, navigate to it, then trigger re-analysis
   const createVersionAndReanalyze = useMutation({
     mutationFn: async () => {
