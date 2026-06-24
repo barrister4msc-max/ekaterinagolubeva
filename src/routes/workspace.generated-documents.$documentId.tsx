@@ -1267,6 +1267,7 @@ function DocumentDetailPage() {
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [tocOpen, setTocOpen] = useState(false);
   const [selectedArgIndex, setSelectedArgIndex] = useState<number>(0);
+  const [matrixJumpFilter, setMatrixJumpFilter] = useState<string | null>(null);
   const [argFilter, setArgFilter] = useState<"all" | "high" | "medium" | "low" | "no_evidence" | "ai_issues" | "needs_review">("all");
   const [argSearch, setArgSearch] = useState<string>("");
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
