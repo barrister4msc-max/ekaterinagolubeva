@@ -3398,13 +3398,14 @@ function ChainOfCustodyTab({
       // Up
       while (cursor && !visited.has(cursor)) {
         visited.add(cursor);
-        const { data } = await supabase
+        const res: any = await supabase
           .from("generated_legal_documents")
           .select(
             "id,title,version_number,parent_document_id,status,ai_review_status,lawyer_approved_at,lawyer_approved_by,created_at,created_by,metadata",
           )
           .eq("id", cursor)
           .maybeSingle();
+        const data = res?.data;
         if (!data) break;
         result.push(data as unknown as ChainDoc);
         cursor = (data as any).parent_document_id ?? null;
