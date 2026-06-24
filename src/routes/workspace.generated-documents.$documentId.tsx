@@ -887,7 +887,25 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
         >
           <Target size={11} /> Проверить локализацию
         </button>
+        <button
+          type="button"
+          onClick={async () => {
+            const ok = await copyCitationToClipboard(source);
+            ok ? toast.success("Ссылка скопирована") : toast.error("Не удалось скопировать");
+          }}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-500/60 bg-slate-700/60 px-2 py-0.5 text-[11px] text-slate-50 hover:bg-slate-700"
+        >
+          <Copy size={11} /> Копировать ссылку
+        </button>
       </div>
+      {/* Phase 8: resolved citation crumb */}
+      {(() => {
+        const r = resolveCitation(source);
+        if (!r.precise) return null;
+        return (
+          <div className="mt-1 font-mono text-[10px] text-sky-200/85">{r.full}</div>
+        );
+      })()}
     </div>
   );
 }
