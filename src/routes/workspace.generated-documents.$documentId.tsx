@@ -1542,6 +1542,26 @@ function DocumentDetailPage() {
 
   const selectedArg = argumentsList[selectedArgIndex] ?? null;
 
+  // Phase 4: Quality Gate / Consistency
+  const consistency: ConsistencyResult = useMemo(
+    () =>
+      buildConsistencyChecks({
+        doc: doc ?? null,
+        legalAnalysisRunId,
+        analysisRun: analysisRun ?? null,
+        reviewRun: reviewRun ?? null,
+        analysis,
+        review,
+        meta,
+        argumentsCount: argumentsList.length,
+        sources,
+        usedContext,
+        contextQuality,
+      }),
+    [doc, legalAnalysisRunId, analysisRun, reviewRun, analysis, review, meta, argumentsList.length, sources, usedContext, contextQuality],
+  );
+  const approveBlocked = !consistency.ready;
+
   const showPanel = viewMode !== "read" && !panelCollapsed;
   // Right panel is a fixed compact column; document fills the rest.
   const gridCols = showPanel
