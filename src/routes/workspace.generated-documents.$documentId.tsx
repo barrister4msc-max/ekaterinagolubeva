@@ -306,6 +306,53 @@ const KIND_LABEL: Record<CitationKind, string> = {
   generic: "Источник",
 };
 
+/** Человекочитаемые подписи для технических статусов из ai_result */
+const VERIFICATION_LABEL: Record<string, string> = {
+  verified: "Источник проверен",
+  needs_check: "Требуется проверка ссылки",
+  missing_url: "Ссылка на источник отсутствует",
+  failed: "Ссылка недоступна",
+  unknown: "Статус проверки неизвестен",
+};
+const ACTUALITY_LABEL: Record<string, string> = {
+  actual: "Норма актуальна",
+  requires_actuality_check: "Требуется проверка актуальности",
+  requires_manual_verification: "Требуется ручная проверка",
+  outdated: "Норма устарела",
+  unknown: "Актуальность неизвестна",
+};
+
+function humanizeStatus(map: Record<string, string>, value: any): string {
+  if (value == null || value === "") return "";
+  const k = String(value).toLowerCase();
+  return map[k] ?? String(value).replace(/_/g, " ");
+}
+
+/**
+ * Узнаём, есть ли у источника точная локализация (статья/пункт/абзац/дата/№ дела и т.п.).
+ * Если нет — UI покажет предупреждение «Точная локализация отсутствует».
+ */
+function hasPreciseLocalization(source: any, kind: CitationKind): boolean {
+  if (!source) return false;
+  const s = source;
+  if (kind === "law" || kind === "generic") {
+    return Boolean(s.article || s.part || s.point || s.subpoint || s.paragraph || s.sentence);
+  }
+  if (kind === "court" || kind === "plenum") {
+    return Boolean(s.case_number || s.case || s.number || s.date || s.point || s.paragraph || s.page);
+  }
+  if (kind === "fns" || kind === "minfin") {
+    return Boolean(s.number || s.letter_number || s.date || s.section || s.point || s.paragraph);
+  }
+  if (kind === "ekaterina") {
+    return Boolean(s.file || s.file_name || s.page || s.paragraph);
+  }
+  if (kind === "client_doc") {
+    return Boolean(s.page || s.paragraph || s.ocr_block);
+  }
+  return false;
+}
+
 function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) => void }) {
   if (!source || typeof source !== "object") {
     return (
@@ -318,7 +365,9 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
   const loc = pickLocation(source);
   const quote =
     source.quote ?? source.cited_text ?? source.text_fragment ?? source.fragment ?? source.excerpt;
-  const url = source.url ?? source.link;
+  const url = source.url ?? source.link ?? source.official_url;
+  const why = source.why_selected ?? source.why_used;
+  const usedFor = source.used_for;
   const rows: Array<[string, any]> = [];
   const push = (label: string, value: any) => {
     if (value != null && value !== "") rows.push([label, value]);
@@ -365,16 +414,15 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
   } else if (kind === "client_doc") {
     push("Файл", source.file ?? source.file_name ?? source.document_name);
     push("Страница", source.page);
-    push("OCR block", source.ocr_block);
     push("Абзац", source.paragraph);
-    push(
-      "OCR координаты",
-      source.ocr_coords ? JSON.stringify(source.ocr_coords) : null,
-    );
   } else {
     push("Название", source.title ?? source.name ?? source.source_id);
     push("Тип", source.type ?? source.kind);
   }
+
+  const precise = hasPreciseLocalization(source, kind);
+  const verificationLabel = humanizeStatus(VERIFICATION_LABEL, source.verification_status);
+  const actualityLabel = humanizeStatus(ACTUALITY_LABEL, source.actuality_status);
 
   return (
     <div className="rounded-xl border border-slate-700/70 bg-slate-800/95 p-3 text-sm text-slate-100 shadow-sm">
@@ -383,14 +431,14 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
           {KIND_LABEL[kind]}
         </span>
         <div className="flex flex-wrap items-center gap-2">
-          {source.verification_status && (
+          {verificationLabel && (
             <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[11px] font-medium text-emerald-100">
-              verif: {String(source.verification_status)}
+              {verificationLabel}
             </span>
           )}
-          {source.actuality_status && (
+          {actualityLabel && (
             <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[11px] font-medium text-sky-100">
-              акт.: {String(source.actuality_status)}
+              {actualityLabel}
             </span>
           )}
           {url && (
@@ -415,7 +463,23 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
           ))}
         </dl>
       )}
+      {usedFor && (
+        <div className="mt-2 text-[12px] text-slate-200">
+          <span className="text-slate-400">Как использовано:</span> {renderText(usedFor)}
+        </div>
+      )}
+      {why && (
+        <div className="mt-1 text-[12px] text-slate-200">
+          <span className="text-slate-400">Почему выбрано:</span> {renderText(why)}
+        </div>
+      )}
       <ExpandableQuote quote={typeof quote === "string" ? quote : undefined} />
+      {!precise && (
+        <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300/40 bg-amber-400/10 p-2 text-[11px] text-amber-50">
+          <AlertTriangle size={12} className="mt-0.5 shrink-0" />
+          <span>Точная локализация источника отсутствует. Требуется ручная проверка.</span>
+        </div>
+      )}
       {loc && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700/70 bg-slate-900/80 p-2">
           <div className="flex flex-col gap-0.5">
