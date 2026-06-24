@@ -1566,6 +1566,14 @@ function DocumentDetailPage() {
         </section>
       )}
 
+      {tab === "chain" && (
+        <ChainOfCustodyTab
+          sessionId={sessionId}
+          currentDocumentId={doc.id}
+          currentMeta={meta}
+        />
+      )}
+
       {tab === "history" && (
         <section className={`${PANEL} p-5 space-y-3 text-sm text-slate-100`}>
           <h2 className="font-display text-lg text-white">История и метаданные</h2>
