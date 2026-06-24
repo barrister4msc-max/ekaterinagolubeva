@@ -1052,6 +1052,192 @@ function ReviewSection({
   );
 }
 
+/* ============ Workflow Engine UI ============ */
+
+type WorkflowStepProp = {
+  kind:
+    | "run_analysis"
+    | "rerun_analysis_outdated"
+    | "run_review"
+    | "retry_review"
+    | "review_running"
+    | "fix_quality"
+    | "approve"
+    | "create_version"
+    | "create_version_and_reanalyze";
+  label: string;
+  hint?: string;
+};
+
+function WorkflowNextStepCard({
+  step,
+  busy,
+  onRun,
+}: {
+  step: WorkflowStepProp;
+  busy: boolean;
+  onRun: () => void;
+}) {
+  const tone =
+    step.kind === "approve"
+      ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-50"
+      : step.kind === "rerun_analysis_outdated" || step.kind === "create_version_and_reanalyze"
+        ? "border-amber-400/60 bg-amber-500/15 text-amber-50"
+        : step.kind === "retry_review" || step.kind === "fix_quality"
+          ? "border-rose-400/60 bg-rose-500/15 text-rose-50"
+          : step.kind === "review_running"
+            ? "border-sky-400/60 bg-sky-500/15 text-sky-50"
+            : "border-sky-400/60 bg-sky-500/15 text-sky-50";
+
+  const Icon =
+    step.kind === "approve"
+      ? CheckCircle2
+      : step.kind === "review_running"
+        ? Loader2
+        : step.kind === "retry_review" || step.kind === "fix_quality"
+          ? AlertTriangle
+          : step.kind === "create_version" || step.kind === "create_version_and_reanalyze"
+            ? GitBranch
+            : Sparkles;
+
+  return (
+    <div className={`rounded-2xl border p-3 shadow-lg ${tone}`}>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.1em] opacity-80">
+        Следующий обязательный шаг
+      </div>
+      <div className="mt-1 flex items-center gap-2 text-sm font-semibold">
+        <Icon size={14} className={step.kind === "review_running" ? "animate-spin" : ""} />
+        {step.label}
+      </div>
+      {step.hint && <p className="mt-1.5 text-[11px] leading-snug opacity-90">{step.hint}</p>}
+      <button
+        type="button"
+        onClick={onRun}
+        disabled={busy || step.kind === "review_running"}
+        className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/30 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-white/25 disabled:opacity-50"
+      >
+        {busy && step.kind !== "review_running" ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : null}
+        {step.kind === "review_running" ? "Идёт выполнение…" : step.label}
+      </button>
+    </div>
+  );
+}
+
+function ReviewActionPanel({
+  reviewRun,
+  reviewRunning,
+  reviewFailed,
+  reviewErrorMessage,
+  analysisCompleted,
+  analysisOutdated,
+  isApproved,
+  isPending,
+  onRun,
+}: {
+  reviewRun: { id?: string; status?: string | null } | null;
+  reviewRunning: boolean;
+  reviewFailed: boolean;
+  reviewErrorMessage: string | null;
+  analysisCompleted: boolean;
+  analysisOutdated: boolean;
+  isApproved: boolean;
+  isPending: boolean;
+  onRun: () => void;
+}) {
+  // Running state — big spinner.
+  if (reviewRunning) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-sky-400/60 bg-sky-500/10 p-6 text-sky-100">
+        <Loader2 size={28} className="animate-spin" />
+        <div className="text-sm font-semibold">AI Review выполняется…</div>
+        <div className="text-[11px] text-sky-200/80">
+          Это может занять до 1–2 минут. Страница обновится автоматически.
+        </div>
+      </div>
+    );
+  }
+
+  // Block: analysis outdated — нельзя запускать Review.
+  if (analysisOutdated) {
+    return (
+      <div className="rounded-2xl border border-amber-400/60 bg-amber-500/10 p-4 text-amber-100">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <AlertTriangle size={14} /> AI-анализ устарел
+        </div>
+        <p className="mt-1 text-[12px] leading-snug">
+          После анализа загружены новые документы. Сначала выполните повторный AI-анализ, затем — AI Review.
+        </p>
+      </div>
+    );
+  }
+
+  // No completed analysis yet.
+  if (!analysisCompleted) {
+    return (
+      <div className="rounded-2xl border border-slate-600/60 bg-slate-800/70 p-4 text-slate-100">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <AlertTriangle size={14} /> Сначала AI-анализ
+        </div>
+        <p className="mt-1 text-[12px] leading-snug text-slate-300">
+          Запустить AI Review можно только после завершённого AI правового анализа.
+        </p>
+      </div>
+    );
+  }
+
+  // Failed.
+  if (reviewFailed) {
+    return (
+      <div className="rounded-2xl border border-rose-400/60 bg-rose-500/10 p-4 text-rose-50">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <AlertTriangle size={14} /> AI Review завершился ошибкой
+        </div>
+        {reviewErrorMessage && (
+          <p className="mt-1 text-[12px] leading-snug opacity-90">
+            Причина: {reviewErrorMessage}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={isPending}
+          className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-rose-300/60 bg-rose-500/30 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-500/50 disabled:opacity-50"
+        >
+          {isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCcw size={12} />}
+          Повторить AI Review
+        </button>
+      </div>
+    );
+  }
+
+  // Not run yet.
+  if (!reviewRun) {
+    return (
+      <div className="rounded-2xl border border-sky-400/60 bg-sky-500/10 p-4 text-sky-50">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles size={14} /> AI Review ещё не выполнялся
+        </div>
+        <p className="mt-1 text-[12px] leading-snug text-sky-100/90">
+          Следующий обязательный шаг — запустить AI Review текущей версии документа.
+        </p>
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={isPending || isApproved}
+          className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-sky-300/60 bg-sky-500/30 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-500/50 disabled:opacity-50"
+        >
+          {isPending ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          Запустить AI Review
+        </button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function DocumentDetailPage() {
   const { documentId } = Route.useParams();
   const navigate = useNavigate();
@@ -1405,6 +1591,30 @@ function DocumentDetailPage() {
     onError: (e: any) => toast.error(e?.message ?? "Не удалось запустить AI-анализ"),
   });
 
+  // Run AI Review for the current generated document (uses existing edge function).
+  const runReview = useMutation({
+    mutationFn: async () => {
+      if (!doc) throw new Error("Документ не загружен");
+      const { data, error } = await supabase.functions.invoke<{
+        success?: boolean;
+        review?: { overall_score?: number };
+        error?: string;
+      }>("review-generated-legal-document", { body: { document_id: doc.id } });
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error ?? "AI Review не выполнен");
+      return data;
+    },
+    onSuccess: (data) => {
+      const score = data?.review?.overall_score;
+      toast.success(score != null ? `AI Review завершён: ${score}/100` : "AI Review завершён");
+      queryClient.invalidateQueries({ queryKey: ["review-run", documentId] });
+      queryClient.invalidateQueries({ queryKey: ["generated-document", documentId] });
+      queryClient.invalidateQueries({ queryKey: ["legal-analysis-run", legalAnalysisRunId] });
+      queryClient.invalidateQueries({ queryKey: ["generated-documents"] });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Не удалось запустить AI Review"),
+  });
+
   // Approved flow: create a new draft version, navigate to it, then trigger re-analysis
   const createVersionAndReanalyze = useMutation({
     mutationFn: async () => {
@@ -1580,6 +1790,127 @@ function DocumentDetailPage() {
     [doc, legalAnalysisRunId, analysisRun, reviewRun, analysis, review, meta, argumentsList.length, sources, usedContext, contextQuality],
   );
   const approveBlocked = !consistency.ready;
+
+  // ============ Workflow Engine ============
+  // Сводит состояния документа/анализа/review/qg в один обязательный следующий шаг.
+  const analysisStatusStr = String(analysisRun?.status ?? "").toLowerCase();
+  const analysisCompleted = !!analysisRun && analysisStatusStr === "completed";
+  const reviewStatusStr = String(reviewRun?.status ?? "").toLowerCase();
+  const reviewRunning = reviewStatusStr === "running" || reviewStatusStr === "pending" || runReview.isPending;
+  const reviewCompleted =
+    !!reviewRun && (reviewStatusStr === "completed" || reviewStatusStr === "");
+  const reviewFailed =
+    !!reviewRun &&
+    !reviewCompleted &&
+    !reviewRunning &&
+    reviewStatusStr !== "";
+  const reviewErrorMessage: string | null =
+    (reviewRun?.ai_result as any)?.error ??
+    (reviewRun?.ai_result as any)?.error_message ??
+    null;
+
+  type WorkflowStepKind =
+    | "run_analysis"
+    | "rerun_analysis_outdated"
+    | "run_review"
+    | "retry_review"
+    | "review_running"
+    | "fix_quality"
+    | "approve"
+    | "create_version"
+    | "create_version_and_reanalyze";
+  type WorkflowStep = { kind: WorkflowStepKind; label: string; hint?: string };
+
+  const nextStep: WorkflowStep = (() => {
+    if (isApproved) {
+      return analysisOutdated
+        ? {
+            kind: "create_version_and_reanalyze",
+            label: "Создать новую редакцию и выполнить AI-анализ",
+            hint: "Документ утверждён. Загружены новые материалы — нужна новая редакция и анализ.",
+          }
+        : {
+            kind: "create_version",
+            label: "Создать новую редакцию",
+            hint: "Документ утверждён. Изменения вносятся через новую редакцию.",
+          };
+    }
+    if (!analysisCompleted) {
+      return {
+        kind: "run_analysis",
+        label: "Запустить AI-анализ",
+        hint: "AI правовой анализ ещё не выполнен.",
+      };
+    }
+    if (analysisOutdated) {
+      return {
+        kind: "rerun_analysis_outdated",
+        label: "Повторить AI-анализ",
+        hint: "После анализа загружены новые документы — Review запускать нельзя до повторного анализа.",
+      };
+    }
+    if (reviewRunning) {
+      return { kind: "review_running", label: "AI Review выполняется…" };
+    }
+    if (reviewFailed) {
+      return {
+        kind: "retry_review",
+        label: "Повторить AI Review",
+        hint: reviewErrorMessage ?? "Предыдущий запуск Review завершился ошибкой.",
+      };
+    }
+    if (!reviewCompleted) {
+      return {
+        kind: "run_review",
+        label: "Запустить AI Review",
+        hint: "AI Review для текущей версии не выполнен.",
+      };
+    }
+    if (approveBlocked) {
+      return {
+        kind: "fix_quality",
+        label: "Устранить замечания Quality Gate",
+        hint: consistency.blockReason ?? undefined,
+      };
+    }
+    return { kind: "approve", label: "Утвердить документ" };
+  })();
+
+  const nextStepBusy =
+    rerunAnalysis.isPending ||
+    runReview.isPending ||
+    approve.isPending ||
+    createVersion.isPending ||
+    createVersionAndReanalyze.isPending ||
+    reviewRunning;
+
+  const triggerNextStep = () => {
+    switch (nextStep.kind) {
+      case "run_analysis":
+      case "rerun_analysis_outdated":
+        rerunAnalysis.mutate();
+        break;
+      case "run_review":
+      case "retry_review":
+        runReview.mutate();
+        break;
+      case "review_running":
+        break;
+      case "fix_quality":
+        setTab("review");
+        break;
+      case "approve":
+        if (confirm("Утвердить документ?")) approve.mutate();
+        break;
+      case "create_version":
+        createVersion.mutate();
+        break;
+      case "create_version_and_reanalyze":
+        createVersionAndReanalyze.mutate();
+        break;
+    }
+  };
+
 
   const showPanel = viewMode !== "read" && !panelCollapsed;
   // Right panel is a fixed compact column; document fills the rest.
@@ -1932,6 +2263,12 @@ function DocumentDetailPage() {
         ))}
       </div>
 
+      <WorkflowNextStepCard
+        step={nextStep}
+        busy={nextStepBusy}
+        onRun={triggerNextStep}
+      />
+
       <QualityGateSummary
         result={consistency}
         approved={isApproved}
@@ -2057,9 +2394,19 @@ function DocumentDetailPage() {
             </p>
           </div>
 
-          <QualityGate result={consistency} approved={isApproved} />
+          <ReviewActionPanel
+            reviewRun={reviewRun ?? null}
+            reviewRunning={reviewRunning}
+            reviewFailed={reviewFailed}
+            reviewErrorMessage={reviewErrorMessage}
+            analysisCompleted={analysisCompleted}
+            analysisOutdated={analysisOutdated}
+            isApproved={isApproved}
+            isPending={runReview.isPending}
+            onRun={() => runReview.mutate()}
+          />
 
-          {!reviewRun && <p className="text-sm text-slate-300">AI Review для этого документа не найден.</p>}
+          <QualityGate result={consistency} approved={isApproved} />
           {reviewRun && (
             <>
               <div className="grid gap-3 sm:grid-cols-3">
