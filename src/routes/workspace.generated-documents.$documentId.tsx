@@ -103,6 +103,7 @@ const TABS = [
   { id: "analysis", label: "AI правовой анализ" },
   { id: "sources", label: "Источники" },
   { id: "review", label: "AI Review" },
+  { id: "chain", label: "История AI" },
   { id: "history", label: "История" },
   { id: "export", label: "Экспорт" },
 ] as const;
@@ -1563,6 +1564,14 @@ function DocumentDetailPage() {
             </>
           )}
         </section>
+      )}
+
+      {tab === "chain" && (
+        <ChainOfCustodyTab
+          sessionId={sessionId}
+          currentDocumentId={doc.id}
+          currentMeta={meta}
+        />
       )}
 
       {tab === "history" && (
@@ -3199,6 +3208,1029 @@ function ArgumentTree({
         >
           <div className="whitespace-pre-wrap font-medium">{arg.conclusion}</div>
         </TreeNode>
+      )}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// AI Chain of Custody — История AI
+// ────────────────────────────────────────────────────────────────────────────
+
+type AiRunRow = {
+  id: string;
+  session_id: string | null;
+  generated_document_id: string | null;
+  run_type: string | null;
+  status: string | null;
+  model_name: string | null;
+  hallucination_risk: string | null;
+  legal_accuracy_score: number | null;
+  needs_lawyer_review: boolean | null;
+  review_status: string | null;
+  input_snapshot: any;
+  ai_result: any;
+  review_result: any;
+  problems: any;
+  required_fixes: any;
+  recommendations: any;
+  error_message: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
+type ChainDoc = {
+  id: string;
+  title: string | null;
+  version_number: number;
+  parent_document_id: string | null;
+  status: string;
+  ai_review_status: string | null;
+  lawyer_approved_at: string | null;
+  lawyer_approved_by: string | null;
+  created_at: string;
+  created_by: string | null;
+  metadata: Record<string, any> | null;
+};
+
+type TimelineItem =
+  | { kind: "version"; at: string; doc: ChainDoc }
+  | { kind: "approval"; at: string; doc: ChainDoc }
+  | { kind: "run"; at: string; run: AiRunRow };
+
+const RUN_TYPE_LABEL: Record<string, string> = {
+  legal_analysis: "AI правовой анализ",
+  review: "AI Review",
+  document_review: "AI Review",
+  generated_document_review: "AI Review",
+  fact_extraction: "Извлечение фактов",
+  facts: "Извлечение фактов",
+};
+function runTypeLabel(t: string | null) {
+  if (!t) return "AI запуск";
+  return RUN_TYPE_LABEL[t] ?? t;
+}
+function statusLabel(s: string | null) {
+  switch ((s ?? "").toLowerCase()) {
+    case "completed":
+    case "success":
+      return "Завершён";
+    case "failed":
+    case "error":
+      return "Ошибка";
+    case "running":
+      return "Выполняется";
+    case "pending":
+      return "В очереди";
+    case "parse_failed":
+      return "Ошибка разбора ответа";
+    default:
+      return s ?? "—";
+  }
+}
+function statusTone(s: string | null) {
+  const v = (s ?? "").toLowerCase();
+  if (v === "completed" || v === "success")
+    return "border-emerald-400/40 bg-emerald-500/20 text-emerald-100";
+  if (v === "running" || v === "pending")
+    return "border-sky-400/40 bg-sky-500/20 text-sky-100";
+  if (v === "failed" || v === "error" || v === "parse_failed")
+    return "border-red-400/40 bg-red-500/20 text-red-100";
+  return "border-slate-500/40 bg-slate-700/40 text-slate-100";
+}
+function riskTone(r: string | null) {
+  const v = (r ?? "").toLowerCase();
+  if (v === "low") return "border-emerald-400/40 bg-emerald-500/15 text-emerald-100";
+  if (v === "medium") return "border-amber-400/40 bg-amber-500/15 text-amber-100";
+  if (v === "high" || v === "critical")
+    return "border-red-400/40 bg-red-500/20 text-red-100";
+  return "border-slate-500/40 bg-slate-700/40 text-slate-100";
+}
+function fmtDuration(start: string | null, end: string | null) {
+  if (!start || !end) return null;
+  const a = new Date(start).getTime();
+  const b = new Date(end).getTime();
+  if (!isFinite(a) || !isFinite(b) || b < a) return null;
+  const sec = Math.round((b - a) / 1000);
+  if (sec < 60) return `${sec} c`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m} мин ${s} c`;
+}
+function shortId(id: string | null | undefined) {
+  if (!id) return "—";
+  return id.length > 12 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
+}
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success("Скопировано");
+  } catch {
+    toast.error("Не удалось скопировать");
+  }
+}
+
+function IdChip({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/80 px-2 py-0.5 text-[10px] text-slate-200">
+      <span className="text-slate-400">{label}:</span>
+      <span className="font-mono">{shortId(value)}</span>
+      <button
+        type="button"
+        onClick={() => copyToClipboard(value)}
+        className="text-slate-400 hover:text-white"
+        title="Скопировать"
+      >
+        <Copy size={10} />
+      </button>
+    </span>
+  );
+}
+
+function isLegalAnalysis(r: AiRunRow) {
+  return (r.run_type ?? "").toLowerCase() === "legal_analysis";
+}
+function isReview(r: AiRunRow) {
+  const t = (r.run_type ?? "").toLowerCase();
+  return t === "review" || t === "document_review" || t === "generated_document_review";
+}
+
+function ChainOfCustodyTab({
+  sessionId,
+  currentDocumentId,
+  currentMeta,
+}: {
+  sessionId: string | null;
+  currentDocumentId: string;
+  currentMeta: Record<string, any> | null;
+}) {
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [compareMode, setCompareMode] = useState(false);
+  const [cmpA, setCmpA] = useState<string | null>(null);
+  const [cmpB, setCmpB] = useState<string | null>(null);
+
+  // All AI runs for this session
+  const { data: sessionRuns, isLoading: runsLoading } = useQuery({
+    queryKey: ["chain-session-runs", sessionId],
+    enabled: !!sessionId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("document_intake_ai_runs")
+        .select(
+          "id,session_id,generated_document_id,run_type,status,model_name,hallucination_risk,legal_accuracy_score,needs_lawyer_review,review_status,input_snapshot,ai_result,review_result,problems,required_fixes,recommendations,error_message,created_at,completed_at",
+        )
+        .eq("session_id", sessionId!)
+        .order("created_at", { ascending: true });
+      if (error) return [] as AiRunRow[];
+      return (data ?? []) as AiRunRow[];
+    },
+  });
+
+  // Runs that may be attached to documents in the version chain (no session)
+  const { data: chainDocs, isLoading: chainLoading } = useQuery({
+    queryKey: ["chain-version-docs", currentDocumentId],
+    queryFn: async () => {
+      // BFS: walk up to root, then collect descendants
+      const visited = new Set<string>();
+      const result: ChainDoc[] = [];
+      let cursor: string | null = currentDocumentId;
+      // Up
+      while (cursor && !visited.has(cursor)) {
+        visited.add(cursor);
+        const res: any = await supabase
+          .from("generated_legal_documents")
+          .select(
+            "id,title,version_number,parent_document_id,status,ai_review_status,lawyer_approved_at,lawyer_approved_by,created_at,created_by,metadata",
+          )
+          .eq("id", cursor)
+          .maybeSingle();
+        const data = res?.data;
+        if (!data) break;
+        result.push(data as unknown as ChainDoc);
+        cursor = (data as any).parent_document_id ?? null;
+      }
+      // Down (descendants of root)
+      const root = result[result.length - 1];
+      if (root) {
+        const queue: string[] = [root.id];
+        const seen = new Set<string>([root.id]);
+        while (queue.length > 0) {
+          const id = queue.shift()!;
+          const { data } = await supabase
+            .from("generated_legal_documents")
+            .select(
+              "id,title,version_number,parent_document_id,status,ai_review_status,lawyer_approved_at,lawyer_approved_by,created_at,created_by,metadata",
+            )
+            .eq("parent_document_id", id);
+          for (const d of (data ?? []) as unknown as ChainDoc[]) {
+            if (seen.has(d.id)) continue;
+            seen.add(d.id);
+            result.push(d);
+            queue.push(d.id);
+          }
+        }
+      }
+      // Deduplicate
+      const dedup = new Map<string, ChainDoc>();
+      for (const d of result) dedup.set(d.id, d);
+      return Array.from(dedup.values());
+    },
+  });
+
+  const runs = useMemo(() => sessionRuns ?? [], [sessionRuns]);
+  const docs = useMemo(
+    () => (chainDocs ?? []).slice().sort((a, b) => a.version_number - b.version_number),
+    [chainDocs],
+  );
+
+  // Timeline: merge versions + approvals + runs
+  const timeline = useMemo<TimelineItem[]>(() => {
+    const items: TimelineItem[] = [];
+    for (const d of docs) {
+      items.push({ kind: "version", at: d.created_at, doc: d });
+      if (d.lawyer_approved_at)
+        items.push({ kind: "approval", at: d.lawyer_approved_at, doc: d });
+    }
+    for (const r of runs) items.push({ kind: "run", at: r.created_at, run: r });
+    items.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+    return items;
+  }, [docs, runs]);
+
+  // Initial selection: legal_analysis_run_id from current doc metadata,
+  // otherwise most recent legal_analysis run.
+  useEffect(() => {
+    if (selectedRunId) return;
+    const fromMeta: string | null =
+      currentMeta?.legal_analysis_run_id ??
+      currentMeta?.legal_analysis?.run_id ??
+      null;
+    if (fromMeta && runs.some((r) => r.id === fromMeta)) {
+      setSelectedRunId(fromMeta);
+      return;
+    }
+    const completed = runs
+      .filter(isLegalAnalysis)
+      .filter((r) => (r.status ?? "").toLowerCase() === "completed");
+    const last = completed[completed.length - 1] ?? runs[runs.length - 1];
+    if (last) setSelectedRunId(last.id);
+  }, [runs, currentMeta, selectedRunId]);
+
+  const selectedRun = useMemo(
+    () => runs.find((r) => r.id === selectedRunId) ?? null,
+    [runs, selectedRunId],
+  );
+
+  // For each version, find its analysis & review run (via metadata or generated_document_id)
+  function findRunsForDoc(d: ChainDoc) {
+    const meta = (d.metadata ?? {}) as any;
+    const analysisId: string | null =
+      meta?.legal_analysis_run_id ?? meta?.legal_analysis?.run_id ?? null;
+    const analysis =
+      (analysisId && runs.find((r) => r.id === analysisId)) ||
+      runs.find((r) => isLegalAnalysis(r) && r.generated_document_id === d.id) ||
+      null;
+    const review =
+      runs.find((r) => isReview(r) && r.generated_document_id === d.id) || null;
+    return { analysis, review };
+  }
+
+  function toggleCompare(id: string) {
+    if (cmpA === id) {
+      setCmpA(cmpB);
+      setCmpB(null);
+      return;
+    }
+    if (cmpB === id) {
+      setCmpB(null);
+      return;
+    }
+    if (!cmpA) setCmpA(id);
+    else if (!cmpB) setCmpB(id);
+    else {
+      setCmpA(id);
+      setCmpB(null);
+    }
+  }
+
+  const completedAnalyses = useMemo(
+    () =>
+      runs.filter(
+        (r) => isLegalAnalysis(r) && (r.status ?? "").toLowerCase() === "completed",
+      ),
+    [runs],
+  );
+
+  if (!sessionId) {
+    return (
+      <section className={`${PANEL} p-5 text-sm text-slate-200`}>
+        <h2 className="font-display text-lg text-white">История AI</h2>
+        <p className="mt-2 text-slate-300">
+          Документ не привязан к сессии. История AI-запусков недоступна.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Header */}
+      <section className={`${PANEL} p-4`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg text-white">История AI</h2>
+            <p className="mt-1 text-xs text-slate-300">
+              Полная цепочка происхождения документа: версии, AI-анализы и AI-проверки.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setCompareMode((v) => !v);
+                setCmpA(null);
+                setCmpB(null);
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                compareMode
+                  ? "border-emerald-300/60 bg-emerald-500/30 text-white"
+                  : "border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
+              }`}
+              disabled={completedAnalyses.length < 2}
+              title={
+                completedAnalyses.length < 2
+                  ? "Нужны минимум 2 завершённых правовых анализа"
+                  : "Сравнить два анализа"
+              }
+            >
+              <Columns size={12} /> Сравнить
+            </button>
+          </div>
+        </div>
+        {(runsLoading || chainLoading) && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-slate-300">
+            <Loader2 size={12} className="animate-spin" /> Загружаем историю…
+          </div>
+        )}
+      </section>
+
+      {/* Compare picker */}
+      {compareMode && (
+        <section className={`${PANEL} p-4`}>
+          <div className="text-[11px] text-slate-300">
+            Выберите два завершённых правовых анализа для сравнения.
+          </div>
+          <div className="mt-2 space-y-2">
+            {completedAnalyses.map((r) => {
+              const checked = cmpA === r.id || cmpB === r.id;
+              const which = cmpA === r.id ? "A" : cmpB === r.id ? "B" : null;
+              return (
+                <button
+                  type="button"
+                  key={r.id}
+                  onClick={() => toggleCompare(r.id)}
+                  className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-xs transition ${
+                    checked
+                      ? "border-emerald-400/60 bg-emerald-500/15 text-white"
+                      : "border-slate-700 bg-slate-800/70 text-slate-100 hover:bg-slate-700/70"
+                  }`}
+                >
+                  <span>
+                    {fmt(r.created_at)} · {r.model_name ?? "модель не указана"}
+                  </span>
+                  {which && (
+                    <span className="rounded-md border border-emerald-300/50 bg-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-white">
+                      {which}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {cmpA && cmpB && (
+            <AnalysisDiffView
+              a={runs.find((r) => r.id === cmpA) ?? null}
+              b={runs.find((r) => r.id === cmpB) ?? null}
+            />
+          )}
+        </section>
+      )}
+
+      {/* Timeline + snapshot */}
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        {/* Timeline */}
+        <section className={`${PANEL} p-4`}>
+          <div className={PANEL_LABEL}>Хронология</div>
+          {timeline.length === 0 && (
+            <p className="mt-2 text-sm text-slate-300">События не найдены.</p>
+          )}
+          <ol className="mt-3 space-y-3">
+            {timeline.map((item, i) => (
+              <TimelineNode
+                key={i}
+                item={item}
+                selectedRunId={selectedRunId}
+                onSelectRun={(id) => setSelectedRunId(id)}
+                compareMode={compareMode}
+                cmpA={cmpA}
+                cmpB={cmpB}
+                onToggleCompare={toggleCompare}
+                currentDocumentId={currentDocumentId}
+                findRunsForDoc={findRunsForDoc}
+              />
+            ))}
+          </ol>
+        </section>
+
+        {/* Snapshot of selected run */}
+        <section className={`${PANEL} p-4`}>
+          <div className={PANEL_LABEL}>Снимок выбранного запуска</div>
+          {!selectedRun ? (
+            <p className="mt-2 text-sm text-slate-300">Выберите запуск в хронологии.</p>
+          ) : (
+            <RunSnapshot run={selectedRun} docs={docs} />
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function TimelineNode({
+  item,
+  selectedRunId,
+  onSelectRun,
+  compareMode,
+  cmpA,
+  cmpB,
+  onToggleCompare,
+  currentDocumentId,
+  findRunsForDoc,
+}: {
+  item: TimelineItem;
+  selectedRunId: string | null;
+  onSelectRun: (id: string) => void;
+  compareMode: boolean;
+  cmpA: string | null;
+  cmpB: string | null;
+  onToggleCompare: (id: string) => void;
+  currentDocumentId: string;
+  findRunsForDoc: (d: ChainDoc) => { analysis: AiRunRow | null; review: AiRunRow | null };
+}) {
+  if (item.kind === "version") {
+    const d = item.doc;
+    const isCurrent = d.id === currentDocumentId;
+    const { analysis, review } = findRunsForDoc(d);
+    return (
+      <li className="relative pl-5">
+        <span className="absolute left-1 top-2 inline-block h-2 w-2 rounded-full bg-sky-400" />
+        <div
+          className={`rounded-lg border p-3 ${
+            isCurrent
+              ? "border-sky-400/60 bg-sky-500/10"
+              : "border-slate-700 bg-slate-800/60"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-semibold text-white">
+              Версия {d.version_number}
+              {isCurrent && (
+                <span className="ml-2 rounded-full border border-sky-300/50 bg-sky-500/30 px-2 py-0.5 text-[10px] font-semibold text-sky-50">
+                  текущая
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-slate-300">{fmt(d.created_at)}</div>
+          </div>
+          <div className="mt-1 truncate text-xs text-slate-200">{d.title ?? "—"}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className={`rounded-md border px-2 py-0.5 ${statusTone(d.status)}`}>
+              {statusLabel(d.status)}
+            </span>
+            {d.ai_review_status && (
+              <span className="rounded-md border border-slate-600 bg-slate-700/60 px-2 py-0.5 text-slate-100">
+                AI Review: {statusLabel(d.ai_review_status)}
+              </span>
+            )}
+            {!isCurrent && (
+              <Link
+                to="/workspace/generated-documents/$documentId"
+                params={{ documentId: d.id }}
+                className="ml-auto inline-flex items-center gap-1 rounded-md border border-slate-600 bg-slate-800 px-2 py-0.5 text-slate-100 hover:bg-slate-700"
+              >
+                <ExternalLink size={10} /> Открыть версию
+              </Link>
+            )}
+          </div>
+          {(analysis || review) && (
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+              {analysis && (
+                <button
+                  type="button"
+                  onClick={() => onSelectRun(analysis.id)}
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 ${
+                    selectedRunId === analysis.id
+                      ? "border-emerald-400/60 bg-emerald-500/20 text-white"
+                      : "border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
+                  }`}
+                >
+                  <Sparkles size={10} /> AI анализ
+                </button>
+              )}
+              {review && (
+                <button
+                  type="button"
+                  onClick={() => onSelectRun(review.id)}
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 ${
+                    selectedRunId === review.id
+                      ? "border-emerald-400/60 bg-emerald-500/20 text-white"
+                      : "border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
+                  }`}
+                >
+                  <ShieldCheck size={10} /> AI Review
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </li>
+    );
+  }
+  if (item.kind === "approval") {
+    return (
+      <li className="relative pl-5">
+        <span className="absolute left-1 top-2 inline-block h-2 w-2 rounded-full bg-emerald-400" />
+        <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 p-3 text-xs text-emerald-50">
+          <div className="flex items-center justify-between">
+            <div className="font-semibold text-white">
+              Одобрено: версия {item.doc.version_number}
+            </div>
+            <div className="text-[11px] text-emerald-100/80">{fmt(item.at)}</div>
+          </div>
+          {item.doc.lawyer_approved_by && (
+            <div className="mt-1 text-[11px] text-emerald-100/80">
+              Юрист: <span className="font-mono">{shortId(item.doc.lawyer_approved_by)}</span>
+            </div>
+          )}
+        </div>
+      </li>
+    );
+  }
+  // run
+  const r = item.run;
+  const isSelected = selectedRunId === r.id;
+  const isCmp = cmpA === r.id || cmpB === r.id;
+  const which = cmpA === r.id ? "A" : cmpB === r.id ? "B" : null;
+  const canCompare = compareMode && isLegalAnalysis(r) && (r.status ?? "").toLowerCase() === "completed";
+  return (
+    <li className="relative pl-5">
+      <span
+        className={`absolute left-1 top-2 inline-block h-2 w-2 rounded-full ${
+          isReview(r) ? "bg-violet-400" : "bg-amber-400"
+        }`}
+      />
+      <button
+        type="button"
+        onClick={() => onSelectRun(r.id)}
+        className={`block w-full rounded-lg border p-3 text-left transition ${
+          isSelected
+            ? "border-emerald-400/60 bg-emerald-500/10"
+            : "border-slate-700 bg-slate-800/60 hover:bg-slate-700/60"
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm font-semibold text-white">{runTypeLabel(r.run_type)}</div>
+          <div className="text-[11px] text-slate-300">{fmt(r.created_at)}</div>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+          <span className={`rounded-md border px-2 py-0.5 ${statusTone(r.status)}`}>
+            {statusLabel(r.status)}
+          </span>
+          {r.model_name && (
+            <span className="rounded-md border border-slate-600 bg-slate-700/60 px-2 py-0.5 text-slate-100">
+              {r.model_name}
+            </span>
+          )}
+          {r.hallucination_risk && (
+            <span className={`rounded-md border px-2 py-0.5 ${riskTone(r.hallucination_risk)}`}>
+              Риск: {r.hallucination_risk}
+            </span>
+          )}
+          {r.legal_accuracy_score != null && (
+            <span className="rounded-md border border-slate-600 bg-slate-700/60 px-2 py-0.5 text-slate-100">
+              Точность: {Math.round(Number(r.legal_accuracy_score) * (Number(r.legal_accuracy_score) <= 1 ? 100 : 1))}
+            </span>
+          )}
+          {fmtDuration(r.created_at, r.completed_at) && (
+            <span className="rounded-md border border-slate-600 bg-slate-700/60 px-2 py-0.5 text-slate-100">
+              {fmtDuration(r.created_at, r.completed_at)}
+            </span>
+          )}
+        </div>
+        {canCompare && (
+          <div className="mt-2 flex justify-end">
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCompare(r.id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onToggleCompare(r.id);
+                }
+              }}
+              className={`cursor-pointer rounded-md border px-2 py-0.5 text-[10px] ${
+                isCmp
+                  ? "border-emerald-400/60 bg-emerald-500/30 text-white"
+                  : "border-slate-600 bg-slate-800 text-slate-100 hover:bg-slate-700"
+              }`}
+            >
+              {which ? `Выбрано ${which}` : "Сравнить"}
+            </span>
+          </div>
+        )}
+      </button>
+    </li>
+  );
+}
+
+function RunSnapshot({ run, docs }: { run: AiRunRow; docs: ChainDoc[] }) {
+  const ai = (run.ai_result ?? {}) as Record<string, any>;
+  const review = (run.review_result ?? {}) as Record<string, any>;
+  const linkedDoc = docs.find((d) => d.id === run.generated_document_id);
+  // Context quality might be stored either on ai_result or on the linked doc metadata
+  const ctxQuality =
+    (ai?.document_context_quality as number | undefined) ??
+    (ai?.context_quality as number | undefined) ??
+    ((linkedDoc?.metadata as any)?.document_context_quality as number | undefined) ??
+    null;
+
+  const facts: any[] = pickArray(ai, "facts");
+  const sources: any[] = pickArray(ai, "sources");
+  const practice: any[] = pickArray(ai, "court_practice");
+  const counter: any[] = pickArray(ai, "counter_arguments");
+  const weak: any[] = pickArray(ai, "weak_points");
+  const docsAudit: any =
+    ai?.documents_audit ?? (ai?.input?.documents_audit as any) ?? null;
+  const inputSnap = run.input_snapshot ?? null;
+
+  const problems: any[] =
+    (Array.isArray(run.problems) ? (run.problems as any[]) : null) ??
+    pickArray(review, "problems");
+  const fixes: any[] =
+    (Array.isArray(run.required_fixes) ? (run.required_fixes as any[]) : null) ??
+    pickArray(review, "required_fixes");
+  const recs: any[] =
+    (Array.isArray(run.recommendations) ? (run.recommendations as any[]) : null) ??
+    pickArray(review, "recommendations");
+
+  return (
+    <div className="mt-3 space-y-3 text-sm text-slate-100">
+      {/* Header */}
+      <div className="rounded-lg border border-slate-700 bg-slate-800/70 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="font-semibold text-white">{runTypeLabel(run.run_type)}</div>
+          <span className={`rounded-md border px-2 py-0.5 text-[11px] ${statusTone(run.status)}`}>
+            {statusLabel(run.status)}
+          </span>
+        </div>
+        <div className="mt-2 grid grid-cols-1 gap-1 text-[11px] text-slate-300 sm:grid-cols-2">
+          <div>Запущен: {fmt(run.created_at)}</div>
+          <div>Завершён: {fmt(run.completed_at)}</div>
+          {fmtDuration(run.created_at, run.completed_at) && (
+            <div>Длительность: {fmtDuration(run.created_at, run.completed_at)}</div>
+          )}
+          {run.model_name && <div>Модель: {run.model_name}</div>}
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <IdChip label="Run" value={run.id} />
+          <IdChip label="Session" value={run.session_id} />
+          <IdChip label="Document" value={run.generated_document_id} />
+        </div>
+        {run.error_message && (
+          <div className="mt-2 rounded-md border border-red-400/40 bg-red-500/10 p-2 text-[11px] text-red-100">
+            {run.error_message}
+          </div>
+        )}
+        {linkedDoc && (
+          <div className="mt-2">
+            <Link
+              to="/workspace/generated-documents/$documentId"
+              params={{ documentId: linkedDoc.id }}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-600 bg-slate-800 px-2 py-1 text-[11px] text-slate-100 hover:bg-slate-700"
+            >
+              <ExternalLink size={10} /> Перейти к версии {linkedDoc.version_number}
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {run.hallucination_risk && (
+          <SnapStat label="Риск галлюцинаций" value={run.hallucination_risk} tone={riskTone(run.hallucination_risk)} />
+        )}
+        {run.legal_accuracy_score != null && (
+          <SnapStat label="Точность" value={String(run.legal_accuracy_score)} />
+        )}
+        {ctxQuality != null && (
+          <SnapStat label="Качество контекста" value={String(ctxQuality)} />
+        )}
+        {run.needs_lawyer_review != null && (
+          <SnapStat label="Нужен юрист" value={run.needs_lawyer_review ? "Да" : "Нет"} />
+        )}
+        {run.review_status && (
+          <SnapStat label="Статус Review" value={statusLabel(run.review_status)} />
+        )}
+      </div>
+
+      {/* Legal analysis snapshot */}
+      {isLegalAnalysis(run) && (
+        <>
+          {facts.length > 0 && <SnapList title="Факты" items={facts} />}
+          {sources.length > 0 && <SnapList title="Источники" items={sources} renderer={renderSource} />}
+          {practice.length > 0 && <SnapList title="Судебная практика" items={practice} renderer={renderSource} />}
+          {counter.length > 0 && <SnapList title="Контраргументы" items={counter} />}
+          {weak.length > 0 && <SnapList title="Слабые места" items={weak} />}
+          {docsAudit && <DocsAuditSnap audit={docsAudit} />}
+          {inputSnap && <InputSnapshotView snapshot={inputSnap} />}
+        </>
+      )}
+
+      {/* Review snapshot */}
+      {isReview(run) ? (
+        problems.length + fixes.length + recs.length > 0 ? (
+          <>
+            {problems.length > 0 && <SnapList title="Проблемы" items={problems} />}
+            {fixes.length > 0 && <SnapList title="Обязательные правки" items={fixes} />}
+            {recs.length > 0 && <SnapList title="Рекомендации" items={recs} />}
+          </>
+        ) : (
+          <div className="rounded-lg border border-slate-700 bg-slate-800/70 p-3 text-xs text-slate-300">
+            Замечаний нет.
+          </div>
+        )
+      ) : null}
+
+      {/* If not a review run but no review attached at all */}
+      {isLegalAnalysis(run) && (
+        <div className="rounded-lg border border-slate-700 bg-slate-800/70 p-3 text-[11px] text-slate-300">
+          AI Review запускается отдельно для конкретной версии документа. См. вкладку «AI Review».
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SnapStat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className={`rounded-lg border p-3 ${tone ?? "border-slate-700 bg-slate-800/70 text-slate-100"}`}>
+      <div className="text-[10px] uppercase tracking-wide opacity-80">{label}</div>
+      <div className="mt-1 text-sm font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function renderItemText(it: any): string {
+  if (it == null) return "";
+  if (typeof it === "string") return it;
+  return (
+    it?.text ??
+    it?.title ??
+    it?.description ??
+    it?.summary ??
+    it?.fact ??
+    it?.statement ??
+    ""
+  );
+}
+
+function renderSource(it: any): string {
+  if (!it) return "";
+  if (typeof it === "string") return it;
+  const parts = [
+    it?.title,
+    it?.article,
+    it?.paragraph,
+    it?.case_number,
+    it?.court,
+    it?.url,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : renderItemText(it);
+}
+
+function SnapList({
+  title,
+  items,
+  renderer,
+}: {
+  title: string;
+  items: any[];
+  renderer?: (it: any) => string;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-800/70">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold text-white"
+      >
+        <span>
+          {title} <span className="text-slate-400">({items.length})</span>
+        </span>
+        {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+      </button>
+      {open && (
+        <ul className="space-y-1 px-3 pb-3 text-xs text-slate-200">
+          {items.slice(0, 50).map((it, i) => (
+            <li key={i} className="rounded-md border border-slate-700/60 bg-slate-900/40 p-2">
+              {(renderer ?? renderItemText)(it) || "—"}
+            </li>
+          ))}
+          {items.length > 50 && (
+            <li className="text-[11px] text-slate-400">
+              Показаны первые 50 из {items.length}.
+            </li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function DocsAuditSnap({ audit }: { audit: any }) {
+  const used: any[] = Array.isArray(audit?.used) ? audit.used : [];
+  const rejected: any[] = Array.isArray(audit?.rejected) ? audit.rejected : [];
+  if (used.length === 0 && rejected.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-800/70 p-3">
+      <div className="text-xs font-semibold text-white">Аудит документов клиента</div>
+      {used.length > 0 && (
+        <div className="mt-2">
+          <div className={PANEL_LABEL}>Использованы ({used.length})</div>
+          <ul className="mt-1 space-y-1 text-xs text-slate-200">
+            {used.map((u, i) => (
+              <li key={i} className="rounded-md border border-emerald-400/30 bg-emerald-500/10 p-2">
+                <div className="font-medium text-emerald-50">{u?.title ?? u?.name ?? u?.file_name ?? "—"}</div>
+                {u?.used_for && (
+                  <div className="text-[11px] text-emerald-100/80">Цель: {u.used_for}</div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {rejected.length > 0 && (
+        <div className="mt-2">
+          <div className={PANEL_LABEL}>Отклонены ({rejected.length})</div>
+          <ul className="mt-1 space-y-1 text-xs text-slate-200">
+            {rejected.map((u, i) => (
+              <li key={i} className="rounded-md border border-amber-400/30 bg-amber-500/10 p-2">
+                <div className="font-medium text-amber-50">{u?.title ?? u?.name ?? u?.file_name ?? "—"}</div>
+                {u?.reason && (
+                  <div className="text-[11px] text-amber-100/80">Причина: {u.reason}</div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InputSnapshotView({ snapshot }: { snapshot: any }) {
+  const docs: any[] =
+    (Array.isArray(snapshot?.documents) && snapshot.documents) ||
+    (Array.isArray(snapshot?.lead_documents) && snapshot.lead_documents) ||
+    [];
+  if (docs.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-800/70 p-3">
+      <div className="text-xs font-semibold text-white">Входные документы запуска</div>
+      <ul className="mt-2 space-y-1 text-xs text-slate-200">
+        {docs.slice(0, 50).map((d, i) => {
+          const used = d?.used ?? d?.included ?? true;
+          const reason = d?.reason ?? d?.rejection_reason ?? null;
+          const ocrLen = d?.ocr_length ?? d?.ocr_size ?? d?.text_length ?? null;
+          return (
+            <li
+              key={i}
+              className={`rounded-md border p-2 ${
+                used
+                  ? "border-slate-700/60 bg-slate-900/40"
+                  : "border-amber-400/30 bg-amber-500/10"
+              }`}
+            >
+              <div className="font-medium">
+                {d?.title ?? d?.name ?? d?.file_name ?? "—"}
+              </div>
+              <div className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-slate-300">
+                {ocrLen != null && <span>OCR: {ocrLen} симв.</span>}
+                {d?.created_at && <span>{fmt(d.created_at)}</span>}
+                <span>{used ? "Использован" : "Отклонён"}</span>
+                {reason && <span className="text-amber-200/80">причина: {reason}</span>}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function AnalysisDiffView({ a, b }: { a: AiRunRow | null; b: AiRunRow | null }) {
+  if (!a || !b) return null;
+  const ai1 = (a.ai_result ?? {}) as any;
+  const ai2 = (b.ai_result ?? {}) as any;
+
+  const sec = (label: string, k1: any[], k2: any[], renderer?: (x: any) => string) => {
+    const r = renderer ?? renderItemText;
+    const s1 = new Map<string, any>();
+    const s2 = new Map<string, any>();
+    for (const x of k1) {
+      const t = r(x).trim();
+      if (t) s1.set(t.toLowerCase(), x);
+    }
+    for (const x of k2) {
+      const t = r(x).trim();
+      if (t) s2.set(t.toLowerCase(), x);
+    }
+    const added = [...s2.entries()].filter(([k]) => !s1.has(k)).map(([, v]) => v);
+    const removed = [...s1.entries()].filter(([k]) => !s2.has(k)).map(([, v]) => v);
+    if (added.length === 0 && removed.length === 0) return null;
+    return (
+      <div className="rounded-lg border border-slate-700 bg-slate-800/70 p-3">
+        <div className="text-xs font-semibold text-white">{label}</div>
+        {added.length > 0 && (
+          <div className="mt-2">
+            <div className="text-[10px] uppercase text-emerald-200">Добавлены ({added.length})</div>
+            <ul className="mt-1 space-y-1 text-xs">
+              {added.map((x, i) => (
+                <li
+                  key={i}
+                  className="rounded-md border border-emerald-400/30 bg-emerald-500/10 p-2 text-emerald-50"
+                >
+                  + {r(x) || "—"}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {removed.length > 0 && (
+          <div className="mt-2">
+            <div className="text-[10px] uppercase text-red-200">Удалены ({removed.length})</div>
+            <ul className="mt-1 space-y-1 text-xs">
+              {removed.map((x, i) => (
+                <li
+                  key={i}
+                  className="rounded-md border border-red-400/30 bg-red-500/10 p-2 text-red-50"
+                >
+                  − {r(x) || "—"}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const inputDocs = (snap: any): any[] =>
+    (Array.isArray(snap?.documents) && snap.documents) ||
+    (Array.isArray(snap?.lead_documents) && snap.lead_documents) ||
+    [];
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-200">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div>
+            <div className="text-[10px] uppercase text-slate-400">A</div>
+            <div>{fmt(a.created_at)}</div>
+            <div className="text-slate-300">{a.model_name ?? "—"}</div>
+          </div>
+          <div>
+            <div className="text-[10px] uppercase text-slate-400">B</div>
+            <div>{fmt(b.created_at)}</div>
+            <div className="text-slate-300">{b.model_name ?? "—"}</div>
+          </div>
+        </div>
+      </div>
+      {sec("Нормы и источники", pickArray(ai1, "sources"), pickArray(ai2, "sources"), renderSource)}
+      {sec("Судебная практика", pickArray(ai1, "court_practice"), pickArray(ai2, "court_practice"), renderSource)}
+      {sec("Факты", pickArray(ai1, "facts"), pickArray(ai2, "facts"))}
+      {sec("Риски / слабые места", pickArray(ai1, "weak_points"), pickArray(ai2, "weak_points"))}
+      {sec("Контраргументы", pickArray(ai1, "counter_arguments"), pickArray(ai2, "counter_arguments"))}
+      {sec(
+        "Документы клиента",
+        inputDocs(a.input_snapshot),
+        inputDocs(b.input_snapshot),
+        (d) => d?.title ?? d?.name ?? d?.file_name ?? "",
       )}
     </div>
   );
