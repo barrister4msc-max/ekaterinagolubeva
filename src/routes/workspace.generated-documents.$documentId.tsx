@@ -60,6 +60,7 @@ import {
   AttachmentsTab,
   AttachmentDrawer,
   useSessionAttachments,
+  openAttachment,
 } from "@/components/document-workspace/attachments-viewer";
 import {
   EvidenceMatrixTab,
@@ -71,6 +72,7 @@ import {
   GroundingScoreCompact,
 } from "@/components/document-workspace/coverage-report";
 import { copyCitationToClipboard, resolveCitation } from "@/lib/citation-resolver";
+import { buildBacklinks, type Backlinks } from "@/lib/source-backlinks";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId")({
   head: () => ({
