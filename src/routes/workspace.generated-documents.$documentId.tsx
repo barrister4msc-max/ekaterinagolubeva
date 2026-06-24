@@ -1768,9 +1768,15 @@ function DocumentDetailPage() {
           <button
             type="button"
             onClick={() => {
+              if (approveBlocked) {
+                toast.error(consistency.blockReason ?? "Документ не прошёл проверку качества.");
+                setTab("review");
+                return;
+              }
               if (confirm("Одобрить документ?")) approve.mutate();
             }}
-            disabled={approve.isPending}
+            disabled={approve.isPending || approveBlocked}
+            title={approveBlocked ? (consistency.blockReason ?? "Quality Gate не пройден") : undefined}
             className={`${BTN_EMERALD} whitespace-nowrap`}
           >
             {approve.isPending ? (
@@ -1780,6 +1786,11 @@ function DocumentDetailPage() {
             )}
             Одобрить
           </button>
+        )}
+        {isApproved && !consistency.ready && (
+          <span className="inline-flex items-center gap-1 rounded-lg border border-amber-400/60 bg-amber-500/15 px-2.5 py-1.5 text-xs text-amber-100">
+            <AlertTriangle size={12} /> Утверждён, но Quality Gate не пройден
+          </span>
         )}
       </div>
     </section>
