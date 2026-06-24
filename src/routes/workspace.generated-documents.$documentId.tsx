@@ -2077,6 +2077,12 @@ function DocumentDetailPage() {
         ))}
       </div>
 
+      <WorkflowNextStepCard
+        step={nextStep}
+        busy={nextStepBusy}
+        onRun={triggerNextStep}
+      />
+
       <QualityGateSummary
         result={consistency}
         approved={isApproved}
