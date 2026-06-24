@@ -3152,7 +3152,12 @@ function DocumentDetailPage() {
       </Sheet>
 
       {/* Phase 3: Unified Source Viewer */}
-      <SourceViewerDrawer setTab={setTab} />
+      <SourceViewerDrawer
+        setTab={setTab}
+        analysis={analysis}
+        review={review}
+        attachments={attachments}
+      />
       <AttachmentDrawer />
       <FactCheckDrawer generatedText={(edited || doc.content || "") as string} />
 
