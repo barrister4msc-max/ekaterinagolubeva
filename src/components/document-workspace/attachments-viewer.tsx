@@ -11,6 +11,9 @@ import {
   CheckCircle2,
   XCircle,
   Target,
+  LayoutGrid,
+  Table as TableIcon,
+  Link2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -19,6 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { getFactLinksForDoc } from "@/lib/source-backlinks";
 
 const PANEL = "rounded-2xl border border-slate-700/70 bg-slate-900/95 shadow-xl";
 const PANEL_SUB = "rounded-xl border border-slate-700/60 bg-slate-800/90";
@@ -26,6 +30,10 @@ const BTN =
   "inline-flex items-center gap-1.5 rounded-md border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-100 hover:bg-slate-700 disabled:opacity-50";
 const BTN_PRIMARY =
   "inline-flex items-center gap-1.5 rounded-md border border-sky-400/50 bg-sky-500/20 px-2.5 py-1 text-xs text-sky-50 hover:bg-sky-500/30";
+const CHIP_ON =
+  "inline-flex items-center gap-1 rounded-full border border-sky-400/50 bg-sky-500/25 px-2.5 py-1 text-[11px] font-medium text-sky-50";
+const CHIP_OFF =
+  "inline-flex items-center gap-1 rounded-full border border-slate-600/70 bg-slate-800/70 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-slate-700";
 
 /* ============ Types ============ */
 
@@ -211,6 +219,27 @@ export function useSessionAttachments(sessionId: string | null, audit: any) {
 
 /* ============ Attachments Tab ============ */
 
+type ViewMode = "cards" | "table";
+type FilterId = "all" | "used" | "unused" | "rejected" | "no_ocr" | "no_facts";
+
+const FILTER_LABEL: Record<FilterId, string> = {
+  all: "Все",
+  used: "Использованные",
+  unused: "Неиспользованные",
+  rejected: "Отклонённые",
+  no_ocr: "Без OCR",
+  no_facts: "Без привязки к фактам",
+};
+
+async function copyText(text: string, label: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success(`${label} скопировано`);
+  } catch {
+    toast.error("Не удалось скопировать");
+  }
+}
+
 export function AttachmentsTab({
   sessionId,
   analysis,
@@ -223,6 +252,66 @@ export function AttachmentsTab({
   const audit = analysis?.documents_audit ?? null;
   const { data, isLoading, error } = useSessionAttachments(sessionId, audit);
   const docs = data ?? [];
+
+  const [view, setView] = useState<ViewMode>("cards");
+  const [filter, setFilter] = useState<FilterId>("all");
+  const [query, setQuery] = useState("");
+
+  /** Enrich rows with fact-link info (computed from analysis once). */
+  const enriched = useMemo(() => {
+    return docs.map((d) => {
+      const links = getFactLinksForDoc({ id: d.id, file_name: d.file_name }, analysis);
+      return { d, factCount: links.count, factPreviews: links.facts.slice(0, 3) };
+    });
+  }, [docs, analysis]);
+
+  const counts = useMemo(() => {
+    const c: Record<FilterId, number> = {
+      all: enriched.length,
+      used: 0,
+      unused: 0,
+      rejected: 0,
+      no_ocr: 0,
+      no_facts: 0,
+    };
+    for (const { d, factCount } of enriched) {
+      if (d.audit_status === "used") c.used += 1;
+      else if (d.audit_status === "rejected") c.rejected += 1;
+      else c.unused += 1;
+      if (!d.ocr_length) c.no_ocr += 1;
+      if (factCount === 0) c.no_facts += 1;
+    }
+    return c;
+  }, [enriched]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return enriched.filter(({ d, factCount }) => {
+      // filter
+      if (filter === "used" && d.audit_status !== "used") return false;
+      if (filter === "unused" && d.audit_status !== "unknown") return false;
+      if (filter === "rejected" && d.audit_status !== "rejected") return false;
+      if (filter === "no_ocr" && d.ocr_length > 0) return false;
+      if (filter === "no_facts" && factCount > 0) return false;
+      // search
+      if (!q) return true;
+      const auditReason = String(d.audit_entry?.reason ?? "").toLowerCase();
+      const usedForArr = Array.isArray(d.audit_entry?.used_for) ? d.audit_entry.used_for : [];
+      const usedFor = usedForArr.join(" ").toLowerCase();
+      const hay = [
+        d.file_name,
+        d.document_type,
+        d.metadata?.title,
+        d.ocr_text,
+        auditReason,
+        usedFor,
+      ]
+        .filter(Boolean)
+        .map((v) => String(v).toLowerCase())
+        .join("\n");
+      return hay.includes(q);
+    });
+  }, [enriched, filter, query]);
 
   if (!sessionId) {
     return (
@@ -237,93 +326,269 @@ export function AttachmentsTab({
 
   return (
     <section className={`${PANEL} p-5 space-y-3`}>
-      <div>
-        <h2 className="font-display text-lg text-white">Приложения</h2>
-        <p className="mt-1 text-xs text-slate-300">
-          Все документы текущей сессии. Статус: использован AI / отклонён / не определён.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="font-display text-lg text-white">Приложения</h2>
+          <p className="mt-1 text-xs text-slate-300">
+            Все документы текущей сессии. Статус: использован AI / отклонён / не определён.
+          </p>
+        </div>
+        <div className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 p-1">
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs ${
+              view === "cards" ? "bg-slate-700 text-white" : "text-slate-300 hover:text-white"
+            }`}
+            onClick={() => setView("cards")}
+          >
+            <LayoutGrid size={12} /> Карточки
+          </button>
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs ${
+              view === "table" ? "bg-slate-700 text-white" : "text-slate-300 hover:text-white"
+            }`}
+            onClick={() => setView("table")}
+          >
+            <TableIcon size={12} /> Таблица
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-1.5">
+        {(Object.keys(FILTER_LABEL) as FilterId[]).map((f) => (
+          <button
+            key={f}
+            type="button"
+            className={filter === f ? CHIP_ON : CHIP_OFF}
+            onClick={() => setFilter(f)}
+            title={FILTER_LABEL[f]}
+          >
+            {FILTER_LABEL[f]}
+            <span className="rounded-full bg-slate-900/60 px-1.5 text-[10px] text-slate-200">
+              {counts[f]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="flex items-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-2 py-1">
+        <Search size={12} className="text-slate-400" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Поиск по имени, типу, OCR, причине, used_for…"
+          className="w-full bg-transparent text-xs text-slate-100 outline-none placeholder:text-slate-500"
+        />
+        {query && (
+          <button
+            type="button"
+            className="text-[10px] text-slate-400 hover:text-slate-100"
+            onClick={() => setQuery("")}
+          >
+            очистить
+          </button>
+        )}
       </div>
 
       {isLoading && <div className="text-sm text-slate-300">Загрузка списка…</div>}
       {error && <div className="text-sm text-red-300">Ошибка загрузки приложений.</div>}
-      {!isLoading && docs.length === 0 && (
-        <div className="text-sm text-slate-300">К сессии не привязано ни одного документа.</div>
+      {!isLoading && filtered.length === 0 && (
+        <div className="rounded-md border border-slate-700/70 bg-slate-900/70 p-3 text-sm text-slate-300">
+          {docs.length === 0
+            ? "К сессии не привязано ни одного документа."
+            : "По текущим фильтрам ничего не найдено."}
+        </div>
       )}
 
-      <ul className="space-y-2">
-        {docs.map((d) => (
-          <li key={`${d.source_table}:${d.id}`} className={`${PANEL_SUB} p-3 text-xs text-slate-100`}>
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <FileText size={12} className="text-slate-300" />
-                  <span className="break-all font-medium text-white">
-                    {d.file_name ?? "Без имени"}
-                  </span>
-                  <StatusBadge status={d.audit_status} />
+      {view === "cards" && filtered.length > 0 && (
+        <ul className="space-y-2">
+          {filtered.map(({ d, factCount, factPreviews }) => (
+            <li
+              key={`${d.source_table}:${d.id}`}
+              className={`${PANEL_SUB} p-3 text-xs text-slate-100`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <FileText size={12} className="text-slate-300" />
+                    <span className="break-all font-medium text-white">
+                      {d.file_name ?? "Без имени"}
+                    </span>
+                    <StatusBadge status={d.audit_status} />
+                    <FactLinkBadge count={factCount} />
+                  </div>
+                  <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-slate-300 sm:grid-cols-4">
+                    <div>
+                      <span className="text-slate-400">Тип: </span>
+                      {d.document_type ?? d.mime_type ?? "—"}
+                    </div>
+                    <div>
+                      <span className="text-slate-400">OCR: </span>
+                      {ocrStatusLabel(d)}
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Длина OCR: </span>
+                      {d.ocr_length || "—"}
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Создан: </span>
+                      {fmtDate(d.created_at)}
+                    </div>
+                  </div>
+                  {d.audit_status === "rejected" && (
+                    <div className="mt-1 text-[11px] text-amber-200">
+                      Причина:{" "}
+                      {d.audit_entry?.reason === "no_ocr"
+                        ? "не распознан текст (OCR пуст)"
+                        : String(d.audit_entry?.reason ?? "не указана")}
+                    </div>
+                  )}
+                  {d.audit_status === "used" &&
+                    Array.isArray(d.audit_entry?.used_for) &&
+                    d.audit_entry.used_for.length > 0 && (
+                      <div className="mt-1 text-[11px] text-emerald-200">
+                        Использован для: {d.audit_entry.used_for.join(", ")}
+                      </div>
+                    )}
+                  {factCount > 0 && factPreviews.length > 0 && (
+                    <div className="mt-1 text-[11px] text-slate-200">
+                      <span className="text-slate-400">Связан с фактами: </span>
+                      {factPreviews.map((f) => f.text.slice(0, 60)).join("; ")}
+                      {factCount > factPreviews.length && ` и ещё ${factCount - factPreviews.length}`}
+                    </div>
+                  )}
                 </div>
-                <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-slate-300 sm:grid-cols-4">
-                  <div>
-                    <span className="text-slate-400">Тип: </span>
-                    {d.document_type ?? d.mime_type ?? "—"}
-                  </div>
-                  <div>
-                    <span className="text-slate-400">OCR: </span>
-                    {ocrStatusLabel(d)}
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Длина OCR: </span>
-                    {d.ocr_length || "—"}
-                  </div>
-                  <div>
-                    <span className="text-slate-400">Создан: </span>
-                    {fmtDate(d.created_at)}
-                  </div>
-                </div>
-                {d.audit_status === "rejected" && (
-                  <div className="mt-1 text-[11px] text-amber-200">
-                    Причина:{" "}
-                    {d.audit_entry?.reason === "no_ocr"
-                      ? "не распознан текст (OCR пуст)"
-                      : String(d.audit_entry?.reason ?? "не указана")}
-                  </div>
-                )}
-                {d.audit_status === "used" && Array.isArray(d.audit_entry?.used_for) && d.audit_entry.used_for.length > 0 && (
-                  <div className="mt-1 text-[11px] text-emerald-200">
-                    Использован для: {d.audit_entry.used_for.join(", ")}
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={BTN_PRIMARY}
-                  onClick={() => openAttachment({ doc: d })}
-                  title="Открыть просмотр OCR"
-                >
-                  <ExternalLink size={12} /> Открыть
-                </button>
-                {d.audit_status === "used" && onJumpToFacts && (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className={BTN_PRIMARY}
+                    onClick={() => openAttachment({ doc: d })}
+                    title="Открыть просмотр OCR"
+                  >
+                    <ExternalLink size={12} /> Открыть
+                  </button>
+                  {onJumpToFacts && (
+                    <button
+                      type="button"
+                      className={BTN}
+                      onClick={() => onJumpToFacts(d.file_name)}
+                      title="Найти упоминания в матрице доказательств"
+                      disabled={factCount === 0 && d.audit_status !== "used"}
+                    >
+                      <Target size={12} /> Найти факты
+                    </button>
+                  )}
                   <button
                     type="button"
                     className={BTN}
-                    onClick={() => onJumpToFacts(d.file_name)}
-                    title="Найти упоминания в фактах / матрице"
+                    onClick={() => copyText(d.ocr_text ?? "", "OCR-текст")}
+                    disabled={!d.ocr_length}
+                    title={d.ocr_length ? "Скопировать весь OCR" : "OCR недоступен"}
                   >
-                    <Target size={12} /> Найти в фактах
+                    <Copy size={12} /> Копировать OCR
                   </button>
-                )}
+                </div>
               </div>
-            </div>
-            {!d.storage_path && !d.file_url && (
-              <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-100">
-                <AlertTriangle size={12} /> Файл недоступен: ссылка на хранилище отсутствует.
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+              {!d.storage_path && !d.file_url && (
+                <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-100">
+                  <AlertTriangle size={12} /> Файл недоступен: ссылка на хранилище отсутствует.
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {view === "table" && filtered.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border border-slate-700/70">
+          <table className="w-full text-left text-[11px] text-slate-100">
+            <thead className="bg-slate-900/80 text-[10px] uppercase tracking-wider text-slate-400">
+              <tr>
+                <th className="px-2 py-1.5">Файл</th>
+                <th className="px-2 py-1.5">Статус</th>
+                <th className="px-2 py-1.5">OCR</th>
+                <th className="px-2 py-1.5">Факты</th>
+                <th className="px-2 py-1.5">Тип</th>
+                <th className="px-2 py-1.5">Создан</th>
+                <th className="px-2 py-1.5 text-right">Действия</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {filtered.map(({ d, factCount }) => (
+                <tr key={`${d.source_table}:${d.id}`} className="hover:bg-slate-800/40">
+                  <td className="max-w-[260px] truncate px-2 py-1.5 font-medium text-white" title={d.file_name ?? ""}>
+                    {d.file_name ?? "Без имени"}
+                  </td>
+                  <td className="px-2 py-1.5"><StatusBadge status={d.audit_status} /></td>
+                  <td className="px-2 py-1.5 text-slate-300">{d.ocr_length || "—"}</td>
+                  <td className="px-2 py-1.5">
+                    <FactLinkBadge count={factCount} compact />
+                  </td>
+                  <td className="px-2 py-1.5 text-slate-300">{d.document_type ?? d.mime_type ?? "—"}</td>
+                  <td className="px-2 py-1.5 text-slate-300">{fmtDate(d.created_at)}</td>
+                  <td className="px-2 py-1.5 text-right">
+                    <div className="inline-flex gap-1">
+                      <button
+                        type="button"
+                        className={BTN_PRIMARY}
+                        onClick={() => openAttachment({ doc: d })}
+                        title="Открыть"
+                      >
+                        <ExternalLink size={11} />
+                      </button>
+                      {onJumpToFacts && (
+                        <button
+                          type="button"
+                          className={BTN}
+                          onClick={() => onJumpToFacts(d.file_name)}
+                          disabled={factCount === 0 && d.audit_status !== "used"}
+                          title="Найти факты"
+                        >
+                          <Target size={11} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={BTN}
+                        onClick={() => copyText(d.ocr_text ?? "", "OCR-текст")}
+                        disabled={!d.ocr_length}
+                        title="Копировать OCR"
+                      >
+                        <Copy size={11} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
+  );
+}
+
+function FactLinkBadge({ count, compact }: { count: number; compact?: boolean }) {
+  if (count === 0) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded-full bg-slate-700/40 px-2 py-0.5 text-[10px] font-medium text-slate-200"
+        title="Не связан ни с одним фактом из fact_to_evidence_mapping"
+      >
+        <Link2 size={10} /> {compact ? "0" : "без фактов"}
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-indigo-500/25 px-2 py-0.5 text-[10px] font-semibold text-indigo-50"
+      title="Привязан к фактам через fact_to_evidence_mapping"
+    >
+      <Link2 size={10} /> {compact ? count : `${count} факт${count === 1 ? "" : count < 5 ? "а" : "ов"}`}
+    </span>
   );
 }
 

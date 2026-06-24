@@ -60,6 +60,7 @@ import {
   AttachmentsTab,
   AttachmentDrawer,
   useSessionAttachments,
+  openAttachment,
 } from "@/components/document-workspace/attachments-viewer";
 import {
   EvidenceMatrixTab,
@@ -71,6 +72,7 @@ import {
   GroundingScoreCompact,
 } from "@/components/document-workspace/coverage-report";
 import { copyCitationToClipboard, resolveCitation } from "@/lib/citation-resolver";
+import { buildBacklinks, type Backlinks } from "@/lib/source-backlinks";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId")({
   head: () => ({
@@ -405,7 +407,17 @@ async function openClientDocFile(source: any): Promise<void> {
   }
 }
 
-function SourceViewerDrawer({ setTab }: { setTab: (t: TabId) => void }) {
+function SourceViewerDrawer({
+  setTab,
+  analysis,
+  review,
+  attachments,
+}: {
+  setTab: (t: TabId) => void;
+  analysis?: any;
+  review?: any;
+  attachments?: any[];
+}) {
   const [payload, setPayload] = useState<SourceViewerPayload | null>(null);
   const open = payload != null;
 
@@ -432,6 +444,9 @@ function SourceViewerDrawer({ setTab }: { setTab: (t: TabId) => void }) {
   const why = source?.why_selected ?? source?.why_used;
   const usedFor = source?.used_for;
   const citation = source?.citation;
+  const backlinks: Backlinks | null = source
+    ? buildBacklinks(source, analysis, review, attachments)
+    : null;
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && setPayload(null)}>
@@ -519,7 +534,72 @@ function SourceViewerDrawer({ setTab }: { setTab: (t: TabId) => void }) {
                 <Target size={12} /> Перейти в документ
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setTab("graph");
+                setPayload(null);
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-500 bg-slate-800 px-2.5 py-1 text-[12px] font-medium text-slate-50 hover:bg-slate-700"
+              title="Показать связи в Evidence Graph"
+            >
+              <GitBranch size={12} /> В Evidence Graph
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTab("evidence");
+                setPayload(null);
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-500 bg-slate-800 px-2.5 py-1 text-[12px] font-medium text-slate-50 hover:bg-slate-700"
+              title="Открыть в Матрице доказательств"
+            >
+              <Columns size={12} /> В матрицу
+            </button>
           </div>
+
+          {/* Phase 9: Related elements (backlinks) */}
+          {backlinks && analysis && (
+            <RelatedElementsBlock
+              backlinks={backlinks}
+              attachments={attachments}
+              onJumpToFact={(i) => {
+                setTab("reasoning");
+                setPayload(null);
+                window.setTimeout(() => {
+                  const el = document.querySelector(`[data-arg-index="${i}"]`);
+                  if (el && "scrollIntoView" in el) {
+                    (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+                  }
+                }, 120);
+              }}
+              onOpenDoc={(att) => {
+                setPayload(null);
+                openAttachment({ doc: att });
+              }}
+              onOpenInGraph={() => {
+                setTab("graph");
+                setPayload(null);
+              }}
+              onOpenInMatrix={(fileName) => {
+                setTab("evidence");
+                setPayload(null);
+                if (fileName && typeof window !== "undefined") {
+                  window.dispatchEvent(
+                    new CustomEvent("ws:matrix-jump", { detail: { fileName } }),
+                  );
+                }
+              }}
+              onCopyText={async (text) => {
+                try {
+                  await navigator.clipboard.writeText(text);
+                  toast.success("Скопировано");
+                } catch {
+                  toast.error("Не удалось скопировать");
+                }
+              }}
+            />
+          )}
 
           {/* Warnings */}
           {!precise && (
@@ -641,6 +721,204 @@ function SourceViewerDrawer({ setTab }: { setTab: (t: TabId) => void }) {
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/* ============ Phase 9: Related Elements Block ============ */
+
+function RelatedElementsBlock({
+  backlinks,
+  attachments,
+  onJumpToFact,
+  onOpenDoc,
+  onOpenInGraph,
+  onOpenInMatrix,
+  onCopyText,
+}: {
+  backlinks: Backlinks;
+  attachments?: any[];
+  onJumpToFact: (i: number) => void;
+  onOpenDoc: (att: any) => void;
+  onOpenInGraph: () => void;
+  onOpenInMatrix: (fileName: string | null) => void;
+  onCopyText: (text: string) => void;
+}) {
+  const { facts, args, documents, risks, reviews, fuzzy, empty } = backlinks;
+  const findAttachment = (fileName: string | null): any | null => {
+    if (!fileName || !attachments) return null;
+    const n = String(fileName).toLowerCase();
+    return (
+      attachments.find((a: any) => String(a?.file_name ?? "").toLowerCase() === n) ??
+      attachments.find((a: any) => {
+        const an = String(a?.file_name ?? "").toLowerCase();
+        return an && (an.includes(n) || n.includes(an));
+      }) ??
+      null
+    );
+  };
+
+  return (
+    <section>
+      <div className={PANEL_LABEL + " mb-1 flex items-center justify-between"}>
+        <span>Связанные элементы</span>
+        {fuzzy && !empty && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-100">
+            <AlertTriangle size={10} /> связь определена эвристически
+          </span>
+        )}
+      </div>
+      {empty ? (
+        <div className="flex items-start gap-2 rounded-md border border-slate-700/70 bg-slate-900/70 p-3 text-[12px] text-slate-300">
+          <AlertCircle size={14} className="mt-0.5 shrink-0 text-amber-300" />
+          <span>Связи с фактами не найдены. Требуется ручная проверка.</span>
+        </div>
+      ) : (
+        <div className="space-y-2 rounded-lg border border-slate-700/70 bg-slate-900/70 p-3 text-[12px]">
+          {facts.length > 0 && (
+            <RelatedGroup title="Факты" count={facts.length}>
+              {facts.slice(0, 8).map((f, i) => (
+                <RelatedRow
+                  key={`f-${i}`}
+                  text={f.text}
+                  fuzzy={f.fuzzy}
+                  actions={[
+                    { label: "К факту", onClick: () => onJumpToFact(f.index) },
+                    { label: "В graph", onClick: onOpenInGraph },
+                    { label: "Копировать", onClick: () => onCopyText(f.text) },
+                  ]}
+                />
+              ))}
+            </RelatedGroup>
+          )}
+          {args.length > 0 && (
+            <RelatedGroup title="Аргументы" count={args.length}>
+              {args.slice(0, 8).map((a, i) => (
+                <RelatedRow
+                  key={`a-${i}`}
+                  text={a.title}
+                  fuzzy={a.fuzzy}
+                  actions={[{ label: "К аргументу", onClick: () => onJumpToFact(a.index) }]}
+                />
+              ))}
+            </RelatedGroup>
+          )}
+          {documents.length > 0 && (
+            <RelatedGroup title="Документы" count={documents.length}>
+              {documents.slice(0, 8).map((d, i) => {
+                const att = d.doc ?? findAttachment(d.fileName);
+                return (
+                  <RelatedRow
+                    key={`d-${i}`}
+                    text={d.fileName ?? "Без имени"}
+                    fuzzy={d.fuzzy}
+                    badge={d.audit_status}
+                    actions={[
+                      ...(att
+                        ? [{ label: "Открыть документ", onClick: () => onOpenDoc(att) }]
+                        : []),
+                      { label: "В матрицу", onClick: () => onOpenInMatrix(d.fileName) },
+                    ]}
+                  />
+                );
+              })}
+            </RelatedGroup>
+          )}
+          {risks.length > 0 && (
+            <RelatedGroup title="Риски и слабые места" count={risks.length}>
+              {risks.slice(0, 8).map((r, i) => (
+                <RelatedRow
+                  key={`r-${i}`}
+                  text={r.text}
+                  fuzzy={r.fuzzy}
+                  badge={r.kind}
+                  actions={[{ label: "Копировать", onClick: () => onCopyText(r.text) }]}
+                />
+              ))}
+            </RelatedGroup>
+          )}
+          {reviews.length > 0 && (
+            <RelatedGroup title="Замечания AI Review" count={reviews.length}>
+              {reviews.slice(0, 8).map((r, i) => (
+                <RelatedRow
+                  key={`rv-${i}`}
+                  text={r.text}
+                  fuzzy={r.fuzzy}
+                  badge={r.severity ?? r.kind}
+                  actions={[{ label: "Копировать", onClick: () => onCopyText(r.text) }]}
+                />
+              ))}
+            </RelatedGroup>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RelatedGroup({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        {title}
+        <span className="rounded-full bg-slate-800 px-1.5 text-[10px] text-slate-200">{count}</span>
+      </div>
+      <ul className="space-y-1">{children}</ul>
+    </div>
+  );
+}
+
+function RelatedRow({
+  text,
+  fuzzy,
+  badge,
+  actions,
+}: {
+  text: string;
+  fuzzy?: boolean;
+  badge?: string;
+  actions: Array<{ label: string; onClick: () => void }>;
+}) {
+  return (
+    <li className="rounded border border-slate-700/60 bg-slate-900/80 p-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 text-[12px] text-slate-100">
+          <span className="break-words">{text}</span>
+          {badge && (
+            <span className="ml-2 rounded bg-slate-700/60 px-1.5 py-0.5 text-[10px] text-slate-200">
+              {badge}
+            </span>
+          )}
+          {fuzzy && (
+            <span
+              className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-100"
+              title="Связь определена эвристически"
+            >
+              fuzzy
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {actions.map((a, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={a.onClick}
+              className="rounded border border-slate-600 bg-slate-800 px-2 py-0.5 text-[11px] text-slate-100 hover:bg-slate-700"
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -1304,6 +1582,14 @@ function DocumentDetailPage() {
   const [tocOpen, setTocOpen] = useState(false);
   const [selectedArgIndex, setSelectedArgIndex] = useState<number>(0);
   const [matrixJumpFilter, setMatrixJumpFilter] = useState<string | null>(null);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const d = (e as CustomEvent<{ fileName: string | null }>).detail;
+      if (d && typeof d === "object") setMatrixJumpFilter(d.fileName ?? null);
+    };
+    window.addEventListener("ws:matrix-jump", handler as EventListener);
+    return () => window.removeEventListener("ws:matrix-jump", handler as EventListener);
+  }, []);
   const [argFilter, setArgFilter] = useState<"all" | "high" | "medium" | "low" | "no_evidence" | "ai_issues" | "needs_review">("all");
   const [argSearch, setArgSearch] = useState<string>("");
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
@@ -2874,7 +3160,12 @@ function DocumentDetailPage() {
       </Sheet>
 
       {/* Phase 3: Unified Source Viewer */}
-      <SourceViewerDrawer setTab={setTab} />
+      <SourceViewerDrawer
+        setTab={setTab}
+        analysis={analysis}
+        review={review}
+        attachments={attachments}
+      />
       <AttachmentDrawer />
       <FactCheckDrawer generatedText={(edited || doc.content || "") as string} />
 
