@@ -724,6 +724,204 @@ function SourceViewerDrawer({
   );
 }
 
+/* ============ Phase 9: Related Elements Block ============ */
+
+function RelatedElementsBlock({
+  backlinks,
+  attachments,
+  onJumpToFact,
+  onOpenDoc,
+  onOpenInGraph,
+  onOpenInMatrix,
+  onCopyText,
+}: {
+  backlinks: Backlinks;
+  attachments?: any[];
+  onJumpToFact: (i: number) => void;
+  onOpenDoc: (att: any) => void;
+  onOpenInGraph: () => void;
+  onOpenInMatrix: (fileName: string | null) => void;
+  onCopyText: (text: string) => void;
+}) {
+  const { facts, args, documents, risks, reviews, fuzzy, empty } = backlinks;
+  const findAttachment = (fileName: string | null): any | null => {
+    if (!fileName || !attachments) return null;
+    const n = String(fileName).toLowerCase();
+    return (
+      attachments.find((a: any) => String(a?.file_name ?? "").toLowerCase() === n) ??
+      attachments.find((a: any) => {
+        const an = String(a?.file_name ?? "").toLowerCase();
+        return an && (an.includes(n) || n.includes(an));
+      }) ??
+      null
+    );
+  };
+
+  return (
+    <section>
+      <div className={PANEL_LABEL + " mb-1 flex items-center justify-between"}>
+        <span>Связанные элементы</span>
+        {fuzzy && !empty && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-100">
+            <AlertTriangle size={10} /> связь определена эвристически
+          </span>
+        )}
+      </div>
+      {empty ? (
+        <div className="flex items-start gap-2 rounded-md border border-slate-700/70 bg-slate-900/70 p-3 text-[12px] text-slate-300">
+          <AlertCircle size={14} className="mt-0.5 shrink-0 text-amber-300" />
+          <span>Связи с фактами не найдены. Требуется ручная проверка.</span>
+        </div>
+      ) : (
+        <div className="space-y-2 rounded-lg border border-slate-700/70 bg-slate-900/70 p-3 text-[12px]">
+          {facts.length > 0 && (
+            <RelatedGroup title="Факты" count={facts.length}>
+              {facts.slice(0, 8).map((f, i) => (
+                <RelatedRow
+                  key={`f-${i}`}
+                  text={f.text}
+                  fuzzy={f.fuzzy}
+                  actions={[
+                    { label: "К факту", onClick: () => onJumpToFact(f.index) },
+                    { label: "В graph", onClick: onOpenInGraph },
+                    { label: "Копировать", onClick: () => onCopyText(f.text) },
+                  ]}
+                />
+              ))}
+            </RelatedGroup>
+          )}
+          {args.length > 0 && (
+            <RelatedGroup title="Аргументы" count={args.length}>
+              {args.slice(0, 8).map((a, i) => (
+                <RelatedRow
+                  key={`a-${i}`}
+                  text={a.title}
+                  fuzzy={a.fuzzy}
+                  actions={[{ label: "К аргументу", onClick: () => onJumpToFact(a.index) }]}
+                />
+              ))}
+            </RelatedGroup>
+          )}
+          {documents.length > 0 && (
+            <RelatedGroup title="Документы" count={documents.length}>
+              {documents.slice(0, 8).map((d, i) => {
+                const att = d.doc ?? findAttachment(d.fileName);
+                return (
+                  <RelatedRow
+                    key={`d-${i}`}
+                    text={d.fileName ?? "Без имени"}
+                    fuzzy={d.fuzzy}
+                    badge={d.audit_status}
+                    actions={[
+                      ...(att
+                        ? [{ label: "Открыть документ", onClick: () => onOpenDoc(att) }]
+                        : []),
+                      { label: "В матрицу", onClick: () => onOpenInMatrix(d.fileName) },
+                    ]}
+                  />
+                );
+              })}
+            </RelatedGroup>
+          )}
+          {risks.length > 0 && (
+            <RelatedGroup title="Риски и слабые места" count={risks.length}>
+              {risks.slice(0, 8).map((r, i) => (
+                <RelatedRow
+                  key={`r-${i}`}
+                  text={r.text}
+                  fuzzy={r.fuzzy}
+                  badge={r.kind}
+                  actions={[{ label: "Копировать", onClick: () => onCopyText(r.text) }]}
+                />
+              ))}
+            </RelatedGroup>
+          )}
+          {reviews.length > 0 && (
+            <RelatedGroup title="Замечания AI Review" count={reviews.length}>
+              {reviews.slice(0, 8).map((r, i) => (
+                <RelatedRow
+                  key={`rv-${i}`}
+                  text={r.text}
+                  fuzzy={r.fuzzy}
+                  badge={r.severity ?? r.kind}
+                  actions={[{ label: "Копировать", onClick: () => onCopyText(r.text) }]}
+                />
+              ))}
+            </RelatedGroup>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RelatedGroup({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        {title}
+        <span className="rounded-full bg-slate-800 px-1.5 text-[10px] text-slate-200">{count}</span>
+      </div>
+      <ul className="space-y-1">{children}</ul>
+    </div>
+  );
+}
+
+function RelatedRow({
+  text,
+  fuzzy,
+  badge,
+  actions,
+}: {
+  text: string;
+  fuzzy?: boolean;
+  badge?: string;
+  actions: Array<{ label: string; onClick: () => void }>;
+}) {
+  return (
+    <li className="rounded border border-slate-700/60 bg-slate-900/80 p-2">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0 text-[12px] text-slate-100">
+          <span className="break-words">{text}</span>
+          {badge && (
+            <span className="ml-2 rounded bg-slate-700/60 px-1.5 py-0.5 text-[10px] text-slate-200">
+              {badge}
+            </span>
+          )}
+          {fuzzy && (
+            <span
+              className="ml-2 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-100"
+              title="Связь определена эвристически"
+            >
+              fuzzy
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {actions.map((a, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={a.onClick}
+              className="rounded border border-slate-600 bg-slate-800 px-2 py-0.5 text-[11px] text-slate-100 hover:bg-slate-700"
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </li>
+  );
+}
+
 /* ============ Source Citation ============ */
 
 type CitationKind =
