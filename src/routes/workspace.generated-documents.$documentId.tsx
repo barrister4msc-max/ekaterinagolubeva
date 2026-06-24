@@ -2478,7 +2478,7 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
           </ReasoningCard>
         )}
         {generationInstructions.length > 0 && (
-          <ReasoningCard tone="default" title={`Инструкции для генератора · ${generationInstructions.length}`}>
+          <ReasoningCard tone="default" title={`Указания по подготовке документа · ${generationInstructions.length}`}>
             <ul className="space-y-1 text-xs">
               {generationInstructions.map((c: any, k: number) => (
                 <li key={k}>{renderText(c?.text ?? c?.description ?? c)}</li>
@@ -2487,7 +2487,68 @@ function ReasoningTab({ analysis, meta, setTab }: { analysis: any; meta: any; se
           </ReasoningCard>
         )}
       </div>
+
+      <DocumentsAuditBlock analysis={analysis} />
     </section>
+  );
+}
+
+function DocumentsAuditBlock({ analysis }: { analysis: any }) {
+  const audit = analysis?.documents_audit ?? {};
+  const used: any[] = Array.isArray(audit?.used) ? audit.used : [];
+  const rejected: any[] = Array.isArray(audit?.rejected) ? audit.rejected : [];
+  if (used.length === 0 && rejected.length === 0) return null;
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      <ReasoningCard tone="evidence" title={`Документы клиента · использовано · ${used.length}`}>
+        {used.length === 0 ? (
+          <span className="text-foreground/60">AI не использовал ни один загруженный документ.</span>
+        ) : (
+          <ul className="space-y-1.5">
+            {used.map((d: any, k: number) => {
+              const purposes: any[] = Array.isArray(d?.used_for) ? d.used_for : d?.used_for ? [d.used_for] : [];
+              return (
+                <li key={k} className="rounded border border-white/10 bg-black/20 p-2 text-xs">
+                  <div className="font-medium text-foreground/90">
+                    {renderText(d?.title ?? d?.file_name ?? d?.name ?? d?.id) || "Документ"}
+                  </div>
+                  {purposes.length > 0 && (
+                    <div className="mt-1 text-foreground/65">
+                      Использован для: {purposes.map((p) => renderText(p)).join(", ")}
+                    </div>
+                  )}
+                  {d?.ocr_length != null && (
+                    <div className="mt-0.5 text-[11px] text-foreground/50">
+                      Длина распознанного текста: {String(d.ocr_length)} симв.
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </ReasoningCard>
+      <ReasoningCard tone="warn" title={`Документы клиента · отклонено · ${rejected.length}`}>
+        {rejected.length === 0 ? (
+          <span className="text-foreground/60">Отклонённых документов нет.</span>
+        ) : (
+          <ul className="space-y-1.5">
+            {rejected.map((d: any, k: number) => (
+              <li key={k} className="rounded border border-white/10 bg-black/20 p-2 text-xs">
+                <div className="font-medium text-foreground/90">
+                  {renderText(d?.title ?? d?.file_name ?? d?.name ?? d?.id) || "Документ"}
+                </div>
+                {d?.reason && (
+                  <div className="mt-1 text-foreground/65">
+                    Причина: {d.reason === "no_ocr" ? "не распознан текст (OCR пуст)" : renderText(d.reason)}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </ReasoningCard>
+    </div>
   );
 }
 
