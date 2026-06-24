@@ -65,6 +65,12 @@ import {
   EvidenceMatrixTab,
   FactCheckDrawer,
 } from "@/components/document-workspace/evidence-matrix";
+import { EvidenceGraphTab } from "@/components/document-workspace/evidence-graph";
+import {
+  CoverageReportTab,
+  GroundingScoreCompact,
+} from "@/components/document-workspace/coverage-report";
+import { copyCitationToClipboard, resolveCitation } from "@/lib/citation-resolver";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId")({
   head: () => ({
@@ -118,6 +124,8 @@ const TABS = [
   { id: "document", label: "Документ" },
   { id: "reasoning", label: "Обоснование" },
   { id: "analysis", label: "AI правовой анализ" },
+  { id: "graph", label: "Evidence Graph" },
+  { id: "coverage", label: "Coverage" },
   { id: "attachments", label: "Приложения" },
   { id: "evidence", label: "Матрица доказательств" },
   { id: "sources", label: "Источники" },
@@ -480,6 +488,16 @@ function SourceViewerDrawer({ setTab }: { setTab: (t: TabId) => void }) {
                 <ExternalLink size={12} /> Открыть в новой вкладке
               </a>
             )}
+            <button
+              type="button"
+              onClick={async () => {
+                const ok = await copyCitationToClipboard(source);
+                ok ? toast.success("Ссылка скопирована") : toast.error("Не удалось скопировать");
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-500 bg-slate-800 px-2.5 py-1 text-[12px] font-medium text-slate-50 hover:bg-slate-700"
+            >
+              <Copy size={12} /> Копировать ссылку
+            </button>
             {kind === "client_doc" && (
               <button
                 type="button"
@@ -869,7 +887,25 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
         >
           <Target size={11} /> Проверить локализацию
         </button>
+        <button
+          type="button"
+          onClick={async () => {
+            const ok = await copyCitationToClipboard(source);
+            ok ? toast.success("Ссылка скопирована") : toast.error("Не удалось скопировать");
+          }}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-500/60 bg-slate-700/60 px-2 py-0.5 text-[11px] text-slate-50 hover:bg-slate-700"
+        >
+          <Copy size={11} /> Копировать ссылку
+        </button>
       </div>
+      {/* Phase 8: resolved citation crumb */}
+      {(() => {
+        const r = resolveCitation(source);
+        if (!r.precise) return null;
+        return (
+          <div className="mt-1 font-mono text-[10px] text-sky-200/85">{r.full}</div>
+        );
+      })()}
     </div>
   );
 }
@@ -2294,6 +2330,15 @@ function DocumentDetailPage() {
         onClick={() => setTab("review")}
       />
 
+      <GroundingScoreCompact
+        analysis={analysis}
+        review={review}
+        attachments={attachments}
+        onClick={() => setTab("coverage")}
+      />
+
+
+
 
 
       {tab === "reasoning" && (
@@ -2385,6 +2430,23 @@ function DocumentDetailPage() {
             </>
           )}
         </section>
+      )}
+
+      {tab === "graph" && (
+        <EvidenceGraphTab
+          analysis={analysis}
+          review={review}
+          attachments={attachments}
+          onOpenSource={(source) => openSourceViewer({ source })}
+        />
+      )}
+
+      {tab === "coverage" && (
+        <CoverageReportTab
+          analysis={analysis}
+          review={review}
+          attachments={attachments}
+        />
       )}
 
       {tab === "attachments" && (
