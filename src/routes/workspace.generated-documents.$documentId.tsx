@@ -1946,6 +1946,9 @@ function DocumentDetailPage() {
               Найденные проблемы, причины и рекомендации. Каждый блок содержит ссылку на место в документе.
             </p>
           </div>
+
+          <QualityGate result={consistency} approved={isApproved} />
+
           {!reviewRun && <p className="text-sm text-slate-300">AI Review для этого документа не найден.</p>}
           {reviewRun && (
             <>
