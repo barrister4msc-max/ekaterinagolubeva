@@ -1582,6 +1582,14 @@ function DocumentDetailPage() {
   const [tocOpen, setTocOpen] = useState(false);
   const [selectedArgIndex, setSelectedArgIndex] = useState<number>(0);
   const [matrixJumpFilter, setMatrixJumpFilter] = useState<string | null>(null);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const d = (e as CustomEvent<{ fileName: string | null }>).detail;
+      if (d && typeof d === "object") setMatrixJumpFilter(d.fileName ?? null);
+    };
+    window.addEventListener("ws:matrix-jump", handler as EventListener);
+    return () => window.removeEventListener("ws:matrix-jump", handler as EventListener);
+  }, []);
   const [argFilter, setArgFilter] = useState<"all" | "high" | "medium" | "low" | "no_evidence" | "ai_issues" | "needs_review">("all");
   const [argSearch, setArgSearch] = useState<string>("");
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
