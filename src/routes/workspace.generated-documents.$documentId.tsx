@@ -1605,6 +1605,127 @@ function DocumentDetailPage() {
   );
   const approveBlocked = !consistency.ready;
 
+  // ============ Workflow Engine ============
+  // Сводит состояния документа/анализа/review/qg в один обязательный следующий шаг.
+  const analysisStatusStr = String(analysisRun?.status ?? "").toLowerCase();
+  const analysisCompleted = !!analysisRun && analysisStatusStr === "completed";
+  const reviewStatusStr = String(reviewRun?.status ?? "").toLowerCase();
+  const reviewRunning = reviewStatusStr === "running" || reviewStatusStr === "pending" || runReview.isPending;
+  const reviewCompleted =
+    !!reviewRun && (reviewStatusStr === "completed" || reviewStatusStr === "");
+  const reviewFailed =
+    !!reviewRun &&
+    !reviewCompleted &&
+    !reviewRunning &&
+    reviewStatusStr !== "";
+  const reviewErrorMessage: string | null =
+    (reviewRun?.ai_result as any)?.error ??
+    (reviewRun?.ai_result as any)?.error_message ??
+    null;
+
+  type WorkflowStepKind =
+    | "run_analysis"
+    | "rerun_analysis_outdated"
+    | "run_review"
+    | "retry_review"
+    | "review_running"
+    | "fix_quality"
+    | "approve"
+    | "create_version"
+    | "create_version_and_reanalyze";
+  type WorkflowStep = { kind: WorkflowStepKind; label: string; hint?: string };
+
+  const nextStep: WorkflowStep = (() => {
+    if (isApproved) {
+      return analysisOutdated
+        ? {
+            kind: "create_version_and_reanalyze",
+            label: "Создать новую редакцию и выполнить AI-анализ",
+            hint: "Документ утверждён. Загружены новые материалы — нужна новая редакция и анализ.",
+          }
+        : {
+            kind: "create_version",
+            label: "Создать новую редакцию",
+            hint: "Документ утверждён. Изменения вносятся через новую редакцию.",
+          };
+    }
+    if (!analysisCompleted) {
+      return {
+        kind: "run_analysis",
+        label: "Запустить AI-анализ",
+        hint: "AI правовой анализ ещё не выполнен.",
+      };
+    }
+    if (analysisOutdated) {
+      return {
+        kind: "rerun_analysis_outdated",
+        label: "Повторить AI-анализ",
+        hint: "После анализа загружены новые документы — Review запускать нельзя до повторного анализа.",
+      };
+    }
+    if (reviewRunning) {
+      return { kind: "review_running", label: "AI Review выполняется…" };
+    }
+    if (reviewFailed) {
+      return {
+        kind: "retry_review",
+        label: "Повторить AI Review",
+        hint: reviewErrorMessage ?? "Предыдущий запуск Review завершился ошибкой.",
+      };
+    }
+    if (!reviewCompleted) {
+      return {
+        kind: "run_review",
+        label: "Запустить AI Review",
+        hint: "AI Review для текущей версии не выполнен.",
+      };
+    }
+    if (approveBlocked) {
+      return {
+        kind: "fix_quality",
+        label: "Устранить замечания Quality Gate",
+        hint: consistency.blockReason ?? undefined,
+      };
+    }
+    return { kind: "approve", label: "Утвердить документ" };
+  })();
+
+  const nextStepBusy =
+    rerunAnalysis.isPending ||
+    runReview.isPending ||
+    approve.isPending ||
+    createVersion.isPending ||
+    createVersionAndReanalyze.isPending ||
+    reviewRunning;
+
+  const triggerNextStep = () => {
+    switch (nextStep.kind) {
+      case "run_analysis":
+      case "rerun_analysis_outdated":
+        rerunAnalysis.mutate();
+        break;
+      case "run_review":
+      case "retry_review":
+        runReview.mutate();
+        break;
+      case "review_running":
+        break;
+      case "fix_quality":
+        setTab("review");
+        break;
+      case "approve":
+        if (confirm("Утвердить документ?")) approve.mutate();
+        break;
+      case "create_version":
+        createVersion.mutate();
+        break;
+      case "create_version_and_reanalyze":
+        createVersionAndReanalyze.mutate();
+        break;
+    }
+  };
+
+
   const showPanel = viewMode !== "read" && !panelCollapsed;
   // Right panel is a fixed compact column; document fills the rest.
   const gridCols = showPanel
