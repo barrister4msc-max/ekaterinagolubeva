@@ -56,6 +56,15 @@ import {
   ConsistencyCheck,
   type ConsistencyResult,
 } from "@/components/quality-gate";
+import {
+  AttachmentsTab,
+  AttachmentDrawer,
+  useSessionAttachments,
+} from "@/components/document-workspace/attachments-viewer";
+import {
+  EvidenceMatrixTab,
+  FactCheckDrawer,
+} from "@/components/document-workspace/evidence-matrix";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId")({
   head: () => ({
@@ -109,6 +118,8 @@ const TABS = [
   { id: "document", label: "Документ" },
   { id: "reasoning", label: "Обоснование" },
   { id: "analysis", label: "AI правовой анализ" },
+  { id: "attachments", label: "Приложения" },
+  { id: "evidence", label: "Матрица доказательств" },
   { id: "sources", label: "Источники" },
   { id: "review", label: "AI Review" },
   { id: "chain", label: "История AI" },
@@ -1256,6 +1267,7 @@ function DocumentDetailPage() {
   const [panelCollapsed, setPanelCollapsed] = useState(false);
   const [tocOpen, setTocOpen] = useState(false);
   const [selectedArgIndex, setSelectedArgIndex] = useState<number>(0);
+  const [matrixJumpFilter, setMatrixJumpFilter] = useState<string | null>(null);
   const [argFilter, setArgFilter] = useState<"all" | "high" | "medium" | "low" | "no_evidence" | "ai_issues" | "needs_review">("all");
   const [argSearch, setArgSearch] = useState<string>("");
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({
@@ -1403,6 +1415,13 @@ function DocumentDetailPage() {
       return (data ?? []) as Array<{ id: string; created_at: string }>;
     },
   });
+
+  // Phase 7: full attachments list for Attachments tab + Evidence Matrix
+  const { data: attachmentsData } = useSessionAttachments(
+    sessionId,
+    ((latestSessionAnalysis as any)?.ai_result?.documents_audit) ?? null,
+  );
+  const attachments = useMemo(() => attachmentsData ?? [], [attachmentsData]);
 
   const lastAnalysisAt = latestSessionAnalysis?.created_at ?? null;
   const lastDocUploadAt = (sessionSourceDocs?.[0]?.created_at as string | undefined) ?? null;
@@ -2368,6 +2387,27 @@ function DocumentDetailPage() {
         </section>
       )}
 
+      {tab === "attachments" && (
+        <AttachmentsTab
+          sessionId={sessionId}
+          analysis={analysis}
+          onJumpToFacts={(name) => {
+            setMatrixJumpFilter(name ?? null);
+            setTab("evidence");
+          }}
+        />
+      )}
+
+      {tab === "evidence" && (
+        <EvidenceMatrixTab
+          analysis={analysis}
+          review={review}
+          attachments={attachments}
+          jumpFilter={matrixJumpFilter}
+          onClearJumpFilter={() => setMatrixJumpFilter(null)}
+        />
+      )}
+
       {tab === "sources" && (
         <section className={`${PANEL} p-5 space-y-3`}>
           <div>
@@ -2576,34 +2616,62 @@ function DocumentDetailPage() {
             >
               <List size={12} /> Оглавление
             </button>
-            {tocOpen && headings.length > 0 && (
-              <div className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-[60vh] w-[320px] overflow-y-auto rounded-xl border border-white/15 bg-slate-950/95 p-2 text-xs shadow-2xl backdrop-blur-xl">
-                {headings.map((h) => (
+            {tocOpen && (
+              <div className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-[70vh] w-[320px] overflow-y-auto rounded-xl border border-white/15 bg-slate-950/95 p-2 text-xs shadow-2xl backdrop-blur-xl">
+                <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-foreground/50">
+                  Разделы Workspace
+                </div>
+                {([
+                  { id: "document", label: "Документ" },
+                  { id: "attachments", label: "Приложения" },
+                  { id: "evidence", label: "Матрица доказательств" },
+                  { id: "sources", label: "Источники" },
+                  { id: "review", label: "AI Review" },
+                  { id: "chain", label: "История AI" },
+                ] as Array<{ id: TabId; label: string }>).map((s) => (
                   <button
-                    key={h.slug}
+                    key={s.id}
                     type="button"
                     onClick={() => {
                       setTocOpen(false);
-                      window.setTimeout(() => {
-                        const el = document.getElementById(h.slug);
-                        if (el) {
-                          el.scrollIntoView({ behavior: "smooth", block: "start" });
-                          el.classList.add("doc-highlight");
-                          window.setTimeout(() => el.classList.remove("doc-highlight"), 1800);
-                        }
-                      }, 50);
+                      setTab(s.id);
                     }}
                     className="block w-full truncate rounded-md px-2 py-1 text-left text-foreground/85 hover:bg-white/10"
-                    style={{ paddingLeft: 8 + (h.level - 1) * 12 }}
                   >
-                    {h.text}
+                    {s.label}
                   </button>
                 ))}
-              </div>
-            )}
-            {tocOpen && headings.length === 0 && (
-              <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-[260px] rounded-xl border border-white/15 bg-slate-950/95 p-3 text-xs text-foreground/70 shadow-2xl">
-                Заголовков в документе не найдено.
+
+                <div className="mt-2 border-t border-white/10 px-2 pt-2 text-[10px] uppercase tracking-wider text-foreground/50">
+                  Заголовки документа
+                </div>
+                {headings.length === 0 ? (
+                  <div className="px-2 py-1 text-foreground/60">
+                    В документе нет структурированных заголовков. Используйте разделы Workbench.
+                  </div>
+                ) : (
+                  headings.map((h) => (
+                    <button
+                      key={h.slug}
+                      type="button"
+                      onClick={() => {
+                        setTocOpen(false);
+                        window.setTimeout(() => {
+                          const el = document.getElementById(h.slug);
+                          if (el) {
+                            el.scrollIntoView({ behavior: "smooth", block: "start" });
+                            el.classList.add("doc-highlight");
+                            window.setTimeout(() => el.classList.remove("doc-highlight"), 1800);
+                          }
+                        }, 50);
+                      }}
+                      className="block w-full truncate rounded-md px-2 py-1 text-left text-foreground/85 hover:bg-white/10"
+                      style={{ paddingLeft: 8 + (h.level - 1) * 12 }}
+                    >
+                      {h.text}
+                    </button>
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -2745,6 +2813,8 @@ function DocumentDetailPage() {
 
       {/* Phase 3: Unified Source Viewer */}
       <SourceViewerDrawer setTab={setTab} />
+      <AttachmentDrawer />
+      <FactCheckDrawer generatedText={(edited || doc.content || "") as string} />
 
 
       {/* Print + doc styles */}
