@@ -2302,6 +2302,15 @@ function DocumentDetailPage() {
         onClick={() => setTab("review")}
       />
 
+      <GroundingScoreCompact
+        analysis={analysis}
+        review={review}
+        attachments={attachments}
+        onClick={() => setTab("coverage")}
+      />
+
+
+
 
 
       {tab === "reasoning" && (
