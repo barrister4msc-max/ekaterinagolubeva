@@ -1359,11 +1359,29 @@ function DocumentDetailPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Документ одобрен");
+      toast.success("Документ утверждён");
       queryClient.invalidateQueries({ queryKey: ["generated-document", documentId] });
       queryClient.invalidateQueries({ queryKey: ["generated-documents"] });
     },
-    onError: (e: any) => toast.error(e?.message ?? "Не удалось одобрить"),
+    onError: (e: any) => toast.error(e?.message ?? "Не удалось утвердить документ"),
+  });
+
+  const archive = useMutation({
+    mutationFn: async () => {
+      if (!doc) return;
+      const { error } = await supabase
+        .from("generated_legal_documents")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", doc.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Документ перемещён в архив");
+      queryClient.invalidateQueries({ queryKey: ["generated-document", documentId] });
+      queryClient.invalidateQueries({ queryKey: ["generated-documents"] });
+      navigate({ to: "/workspace/generated-documents" });
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Не удалось архивировать"),
   });
 
   // Re-run legal analysis for the current intake session
