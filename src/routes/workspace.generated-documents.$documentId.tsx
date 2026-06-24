@@ -2387,6 +2387,27 @@ function DocumentDetailPage() {
         </section>
       )}
 
+      {tab === "attachments" && (
+        <AttachmentsTab
+          sessionId={sessionId}
+          analysis={analysis}
+          onJumpToFacts={(name) => {
+            setMatrixJumpFilter(name ?? null);
+            setTab("evidence");
+          }}
+        />
+      )}
+
+      {tab === "evidence" && (
+        <EvidenceMatrixTab
+          analysis={analysis}
+          review={review}
+          attachments={attachments}
+          jumpFilter={matrixJumpFilter}
+          onClearJumpFilter={() => setMatrixJumpFilter(null)}
+        />
+      )}
+
       {tab === "sources" && (
         <section className={`${PANEL} p-5 space-y-3`}>
           <div>
