@@ -103,6 +103,7 @@ const TABS = [
   { id: "analysis", label: "AI правовой анализ" },
   { id: "sources", label: "Источники" },
   { id: "review", label: "AI Review" },
+  { id: "chain", label: "История AI" },
   { id: "history", label: "История" },
   { id: "export", label: "Экспорт" },
 ] as const;
