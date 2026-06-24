@@ -1416,6 +1416,13 @@ function DocumentDetailPage() {
     },
   });
 
+  // Phase 7: full attachments list for Attachments tab + Evidence Matrix
+  const { data: attachmentsData } = useSessionAttachments(
+    sessionId,
+    ((latestSessionAnalysis as any)?.ai_result?.documents_audit) ?? null,
+  );
+  const attachments = useMemo(() => attachmentsData ?? [], [attachmentsData]);
+
   const lastAnalysisAt = latestSessionAnalysis?.created_at ?? null;
   const lastDocUploadAt = (sessionSourceDocs?.[0]?.created_at as string | undefined) ?? null;
   const docsAfterAnalysis = useMemo(() => {
