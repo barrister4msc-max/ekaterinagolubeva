@@ -1502,8 +1502,11 @@ function DocumentDetailPage() {
               <AnalysisList label="Недостающие доказательства" items={analysis?.missing_evidence} />
               <AnalysisList label="Инструкции для генератора" items={analysis?.generation_instructions} />
               <div className={`${PANEL_SUB} p-3 text-xs text-slate-200`}>
-                document_context_quality:{" "}
+                Качество подготовленного контекста для документа:{" "}
                 <span className="font-semibold text-white">{contextQuality ?? "—"}</span>
+                {contextQuality == null && (
+                  <span className="ml-2 text-amber-200/90">оценка качества недоступна</span>
+                )}
               </div>
             </>
           )}
@@ -2787,7 +2790,7 @@ function ArgumentNavigator({
       <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto pr-1">
         {args.length === 0 && (
           <div className="rounded-lg border border-slate-700/60 bg-slate-800/60 p-3 text-xs text-slate-300">
-            Аргументы не обнаружены (нет fact_to_law_mapping).
+            Юридические аргументы пока не сформированы. Запустите правовой анализ или проверьте, что AI вернул цепочку фактов и норм.
           </div>
         )}
         {filtered.length === 0 && args.length > 0 && (
