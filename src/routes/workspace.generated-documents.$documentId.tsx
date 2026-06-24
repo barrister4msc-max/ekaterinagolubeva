@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Sparkles,
   AlertTriangle,
+  Archive,
   Download,
   Copy,
   FileText,
