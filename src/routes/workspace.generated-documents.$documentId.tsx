@@ -1822,6 +1822,14 @@ function DocumentDetailPage() {
         ))}
       </div>
 
+      <QualityGateSummary
+        result={consistency}
+        approved={isApproved}
+        onClick={() => setTab("review")}
+      />
+
+
+
       {tab === "reasoning" && (
         <div className="space-y-3">
           {argumentsList.length > 1 && (
