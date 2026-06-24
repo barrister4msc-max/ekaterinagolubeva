@@ -124,6 +124,8 @@ const TABS = [
   { id: "document", label: "Документ" },
   { id: "reasoning", label: "Обоснование" },
   { id: "analysis", label: "AI правовой анализ" },
+  { id: "graph", label: "Evidence Graph" },
+  { id: "coverage", label: "Coverage" },
   { id: "attachments", label: "Приложения" },
   { id: "evidence", label: "Матрица доказательств" },
   { id: "sources", label: "Источники" },
