@@ -272,6 +272,341 @@ function ExpandableQuote({ quote }: { quote?: string | null }) {
   );
 }
 
+/* ============ Unified Source Viewer (Phase 3) ============ */
+
+type SourceViewerPayload = {
+  source: any;
+  focusQuote?: boolean;
+  focusLocalization?: boolean;
+  /** Optional context: where this source is used in the document/argument */
+  usage?: {
+    argumentTitle?: string;
+    facts?: string[];
+    location?: LocationRef | null;
+  };
+};
+
+function openSourceViewer(payload: SourceViewerPayload) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("ws:open-source-viewer", { detail: payload }));
+}
+
+function buildSourceRows(source: any, kind: CitationKind): Array<[string, any]> {
+  const rows: Array<[string, any]> = [];
+  const push = (label: string, value: any) => {
+    if (value != null && value !== "") rows.push([label, value]);
+  };
+  if (kind === "law") {
+    push("Нормативный акт", source.act ?? source.code ?? source.law ?? source.title ?? source.name);
+    push("Статья", source.article ?? source.статья);
+    push("Часть", source.part ?? source.часть);
+    push("Пункт", source.point ?? source.пункт);
+    push("Подпункт", source.subpoint ?? source.подпункт);
+    push("Абзац", source.paragraph ?? source.абзац);
+    push("Предложение", source.sentence ?? source.предложение);
+  } else if (kind === "court") {
+    push("Суд", source.court ?? source.суд);
+    push("Дело", source.case_number ?? source.case ?? source.number);
+    push("Дата", source.date ?? source.date_decided);
+    push("Документ", source.document_type ?? source.title ?? source.name);
+    push("Пункт", source.point);
+    push("Подпункт", source.subpoint);
+    push("Абзац", source.paragraph);
+    push("Страница", source.page);
+  } else if (kind === "plenum") {
+    push("Постановление", source.title ?? source.name ?? "Пленум");
+    push("Номер", source.number ?? source.case_number);
+    push("Дата", source.date);
+    push("Пункт", source.point);
+    push("Подпункт", source.subpoint);
+    push("Абзац", source.paragraph);
+  } else if (kind === "fns" || kind === "minfin") {
+    push(kind === "fns" ? "Письмо ФНС" : "Письмо Минфина", source.title ?? source.name ?? "Письмо");
+    push("Номер", source.number ?? source.letter_number);
+    push("Дата", source.date);
+    push("Раздел", source.section);
+    push("Пункт", source.point);
+    push("Подпункт", source.subpoint);
+    push("Абзац", source.paragraph);
+  } else if (kind === "ekaterina") {
+    push("Архив", source.archive ?? source.archive_name);
+    push("Файл", source.file ?? source.file_name);
+    push("Версия", source.version);
+    push("Страница", source.page);
+    push("Абзац", source.paragraph);
+  } else if (kind === "client_doc") {
+    push("Файл", source.file ?? source.file_name ?? source.document_name);
+    push("Размер OCR", source.ocr_length ?? source.ocr_size);
+    push("Страница", source.page);
+    push("Абзац", source.paragraph);
+  } else {
+    push("Название", source.title ?? source.name ?? source.source_id);
+    push("Тип", source.type ?? source.kind);
+    push("Цитата (citation)", source.citation);
+  }
+  return rows;
+}
+
+async function openClientDocFile(source: any): Promise<void> {
+  const explicitUrl = source?.url ?? source?.file_url ?? source?.signed_url;
+  if (explicitUrl) {
+    window.open(String(explicitUrl), "_blank", "noopener,noreferrer");
+    return;
+  }
+  const path: string | undefined =
+    source?.storage_path ?? source?.file_path ?? source?.path ?? source?.object_path;
+  if (!path) {
+    toast.error("У документа нет ссылки или storage_path");
+    return;
+  }
+  const explicitBucket: string | undefined = source?.bucket ?? source?.storage_bucket;
+  let bucket = explicitBucket;
+  let objectPath = path;
+  if (!bucket && path.includes("/")) {
+    const [first, ...rest] = path.split("/");
+    bucket = first;
+    objectPath = rest.join("/");
+  }
+  if (!bucket) bucket = "lead-documents";
+  try {
+    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(objectPath, 300);
+    if (error || !data?.signedUrl) throw error ?? new Error("no url");
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  } catch (err) {
+    console.warn("openClientDocFile failed", err);
+    toast.error("Не удалось открыть файл документа");
+  }
+}
+
+function SourceViewerDrawer({ setTab }: { setTab: (t: TabId) => void }) {
+  const [payload, setPayload] = useState<SourceViewerPayload | null>(null);
+  const open = payload != null;
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<SourceViewerPayload>).detail;
+      if (detail && typeof detail === "object") setPayload(detail);
+    };
+    window.addEventListener("ws:open-source-viewer", handler as EventListener);
+    return () => window.removeEventListener("ws:open-source-viewer", handler as EventListener);
+  }, []);
+
+  const source = payload?.source;
+  const kind = source ? detectKind(source) : "generic";
+  const rows = source ? buildSourceRows(source, kind) : [];
+  const url = source?.url ?? source?.link ?? source?.official_url;
+  const quote =
+    source?.quote ?? source?.cited_text ?? source?.text_fragment ?? source?.fragment ?? source?.excerpt;
+  const loc = source ? pickLocation(source) : null;
+  const usageLoc = payload?.usage?.location ?? loc;
+  const precise = source ? hasPreciseLocalization(source, kind) : false;
+  const verificationLabel = humanizeStatus(VERIFICATION_LABEL, source?.verification_status);
+  const actualityLabel = humanizeStatus(ACTUALITY_LABEL, source?.actuality_status);
+  const why = source?.why_selected ?? source?.why_used;
+  const usedFor = source?.used_for;
+  const citation = source?.citation;
+
+  return (
+    <Sheet open={open} onOpenChange={(v) => !v && setPayload(null)}>
+      <SheetContent
+        side="right"
+        className="w-[440px] sm:max-w-[480px] border-slate-700 bg-slate-950 p-0 text-slate-100"
+      >
+        <SheetHeader className="border-b border-slate-800 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-slate-600/80 bg-slate-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-100">
+              {KIND_LABEL[kind]}
+            </span>
+            {verificationLabel && (
+              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-100">
+                {verificationLabel}
+              </span>
+            )}
+            {actualityLabel && (
+              <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-medium text-sky-100">
+                {actualityLabel}
+              </span>
+            )}
+          </div>
+          <SheetTitle className="text-left text-base text-white">
+            {String(
+              source?.title ??
+                source?.name ??
+                source?.act ??
+                source?.code ??
+                source?.file ??
+                source?.file_name ??
+                source?.case_number ??
+                citation ??
+                "Источник",
+            )}
+          </SheetTitle>
+          {citation && (
+            <SheetDescription className="text-left text-xs text-slate-400">
+              {String(citation)}
+            </SheetDescription>
+          )}
+        </SheetHeader>
+
+        <div className="h-[calc(100vh-110px)] space-y-4 overflow-y-auto p-4">
+          {/* Actions */}
+          <div className="flex flex-wrap gap-2">
+            {url && (
+              <a
+                href={String(url)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/20 px-2.5 py-1 text-[12px] font-medium text-sky-50 hover:bg-sky-500/30"
+              >
+                <ExternalLink size={12} /> Открыть в новой вкладке
+              </a>
+            )}
+            {kind === "client_doc" && (
+              <button
+                type="button"
+                onClick={() => openClientDocFile(source)}
+                className="inline-flex items-center gap-1 rounded-md border border-emerald-400/40 bg-emerald-500/20 px-2.5 py-1 text-[12px] font-medium text-emerald-50 hover:bg-emerald-500/30"
+              >
+                <FileText size={12} /> Открыть файл
+              </button>
+            )}
+            {usageLoc && (
+              <button
+                type="button"
+                onClick={() => {
+                  navigateToLocation(usageLoc, setTab);
+                  setPayload(null);
+                }}
+                className="inline-flex items-center gap-1 rounded-md border border-indigo-400/40 bg-indigo-500/20 px-2.5 py-1 text-[12px] font-medium text-indigo-50 hover:bg-indigo-500/30"
+              >
+                <Target size={12} /> Перейти в документ
+              </button>
+            )}
+          </div>
+
+          {/* Warnings */}
+          {!precise && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-300/40 bg-amber-400/10 p-2 text-[12px] text-amber-50">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <span>Точная локализация источника отсутствует. Требуется ручная проверка.</span>
+            </div>
+          )}
+          {kind === "client_doc" &&
+            !source?.storage_path &&
+            !source?.file_path &&
+            !source?.url &&
+            !source?.file_url && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300/40 bg-amber-400/10 p-2 text-[12px] text-amber-50">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                <span>Файл недоступен: storage_path / url не указаны в данных анализа.</span>
+              </div>
+            )}
+
+          {/* Metadata rows */}
+          {rows.length > 0 && (
+            <section>
+              <div className={PANEL_LABEL + " mb-1"}>Метаданные источника</div>
+              <dl className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-1 rounded-lg border border-slate-700/70 bg-slate-900/70 p-3 text-[13px]">
+                {rows.map(([label, value], i) => (
+                  <Fragment key={i}>
+                    <dt className="text-slate-400">{label}</dt>
+                    <dd className="break-words font-medium text-slate-50">{String(value)}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            </section>
+          )}
+
+          {/* Client doc specifics */}
+          {kind === "client_doc" && (
+            <section className="space-y-1 text-[12px] text-slate-200">
+              {usedFor && (
+                <div>
+                  <span className="text-slate-400">Как использован: </span>
+                  {renderText(usedFor)}
+                </div>
+              )}
+              {source?.rejected_reason || source?.rejection_reason ? (
+                <div className="text-amber-100">
+                  <span className="text-amber-300">Отклонён: </span>
+                  {renderText(source?.rejected_reason ?? source?.rejection_reason)}
+                </div>
+              ) : null}
+            </section>
+          )}
+
+          {/* Why selected / used for (non-client) */}
+          {kind !== "client_doc" && (usedFor || why) && (
+            <section className="space-y-1 text-[12px] text-slate-200">
+              {usedFor && (
+                <div>
+                  <span className="text-slate-400">Как использовано: </span>
+                  {renderText(usedFor)}
+                </div>
+              )}
+              {why && (
+                <div>
+                  <span className="text-slate-400">Почему выбрано: </span>
+                  {renderText(why)}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Used fragment */}
+          {typeof quote === "string" && quote.trim() && (
+            <section>
+              <div className={PANEL_LABEL + " mb-1"}>Использованный фрагмент</div>
+              <blockquote className="whitespace-pre-wrap rounded-md border-l-2 border-sky-300/50 bg-slate-900/80 p-3 text-[13px] italic text-slate-100">
+                «{quote.trim()}»
+              </blockquote>
+            </section>
+          )}
+
+          {/* Usage in document */}
+          {(payload?.usage?.argumentTitle ||
+            (payload?.usage?.facts && payload.usage.facts.length > 0) ||
+            usageLoc) && (
+            <section>
+              <div className={PANEL_LABEL + " mb-1"}>Использование в документе</div>
+              <div className="space-y-2 rounded-lg border border-slate-700/70 bg-slate-900/70 p-3 text-[12px]">
+                {payload?.usage?.argumentTitle && (
+                  <div>
+                    <span className="text-slate-400">Аргумент: </span>
+                    <span className="text-slate-50">{payload.usage.argumentTitle}</span>
+                  </div>
+                )}
+                {payload?.usage?.facts && payload.usage.facts.length > 0 && (
+                  <div>
+                    <span className="text-slate-400">Связанные факты:</span>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-slate-100">
+                      {payload.usage.facts.slice(0, 6).map((f, i) => (
+                        <li key={i}>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {usageLoc && (
+                  <div className="flex items-center justify-between gap-2">
+                    <LocationBadge loc={usageLoc} />
+                    <GoToButton
+                      loc={usageLoc}
+                      setTab={(t) => {
+                        setPayload(null);
+                        setTab(t);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 /* ============ Source Citation ============ */
 
 type CitationKind =
@@ -490,6 +825,32 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
           <GoToButton loc={loc} setTab={setTab} />
         </div>
       )}
+      {/* Phase 3: Unified source viewer actions */}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => openSourceViewer({ source })}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-500/60 bg-slate-700/60 px-2 py-0.5 text-[11px] text-slate-50 hover:bg-slate-700"
+        >
+          <BookOpen size={11} /> Открыть источник
+        </button>
+        {(quote && typeof quote === "string" && quote.trim()) && (
+          <button
+            type="button"
+            onClick={() => openSourceViewer({ source, focusQuote: true })}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-500/60 bg-slate-700/60 px-2 py-0.5 text-[11px] text-slate-50 hover:bg-slate-700"
+          >
+            <FileSearch size={11} /> Показать фрагмент
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => openSourceViewer({ source, focusLocalization: true })}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-500/60 bg-slate-700/60 px-2 py-0.5 text-[11px] text-slate-50 hover:bg-slate-700"
+        >
+          <Target size={11} /> Проверить локализацию
+        </button>
+      </div>
     </div>
   );
 }
@@ -1875,6 +2236,9 @@ function DocumentDetailPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Phase 3: Unified Source Viewer */}
+      <SourceViewerDrawer setTab={setTab} />
 
 
       {/* Print + doc styles */}
