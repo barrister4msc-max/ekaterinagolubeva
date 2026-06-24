@@ -2785,6 +2785,8 @@ function DocumentDetailPage() {
 
       {/* Phase 3: Unified Source Viewer */}
       <SourceViewerDrawer setTab={setTab} />
+      <AttachmentDrawer />
+      <FactCheckDrawer generatedText={(edited || doc.content || "") as string} />
 
 
       {/* Print + doc styles */}
