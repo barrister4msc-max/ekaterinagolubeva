@@ -2395,6 +2395,23 @@ function DocumentDetailPage() {
         </section>
       )}
 
+      {tab === "graph" && (
+        <EvidenceGraphTab
+          analysis={analysis}
+          review={review}
+          attachments={attachments}
+          onOpenSource={(source) => openSourceViewer({ source })}
+        />
+      )}
+
+      {tab === "coverage" && (
+        <CoverageReportTab
+          analysis={analysis}
+          review={review}
+          attachments={attachments}
+        />
+      )}
+
       {tab === "attachments" && (
         <AttachmentsTab
           sessionId={sessionId}
