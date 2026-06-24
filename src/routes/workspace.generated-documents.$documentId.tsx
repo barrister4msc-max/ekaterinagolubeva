@@ -407,7 +407,17 @@ async function openClientDocFile(source: any): Promise<void> {
   }
 }
 
-function SourceViewerDrawer({ setTab }: { setTab: (t: TabId) => void }) {
+function SourceViewerDrawer({
+  setTab,
+  analysis,
+  review,
+  attachments,
+}: {
+  setTab: (t: TabId) => void;
+  analysis?: any;
+  review?: any;
+  attachments?: any[];
+}) {
   const [payload, setPayload] = useState<SourceViewerPayload | null>(null);
   const open = payload != null;
 
@@ -434,6 +444,9 @@ function SourceViewerDrawer({ setTab }: { setTab: (t: TabId) => void }) {
   const why = source?.why_selected ?? source?.why_used;
   const usedFor = source?.used_for;
   const citation = source?.citation;
+  const backlinks: Backlinks | null = source
+    ? buildBacklinks(source, analysis, review, attachments)
+    : null;
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && setPayload(null)}>
