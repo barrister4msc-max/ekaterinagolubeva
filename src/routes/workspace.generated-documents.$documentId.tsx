@@ -825,6 +825,32 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
           <GoToButton loc={loc} setTab={setTab} />
         </div>
       )}
+      {/* Phase 3: Unified source viewer actions */}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => openSourceViewer({ source })}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-500/60 bg-slate-700/60 px-2 py-0.5 text-[11px] text-slate-50 hover:bg-slate-700"
+        >
+          <BookOpen size={11} /> Открыть источник
+        </button>
+        {(quote && typeof quote === "string" && quote.trim()) && (
+          <button
+            type="button"
+            onClick={() => openSourceViewer({ source, focusQuote: true })}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-500/60 bg-slate-700/60 px-2 py-0.5 text-[11px] text-slate-50 hover:bg-slate-700"
+          >
+            <FileSearch size={11} /> Показать фрагмент
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => openSourceViewer({ source, focusLocalization: true })}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-500/60 bg-slate-700/60 px-2 py-0.5 text-[11px] text-slate-50 hover:bg-slate-700"
+        >
+          <Target size={11} /> Проверить локализацию
+        </button>
+      </div>
     </div>
   );
 }
