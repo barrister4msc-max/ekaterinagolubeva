@@ -2616,34 +2616,62 @@ function DocumentDetailPage() {
             >
               <List size={12} /> Оглавление
             </button>
-            {tocOpen && headings.length > 0 && (
-              <div className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-[60vh] w-[320px] overflow-y-auto rounded-xl border border-white/15 bg-slate-950/95 p-2 text-xs shadow-2xl backdrop-blur-xl">
-                {headings.map((h) => (
+            {tocOpen && (
+              <div className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-[70vh] w-[320px] overflow-y-auto rounded-xl border border-white/15 bg-slate-950/95 p-2 text-xs shadow-2xl backdrop-blur-xl">
+                <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-foreground/50">
+                  Разделы Workspace
+                </div>
+                {([
+                  { id: "document", label: "Документ" },
+                  { id: "attachments", label: "Приложения" },
+                  { id: "evidence", label: "Матрица доказательств" },
+                  { id: "sources", label: "Источники" },
+                  { id: "review", label: "AI Review" },
+                  { id: "chain", label: "История AI" },
+                ] as Array<{ id: TabId; label: string }>).map((s) => (
                   <button
-                    key={h.slug}
+                    key={s.id}
                     type="button"
                     onClick={() => {
                       setTocOpen(false);
-                      window.setTimeout(() => {
-                        const el = document.getElementById(h.slug);
-                        if (el) {
-                          el.scrollIntoView({ behavior: "smooth", block: "start" });
-                          el.classList.add("doc-highlight");
-                          window.setTimeout(() => el.classList.remove("doc-highlight"), 1800);
-                        }
-                      }, 50);
+                      setTab(s.id);
                     }}
                     className="block w-full truncate rounded-md px-2 py-1 text-left text-foreground/85 hover:bg-white/10"
-                    style={{ paddingLeft: 8 + (h.level - 1) * 12 }}
                   >
-                    {h.text}
+                    {s.label}
                   </button>
                 ))}
-              </div>
-            )}
-            {tocOpen && headings.length === 0 && (
-              <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-[260px] rounded-xl border border-white/15 bg-slate-950/95 p-3 text-xs text-foreground/70 shadow-2xl">
-                Заголовков в документе не найдено.
+
+                <div className="mt-2 border-t border-white/10 px-2 pt-2 text-[10px] uppercase tracking-wider text-foreground/50">
+                  Заголовки документа
+                </div>
+                {headings.length === 0 ? (
+                  <div className="px-2 py-1 text-foreground/60">
+                    В документе нет структурированных заголовков. Используйте разделы Workbench.
+                  </div>
+                ) : (
+                  headings.map((h) => (
+                    <button
+                      key={h.slug}
+                      type="button"
+                      onClick={() => {
+                        setTocOpen(false);
+                        window.setTimeout(() => {
+                          const el = document.getElementById(h.slug);
+                          if (el) {
+                            el.scrollIntoView({ behavior: "smooth", block: "start" });
+                            el.classList.add("doc-highlight");
+                            window.setTimeout(() => el.classList.remove("doc-highlight"), 1800);
+                          }
+                        }, 50);
+                      }}
+                      className="block w-full truncate rounded-md px-2 py-1 text-left text-foreground/85 hover:bg-white/10"
+                      style={{ paddingLeft: 8 + (h.level - 1) * 12 }}
+                    >
+                      {h.text}
+                    </button>
+                  ))
+                )}
               </div>
             )}
           </div>
