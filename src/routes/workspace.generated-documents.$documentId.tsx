@@ -534,7 +534,72 @@ function SourceViewerDrawer({
                 <Target size={12} /> Перейти в документ
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setTab("graph");
+                setPayload(null);
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-500 bg-slate-800 px-2.5 py-1 text-[12px] font-medium text-slate-50 hover:bg-slate-700"
+              title="Показать связи в Evidence Graph"
+            >
+              <GitBranch size={12} /> В Evidence Graph
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTab("evidence");
+                setPayload(null);
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-500 bg-slate-800 px-2.5 py-1 text-[12px] font-medium text-slate-50 hover:bg-slate-700"
+              title="Открыть в Матрице доказательств"
+            >
+              <Columns size={12} /> В матрицу
+            </button>
           </div>
+
+          {/* Phase 9: Related elements (backlinks) */}
+          {backlinks && analysis && (
+            <RelatedElementsBlock
+              backlinks={backlinks}
+              attachments={attachments}
+              onJumpToFact={(i) => {
+                setTab("reasoning");
+                setPayload(null);
+                window.setTimeout(() => {
+                  const el = document.querySelector(`[data-arg-index="${i}"]`);
+                  if (el && "scrollIntoView" in el) {
+                    (el as HTMLElement).scrollIntoView({ behavior: "smooth", block: "center" });
+                  }
+                }, 120);
+              }}
+              onOpenDoc={(att) => {
+                setPayload(null);
+                openAttachment({ doc: att });
+              }}
+              onOpenInGraph={() => {
+                setTab("graph");
+                setPayload(null);
+              }}
+              onOpenInMatrix={(fileName) => {
+                setTab("evidence");
+                setPayload(null);
+                if (fileName && typeof window !== "undefined") {
+                  window.dispatchEvent(
+                    new CustomEvent("ws:matrix-jump", { detail: { fileName } }),
+                  );
+                }
+              }}
+              onCopyText={async (text) => {
+                try {
+                  await navigator.clipboard.writeText(text);
+                  toast.success("Скопировано");
+                } catch {
+                  toast.error("Не удалось скопировать");
+                }
+              }}
+            />
+          )}
 
           {/* Warnings */}
           {!precise && (
