@@ -11,6 +11,9 @@ import {
   CheckCircle2,
   XCircle,
   Target,
+  LayoutGrid,
+  Table as TableIcon,
+  Link2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -19,6 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { getFactLinksForDoc } from "@/lib/source-backlinks";
 
 const PANEL = "rounded-2xl border border-slate-700/70 bg-slate-900/95 shadow-xl";
 const PANEL_SUB = "rounded-xl border border-slate-700/60 bg-slate-800/90";
@@ -26,6 +30,10 @@ const BTN =
   "inline-flex items-center gap-1.5 rounded-md border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-100 hover:bg-slate-700 disabled:opacity-50";
 const BTN_PRIMARY =
   "inline-flex items-center gap-1.5 rounded-md border border-sky-400/50 bg-sky-500/20 px-2.5 py-1 text-xs text-sky-50 hover:bg-sky-500/30";
+const CHIP_ON =
+  "inline-flex items-center gap-1 rounded-full border border-sky-400/50 bg-sky-500/25 px-2.5 py-1 text-[11px] font-medium text-sky-50";
+const CHIP_OFF =
+  "inline-flex items-center gap-1 rounded-full border border-slate-600/70 bg-slate-800/70 px-2.5 py-1 text-[11px] text-slate-200 hover:bg-slate-700";
 
 /* ============ Types ============ */
 
