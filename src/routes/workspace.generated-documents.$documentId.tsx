@@ -1052,6 +1052,192 @@ function ReviewSection({
   );
 }
 
+/* ============ Workflow Engine UI ============ */
+
+type WorkflowStepProp = {
+  kind:
+    | "run_analysis"
+    | "rerun_analysis_outdated"
+    | "run_review"
+    | "retry_review"
+    | "review_running"
+    | "fix_quality"
+    | "approve"
+    | "create_version"
+    | "create_version_and_reanalyze";
+  label: string;
+  hint?: string;
+};
+
+function WorkflowNextStepCard({
+  step,
+  busy,
+  onRun,
+}: {
+  step: WorkflowStepProp;
+  busy: boolean;
+  onRun: () => void;
+}) {
+  const tone =
+    step.kind === "approve"
+      ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-50"
+      : step.kind === "rerun_analysis_outdated" || step.kind === "create_version_and_reanalyze"
+        ? "border-amber-400/60 bg-amber-500/15 text-amber-50"
+        : step.kind === "retry_review" || step.kind === "fix_quality"
+          ? "border-rose-400/60 bg-rose-500/15 text-rose-50"
+          : step.kind === "review_running"
+            ? "border-sky-400/60 bg-sky-500/15 text-sky-50"
+            : "border-sky-400/60 bg-sky-500/15 text-sky-50";
+
+  const Icon =
+    step.kind === "approve"
+      ? CheckCircle2
+      : step.kind === "review_running"
+        ? Loader2
+        : step.kind === "retry_review" || step.kind === "fix_quality"
+          ? AlertTriangle
+          : step.kind === "create_version" || step.kind === "create_version_and_reanalyze"
+            ? GitBranch
+            : Sparkles;
+
+  return (
+    <div className={`rounded-2xl border p-3 shadow-lg ${tone}`}>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.1em] opacity-80">
+        Следующий обязательный шаг
+      </div>
+      <div className="mt-1 flex items-center gap-2 text-sm font-semibold">
+        <Icon size={14} className={step.kind === "review_running" ? "animate-spin" : ""} />
+        {step.label}
+      </div>
+      {step.hint && <p className="mt-1.5 text-[11px] leading-snug opacity-90">{step.hint}</p>}
+      <button
+        type="button"
+        onClick={onRun}
+        disabled={busy || step.kind === "review_running"}
+        className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/30 bg-white/15 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-white/25 disabled:opacity-50"
+      >
+        {busy && step.kind !== "review_running" ? (
+          <Loader2 size={12} className="animate-spin" />
+        ) : null}
+        {step.kind === "review_running" ? "Идёт выполнение…" : step.label}
+      </button>
+    </div>
+  );
+}
+
+function ReviewActionPanel({
+  reviewRun,
+  reviewRunning,
+  reviewFailed,
+  reviewErrorMessage,
+  analysisCompleted,
+  analysisOutdated,
+  isApproved,
+  isPending,
+  onRun,
+}: {
+  reviewRun: { id?: string; status?: string | null } | null;
+  reviewRunning: boolean;
+  reviewFailed: boolean;
+  reviewErrorMessage: string | null;
+  analysisCompleted: boolean;
+  analysisOutdated: boolean;
+  isApproved: boolean;
+  isPending: boolean;
+  onRun: () => void;
+}) {
+  // Running state — big spinner.
+  if (reviewRunning) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-sky-400/60 bg-sky-500/10 p-6 text-sky-100">
+        <Loader2 size={28} className="animate-spin" />
+        <div className="text-sm font-semibold">AI Review выполняется…</div>
+        <div className="text-[11px] text-sky-200/80">
+          Это может занять до 1–2 минут. Страница обновится автоматически.
+        </div>
+      </div>
+    );
+  }
+
+  // Block: analysis outdated — нельзя запускать Review.
+  if (analysisOutdated) {
+    return (
+      <div className="rounded-2xl border border-amber-400/60 bg-amber-500/10 p-4 text-amber-100">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <AlertTriangle size={14} /> AI-анализ устарел
+        </div>
+        <p className="mt-1 text-[12px] leading-snug">
+          После анализа загружены новые документы. Сначала выполните повторный AI-анализ, затем — AI Review.
+        </p>
+      </div>
+    );
+  }
+
+  // No completed analysis yet.
+  if (!analysisCompleted) {
+    return (
+      <div className="rounded-2xl border border-slate-600/60 bg-slate-800/70 p-4 text-slate-100">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <AlertTriangle size={14} /> Сначала AI-анализ
+        </div>
+        <p className="mt-1 text-[12px] leading-snug text-slate-300">
+          Запустить AI Review можно только после завершённого AI правового анализа.
+        </p>
+      </div>
+    );
+  }
+
+  // Failed.
+  if (reviewFailed) {
+    return (
+      <div className="rounded-2xl border border-rose-400/60 bg-rose-500/10 p-4 text-rose-50">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <AlertTriangle size={14} /> AI Review завершился ошибкой
+        </div>
+        {reviewErrorMessage && (
+          <p className="mt-1 text-[12px] leading-snug opacity-90">
+            Причина: {reviewErrorMessage}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={isPending}
+          className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-rose-300/60 bg-rose-500/30 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-500/50 disabled:opacity-50"
+        >
+          {isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCcw size={12} />}
+          Повторить AI Review
+        </button>
+      </div>
+    );
+  }
+
+  // Not run yet.
+  if (!reviewRun) {
+    return (
+      <div className="rounded-2xl border border-sky-400/60 bg-sky-500/10 p-4 text-sky-50">
+        <div className="flex items-center gap-2 text-sm font-semibold">
+          <Sparkles size={14} /> AI Review ещё не выполнялся
+        </div>
+        <p className="mt-1 text-[12px] leading-snug text-sky-100/90">
+          Следующий обязательный шаг — запустить AI Review текущей версии документа.
+        </p>
+        <button
+          type="button"
+          onClick={onRun}
+          disabled={isPending || isApproved}
+          className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg border border-sky-300/60 bg-sky-500/30 px-3 py-1.5 text-xs font-semibold text-white hover:bg-sky-500/50 disabled:opacity-50"
+        >
+          {isPending ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+          Запустить AI Review
+        </button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function DocumentDetailPage() {
   const { documentId } = Route.useParams();
   const navigate = useNavigate();
