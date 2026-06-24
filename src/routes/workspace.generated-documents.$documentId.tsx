@@ -65,6 +65,12 @@ import {
   EvidenceMatrixTab,
   FactCheckDrawer,
 } from "@/components/document-workspace/evidence-matrix";
+import { EvidenceGraphTab } from "@/components/document-workspace/evidence-graph";
+import {
+  CoverageReportTab,
+  GroundingScoreCompact,
+} from "@/components/document-workspace/coverage-report";
+import { copyCitationToClipboard, resolveCitation } from "@/lib/citation-resolver";
 
 export const Route = createFileRoute("/workspace/generated-documents/$documentId")({
   head: () => ({
