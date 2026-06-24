@@ -1751,65 +1751,156 @@ function DocumentDetailPage() {
       </div>
 
       <div className="doc-actions mx-auto flex w-full flex-nowrap items-center gap-3 overflow-x-auto border-t border-slate-200 bg-white px-[60px] py-6 no-print" style={{ maxWidth: docMaxWidth }}>
-        <button
-          type="button"
-          onClick={() => setEditMode((v) => !v)}
-          className={`${BTN} whitespace-nowrap`}
-        >
-          {editMode ? "Закрыть" : "Редактировать"}
-        </button>
-        <button type="button" onClick={copyContent} className={`${BTN} whitespace-nowrap`}>
-          <Copy size={12} /> Скопировать
-        </button>
-        <button
-          type="button"
-          onClick={() => saveEdits.mutate()}
-          disabled={isApproved || !editMode || !dirty || saveEdits.isPending}
-          className={`${BTN_PRIMARY} whitespace-nowrap`}
-        >
-          {saveEdits.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-          Сохранить
-        </button>
-        <button
-          type="button"
-          onClick={() => createVersion.mutate()}
-          disabled={createVersion.isPending || !edited}
-          className={`${BTN_AMBER} whitespace-nowrap`}
-        >
-          {createVersion.isPending ? (
-            <Loader2 size={12} className="animate-spin" />
-          ) : (
-            <GitBranch size={12} />
-          )}
-          Создать версию
-        </button>
         {!isApproved && (
-          <button
-            type="button"
-            onClick={() => {
-              if (approveBlocked) {
-                toast.error(consistency.blockReason ?? "Документ не прошёл проверку качества.");
-                setTab("review");
-                return;
-              }
-              if (confirm("Одобрить документ?")) approve.mutate();
-            }}
-            disabled={approve.isPending || approveBlocked}
-            title={approveBlocked ? (consistency.blockReason ?? "Quality Gate не пройден") : undefined}
-            className={`${BTN_EMERALD} whitespace-nowrap`}
-          >
-            {approve.isPending ? (
-              <Loader2 size={12} className="animate-spin" />
+          <>
+            <button
+              type="button"
+              onClick={() => setEditMode((v) => !v)}
+              className={`${BTN} whitespace-nowrap`}
+            >
+              {editMode ? "Закрыть" : "Редактировать"}
+            </button>
+            <button type="button" onClick={copyContent} className={`${BTN} whitespace-nowrap`}>
+              <Copy size={12} /> Скопировать
+            </button>
+            <button
+              type="button"
+              onClick={() => saveEdits.mutate()}
+              disabled={!editMode || !dirty || saveEdits.isPending}
+              className={`${BTN_PRIMARY} whitespace-nowrap`}
+            >
+              {saveEdits.isPending ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+              Сохранить
+            </button>
+            <button
+              type="button"
+              onClick={() => rerunAnalysis.mutate()}
+              disabled={rerunAnalysis.isPending || !sessionId}
+              title={!sessionId ? "Нет привязанной intake-сессии" : "Запустить AI правовой анализ заново"}
+              className={`${BTN} whitespace-nowrap`}
+            >
+              {rerunAnalysis.isPending ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RefreshCcw size={12} />
+              )}
+              Повторить AI-анализ
+            </button>
+            {analysisOutdated ? (
+              <button
+                type="button"
+                onClick={() => createVersionAndReanalyze.mutate()}
+                disabled={createVersionAndReanalyze.isPending || !edited}
+                className={`${BTN_AMBER} whitespace-nowrap`}
+                title="Добавлены новые документы — нужна новая редакция и повторный AI-анализ"
+              >
+                {createVersionAndReanalyze.isPending ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <GitBranch size={12} />
+                )}
+                Создать новую редакцию и выполнить AI-анализ
+              </button>
             ) : (
-              <CheckCircle2 size={12} />
+              <button
+                type="button"
+                onClick={() => createVersion.mutate()}
+                disabled={createVersion.isPending || !edited}
+                className={`${BTN_AMBER} whitespace-nowrap`}
+              >
+                {createVersion.isPending ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <GitBranch size={12} />
+                )}
+                Создать новую редакцию
+              </button>
             )}
-            Одобрить
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (approveBlocked) {
+                  toast.error(consistency.blockReason ?? "Документ не прошёл проверку качества.");
+                  setTab("review");
+                  return;
+                }
+                if (confirm("Утвердить документ?")) approve.mutate();
+              }}
+              disabled={approve.isPending || approveBlocked}
+              title={approveBlocked ? (consistency.blockReason ?? "Quality Gate не пройден") : undefined}
+              className={`${BTN_EMERALD} whitespace-nowrap`}
+            >
+              {approve.isPending ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <CheckCircle2 size={12} />
+              )}
+              Утвердить документ
+            </button>
+          </>
         )}
-        {isApproved && !consistency.ready && (
-          <span className="inline-flex items-center gap-1 rounded-lg border border-amber-400/60 bg-amber-500/15 px-2.5 py-1.5 text-xs text-amber-100">
-            <AlertTriangle size={12} /> Утверждён, но Quality Gate не пройден
-          </span>
+        {isApproved && (
+          <>
+            <button type="button" onClick={downloadDocx} className={`${BTN} whitespace-nowrap`}>
+              <Download size={12} /> DOCX
+            </button>
+            <button type="button" onClick={downloadPdf} className={`${BTN} whitespace-nowrap`}>
+              <FileText size={12} /> PDF
+            </button>
+            <button type="button" onClick={() => window.print()} className={`${BTN} whitespace-nowrap`}>
+              <Printer size={12} /> Печать
+            </button>
+            {analysisOutdated ? (
+              <button
+                type="button"
+                onClick={() => createVersionAndReanalyze.mutate()}
+                disabled={createVersionAndReanalyze.isPending}
+                className={`${BTN_AMBER} whitespace-nowrap`}
+                title="Добавлены новые документы — нужна новая редакция и повторный AI-анализ"
+              >
+                {createVersionAndReanalyze.isPending ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <GitBranch size={12} />
+                )}
+                Создать новую редакцию и выполнить AI-анализ
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => createVersion.mutate()}
+                disabled={createVersion.isPending}
+                className={`${BTN_AMBER} whitespace-nowrap`}
+              >
+                {createVersion.isPending ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <GitBranch size={12} />
+                )}
+                Создать новую редакцию
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm("Переместить документ в архив?")) archive.mutate();
+              }}
+              disabled={archive.isPending}
+              className={`${BTN} whitespace-nowrap`}
+            >
+              {archive.isPending ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Archive size={12} />
+              )}
+              Архивировать
+            </button>
+            {!consistency.ready && (
+              <span className="inline-flex items-center gap-1 rounded-lg border border-amber-400/60 bg-amber-500/15 px-2.5 py-1.5 text-xs text-amber-700">
+                <AlertTriangle size={12} /> Утверждён, но Quality Gate не пройден
+              </span>
+            )}
+          </>
         )}
       </div>
     </section>
