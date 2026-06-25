@@ -579,6 +579,12 @@ function PracticePage() {
           <Button variant="outline" disabled={aiBusy} onClick={() => runOcr({})}>
             <Eye className="size-4 mr-1" /> OCR для сканов
           </Button>
+          <Button variant="outline" disabled={aiBusy} onClick={runNormalizeAreas} title="Без AI: переписать category и practice_area по детерминированным правилам">
+            <Tags className="size-4 mr-1" /> Распределить архив
+          </Button>
+          <Button variant="outline" disabled={aiBusy} onClick={runClassifyUnclassifiedBatches} title="AI: батчи по 25 для документов без practice_area / не classified">
+            <Wand2 className="size-4 mr-1" /> AI классифицировать неразобранные
+          </Button>
           <Button variant="outline" disabled={aiBusy} onClick={() => runAiClassify({ only_pending: true })}>
             <Wand2 className="size-4 mr-1" /> AI классифицировать
           </Button>
