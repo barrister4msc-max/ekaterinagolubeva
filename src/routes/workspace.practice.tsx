@@ -513,6 +513,56 @@ function PracticePage() {
     }
   }
 
+  async function runNormalizeAreas() {
+    if (aiBusy) return;
+    if (!confirm("Распределить архив по направлениям без AI? Будут переписаны только category и metadata.practice_area.")) return;
+    setAiBusy(true);
+    const tid = toast.loading("Распределение архива…");
+    try {
+      const r: any = await normalizeAreasFn({});
+      toast.dismiss(tid);
+      toast.success(`Архив распределён: ${r.updated} документов обновлено (просмотрено ${r.scanned})`);
+      reload();
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(e?.message ?? "Ошибка распределения");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function runClassifyUnclassifiedBatches() {
+    if (aiBusy) return;
+    if (!confirm("Запустить AI-классификацию неразобранных документов батчами по 25? Это потребляет AI-кредиты.")) return;
+    setAiBusy(true);
+    const tid = toast.loading("AI классификация неразобранных…");
+    const totals = { classified: 0, failed: 0, pending: 0, iterations: 0 };
+    try {
+      for (let i = 0; i < 200; i++) {
+        const r: any = await classifyBatchFn({ data: { only_pending: true, limit: 25 } });
+        totals.classified += r.classified_count ?? 0;
+        totals.failed += r.failed_count ?? 0;
+        totals.pending = r.pending_count ?? 0;
+        totals.iterations += 1;
+        if (r.errors?.length) console.warn("[archiveClassifyBatchByContent] errors", r.errors);
+        toast.loading(
+          `AI… батч ${totals.iterations} · классифицировано ${totals.classified} · сбоев ${totals.failed} · осталось ${totals.pending}`,
+          { id: tid },
+        );
+        if ((r.classified_count ?? 0) === 0 || totals.pending === 0) break;
+      }
+      toast.dismiss(tid);
+      toast.success(`Готово: классифицировано ${totals.classified} · сбоев ${totals.failed} · осталось ${totals.pending}`);
+      reload();
+    } catch (e: any) {
+      toast.dismiss(tid);
+      toast.error(e?.message ?? "Ошибка AI-классификации");
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
