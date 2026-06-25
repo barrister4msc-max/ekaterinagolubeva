@@ -985,24 +985,38 @@ export const archiveApproveTraining = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Normalize any raw category/practice_area value (from upload defaults,
+ * legacy data, or AI classifier output) into a canonical practice area
+ * recognised by the UI (`PRACTICE_AREAS` in workspace.practice.tsx).
+ * Deterministic — no AI calls.
+ */
+function normalizePracticeAreaValue(raw: string | null | undefined): string | null {
+  const v = (raw || "").toLowerCase().trim();
+  if (!v) return null;
+  // litigation family
+  if (["litigation", "court", "courts", "case_images", "case-images", "arbitrazh", "sudebnaya"].includes(v)) return "litigation";
+  // contracts family
+  if (["contracts", "contract", "contracts_archive", "contract_archive", "dogovory"].includes(v)) return "contracts";
+  // real estate family
+  if (["real_estate", "real-estate", "real_estate_law", "property", "realty", "nedvizhimost"].includes(v)) return "real_estate";
+  if (v === "tax") return "tax";
+  if (v === "corporate") return "corporate";
+  if (v === "bankruptcy") return "bankruptcy";
+  if (v === "inheritance") return "inheritance";
+  if (v === "land") return "land";
+  if (v === "enforcement") return "enforcement";
+  if (v === "claims") return "claims";
+  if (v === "other") return "other";
+  return null;
+}
+
 function resolvePracticeArea(category: string | null, practiceArea: string | null): string {
-  const cat = (category || "").toLowerCase();
-  const pa = (practiceArea || "").toLowerCase();
-
-  const realEstate = ["real_estate", "real_estate_law", "property", "realty"];
-  if (realEstate.includes(cat) || realEstate.includes(pa)) return "real_estate";
-
-  if (cat === "tax" || pa === "tax") return "tax";
-  if (cat === "corporate" || pa === "corporate") return "corporate";
-
-  const contracts = ["contracts", "contract"];
-  if (contracts.includes(cat) || contracts.includes(pa)) return "contracts";
-
-  const known = ["litigation", "land", "inheritance", "bankruptcy", "enforcement", "claims"];
-  if (known.includes(pa)) return pa;
-  if (known.includes(cat)) return cat;
-
-  return "other";
+  return (
+    normalizePracticeAreaValue(practiceArea) ||
+    normalizePracticeAreaValue(category) ||
+    "other"
+  );
 }
 
 export const archivePracticeStats = createServerFn({ method: "POST" })
