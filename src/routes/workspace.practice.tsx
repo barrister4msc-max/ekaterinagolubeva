@@ -32,6 +32,7 @@ import {
   archiveApproveTraining,
   archiveClassify,
   archiveClassifyBatchByContent,
+  archiveNormalizePracticeAreas,
   archiveSendToKbQueue,
   archiveGetExtractedText,
   archiveExtractTextBatch,
