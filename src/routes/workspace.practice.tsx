@@ -224,6 +224,7 @@ function PracticePage() {
   const approveTraining = useServerFn(archiveApproveTraining);
   const classifyFn = useServerFn(archiveClassify);
   const classifyBatchFn = useServerFn(archiveClassifyBatchByContent);
+  const normalizeAreasFn = useServerFn(archiveNormalizePracticeAreas);
   const sendToKbFn = useServerFn(archiveSendToKbQueue);
   const getTextFn = useServerFn(archiveGetExtractedText);
   const extractTextFn = useServerFn(archiveExtractTextBatch);
