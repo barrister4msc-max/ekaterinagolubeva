@@ -985,24 +985,38 @@ export const archiveApproveTraining = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/**
+ * Normalize any raw category/practice_area value (from upload defaults,
+ * legacy data, or AI classifier output) into a canonical practice area
+ * recognised by the UI (`PRACTICE_AREAS` in workspace.practice.tsx).
+ * Deterministic — no AI calls.
+ */
+function normalizePracticeAreaValue(raw: string | null | undefined): string | null {
+  const v = (raw || "").toLowerCase().trim();
+  if (!v) return null;
+  // litigation family
+  if (["litigation", "court", "courts", "case_images", "case-images", "arbitrazh", "sudebnaya"].includes(v)) return "litigation";
+  // contracts family
+  if (["contracts", "contract", "contracts_archive", "contract_archive", "dogovory"].includes(v)) return "contracts";
+  // real estate family
+  if (["real_estate", "real-estate", "real_estate_law", "property", "realty", "nedvizhimost"].includes(v)) return "real_estate";
+  if (v === "tax") return "tax";
+  if (v === "corporate") return "corporate";
+  if (v === "bankruptcy") return "bankruptcy";
+  if (v === "inheritance") return "inheritance";
+  if (v === "land") return "land";
+  if (v === "enforcement") return "enforcement";
+  if (v === "claims") return "claims";
+  if (v === "other") return "other";
+  return null;
+}
+
 function resolvePracticeArea(category: string | null, practiceArea: string | null): string {
-  const cat = (category || "").toLowerCase();
-  const pa = (practiceArea || "").toLowerCase();
-
-  const realEstate = ["real_estate", "real_estate_law", "property", "realty"];
-  if (realEstate.includes(cat) || realEstate.includes(pa)) return "real_estate";
-
-  if (cat === "tax" || pa === "tax") return "tax";
-  if (cat === "corporate" || pa === "corporate") return "corporate";
-
-  const contracts = ["contracts", "contract"];
-  if (contracts.includes(cat) || contracts.includes(pa)) return "contracts";
-
-  const known = ["litigation", "land", "inheritance", "bankruptcy", "enforcement", "claims"];
-  if (known.includes(pa)) return pa;
-  if (known.includes(cat)) return cat;
-
-  return "other";
+  return (
+    normalizePracticeAreaValue(practiceArea) ||
+    normalizePracticeAreaValue(category) ||
+    "other"
+  );
 }
 
 export const archivePracticeStats = createServerFn({ method: "POST" })
@@ -1034,7 +1048,78 @@ export const archivePracticeStats = createServerFn({ method: "POST" })
     return { stats };
   });
 
+/**
+ * Deterministic normalization pass over lawyer_archive_items.
+ * No AI calls. Only rewrites `category` and `metadata.practice_area`
+ * to canonical values so Practice direction cards stop dumping
+ * documents into "Прочее". Leaves content, ocr/extracted text,
+ * classification_status, document_type, document_role, etc. untouched.
+ */
+export const archiveNormalizePracticeAreas = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const PAGE = 500;
+    let from = 0;
+    let scanned = 0;
+    let updated = 0;
+    const changes: Record<string, number> = {};
+
+    // paginate through active items
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await supabase
+        .from("lawyer_archive_items")
+        .select("id, category, metadata")
+        .eq("is_active", true)
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(error.message);
+      const rows = data ?? [];
+      if (rows.length === 0) break;
+      scanned += rows.length;
+
+      for (const r of rows as Array<{ id: string; category: string | null; metadata: any }>) {
+        const md = (r.metadata ?? {}) as Record<string, any>;
+        const oldCategory = r.category ?? null;
+        const oldPa = (md.practice_area as string | null | undefined) ?? null;
+
+        const normalized = resolvePracticeArea(oldCategory, oldPa);
+
+        const categoryChanged = (oldCategory ?? "") !== normalized;
+        const paChanged = (oldPa ?? "") !== normalized;
+        if (!categoryChanged && !paChanged) continue;
+
+        const nextMd = {
+          ...md,
+          practice_area: normalized,
+          normalized_at: new Date().toISOString(),
+          normalized_by: "archiveNormalizePracticeAreas",
+          previous_category: oldCategory,
+          previous_practice_area: oldPa,
+        };
+
+        const { error: upErr } = await supabase
+          .from("lawyer_archive_items")
+          .update({ category: normalized, metadata: nextMd })
+          .eq("id", r.id);
+        if (upErr) throw new Error(upErr.message);
+
+        updated += 1;
+        changes[normalized] = (changes[normalized] ?? 0) + 1;
+      }
+
+      if (rows.length < PAGE) break;
+      from += PAGE;
+    }
+
+    return { scanned, updated, changes };
+  });
+
 /* ===== Practice → KB import queue ===== */
+
 
 export const archiveGetExtractedText = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
