@@ -1048,7 +1048,78 @@ export const archivePracticeStats = createServerFn({ method: "POST" })
     return { stats };
   });
 
+/**
+ * Deterministic normalization pass over lawyer_archive_items.
+ * No AI calls. Only rewrites `category` and `metadata.practice_area`
+ * to canonical values so Practice direction cards stop dumping
+ * documents into "Прочее". Leaves content, ocr/extracted text,
+ * classification_status, document_type, document_role, etc. untouched.
+ */
+export const archiveNormalizePracticeAreas = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await assertAdmin(supabase, userId);
+
+    const PAGE = 500;
+    let from = 0;
+    let scanned = 0;
+    let updated = 0;
+    const changes: Record<string, number> = {};
+
+    // paginate through active items
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await supabase
+        .from("lawyer_archive_items")
+        .select("id, category, metadata")
+        .eq("is_active", true)
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(error.message);
+      const rows = data ?? [];
+      if (rows.length === 0) break;
+      scanned += rows.length;
+
+      for (const r of rows as Array<{ id: string; category: string | null; metadata: any }>) {
+        const md = (r.metadata ?? {}) as Record<string, any>;
+        const oldCategory = r.category ?? null;
+        const oldPa = (md.practice_area as string | null | undefined) ?? null;
+
+        const normalized = resolvePracticeArea(oldCategory, oldPa);
+
+        const categoryChanged = (oldCategory ?? "") !== normalized;
+        const paChanged = (oldPa ?? "") !== normalized;
+        if (!categoryChanged && !paChanged) continue;
+
+        const nextMd = {
+          ...md,
+          practice_area: normalized,
+          normalized_at: new Date().toISOString(),
+          normalized_by: "archiveNormalizePracticeAreas",
+          previous_category: oldCategory,
+          previous_practice_area: oldPa,
+        };
+
+        const { error: upErr } = await supabase
+          .from("lawyer_archive_items")
+          .update({ category: normalized, metadata: nextMd })
+          .eq("id", r.id);
+        if (upErr) throw new Error(upErr.message);
+
+        updated += 1;
+        changes[normalized] = (changes[normalized] ?? 0) + 1;
+      }
+
+      if (rows.length < PAGE) break;
+      from += PAGE;
+    }
+
+    return { scanned, updated, changes };
+  });
+
 /* ===== Practice → KB import queue ===== */
+
 
 export const archiveGetExtractedText = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
