@@ -532,37 +532,85 @@ function PracticePage() {
   }
 
   async function runClassifyUnclassifiedBatches() {
-    if (aiBusy) return;
-    if (!confirm("Запустить AI-классификацию неразобранных документов батчами по 25? Это потребляет AI-кредиты.")) return;
-    setAiBusy(true);
-    const tid = toast.loading("AI классификация неразобранных…");
-    const totals = { classified: 0, failed: 0, pending: 0, iterations: 0 };
-    try {
-      for (let i = 0; i < 200; i++) {
-        const r: any = await classifyBatchFn({ data: { only_pending: true, limit: 25 } });
-        totals.classified += r.classified_count ?? 0;
-        totals.failed += r.failed_count ?? 0;
-        totals.pending = r.pending_count ?? 0;
-        totals.iterations += 1;
-        if (r.errors?.length) console.warn("[archiveClassifyBatchByContent] errors", r.errors);
-        toast.loading(
-          `AI… батч ${totals.iterations} · классифицировано ${totals.classified} · сбоев ${totals.failed} · осталось ${totals.pending}`,
-          { id: tid },
-        );
-        if ((r.classified_count ?? 0) === 0 || totals.pending === 0) break;
-      }
-      toast.dismiss(tid);
-      toast.success(`Готово: классифицировано ${totals.classified} · сбоев ${totals.failed} · осталось ${totals.pending}`);
-      reload();
-    } catch (e: any) {
-      toast.dismiss(tid);
-      toast.error(e?.message ?? "Ошибка AI-классификации");
-    } finally {
-      setAiBusy(false);
-    }
+  if (aiBusy) return;
+
+  if (
+    !confirm(
+      "Запустить AI-классификацию неразобранных документов батчами по 25? Это потребляет AI-кредиты.",
+    )
+  ) {
+    return;
   }
 
+  setAiBusy(true);
 
+  const tid = toast.loading("AI классификация неразобранных…");
+
+  const totals = {
+    processed: 0,
+    classified: 0,
+    failed: 0,
+    remaining: 0,
+    iterations: 0,
+  };
+
+  try {
+    const maxIterations = 100;
+
+    for (let i = 0; i < maxIterations; i++) {
+      const r: any = await classifyBatchFn({
+        data: {
+          only_pending: true,
+          limit: 25,
+        },
+      });
+
+      const processed = r.processed ?? 0;
+      const classified = r.classified ?? r.classified_count ?? 0;
+      const failed = r.failed ?? r.failed_count ?? 0;
+      const remaining = r.remaining_pending ?? r.pending_count ?? 0;
+
+      totals.processed += processed;
+      totals.classified += classified;
+      totals.failed += failed;
+      totals.remaining = remaining;
+      totals.iterations += 1;
+
+      if (r.errors?.length) {
+        console.warn("[archiveClassifyBatchByContent] errors", r.errors);
+      }
+
+      toast.loading(
+        `AI классификация: батч ${totals.iterations} · обработано ${totals.processed} · classified ${totals.classified} · failed ${totals.failed} · осталось ${totals.remaining}`,
+        { id: tid },
+      );
+
+      reload();
+
+      if (processed === 0) {
+        toast.warning("AI классификация остановлена: нет документов для обработки.");
+        break;
+      }
+
+      if (remaining === 0) {
+        break;
+      }
+    }
+
+    toast.dismiss(tid);
+
+    toast.success(
+      `AI классификация завершена: classified ${totals.classified}, failed ${totals.failed}, осталось ${totals.remaining}`,
+    );
+
+    reload();
+  } catch (e: any) {
+    toast.dismiss(tid);
+    toast.error(e?.message ?? "Ошибка AI-классификации");
+  } finally {
+    setAiBusy(false);
+  }
+}
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
