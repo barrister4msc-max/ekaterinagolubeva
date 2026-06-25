@@ -1493,18 +1493,20 @@ export const archiveClassifyBatchByContent = createServerFn({ method: "POST" })
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("LOVABLE_API_KEY не сконфигурирован");
 
+    const pendingFilter =
+      "metadata->>classification_status.is.null," +
+      "metadata->>classification_status.neq.classified";
+
     let q = supabase
       .from("lawyer_archive_items")
       .select("id, title, content, storage_path, document_id, item_type, category, metadata")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
-      .limit(data.limit ?? 30);
+      .limit(data.limit ?? 25);
+
     if (data.batch_id) q = q.eq("metadata->>archive_batch_id", data.batch_id);
-    if (data.only_pending) {
-      q = q.or(
-        "metadata->>classification_status.is.null,metadata->>classification_status.eq.pending",
-      );
-    }
+    if (data.only_pending) q = q.or(pendingFilter);
+
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
 
@@ -1518,29 +1520,49 @@ export const archiveClassifyBatchByContent = createServerFn({ method: "POST" })
         classified_count += 1;
       } catch (e: any) {
         failed_count += 1;
-        errors.push({ id: r.id, title: r.title, error: e?.message ?? String(e) });
+        const errMsg = e?.message ?? String(e);
+        errors.push({ id: r.id, title: r.title, error: errMsg });
+
+        const md = (r.metadata ?? {}) as Record<string, any>;
+        await (supabase.from("lawyer_archive_items") as any)
+          .update({
+            metadata: {
+              ...md,
+              classification_status: "classification_failed",
+              classification_error: errMsg,
+              classification_failed_at: new Date().toISOString(),
+              classification_failed_by: userId,
+            },
+          })
+          .eq("id", r.id);
       }
     }
 
-    // Count remaining pending in the same scope
     let pq = supabase
       .from("lawyer_archive_items")
       .select("id", { count: "exact", head: true })
       .eq("is_active", true)
-      .or(
-        "metadata->>classification_status.is.null,metadata->>classification_status.eq.pending",
-      );
+      .or(pendingFilter);
+
     if (data.batch_id) pq = pq.eq("metadata->>archive_batch_id", data.batch_id);
-    const { count } = await pq;
+
+    const { count, error: countError } = await pq;
+    if (countError) throw new Error(countError.message);
 
     return {
+      processed: rows?.length ?? 0,
+      classified: classified_count,
+      failed: failed_count,
+      remaining_pending: count ?? 0,
+
+      // backward compatibility
       classified_count,
       failed_count,
       pending_count: count ?? 0,
+
       errors: errors.slice(0, 20),
     };
   });
-
 /* ===== Text extraction / OCR pipeline ===== */
 
 async function fetchExtractTargets(
