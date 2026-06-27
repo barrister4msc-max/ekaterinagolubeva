@@ -6,7 +6,7 @@
 //   citations, verification/actuality are filled later in mergeWithRegistry.
 
 import type { ResearchQuery } from "./fact-extraction.ts";
-import type { Bucket, RepoSource } from "./repositories.ts";
+import type { Bucket, RawSource } from "./repositories.ts";
 import type { MergedSource } from "./dedupe.ts";
 
 const LABELS: Record<Bucket, string> = {
@@ -155,6 +155,9 @@ ${kbBlock}
   "risks":[{"risk":string,"severity":"low|medium|high","mitigation":string}],
   "recommendations":[string],
   "generation_instructions":[string],
+  "adverse_practice":[{"source_id":string,"why_against":string}],
+  "rebuttal_strategy":[string],
+  "source_sufficiency":{"status":"sufficient|partial|insufficient_critical","gaps":[string],"rationale":string},
   "document_usage":[{"doc_id":string,"used_for":[string]}]
 }`;
 }
@@ -228,4 +231,4 @@ export function summarizeDocument(input: {
 }
 
 // Unused exports kept for type compatibility with index.ts:
-export type _RepoSource = RepoSource;
+export type _RepoSource = RawSource;
