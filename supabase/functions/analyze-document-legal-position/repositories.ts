@@ -247,3 +247,46 @@ export async function runAllRepositories(
   };
   return { sources, counts };
 }
+
+/**
+ * Gap-targeted retry: keyword search across legal_knowledge_chunks for
+ * specific sufficiency gaps surfaced by enrich.evaluateSufficiency.
+ * Returns RawSource[] that can be merged with the first-pass set.
+ */
+export async function gapSearch(
+  sb: SbClient,
+  gaps: string[],
+  practiceArea: string | null,
+): Promise<RawSource[]> {
+  if (!gaps.length) return [];
+  const out: RawSource[] = [];
+  for (const gap of gaps.slice(0, 5)) {
+    const terms = gap
+      .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+      .split(/\s+/)
+      .filter((t) => t.length >= 4)
+      .slice(0, 4);
+    if (terms.length === 0) continue;
+    const pattern = "%" + terms.join("%") + "%";
+    let q = sb
+      .from("legal_knowledge_chunks")
+      .select("id, title, content, metadata, category, source_type")
+      .eq("is_active", true)
+      .ilike("content", pattern)
+      .limit(6);
+    if (practiceArea) q = q.eq("category", practiceArea);
+    const { data } = await q;
+    for (const r of (data ?? []) as any[]) {
+      const st = ((r.source_type as string | null) ?? "").toLowerCase();
+      let bucket: Bucket = "laws";
+      if (st.includes("court")) bucket = "court_practice";
+      else if (st.includes("fns")) bucket = "fns_letters";
+      else if (st.includes("minfin")) bucket = "minfin_letters";
+      else if (st.includes("ekaterina")) bucket = "ekaterina";
+      else if (st.includes("manual") || st.includes("template")) bucket = "manuals";
+      out.push(makeChunkSource(r, bucket));
+    }
+  }
+  return out;
+}
+
