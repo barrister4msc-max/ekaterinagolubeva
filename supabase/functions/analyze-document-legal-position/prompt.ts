@@ -6,7 +6,7 @@
 //   citations, verification/actuality are filled later in mergeWithRegistry.
 
 import type { ResearchQuery } from "./fact-extraction.ts";
-import type { Bucket, RepoSource } from "./repositories.ts";
+import type { Bucket, RawSource } from "./repositories.ts";
 import type { MergedSource } from "./dedupe.ts";
 
 const LABELS: Record<Bucket, string> = {
