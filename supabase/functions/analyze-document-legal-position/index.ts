@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
 
     // Layer 1: Fact Extraction
     const docTextById = new Map<string, string>();
-    for (const d of docs ?? []) docTextById.set(d.id as string, ((d.ocr_text as string | null) ?? "").trim());
+    for (const d of docs ?? []) docTextById.set(d.id as string, pickText(d));
     const docsForExtraction = usedDocs.map((d) => ({
       id: d.id,
       title: d.title,
