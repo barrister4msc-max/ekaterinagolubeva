@@ -313,6 +313,90 @@ Deno.serve(async (req) => {
       parsed.document_usage,
     );
 
+    // Layer 7: ENRICH — stable IDs, trust score, priority/supersede.
+    let trusted = enrichSources(merged);
+    let facts = buildFactRecords(parsed.facts);
+    let provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
+    let sufficiency = evaluateSufficiency({
+      trusted,
+      conclusions: provBuild.conclusions,
+    });
+
+    // Layer 7b: GAP RETRY — one targeted re-search through legal_knowledge_chunks.
+    let gapRetryUsed = false;
+    if (sufficiency.status !== "sufficient" && sufficiency.gaps.length > 0) {
+      const extraRaw = await gapSearch(sb, sufficiency.gaps, practiceArea);
+      if (extraRaw.length > 0) {
+        gapRetryUsed = true;
+        const extraScored = await rankSources({
+          sb,
+          sources: extraRaw,
+          query: researchQuery,
+          queryEmbedding,
+          practiceArea,
+        });
+        const mergedExtra = dedupe([...scored, ...extraScored]);
+        const mergedLimited = limitSources(mergedExtra);
+        trusted = enrichSources(mergedLimited);
+        provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
+        sufficiency = evaluateSufficiency({
+          trusted,
+          conclusions: provBuild.conclusions,
+        });
+      }
+    }
+
+    // Layer 8: AI CHALLENGE / critical review pass (second LLM, cheap flash).
+    const challengeResult = await runChallenge({
+      parsed,
+      trusted,
+      conclusions: provBuild.conclusions,
+    });
+    for (const c of provBuild.conclusions) c.provenance.reviewed_by_challenge = true;
+
+    // Layer 9: Evidence Matrix.
+    const evidenceMatrix = buildEvidenceMatrix({
+      facts,
+      parsed,
+      conclusions: provBuild.conclusions,
+      documents: usedDocs.map((d) => ({ id: d.id, title: d.title, ocr_length: d.ocr_length })),
+    });
+
+    // Layer 10: Matter Analysis Versioning — hashes + previous run + version.
+    const hashes = await computeHashes({
+      answers,
+      documents: (docs ?? []).map((d: any) => ({
+        id: d.id as string,
+        ocr_length: (docTextById.get(d.id as string) ?? "").length,
+        redaction_status:
+          (docMetaById.get(d.id as string)?.redaction_status as string | undefined) ?? null,
+      })),
+      sources: trusted,
+    });
+    const { data: prevRuns } = await sb
+      .from("document_intake_ai_runs")
+      .select("id, ai_result, status, created_at")
+      .eq("session_id", sessionId)
+      .eq("run_type", "legal_analysis")
+      .eq("status", "completed")
+      .neq("id", runId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const prev = (prevRuns ?? [])[0];
+    const prevAi = (prev?.ai_result ?? {}) as Record<string, unknown>;
+    const prevVersion = Number((prevAi.analysis_version as number | undefined) ?? 0);
+    const previousHashes = (prevAi.hashes ?? null) as Record<string, string> | null;
+    let analysisReason: string = "initial";
+    if (prev && previousHashes) {
+      const reasons: string[] = [];
+      if (previousHashes.answers_hash !== hashes.answers_hash) reasons.push("answers_changed");
+      if (previousHashes.documents_hash !== hashes.documents_hash)
+        reasons.push("documents_changed");
+      if (previousHashes.used_sources_hash !== hashes.used_sources_hash)
+        reasons.push("sources_changed");
+      analysisReason = reasons.length ? reasons.join(",") : "manual_rerun";
+    }
+
     parsed.sources = combined_sources;
     parsed.source_actuality = source_actuality;
     parsed.documents_audit = updatedAudit;
@@ -326,6 +410,9 @@ Deno.serve(async (req) => {
       sources_after_dedupe: mergedAll.length,
       sources_after_caps: merged.length,
       sources_used_by_model: combined_sources.length,
+      sources_after_enrich: trusted.length,
+      sources_winners: trusted.filter((s) => s.is_winner && s.use_in_generation).length,
+      gap_retry_used: gapRetryUsed ? 1 : 0,
       ...counts,
       semantic_enabled: queryEmbedding ? 1 : 0,
     };
@@ -336,7 +423,33 @@ Deno.serve(async (req) => {
       fallback_used,
     };
 
+    // Extended ai_result fields (Phase A core):
+    parsed.facts_index = facts;
+    parsed.trusted_sources = trusted;
+    parsed.conclusions = provBuild.conclusions;
+    parsed.provenance_index = provBuild.provenance_index;
+    parsed.evidence_matrix = evidenceMatrix;
+    parsed.source_sufficiency = sufficiency;
+    parsed.challenge_result = challengeResult;
+    parsed.hashes = hashes;
+    parsed.analysis_version = prevVersion + 1;
+    parsed.analysis_reason = analysisReason;
+    parsed.created_from = "analyze-document-legal-position";
+    parsed.previous_analysis_run_id = prev?.id ?? null;
+    parsed.redaction_used = redactionUsedAny;
+
     const metrics = computeMetrics(combined_sources, parsed);
+    // Override hallucination_risk when challenge blocks the run.
+    const finalRisk =
+      challengeResult.status === "blocked"
+        ? "high"
+        : challengeResult.status === "needs_revision" && metrics.hallucination_risk === "low"
+        ? "medium"
+        : metrics.hallucination_risk;
+    const finalNeedsLawyer =
+      metrics.needs_lawyer_review ||
+      challengeResult.status !== "passed" ||
+      sufficiency.status !== "sufficient";
 
     const { error: updErr } = await sb
       .from("document_intake_ai_runs")
