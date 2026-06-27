@@ -3752,6 +3752,114 @@ export type Database = {
           },
         ]
       }
+      legal_reasoning_analyses: {
+        Row: {
+          adverse_practice: Json
+          ai_model: string | null
+          analysis_type: string
+          applicable_laws: Json
+          client_arguments: Json
+          confidence_score: number | null
+          created_at: string
+          created_by: string | null
+          evidence: Json
+          facts: Json
+          final_legal_position: string | null
+          generated_document_id: string | null
+          hallucination_risk: string | null
+          id: string
+          intake_session_id: string | null
+          lawyer_summary: string | null
+          lead_id: string | null
+          legal_questions: Json
+          legally_significant_facts: Json
+          matter_id: string | null
+          missing_documents: Json
+          needs_lawyer_review: boolean | null
+          opponent_arguments: Json
+          raw_ai_response: Json | null
+          rebuttal_strategy: Json
+          recommended_strategy: Json
+          rejected_laws: Json
+          risks: Json
+          source_document_ids: string[] | null
+          status: string
+          supporting_practice: Json
+          updated_at: string
+          used_sources: Json
+        }
+        Insert: {
+          adverse_practice?: Json
+          ai_model?: string | null
+          analysis_type?: string
+          applicable_laws?: Json
+          client_arguments?: Json
+          confidence_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          evidence?: Json
+          facts?: Json
+          final_legal_position?: string | null
+          generated_document_id?: string | null
+          hallucination_risk?: string | null
+          id?: string
+          intake_session_id?: string | null
+          lawyer_summary?: string | null
+          lead_id?: string | null
+          legal_questions?: Json
+          legally_significant_facts?: Json
+          matter_id?: string | null
+          missing_documents?: Json
+          needs_lawyer_review?: boolean | null
+          opponent_arguments?: Json
+          raw_ai_response?: Json | null
+          rebuttal_strategy?: Json
+          recommended_strategy?: Json
+          rejected_laws?: Json
+          risks?: Json
+          source_document_ids?: string[] | null
+          status?: string
+          supporting_practice?: Json
+          updated_at?: string
+          used_sources?: Json
+        }
+        Update: {
+          adverse_practice?: Json
+          ai_model?: string | null
+          analysis_type?: string
+          applicable_laws?: Json
+          client_arguments?: Json
+          confidence_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          evidence?: Json
+          facts?: Json
+          final_legal_position?: string | null
+          generated_document_id?: string | null
+          hallucination_risk?: string | null
+          id?: string
+          intake_session_id?: string | null
+          lawyer_summary?: string | null
+          lead_id?: string | null
+          legal_questions?: Json
+          legally_significant_facts?: Json
+          matter_id?: string | null
+          missing_documents?: Json
+          needs_lawyer_review?: boolean | null
+          opponent_arguments?: Json
+          raw_ai_response?: Json | null
+          rebuttal_strategy?: Json
+          recommended_strategy?: Json
+          rejected_laws?: Json
+          risks?: Json
+          source_document_ids?: string[] | null
+          status?: string
+          supporting_practice?: Json
+          updated_at?: string
+          used_sources?: Json
+        }
+        Relationships: []
+      }
       legal_regulatory_monitored_sources: {
         Row: {
           article: string | null
