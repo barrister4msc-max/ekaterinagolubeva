@@ -155,6 +155,9 @@ ${kbBlock}
   "risks":[{"risk":string,"severity":"low|medium|high","mitigation":string}],
   "recommendations":[string],
   "generation_instructions":[string],
+  "adverse_practice":[{"source_id":string,"why_against":string}],
+  "rebuttal_strategy":[string],
+  "source_sufficiency":{"status":"sufficient|partial|insufficient_critical","gaps":[string],"rationale":string},
   "document_usage":[{"doc_id":string,"used_for":[string]}]
 }`;
 }
