@@ -157,18 +157,34 @@ Deno.serve(async (req) => {
       practiceArea = (tpl?.practice_area as string | null) ?? null;
     }
 
-    // documents + audit
+    // documents + audit (also pulls metadata so we can use redacted_text when accepted)
     const { data: docs } = await sb
       .from("documents")
-      .select("id, title, file_name, ocr_text")
+      .select("id, title, file_name, ocr_text, metadata")
       .filter("metadata->>intake_session_id", "eq", sessionId)
       .limit(40);
+    const docMetaById = new Map<string, Record<string, unknown>>();
+    let redactionUsedAny = false;
+    for (const d of docs ?? []) {
+      const meta = ((d as any).metadata ?? {}) as Record<string, unknown>;
+      docMetaById.set((d as any).id as string, meta);
+      if (meta.redaction_status === "accepted" && typeof meta.redacted_text === "string") {
+        redactionUsedAny = true;
+      }
+    }
+    const pickText = (d: any): string => {
+      const meta = docMetaById.get(d.id as string) ?? {};
+      if (meta.redaction_status === "accepted" && typeof meta.redacted_text === "string") {
+        return (meta.redacted_text as string).trim();
+      }
+      return ((d.ocr_text as string | null) ?? "").trim();
+    };
     const audited = (docs ?? []).map((d: any) =>
       classifyDocument({
         id: d.id as string,
         title: (d.title as string | null) ?? "",
         file_name: (d.file_name as string | null) ?? null,
-        ocr_text: (d.ocr_text as string | null) ?? null,
+        ocr_text: pickText(d),
       }),
     );
     const usedDocs = audited.filter((d) => d.used);
