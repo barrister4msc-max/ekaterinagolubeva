@@ -7,7 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { extractFacts, embedQuery, queryToSearchString } from "./fact-extraction.ts";
-import { runAllRepositories } from "./repositories.ts";
+import { runAllRepositories, gapSearch } from "./repositories.ts";
 import { rankSources } from "./ranking.ts";
 import { dedupe } from "./dedupe.ts";
 import { buildPrompt, callGeminiPro, limitSources, summarizeDocument } from "./prompt.ts";
@@ -18,6 +18,15 @@ import {
   mergeWithRegistry,
   type DocAuditEntry,
 } from "./merge.ts";
+import {
+  enrichSources,
+  buildFactRecords,
+  buildConclusionsAndIndex,
+  buildEvidenceMatrix,
+  evaluateSufficiency,
+  computeHashes,
+} from "./enrich.ts";
+import { runChallenge } from "./challenge.ts";
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
 const corsHeaders = {
