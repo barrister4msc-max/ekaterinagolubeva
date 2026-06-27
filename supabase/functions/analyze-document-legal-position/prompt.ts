@@ -231,4 +231,4 @@ export function summarizeDocument(input: {
 }
 
 // Unused exports kept for type compatibility with index.ts:
-export type _RepoSource = RepoSource;
+export type _RepoSource = RawSource;
