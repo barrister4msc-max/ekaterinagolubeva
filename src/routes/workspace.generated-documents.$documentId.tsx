@@ -2771,31 +2771,38 @@ function DocumentDetailPage() {
       )}
 
       {tab === "evidence" && (
-        <EvidenceMatrixTab
-          analysis={analysis}
-          review={review}
-          attachments={attachments}
-          jumpFilter={matrixJumpFilter}
-          onClearJumpFilter={() => setMatrixJumpFilter(null)}
-        />
+        <div className="space-y-3">
+          <ProvenanceExplorer snapshot={provenanceSnapshot} />
+          <EvidenceMatrixTab
+            analysis={analysis}
+            review={review}
+            attachments={attachments}
+            jumpFilter={matrixJumpFilter}
+            onClearJumpFilter={() => setMatrixJumpFilter(null)}
+          />
+        </div>
       )}
 
       {tab === "sources" && (
-        <section className={`${PANEL} p-5 space-y-3`}>
-          <div>
-            <h2 className="font-display text-lg text-white">Источники</h2>
-            <p className="mt-1 text-xs text-slate-300">
-              Точная локализация: статья, пункт, абзац, страница, цитата. Кнопка «Перейти» открывает место в документе.
-            </p>
-          </div>
-          {sources.length === 0 && <p className="text-sm text-slate-300">Источники не указаны.</p>}
-          <div className="space-y-2">
-            {sources.map((s: any, i: number) => (
-              <SourceCitation key={i} source={s} setTab={setTab} />
-            ))}
-          </div>
-        </section>
+        <div className="space-y-3">
+          <ProvenanceExplorer snapshot={provenanceSnapshot} />
+          <section className={`${PANEL} p-5 space-y-3`}>
+            <div>
+              <h2 className="font-display text-lg text-white">Источники</h2>
+              <p className="mt-1 text-xs text-slate-300">
+                Точная локализация: статья, пункт, абзац, страница, цитата. Кнопка «Перейти» открывает место в документе.
+              </p>
+            </div>
+            {sources.length === 0 && <p className="text-sm text-slate-300">Источники не указаны.</p>}
+            <div className="space-y-2">
+              {sources.map((s: any, i: number) => (
+                <SourceCitation key={i} source={s} setTab={setTab} />
+              ))}
+            </div>
+          </section>
+        </div>
       )}
+
 
       {tab === "review" && (
         <section className={`${PANEL} p-5 space-y-4`}>
