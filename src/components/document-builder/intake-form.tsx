@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Copy, FileText, Plus, Trash2, Upload, Sparkles, AlertTriangle, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, ArrowRight, Check, Copy, FileText, Plus, Trash2, Upload, Sparkles, AlertTriangle, X, Loader2, CircleAlert, CircleCheck, CircleDashed } from "lucide-react";
 import {
   type DocumentIntakeSchema,
   type IntakeField,
@@ -24,6 +25,11 @@ import {
 } from "@/lib/document-intake-storage";
 import { supabase } from "@/integrations/supabase/client";
 import { LegalAnalysisPanel } from "@/components/document-builder/legal-analysis-panel";
+import {
+  runGenerationPreflight,
+  type PreflightCheck,
+  type PreflightResult,
+} from "@/lib/document-generation-preflight";
 
 type IntakeContext = {
   matterId?: string | null;
