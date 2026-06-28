@@ -187,6 +187,24 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     refreshSessionDocuments(intakeSessionId);
   }, [intakeSessionId, refreshSessionDocuments]);
 
+  // Phase C0 — preflight readiness check (active only at review step).
+  const isReviewActive = stepIdx >= steps.length;
+  const preflightQuery = useQuery<PreflightResult>({
+    queryKey: ["generation-preflight", intakeSessionId],
+    queryFn: () => runGenerationPreflight(intakeSessionId),
+    enabled: isReviewActive,
+    refetchOnWindowFocus: false,
+    staleTime: 10_000,
+    refetchInterval: (q) => {
+      const data = q.state.data as PreflightResult | undefined;
+      if (!data) return false;
+      const ocrCheck = data.checks.find((c) => c.id === "ocr");
+      return ocrCheck?.status === "pending" ? 5000 : false;
+    },
+  });
+
+
+
 
   const handleSaveDraft = async () => {
   try {
