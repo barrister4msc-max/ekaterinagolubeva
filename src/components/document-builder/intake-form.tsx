@@ -1370,21 +1370,30 @@ function PreflightPanel({
         </ul>
       )}
 
-      {preflight && !ready && (
+      {preflight && !ready && preflight.blocking_reasons.length > 0 && (
         <div className="mt-3 rounded-md border border-rose-400/30 bg-rose-500/10 p-3 text-xs text-rose-100">
-          <div className="font-medium">Для формирования экспертного документа необходимо:</div>
-          <ol className="mt-1 list-decimal pl-5 space-y-0.5">
-            <li>Загрузить документы</li>
-            <li>Дождаться завершения OCR</li>
-            <li>Выполнить AI правовой анализ</li>
-            <li>После этого сформировать документ</li>
-          </ol>
+          <div className="font-medium">Препятствия для генерации:</div>
+          <ul className="mt-1 list-disc pl-5 space-y-0.5">
+            {preflight.blocking_reasons.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {preflight && ready && preflight.warnings.length > 0 && (
-        <div className="mt-3 text-xs text-amber-200/85">
-          ⚠ Есть предупреждения — генерация разрешена, но рекомендуется ручная проверка.
+      {preflight && preflight.warnings.length > 0 && (
+        <div className="mt-3 rounded-md border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-100">
+          <div className="font-medium">Предупреждения:</div>
+          <ul className="mt-1 list-disc pl-5 space-y-0.5">
+            {preflight.warnings.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+          {ready && (
+            <div className="mt-2 text-amber-200/80">
+              Генерация Draft разрешена. Рекомендуется ручная проверка предупреждений.
+            </div>
+          )}
         </div>
       )}
     </div>
