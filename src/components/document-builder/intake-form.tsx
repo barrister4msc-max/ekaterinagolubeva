@@ -213,6 +213,32 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     refreshSessionDocuments(intakeSessionId);
   }, [intakeSessionId, refreshSessionDocuments]);
 
+  // Phase C — auto-detect personal data on freshly-OCR-ed documents that have
+  // never been screened (no redaction_status in metadata).
+  useEffect(() => {
+    const needsScan = sessionDocuments.filter(
+      (d) => d.ocr_text_length > 30 && d.redaction_status === null,
+    );
+    if (needsScan.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { detectAndPersistRedaction } = await import("@/lib/document-redaction");
+      for (const d of needsScan) {
+        try {
+          await detectAndPersistRedaction(d.id);
+        } catch (err) {
+          console.warn("[redaction] detect failed", d.id, err);
+        }
+        if (cancelled) return;
+      }
+      if (!cancelled) refreshSessionDocuments(intakeSessionId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionDocuments, intakeSessionId, refreshSessionDocuments]);
+
+
   // Phase C0 — preflight readiness check (active only at review step).
   const isReviewActive = stepIdx >= steps.length;
   const preflightQuery = useQuery<PreflightResult>({
