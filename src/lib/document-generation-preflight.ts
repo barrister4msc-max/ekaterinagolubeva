@@ -112,7 +112,7 @@ export async function runGenerationPreflight(
       id: "documents",
       label: "Документы загружены",
       status: "fail",
-      message: "Не загружено ни одного документа.",
+      message: "Документы не найдены. Загрузите документы для этой сессии.",
     });
     blocking.push("no_documents");
   } else {
