@@ -2854,6 +2854,10 @@ function DocumentDetailPage() {
         </section>
       )}
 
+      {tab === "quality" && (
+        <QualityReviewCenter documentId={doc.id} meta={meta} />
+      )}
+
       {tab === "chain" && (
         <ChainOfCustodyTab
           sessionId={sessionId}
