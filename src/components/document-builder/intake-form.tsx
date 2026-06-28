@@ -497,39 +497,88 @@ const [isAiFilling, setIsAiFilling] = useState(false);
               <ul className="space-y-2">
                 {sessionDocuments.map((doc) => {
                   const ready = doc.ocr_text_length > 50;
+                  const tone = redactionStatusTone(doc.redaction_status);
+                  const showRedactButton =
+                    ready &&
+                    (doc.redaction_status === "required" ||
+                      doc.redaction_status === "rejected" ||
+                      (doc.contains_personal_data && doc.redaction_status !== "accepted" && doc.redaction_status !== "suggested"));
                   return (
                     <li
                       key={doc.id}
-                      className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+                      className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 md:flex-row md:items-center"
                     >
-                      <FileText size={14} className="text-white/60 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-white truncate">
-                          {doc.title || doc.file_name || doc.id}
-                        </div>
-                        <div className="text-[11px] text-white/60">
-                          OCR: {doc.ocr_text_length} симв.{" "}
-                          {ready ? (
-                            <span className="text-emerald-300">— готов</span>
-                          ) : (
-                            <span className="text-amber-300">— нет текста</span>
-                          )}
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <FileText size={14} className="text-white/60 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-white truncate">
+                            {doc.title || doc.file_name || doc.id}
+                          </div>
+                          <div className="text-[11px] text-white/60 flex flex-wrap items-center gap-2">
+                            <span>
+                              OCR: {doc.ocr_text_length} симв.{" "}
+                              {ready ? (
+                                <span className="text-emerald-300">— готов</span>
+                              ) : (
+                                <span className="text-amber-300">— нет текста</span>
+                              )}
+                            </span>
+                            <RedactionBadge status={doc.redaction_status} tone={tone} />
+                            {doc.redaction_notes.length > 0 && (
+                              <span className="text-white/45 truncate">
+                                · {doc.redaction_notes.join(", ")}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="text-white/50 hover:text-red-400 p-1"
-                        onClick={() => handleDeleteDocument(doc.id)}
-                        title="Удалить"
-                      >
-                        <X size={14} />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {showRedactButton && (
+                          <button
+                            type="button"
+                            className="db-ghost"
+                            onClick={() => setRedactionDocId(doc.id)}
+                            title="Обезличить документ"
+                          >
+                            Обезличить
+                          </button>
+                        )}
+                        {(doc.redaction_status === "suggested" || doc.redaction_status === "accepted") && (
+                          <button
+                            type="button"
+                            className="db-ghost"
+                            onClick={() => setRedactionDocId(doc.id)}
+                            title="Посмотреть обезличивание"
+                          >
+                            {doc.redaction_status === "accepted" ? "Просмотр" : "Проверить"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="text-white/50 hover:text-red-400 p-1"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          title="Удалить"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     </li>
                   );
                 })}
               </ul>
             )}
           </div>
+
+          {redactionDocId && (
+            <RedactionDialog
+              document={
+                sessionDocuments.find((d) => d.id === redactionDocId) ?? null
+              }
+              onClose={() => setRedactionDocId(null)}
+              onChanged={() => refreshSessionDocuments(intakeSessionId)}
+            />
+          )}
+
 
 
           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
