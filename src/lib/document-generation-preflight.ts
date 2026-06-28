@@ -234,9 +234,8 @@ export async function runGenerationPreflight(
           : `Требуется повторный AI анализ (${human}).`,
       });
       warnings.push("analysis_stale");
-      // Stale analysis is a hard blocker for draft because Phase B fields may
-      // be missing or out of sync with current documents/answers.
-      blocking.push("analysis_stale");
+      // Staleness is informational only — generation_allowed.draft is the
+      // source of truth (Phase B). UI surfaces it as a warning.
     }
   } catch (e) {
     checks.push({
