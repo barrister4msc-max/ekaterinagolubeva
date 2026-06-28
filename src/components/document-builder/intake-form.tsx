@@ -900,6 +900,10 @@ function ReviewStep({
   availableModes,
   sessionId,
   onEnsureSession,
+  preflight,
+  preflightLoading,
+  preflightError,
+  onRefreshPreflight,
 }: {
   schema: DocumentIntakeSchema;
   state: IntakeState;
@@ -913,6 +917,10 @@ function ReviewStep({
   availableModes?: Array<IntakeState["generationMode"]>;
   sessionId: string | null;
   onEnsureSession: () => Promise<string>;
+  preflight: PreflightResult | null;
+  preflightLoading: boolean;
+  preflightError: string | null;
+  onRefreshPreflight: () => void;
 }) {
 
   const [showJson, setShowJson] = useState(false);
