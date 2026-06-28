@@ -111,7 +111,120 @@ export type LegalAnalysisResult = {
   documents_audit?: { used: LegalAnalysisDocAudit[]; rejected: LegalAnalysisDocAudit[] };
   research_summary?: Record<string, number>;
   research_query?: LegalResearchQuery;
+
+  // ---- Phase A extensions (persisted in document_intake_ai_runs.ai_result) ----
+  facts_index?: LegalAnalysisFactRecord[];
+  trusted_sources?: LegalAnalysisTrustedSource[];
+  conclusions?: LegalAnalysisConclusion[];
+  provenance_index?: LegalAnalysisProvenanceIndex;
+  evidence_matrix?: LegalAnalysisEvidenceMatrix;
+  source_sufficiency?: LegalAnalysisSourceSufficiency;
+  challenge_result?: LegalAnalysisChallengeResult;
+  hashes?: LegalAnalysisHashes;
+  analysis_version?: number;
+  analysis_reason?: string;
+  created_from?: string;
+  previous_analysis_run_id?: string | null;
+  redaction_used?: boolean;
 };
+
+export type LegalAnalysisFactRecord = {
+  fact_id: string;
+  text: string;
+};
+
+export type LegalAnalysisTrustedSource = {
+  source_id: string;
+  source_ref: string;
+  source_table: string;
+  source_type: string;
+  bucket: string;
+  title: string;
+  official_url: string | null;
+  url: string | null;
+  citation: string | null;
+  trust_score: number;
+  trust_reason: string;
+  use_in_generation: boolean;
+  priority_group: string | null;
+  is_winner: boolean;
+  superseded_by: string | null;
+  lower_priority_reason: string | null;
+  verification_status: string;
+  actuality_status: string;
+  appearances?: number;
+};
+
+export type LegalAnalysisConclusionProvenance = {
+  facts_used: string[];
+  documents_used: string[];
+  laws_used: string[];
+  court_practice_used: string[];
+  letters_used: string[];
+  ekaterina_used: string[];
+  manuals_used: string[];
+  trust_summary: {
+    min_trust_score: number;
+    weighted_avg: number;
+    lowest_source: string | null;
+  };
+  sufficiency: { status: "sufficient" | "partial" | "insufficient"; reason: string };
+  derivation: string;
+  confidence: number;
+  reviewed_by_challenge: boolean;
+  hallucinated_source: boolean;
+  provenance_missing: boolean;
+};
+
+export type LegalAnalysisConclusion = {
+  conclusion_id: string;
+  kind: string;
+  statement: string;
+  provenance: LegalAnalysisConclusionProvenance;
+};
+
+export type LegalAnalysisProvenanceIndex = {
+  source_to_conclusions: Record<string, string[]>;
+  fact_to_conclusions: Record<string, string[]>;
+};
+
+export type LegalAnalysisEvidenceMatrix = Array<{
+  fact_id: string;
+  fact_text: string;
+  documents: string[];
+  conclusions: string[];
+  evidence_status: "proven" | "partial" | "missing";
+  evidence_strength: number;
+}>;
+
+export type LegalAnalysisSourceSufficiency = {
+  status: "sufficient" | "partial" | "insufficient" | "insufficient_critical";
+  gaps: string[];
+  reason?: string;
+};
+
+export type LegalAnalysisChallengeResult = {
+  status: "passed" | "needs_revision" | "blocked";
+  issues: Array<{
+    kind: string;
+    description: string;
+    affected_conclusions: string[];
+    affected_sources: string[];
+  }>;
+  required_changes: string[];
+  adverse_sources: string[];
+  unresolved_risks: string[];
+  reasoning: string;
+};
+
+export type LegalAnalysisHashes = {
+  answers_hash: string;
+  documents_hash: string;
+  used_sources_hash: string;
+  redaction_hash?: string;
+  ocr_hash?: string;
+};
+
 
 export type LegalAnalysisRun = {
   id: string;
