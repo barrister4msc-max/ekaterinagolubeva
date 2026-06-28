@@ -62,8 +62,17 @@ type SessionDocument = {
   title: string | null;
   file_name: string | null;
   ocr_text_length: number;
+  ocr_text: string | null;
+  redaction_status: import("@/lib/document-redaction").RedactionStatus | null;
+  contains_personal_data: boolean;
+  contains_passport_data: boolean;
+  contains_bank_data: boolean;
+  contains_signature: boolean;
+  redaction_notes: string[];
+  redacted_text: string | null;
 };
 const [sessionDocuments, setSessionDocuments] = useState<SessionDocument[]>([]);
+const [redactionDocId, setRedactionDocId] = useState<string | null>(null);
 
 const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
