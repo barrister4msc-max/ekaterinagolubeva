@@ -159,7 +159,30 @@ export type LegalAnalysisTrustedSource = {
   verification_status: string;
   actuality_status: string;
   appearances?: number;
+  actually_used_in_generation?: boolean;
 };
+
+export type LegalAnalysisSourceWarning = {
+  source_ref: string;
+  warning_type:
+    | "superseded_source"
+    | "low_trust_source"
+    | "low_trust_source_used"
+    | "superseded_source_used"
+    | "ekaterina_not_redacted"
+    | "missing_official_url";
+  superseded_by: string | null;
+  message: string;
+  affected_conclusions?: string[];
+};
+
+export type LegalAnalysisGenerationDecision = {
+  draft: boolean;
+  final: boolean;
+  warnings: LegalAnalysisSourceWarning[];
+  reasons: string[];
+};
+
 
 export type LegalAnalysisConclusionProvenance = {
   facts_used: string[];
