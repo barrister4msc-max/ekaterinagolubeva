@@ -422,10 +422,100 @@ export function enrichSources(merged: MergedSource[]): TrustedSource[] {
       actuality_status: s.official_url
         ? "requires_actuality_check"
         : "requires_manual_verification",
+      actually_used_in_generation: false,
     };
   });
   return applyPriority(trusted);
 }
+
+// ---------- Phase B correction: mark actually-used sources ------------------
+
+export function setActuallyUsedInGeneration(
+  trusted: TrustedSource[],
+  conclusions: Conclusion[],
+): TrustedSource[] {
+  const used = new Set<string>();
+  for (const c of conclusions) {
+    for (const r of [
+      ...c.provenance.laws_used,
+      ...c.provenance.court_practice_used,
+      ...c.provenance.letters_used,
+      ...c.provenance.ekaterina_used,
+      ...c.provenance.manuals_used,
+    ])
+      used.add(r);
+  }
+  for (const s of trusted) s.actually_used_in_generation = used.has(s.source_ref);
+  return trusted;
+}
+
+// ---------- Phase B correction: source warnings (not blockers) --------------
+
+export function buildSourceWarnings(
+  trusted: TrustedSource[],
+  conclusions: Conclusion[],
+): SourceWarning[] {
+  const out: SourceWarning[] = [];
+  const refToConclusions = new Map<string, string[]>();
+  for (const c of conclusions) {
+    for (const r of [
+      ...c.provenance.laws_used,
+      ...c.provenance.court_practice_used,
+      ...c.provenance.letters_used,
+      ...c.provenance.ekaterina_used,
+      ...c.provenance.manuals_used,
+    ]) {
+      const arr = refToConclusions.get(r) ?? [];
+      if (!arr.includes(c.conclusion_id)) arr.push(c.conclusion_id);
+      refToConclusions.set(r, arr);
+    }
+  }
+  for (const s of trusted) {
+    const affected = refToConclusions.get(s.source_ref) ?? [];
+    if (s.superseded_by) {
+      out.push({
+        source_ref: s.source_ref,
+        warning_type: s.actually_used_in_generation
+          ? "superseded_source_used"
+          : "superseded_source",
+        superseded_by: s.superseded_by,
+        message: s.actually_used_in_generation
+          ? `Источник ${s.source_ref} вытеснен более авторитетным ${s.superseded_by}, но всё ещё используется в выводах.`
+          : `Источник ${s.source_ref} вытеснен более авторитетным ${s.superseded_by} (${s.lower_priority_reason ?? "приоритет"}). Не использовать в генерации.`,
+        affected_conclusions: affected,
+      });
+    } else if (!s.use_in_generation && s.bucket === "ekaterina") {
+      out.push({
+        source_ref: s.source_ref,
+        warning_type: "ekaterina_not_redacted",
+        superseded_by: null,
+        message: s.trust_reason,
+        affected_conclusions: affected,
+      });
+    } else if (!s.use_in_generation) {
+      out.push({
+        source_ref: s.source_ref,
+        warning_type: s.actually_used_in_generation
+          ? "low_trust_source_used"
+          : "low_trust_source",
+        superseded_by: null,
+        message: `Источник ${s.source_ref} помечен use_in_generation=false (${s.trust_reason}).`,
+        affected_conclusions: affected,
+      });
+    }
+    if (!s.official_url) {
+      out.push({
+        source_ref: s.source_ref,
+        warning_type: "missing_official_url",
+        superseded_by: null,
+        message: `У источника ${s.source_ref} нет official_url — требуется ручная проверка ссылки.`,
+        affected_conclusions: affected,
+      });
+    }
+  }
+  return out;
+}
+
 
 // ---------- Provenance assembly --------------------------------------------
 
