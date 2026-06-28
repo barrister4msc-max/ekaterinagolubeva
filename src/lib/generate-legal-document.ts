@@ -290,31 +290,56 @@ export async function prepareAndGenerate(
   // 4. Invoke generator (existing edge function, unmodified).
   const result = await invokeGenerateLegalDocument(payload);
 
+  // Edge function may return the id under different keys depending on version.
+  const generatedDocumentId =
+    (result as any)?.generated_document_id ||
+    (result as any)?.document_id ||
+    (result as any)?.document?.id ||
+    (result as any)?.id ||
+    null;
+
   console.log("[GEN RESULT]", {
-    generated_document_id: result.generated_document_id,
+    generatedDocumentId,
+    rawKeys: result ? Object.keys(result as any) : null,
     result,
   });
 
+  if (!generatedDocumentId) {
+    throw new Error(
+      "prepareAndGenerate: invokeGenerateLegalDocument did not return a document id",
+    );
+  }
+
   console.log("[BEFORE PROVENANCE]", {
-    generatedDocumentId: result.generated_document_id,
+    generatedDocumentId,
     hasSnapshot: !!snapshot,
     runId,
     snapshotKeys: snapshot ? Object.keys(snapshot) : null,
   });
 
   // 5. Write provenance into generated_legal_documents.metadata.
-  await writeGenerationProvenance({
-    generatedDocumentId: result.generated_document_id,
-    snapshot,
-    runId,
-    payload,
-  }).catch((e) => {
-    // Non-fatal: provenance writeback failure must not break generation UX.
-    console.warn("[prepareAndGenerate] provenance writeback failed:", (e as Error).message);
-  });
+  // No longer swallow errors — provenance is a hard requirement of Phase B.
+  try {
+    await writeGenerationProvenance({
+      generatedDocumentId,
+      snapshot,
+      runId,
+      payload,
+    });
+  } catch (e) {
+    console.error("[PROVENANCE ERROR]", {
+      generatedDocumentId,
+      message: (e as Error).message,
+      error: e,
+    });
+    throw new Error(
+      `writeGenerationProvenance failed for ${generatedDocumentId}: ${(e as Error).message}`,
+    );
+  }
 
   return {
     ...result,
+    generated_document_id: generatedDocumentId,
     matter_snapshot: snapshot,
     legal_analysis_run_id: runId,
   };
