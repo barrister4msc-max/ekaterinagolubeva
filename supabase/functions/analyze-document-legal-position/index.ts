@@ -351,6 +351,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Phase B correction: mark actually-used sources BEFORE challenge,
+    // so blocking decisions reference the correct flag.
+    setActuallyUsedInGeneration(trusted, provBuild.conclusions);
+
     // Layer 8: AI CHALLENGE / critical review pass (second LLM, cheap flash).
     const challengeResult = await runChallenge({
       parsed,
@@ -358,6 +362,18 @@ Deno.serve(async (req) => {
       conclusions: provBuild.conclusions,
     });
     for (const c of provBuild.conclusions) c.provenance.reviewed_by_challenge = true;
+
+    // Phase B correction: warnings + external_search + draft/final decision.
+    const sourceWarnings = buildSourceWarnings(trusted, provBuild.conclusions);
+    const externalSearch = evaluateExternalSearch({ sufficiency, trusted });
+    const generationAllowed = decideGeneration({
+      sufficiency,
+      challenge: challengeResult,
+      warnings: sourceWarnings,
+      conclusions: provBuild.conclusions,
+      trusted,
+    });
+
 
     // Layer 9: Evidence Matrix.
     const evidenceMatrix = buildEvidenceMatrix({
