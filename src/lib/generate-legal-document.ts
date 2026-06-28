@@ -353,10 +353,41 @@ async function writeGenerationProvenance(input: {
     evidence_matrix_present: Boolean(snapshot?.evidence_matrix?.length),
   };
 
-  await supabase
-    .from("generated_legal_documents")
-    .update({ metadata: { ...existing, ...provenance } as any })
-    .eq("id", generatedDocumentId);
+  console.log("[PROVENANCE PAYLOAD]", {
+    generatedDocumentId,
+    runId,
+    analysisVersion: snapshot?.analysis_version,
+    hasMatterSnapshot: !!snapshot,
+    provenance,
+  });
 
+  const { data, error } = await supabase
+    .from("generated_legal_documents")
+    .update({
+      metadata: {
+        ...existing,
+        ...provenance,
+      } as any,
+    })
+    .eq("id", generatedDocumentId)
+    .select("id, metadata");
+
+  console.log("[PROVENANCE UPDATE RESULT]", { data, error });
+
+  if (error) {
+    throw error;
+  }
+  if (!data || data.length === 0) {
+    throw new Error(
+      `writeGenerationProvenance: no generated_legal_documents row updated for id=${generatedDocumentId}`,
+    );
+  }
+
+  const { data: verify, error: verifyError } = await supabase
+    .from("generated_legal_documents")
+    .select("id, metadata")
+    .eq("id", generatedDocumentId)
+    .single();
+  console.log("[PROVENANCE VERIFY]", { verify, verifyError });
 }
 
