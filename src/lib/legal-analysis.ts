@@ -120,6 +120,11 @@ export type LegalAnalysisResult = {
   evidence_matrix?: LegalAnalysisEvidenceMatrix;
   source_sufficiency?: LegalAnalysisSourceSufficiency;
   challenge_result?: LegalAnalysisChallengeResult;
+  // ---- Phase B corrections ----
+  source_warnings?: LegalAnalysisSourceWarning[];
+  external_search_required?: boolean;
+  external_search_reason?: string | null;
+  generation_allowed?: LegalAnalysisGenerationDecision;
   hashes?: LegalAnalysisHashes;
   analysis_version?: number;
   analysis_reason?: string;
@@ -127,6 +132,7 @@ export type LegalAnalysisResult = {
   previous_analysis_run_id?: string | null;
   redaction_used?: boolean;
 };
+
 
 export type LegalAnalysisFactRecord = {
   fact_id: string;
