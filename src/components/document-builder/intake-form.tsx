@@ -175,7 +175,7 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     }
     const { data, error } = await supabase
       .from("documents")
-      .select("id, title, file_name, ocr_text")
+      .select("id, title, file_name, ocr_text, metadata")
       .filter("metadata->>intake_session_id", "eq", sid)
       .order("created_at", { ascending: true });
     if (error) {
@@ -183,12 +183,29 @@ const [isAiFilling, setIsAiFilling] = useState(false);
       return;
     }
     setSessionDocuments(
-      (data ?? []).map((d: any) => ({
-        id: d.id,
-        title: d.title,
-        file_name: d.file_name,
-        ocr_text_length: typeof d.ocr_text === "string" ? d.ocr_text.length : 0,
-      })),
+      (data ?? []).map((d: any) => {
+        const meta = (d.metadata ?? {}) as Record<string, unknown>;
+        const notes = Array.isArray(meta.redaction_notes)
+          ? (meta.redaction_notes as string[])
+          : [];
+        return {
+          id: d.id,
+          title: d.title,
+          file_name: d.file_name,
+          ocr_text: typeof d.ocr_text === "string" ? (d.ocr_text as string) : null,
+          ocr_text_length: typeof d.ocr_text === "string" ? d.ocr_text.length : 0,
+          redaction_status:
+            (meta.redaction_status as import("@/lib/document-redaction").RedactionStatus | null) ??
+            null,
+          contains_personal_data: Boolean(meta.contains_personal_data),
+          contains_passport_data: Boolean(meta.contains_passport_data),
+          contains_bank_data: Boolean(meta.contains_bank_data),
+          contains_signature: Boolean(meta.contains_signature),
+          redaction_notes: notes,
+          redacted_text:
+            typeof meta.redacted_text === "string" ? (meta.redacted_text as string) : null,
+        };
+      }),
     );
   }, []);
 
