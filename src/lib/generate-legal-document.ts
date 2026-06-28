@@ -343,7 +343,8 @@ async function writeGenerationProvenance(input: {
 
   await supabase
     .from("generated_legal_documents")
-    .update({ metadata: { ...existing, ...provenance } })
+    .update({ metadata: { ...existing, ...provenance } as any })
     .eq("id", generatedDocumentId);
+
 }
 
