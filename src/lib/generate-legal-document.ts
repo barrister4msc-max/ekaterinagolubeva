@@ -290,6 +290,18 @@ export async function prepareAndGenerate(
   // 4. Invoke generator (existing edge function, unmodified).
   const result = await invokeGenerateLegalDocument(payload);
 
+  console.log("[GEN RESULT]", {
+    generated_document_id: result.generated_document_id,
+    result,
+  });
+
+  console.log("[BEFORE PROVENANCE]", {
+    generatedDocumentId: result.generated_document_id,
+    hasSnapshot: !!snapshot,
+    runId,
+    snapshotKeys: snapshot ? Object.keys(snapshot) : null,
+  });
+
   // 5. Write provenance into generated_legal_documents.metadata.
   await writeGenerationProvenance({
     generatedDocumentId: result.generated_document_id,
@@ -341,10 +353,41 @@ async function writeGenerationProvenance(input: {
     evidence_matrix_present: Boolean(snapshot?.evidence_matrix?.length),
   };
 
-  await supabase
-    .from("generated_legal_documents")
-    .update({ metadata: { ...existing, ...provenance } as any })
-    .eq("id", generatedDocumentId);
+  console.log("[PROVENANCE PAYLOAD]", {
+    generatedDocumentId,
+    runId,
+    analysisVersion: snapshot?.analysis_version,
+    hasMatterSnapshot: !!snapshot,
+    provenance,
+  });
 
+  const { data, error } = await supabase
+    .from("generated_legal_documents")
+    .update({
+      metadata: {
+        ...existing,
+        ...provenance,
+      } as any,
+    })
+    .eq("id", generatedDocumentId)
+    .select("id, metadata");
+
+  console.log("[PROVENANCE UPDATE RESULT]", { data, error });
+
+  if (error) {
+    throw error;
+  }
+  if (!data || data.length === 0) {
+    throw new Error(
+      `writeGenerationProvenance: no generated_legal_documents row updated for id=${generatedDocumentId}`,
+    );
+  }
+
+  const { data: verify, error: verifyError } = await supabase
+    .from("generated_legal_documents")
+    .select("id, metadata")
+    .eq("id", generatedDocumentId)
+    .single();
+  console.log("[PROVENANCE VERIFY]", { verify, verifyError });
 }
 
