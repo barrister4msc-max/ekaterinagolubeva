@@ -206,6 +206,8 @@ export type PrepareAndGenerateOptions = {
   redactionRequired?: boolean;
   /** Caller-provided knowledge: OCR completion state. */
   ocrReady?: boolean;
+  /** Phase B correction — draft (default) is lenient, final is strict. */
+  purpose?: "draft" | "final";
 };
 
 export type PrepareAndGenerateResult = GeneratedDocumentResult & {
@@ -266,11 +268,13 @@ export async function prepareAndGenerate(
       analysis,
     } as any) : null,
     snapshot,
+    purpose: opts.purpose ?? "draft",
     wasStale: false, // ensureMatterAnalysis already returned a fresh run; staleness was self-healed
     staleReasons,
     redactionRequired: opts.redactionRequired,
     ocrReady: opts.ocrReady,
   });
+
 
   // 3. Build payload (matter_snapshot included).
   const payload: GenerateLegalDocumentRequest & {
