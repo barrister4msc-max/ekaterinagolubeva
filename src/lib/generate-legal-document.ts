@@ -352,14 +352,29 @@ async function writeGenerationProvenance(input: {
   payload: GenerateLegalDocumentRequest;
 }): Promise<void> {
   const { generatedDocumentId, snapshot, runId, payload } = input;
-  if (!generatedDocumentId) return;
+  if (!generatedDocumentId) {
+    throw new Error("writeGenerationProvenance: missing generatedDocumentId");
+  }
+  if (!snapshot) {
+    throw new Error("writeGenerationProvenance: matter snapshot missing");
+  }
 
   // Read existing metadata to merge.
-  const { data: row } = await supabase
+  const { data: row, error: readError } = await supabase
     .from("generated_legal_documents")
     .select("metadata")
     .eq("id", generatedDocumentId)
     .maybeSingle();
+  if (readError) {
+    throw new Error(
+      `writeGenerationProvenance: read failed for id=${generatedDocumentId}: ${readError.message}`,
+    );
+  }
+  if (!row) {
+    throw new Error(
+      `writeGenerationProvenance: no generated_legal_documents row found for id=${generatedDocumentId}`,
+    );
+  }
   const existing = ((row?.metadata as Record<string, unknown> | null) ?? {}) as Record<string, unknown>;
 
   const provenance: Record<string, unknown> = {
@@ -404,15 +419,40 @@ async function writeGenerationProvenance(input: {
   }
   if (!data || data.length === 0) {
     throw new Error(
-      `writeGenerationProvenance: no generated_legal_documents row updated for id=${generatedDocumentId}`,
+      `writeGenerationProvenance: no generated_legal_documents row updated for id=${generatedDocumentId} (likely RLS denied UPDATE)`,
     );
   }
 
+  // Verify metadata actually contains the Phase B keys.
   const { data: verify, error: verifyError } = await supabase
     .from("generated_legal_documents")
     .select("id, metadata")
     .eq("id", generatedDocumentId)
     .single();
   console.log("[PROVENANCE VERIFY]", { verify, verifyError });
+
+  if (verifyError) {
+    throw new Error(
+      `writeGenerationProvenance: verify read failed for id=${generatedDocumentId}: ${verifyError.message}`,
+    );
+  }
+  const md = (verify?.metadata ?? {}) as Record<string, unknown>;
+  const requiredKeys = [
+    "generated_from_legal_analysis",
+    "legal_analysis_run_id",
+    "analysis_version",
+    "matter_snapshot",
+    "source_sufficiency_status",
+    "challenge_status",
+    "provenance_index_present",
+    "evidence_matrix_present",
+    "redaction_used",
+  ];
+  const missing = requiredKeys.filter((k) => !(k in md));
+  if (missing.length > 0) {
+    throw new Error(
+      `writeGenerationProvenance: metadata missing keys after update for id=${generatedDocumentId}: ${missing.join(", ")}`,
+    );
+  }
 }
 
