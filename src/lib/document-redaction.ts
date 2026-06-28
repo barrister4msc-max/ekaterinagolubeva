@@ -155,7 +155,7 @@ async function patchMetadata(
   if (typeof ocrPatch === "string") update.ocr_text = ocrPatch;
   const { error } = await supabase
     .from("documents")
-    .update(update)
+    .update(update as any)
     .eq("id", documentId);
   if (error) throw error;
 }
