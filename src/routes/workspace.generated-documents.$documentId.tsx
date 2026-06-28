@@ -68,6 +68,10 @@ import {
 } from "@/components/document-workspace/evidence-matrix";
 import { EvidenceGraphTab } from "@/components/document-workspace/evidence-graph";
 import {
+  ProvenanceExplorer,
+  type ProvenanceSnapshotInput,
+} from "@/components/document-workspace/provenance-explorer";
+import {
   CoverageReportTab,
   GroundingScoreCompact,
 } from "@/components/document-workspace/coverage-report";
@@ -1634,6 +1638,24 @@ function DocumentDetailPage() {
   const language = meta?.language ?? null;
   const jurisdiction = meta?.jurisdiction ?? null;
 
+  // Provenance Explorer reads Matter Snapshot persisted by generate-legal-document-v2
+  // into generated_legal_documents.metadata.matter_snapshot (Phase B).
+  const matterSnapshot = (meta?.matter_snapshot ?? null) as Record<string, any> | null;
+  const provenanceSnapshot: ProvenanceSnapshotInput | null = matterSnapshot
+    ? {
+        legal_analysis_run_id:
+          matterSnapshot.legal_analysis_run_id ?? legalAnalysisRunId ?? null,
+        conclusions: matterSnapshot.conclusions ?? null,
+        provenance_index: matterSnapshot.provenance_index ?? null,
+        evidence_matrix: matterSnapshot.evidence_matrix ?? null,
+        trusted_sources: matterSnapshot.trusted_sources ?? null,
+        documents: matterSnapshot.documents ?? null,
+        facts_index: matterSnapshot.facts_index ?? null,
+        source_warnings: matterSnapshot.source_warnings ?? null,
+      }
+    : null;
+
+
   // Load legal_analysis run (ai_result)
   const { data: analysisRun } = useQuery({
     queryKey: ["legal-analysis-run", legalAnalysisRunId],
@@ -2629,6 +2651,8 @@ function DocumentDetailPage() {
 
       {tab === "reasoning" && (
         <div className="space-y-3">
+          <ProvenanceExplorer snapshot={provenanceSnapshot} />
+
           {argumentsList.length > 1 && (
             <div className={`${PANEL} flex items-center justify-between gap-2 p-2`}>
               <button
@@ -2747,31 +2771,38 @@ function DocumentDetailPage() {
       )}
 
       {tab === "evidence" && (
-        <EvidenceMatrixTab
-          analysis={analysis}
-          review={review}
-          attachments={attachments}
-          jumpFilter={matrixJumpFilter}
-          onClearJumpFilter={() => setMatrixJumpFilter(null)}
-        />
+        <div className="space-y-3">
+          <ProvenanceExplorer snapshot={provenanceSnapshot} />
+          <EvidenceMatrixTab
+            analysis={analysis}
+            review={review}
+            attachments={attachments}
+            jumpFilter={matrixJumpFilter}
+            onClearJumpFilter={() => setMatrixJumpFilter(null)}
+          />
+        </div>
       )}
 
       {tab === "sources" && (
-        <section className={`${PANEL} p-5 space-y-3`}>
-          <div>
-            <h2 className="font-display text-lg text-white">Источники</h2>
-            <p className="mt-1 text-xs text-slate-300">
-              Точная локализация: статья, пункт, абзац, страница, цитата. Кнопка «Перейти» открывает место в документе.
-            </p>
-          </div>
-          {sources.length === 0 && <p className="text-sm text-slate-300">Источники не указаны.</p>}
-          <div className="space-y-2">
-            {sources.map((s: any, i: number) => (
-              <SourceCitation key={i} source={s} setTab={setTab} />
-            ))}
-          </div>
-        </section>
+        <div className="space-y-3">
+          <ProvenanceExplorer snapshot={provenanceSnapshot} />
+          <section className={`${PANEL} p-5 space-y-3`}>
+            <div>
+              <h2 className="font-display text-lg text-white">Источники</h2>
+              <p className="mt-1 text-xs text-slate-300">
+                Точная локализация: статья, пункт, абзац, страница, цитата. Кнопка «Перейти» открывает место в документе.
+              </p>
+            </div>
+            {sources.length === 0 && <p className="text-sm text-slate-300">Источники не указаны.</p>}
+            <div className="space-y-2">
+              {sources.map((s: any, i: number) => (
+                <SourceCitation key={i} source={s} setTab={setTab} />
+              ))}
+            </div>
+          </section>
+        </div>
       )}
+
 
       {tab === "review" && (
         <section className={`${PANEL} p-5 space-y-4`}>
