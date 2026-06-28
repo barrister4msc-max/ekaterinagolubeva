@@ -25,6 +25,7 @@ import {
 } from "@/lib/document-intake-storage";
 import { supabase } from "@/integrations/supabase/client";
 import { LegalAnalysisPanel } from "@/components/document-builder/legal-analysis-panel";
+import { SourceReviewCenter } from "@/components/document-builder/source-review-center";
 import {
   runGenerationPreflight,
   type PreflightCheck,
