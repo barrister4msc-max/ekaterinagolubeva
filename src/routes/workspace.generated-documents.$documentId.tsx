@@ -1638,6 +1638,24 @@ function DocumentDetailPage() {
   const language = meta?.language ?? null;
   const jurisdiction = meta?.jurisdiction ?? null;
 
+  // Provenance Explorer reads Matter Snapshot persisted by generate-legal-document-v2
+  // into generated_legal_documents.metadata.matter_snapshot (Phase B).
+  const matterSnapshot = (meta?.matter_snapshot ?? null) as Record<string, any> | null;
+  const provenanceSnapshot: ProvenanceSnapshotInput | null = matterSnapshot
+    ? {
+        legal_analysis_run_id:
+          matterSnapshot.legal_analysis_run_id ?? legalAnalysisRunId ?? null,
+        conclusions: matterSnapshot.conclusions ?? null,
+        provenance_index: matterSnapshot.provenance_index ?? null,
+        evidence_matrix: matterSnapshot.evidence_matrix ?? null,
+        trusted_sources: matterSnapshot.trusted_sources ?? null,
+        documents: matterSnapshot.documents ?? null,
+        facts_index: matterSnapshot.facts_index ?? null,
+        source_warnings: matterSnapshot.source_warnings ?? null,
+      }
+    : null;
+
+
   // Load legal_analysis run (ai_result)
   const { data: analysisRun } = useQuery({
     queryKey: ["legal-analysis-run", legalAnalysisRunId],
