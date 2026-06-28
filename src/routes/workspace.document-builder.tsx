@@ -233,24 +233,22 @@ function DocumentBuilderPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const latestAnalysis = sessionId
-        ? await (await import("@/lib/legal-analysis")).fetchLatestLegalAnalysis(sessionId).catch(() => null)
-        : null;
-      const payload = {
-  ...buildGenerateRequest(selected, safeState, intakeSchemaQuery.data, {
-    intakeSessionId: sessionId ?? null,
-    legalAnalysis: latestAnalysis?.analysis ?? null,
-    legalAnalysisRunId: latestAnalysis?.id ?? null,
-  }),
-  session_id: sessionId,
-  intake_session_id: sessionId,
-};
-      const result = await invokeGenerateLegalDocument(payload);
-
+      const { prepareAndGenerate, MatterGateError } = await import("@/lib/generate-legal-document");
+      const result = await prepareAndGenerate({
+        template: selected,
+        state: safeState,
+        schema: intakeSchemaQuery.data,
+        sessionId: sessionId ?? null,
+      });
       setGenerated(result);
       setSubmitted(true);
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
+      const { MatterGateError } = await import("@/lib/quality-gate");
+      if (e instanceof MatterGateError) {
+        setSubmitError(`${e.message}${e.reasons.length ? ` (${e.reasons.join("; ")})` : ""}`);
+      } else {
+        setSubmitError(e instanceof Error ? e.message : String(e));
+      }
     } finally {
       setSubmitting(false);
     }
