@@ -68,6 +68,10 @@ import {
 } from "@/components/document-workspace/evidence-matrix";
 import { EvidenceGraphTab } from "@/components/document-workspace/evidence-graph";
 import {
+  ProvenanceExplorer,
+  type ProvenanceSnapshotInput,
+} from "@/components/document-workspace/provenance-explorer";
+import {
   CoverageReportTab,
   GroundingScoreCompact,
 } from "@/components/document-workspace/coverage-report";
