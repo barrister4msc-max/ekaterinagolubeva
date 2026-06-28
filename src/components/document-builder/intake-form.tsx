@@ -1091,6 +1091,10 @@ function ReviewStep({
         onRefresh={onRefreshPreflight}
       />
 
+      <SourceReviewCenter sessionId={sessionId} />
+
+
+
 
       <div className="db-subcard">
         <div className="db-section-label">Предпросмотр подготовки документа</div>
