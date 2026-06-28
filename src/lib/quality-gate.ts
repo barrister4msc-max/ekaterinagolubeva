@@ -53,16 +53,103 @@ export type GateInput = {
   ocrReady?: boolean;
 };
 
-const CRITICAL_CHALLENGE_KINDS = new Set([
+// Issues that always block draft (truly critical).
+const DRAFT_BLOCKING_CHALLENGE_KINDS = new Set([
   "hallucinated_source",
   "missing_applicable_norm",
-  "outdated_law_without_replacement",
   "critical_missing_evidence",
   "critical_legal_contradiction",
-  // these are emitted only when actually_used_in_generation=true:
+  "outdated_law_without_replacement",
+]);
+
+// Additional issues that only block final, not draft.
+const FINAL_ONLY_BLOCKING_CHALLENGE_KINDS = new Set([
   "low_trust_source_used",
   "newer_norm_revision",
 ]);
+
+// Soft warning types — never block draft on their own.
+const SOFT_WARNING_TYPES = new Set([
+  "superseded_source",
+  "low_trust_source",
+  "missing_official_url",
+  "ekaterina_not_redacted",
+]);
+
+function hasActuallyUsedLowTrustSource(snapshot: MatterSnapshot): boolean {
+  return (snapshot.trusted_sources ?? []).some(
+    (s) => s.actually_used_in_generation === true && s.use_in_generation === false,
+  );
+}
+
+function computeDraftBlockers(snapshot: MatterSnapshot): { code: GateErrorCode; reasons: string[] } | null {
+  const issues = snapshot.challenge_result?.issues ?? [];
+
+  // 1. Hallucinated source — always blocks.
+  if (issues.some((i) => i.kind === "hallucinated_source")) {
+    return { code: "HALLUCINATED_SOURCE", reasons: ["hallucinated_source"] };
+  }
+  // Also check conclusions provenance.
+  if ((snapshot.conclusions ?? []).some((c) => c.provenance?.hallucinated_source)) {
+    return { code: "HALLUCINATED_SOURCE", reasons: ["hallucinated_source"] };
+  }
+
+  // 2. Missing applicable norm / critical evidence / contradictions.
+  const criticalIssue = issues.find((i) => DRAFT_BLOCKING_CHALLENGE_KINDS.has(i.kind));
+  if (criticalIssue) {
+    return {
+      code: "CHALLENGE_CRITICAL",
+      reasons: issues.filter((i) => DRAFT_BLOCKING_CHALLENGE_KINDS.has(i.kind)).map((i) => i.kind),
+    };
+  }
+
+  // 3. Source actually used in generation despite use_in_generation=false.
+  if (hasActuallyUsedLowTrustSource(snapshot)) {
+    return {
+      code: "LOW_TRUST_OR_SUPERSEDED_USED",
+      reasons: ["low_trust_or_superseded_used_in_generation"],
+    };
+  }
+
+  // 4. Source sufficiency only blocks draft when explicitly insufficient_critical.
+  if (snapshot.source_sufficiency?.status === "insufficient_critical") {
+    return {
+      code: "SOURCE_SUFFICIENCY_INSUFFICIENT",
+      reasons: ["source_sufficiency_insufficient_critical"],
+    };
+  }
+
+  return null;
+}
+
+function computeFinalExtraBlockers(snapshot: MatterSnapshot): { code: GateErrorCode; reasons: string[] } | null {
+  // Final additionally requires "sufficient" sources and no remaining warnings on used sources.
+  const status = snapshot.source_sufficiency?.status;
+  if (status && status !== "sufficient") {
+    return { code: "SOURCE_SUFFICIENCY_INSUFFICIENT", reasons: [`source_sufficiency_${status}`] };
+  }
+  const issues = snapshot.challenge_result?.issues ?? [];
+  const finalIssue = issues.find((i) => FINAL_ONLY_BLOCKING_CHALLENGE_KINDS.has(i.kind));
+  if (finalIssue) {
+    return {
+      code: "CHALLENGE_CRITICAL",
+      reasons: issues
+        .filter((i) => FINAL_ONLY_BLOCKING_CHALLENGE_KINDS.has(i.kind))
+        .map((i) => i.kind),
+    };
+  }
+  // Any warning that explicitly affects conclusions blocks final.
+  const warningsOnUsed = (snapshot.source_warnings ?? []).filter(
+    (w) => Array.isArray(w.affected_conclusions) && w.affected_conclusions.length > 0,
+  );
+  if (warningsOnUsed.length > 0) {
+    return {
+      code: "LOW_TRUST_OR_SUPERSEDED_USED",
+      reasons: warningsOnUsed.map((w) => `${w.warning_type}:${w.source_ref}`),
+    };
+  }
+  return null;
+}
 
 export function assertMatterGate(input: GateInput): void {
   const { template, run, snapshot } = input;
@@ -95,59 +182,48 @@ export function assertMatterGate(input: GateInput): void {
     );
   }
 
+  // Authoritative decision: trust generation_allowed when it exists,
+  // BUT independently re-derive blockers from the snapshot so that soft
+  // warnings (superseded_source, missing_official_url, ekaterina_not_redacted,
+  // low-trust sources NOT actually used) never block a draft.
   const decision = snapshot.generation_allowed;
-  const allowed = purpose === "final" ? decision.draft && decision.final : decision.draft;
-  if (allowed) return;
+  const draftBlock = computeDraftBlockers(snapshot);
 
-  // Translate decision reasons into the most specific error code we can.
-  const reasons = decision.reasons;
-  const issues = snapshot.challenge_result?.issues ?? [];
-  const hallucinated = reasons.includes("hallucinated_source");
-  const provMissing = reasons.includes("provenance_missing");
-  const insufficient = reasons.includes("source_sufficiency_insufficient_critical");
-  const lowTrustUsed = reasons.includes("low_trust_or_superseded_used_in_generation");
-  const criticalChallenge = issues.some((i) => CRITICAL_CHALLENGE_KINDS.has(i.kind));
+  if (purpose === "draft") {
+    if (!draftBlock) return; // pass — soft warnings are tolerated for draft
+    throw new MatterGateError(
+      draftBlock.code,
+      draftBlock.code === "HALLUCINATED_SOURCE"
+        ? "Обнаружены ссылки на источники вне реестра — генерация заблокирована."
+        : draftBlock.code === "LOW_TRUST_OR_SUPERSEDED_USED"
+        ? "В генерации фактически использован источник с use_in_generation=false."
+        : draftBlock.code === "SOURCE_SUFFICIENCY_INSUFFICIENT"
+        ? "Недостаточно источников для обоснования позиции (критический уровень)."
+        : "AI Challenge нашёл критические нарушения правовой позиции.",
+      draftBlock.reasons,
+    );
+  }
 
-  if (hallucinated) {
+  // purpose === "final"
+  if (draftBlock) {
+    throw new MatterGateError(draftBlock.code, "Финальная генерация заблокирована.", draftBlock.reasons);
+  }
+  // Respect generation_allowed.final when explicitly provided.
+  if (decision && decision.final === false && decision.draft === true) {
+    const finalExtra = computeFinalExtraBlockers(snapshot);
+    if (finalExtra) {
+      throw new MatterGateError(finalExtra.code, "Финальная генерация заблокирована.", finalExtra.reasons);
+    }
     throw new MatterGateError(
-      "HALLUCINATED_SOURCE",
-      "Обнаружены ссылки на источники вне реестра — генерация заблокирована.",
-      reasons,
+      "GENERATION_NOT_ALLOWED",
+      "Финальная генерация запрещена текущим решением Matter Snapshot.",
+      decision.reasons ?? [],
     );
   }
-  if (provMissing) {
-    throw new MatterGateError(
-      "PROVENANCE_MISSING",
-      "Часть выводов не имеет указания источников (provenance).",
-      reasons,
-    );
+  const finalExtra = computeFinalExtraBlockers(snapshot);
+  if (finalExtra) {
+    throw new MatterGateError(finalExtra.code, "Финальная генерация заблокирована.", finalExtra.reasons);
   }
-  if (insufficient) {
-    throw new MatterGateError(
-      "SOURCE_SUFFICIENCY_INSUFFICIENT",
-      "Недостаточно источников для обоснования позиции.",
-      reasons,
-    );
-  }
-  if (lowTrustUsed) {
-    throw new MatterGateError(
-      "LOW_TRUST_OR_SUPERSEDED_USED",
-      "В генерации участвуют источники с use_in_generation=false или вытесненные более авторитетными.",
-      reasons,
-    );
-  }
-  if (criticalChallenge) {
-    throw new MatterGateError(
-      "CHALLENGE_CRITICAL",
-      "AI Challenge нашёл критические нарушения правовой позиции.",
-      issues.filter((i) => CRITICAL_CHALLENGE_KINDS.has(i.kind)).map((i) => i.description),
-    );
-  }
-  throw new MatterGateError(
-    "GENERATION_NOT_ALLOWED",
-    purpose === "final"
-      ? "Финальная генерация запрещена текущим решением Matter Snapshot."
-      : "Генерация черновика запрещена текущим решением Matter Snapshot.",
-    reasons,
-  );
+  // Reference SOFT_WARNING_TYPES to keep it exported in type-only builds.
+  void SOFT_WARNING_TYPES;
 }

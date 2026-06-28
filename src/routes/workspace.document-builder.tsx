@@ -239,6 +239,7 @@ function DocumentBuilderPage() {
         state: safeState,
         schema: intakeSchemaQuery.data,
         sessionId: sessionId ?? null,
+        purpose: "draft",
       });
       setGenerated(result);
       setSubmitted(true);
