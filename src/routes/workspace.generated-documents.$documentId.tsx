@@ -72,6 +72,7 @@ import {
   type ProvenanceSnapshotInput,
 } from "@/components/document-workspace/provenance-explorer";
 import { QualityReviewCenter } from "@/components/document-workspace/quality-review-center";
+import { LawyerReviewCenter } from "@/components/document-workspace/lawyer-review-center";
 import {
   CoverageReportTab,
   GroundingScoreCompact,
