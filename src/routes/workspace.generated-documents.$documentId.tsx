@@ -139,6 +139,7 @@ const TABS = [
   { id: "sources", label: "Источники" },
   { id: "review", label: "AI Review" },
   { id: "quality", label: "Контроль качества" },
+  { id: "lawyer", label: "Проверка юристом" },
   { id: "chain", label: "История AI" },
   { id: "history", label: "История" },
   { id: "export", label: "Экспорт" },
