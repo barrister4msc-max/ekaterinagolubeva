@@ -38,7 +38,31 @@ export type TrustedSource = {
   // actuality (kept compatible with previous shape)
   verification_status: string;
   actuality_status: string;
+  // Phase B correction: was this source actually used in any conclusion?
+  actually_used_in_generation: boolean;
 };
+
+export type SourceWarning = {
+  source_ref: string;
+  warning_type:
+    | "superseded_source"
+    | "low_trust_source"
+    | "low_trust_source_used"
+    | "superseded_source_used"
+    | "ekaterina_not_redacted"
+    | "missing_official_url";
+  superseded_by: string | null;
+  message: string;
+  affected_conclusions?: string[];
+};
+
+export type GenerationDecision = {
+  draft: boolean;
+  final: boolean;
+  warnings: SourceWarning[];
+  reasons: string[];
+};
+
 
 export type Conclusion = {
   conclusion_id: string;
@@ -398,10 +422,100 @@ export function enrichSources(merged: MergedSource[]): TrustedSource[] {
       actuality_status: s.official_url
         ? "requires_actuality_check"
         : "requires_manual_verification",
+      actually_used_in_generation: false,
     };
   });
   return applyPriority(trusted);
 }
+
+// ---------- Phase B correction: mark actually-used sources ------------------
+
+export function setActuallyUsedInGeneration(
+  trusted: TrustedSource[],
+  conclusions: Conclusion[],
+): TrustedSource[] {
+  const used = new Set<string>();
+  for (const c of conclusions) {
+    for (const r of [
+      ...c.provenance.laws_used,
+      ...c.provenance.court_practice_used,
+      ...c.provenance.letters_used,
+      ...c.provenance.ekaterina_used,
+      ...c.provenance.manuals_used,
+    ])
+      used.add(r);
+  }
+  for (const s of trusted) s.actually_used_in_generation = used.has(s.source_ref);
+  return trusted;
+}
+
+// ---------- Phase B correction: source warnings (not blockers) --------------
+
+export function buildSourceWarnings(
+  trusted: TrustedSource[],
+  conclusions: Conclusion[],
+): SourceWarning[] {
+  const out: SourceWarning[] = [];
+  const refToConclusions = new Map<string, string[]>();
+  for (const c of conclusions) {
+    for (const r of [
+      ...c.provenance.laws_used,
+      ...c.provenance.court_practice_used,
+      ...c.provenance.letters_used,
+      ...c.provenance.ekaterina_used,
+      ...c.provenance.manuals_used,
+    ]) {
+      const arr = refToConclusions.get(r) ?? [];
+      if (!arr.includes(c.conclusion_id)) arr.push(c.conclusion_id);
+      refToConclusions.set(r, arr);
+    }
+  }
+  for (const s of trusted) {
+    const affected = refToConclusions.get(s.source_ref) ?? [];
+    if (s.superseded_by) {
+      out.push({
+        source_ref: s.source_ref,
+        warning_type: s.actually_used_in_generation
+          ? "superseded_source_used"
+          : "superseded_source",
+        superseded_by: s.superseded_by,
+        message: s.actually_used_in_generation
+          ? `Источник ${s.source_ref} вытеснен более авторитетным ${s.superseded_by}, но всё ещё используется в выводах.`
+          : `Источник ${s.source_ref} вытеснен более авторитетным ${s.superseded_by} (${s.lower_priority_reason ?? "приоритет"}). Не использовать в генерации.`,
+        affected_conclusions: affected,
+      });
+    } else if (!s.use_in_generation && s.bucket === "ekaterina") {
+      out.push({
+        source_ref: s.source_ref,
+        warning_type: "ekaterina_not_redacted",
+        superseded_by: null,
+        message: s.trust_reason,
+        affected_conclusions: affected,
+      });
+    } else if (!s.use_in_generation) {
+      out.push({
+        source_ref: s.source_ref,
+        warning_type: s.actually_used_in_generation
+          ? "low_trust_source_used"
+          : "low_trust_source",
+        superseded_by: null,
+        message: `Источник ${s.source_ref} помечен use_in_generation=false (${s.trust_reason}).`,
+        affected_conclusions: affected,
+      });
+    }
+    if (!s.official_url) {
+      out.push({
+        source_ref: s.source_ref,
+        warning_type: "missing_official_url",
+        superseded_by: null,
+        message: `У источника ${s.source_ref} нет official_url — требуется ручная проверка ссылки.`,
+        affected_conclusions: affected,
+      });
+    }
+  }
+  return out;
+}
+
 
 // ---------- Provenance assembly --------------------------------------------
 
@@ -848,3 +962,100 @@ export function evaluateSufficiency(opts: {
 
   return { status, gaps, rationale };
 }
+
+// ---------- Phase B correction: external_search + generation decision -------
+
+export function evaluateExternalSearch(opts: {
+  sufficiency: { status: string; gaps: string[] };
+  trusted: TrustedSource[];
+}): { required: boolean; reason: string | null } {
+  const winners = opts.trusted.filter((s) => s.is_winner && s.use_in_generation);
+  const hasLaws = winners.some((s) => s.bucket === "laws");
+  const hasCourt = winners.some((s) => s.bucket === "court_practice");
+  if (opts.sufficiency.status === "insufficient_critical") {
+    return {
+      required: true,
+      reason: !hasLaws
+        ? "Не найдена применимая норма в локальной базе — нужен внешний поиск."
+        : "Критически недостаточно источников — нужен внешний поиск.",
+    };
+  }
+  if (opts.sufficiency.status === "partial" && !hasCourt) {
+    return {
+      required: true,
+      reason: "Нет авторитетной судебной практики — рекомендован внешний поиск.",
+    };
+  }
+  return { required: false, reason: null };
+}
+
+export function decideGeneration(opts: {
+  sufficiency: { status: string };
+  challenge: { status: string; issues: Array<{ kind: string; description?: string }> };
+  warnings: SourceWarning[];
+  conclusions: Conclusion[];
+  trusted: TrustedSource[];
+}): GenerationDecision {
+  const reasons: string[] = [];
+  const criticalKinds = new Set([
+    "hallucinated_source",
+    "missing_applicable_norm",
+    "outdated_law_without_replacement",
+    "critical_missing_evidence",
+    "critical_legal_contradiction",
+  ]);
+  const criticalIssues = opts.challenge.issues.filter(
+    (i) =>
+      criticalKinds.has(i.kind) ||
+      // use_in_generation=false AND actually_used_in_generation=true
+      (i.kind === "low_trust_source_used" && lowTrustActuallyUsed(opts.trusted)) ||
+      (i.kind === "newer_norm_revision" && lowTrustActuallyUsed(opts.trusted, true)),
+  );
+
+  const hallucinated = opts.conclusions.some((c) => c.provenance.hallucinated_source);
+  if (hallucinated) reasons.push("hallucinated_source");
+  if (opts.sufficiency.status === "insufficient_critical")
+    reasons.push("source_sufficiency_insufficient_critical");
+  for (const i of criticalIssues) reasons.push(`challenge:${i.kind}`);
+  // critical evidence gap heuristic: any provenance_missing
+  if (opts.conclusions.some((c) => c.provenance.provenance_missing))
+    reasons.push("provenance_missing");
+
+  const blockDraft =
+    hallucinated ||
+    opts.sufficiency.status === "insufficient_critical" ||
+    criticalIssues.length > 0 ||
+    opts.conclusions.some((c) => c.provenance.provenance_missing);
+
+  // Final is stricter: also blocks on partial sufficiency without high court,
+  // and on any low-trust/superseded source that actually leaked into generation.
+  const finalBlockingWarnings = opts.warnings.filter(
+    (w) =>
+      w.warning_type === "low_trust_source_used" ||
+      w.warning_type === "superseded_source_used",
+  );
+  const blockFinal =
+    blockDraft ||
+    opts.sufficiency.status !== "sufficient" ||
+    finalBlockingWarnings.length > 0;
+  if (finalBlockingWarnings.length > 0)
+    reasons.push("low_trust_or_superseded_used_in_generation");
+  if (!blockDraft && opts.sufficiency.status !== "sufficient")
+    reasons.push("final_requires_sufficient_sources");
+
+  return {
+    draft: !blockDraft,
+    final: !blockFinal,
+    warnings: opts.warnings,
+    reasons: Array.from(new Set(reasons)),
+  };
+}
+
+function lowTrustActuallyUsed(trusted: TrustedSource[], supersededOnly = false): boolean {
+  return trusted.some(
+    (s) =>
+      s.actually_used_in_generation &&
+      (supersededOnly ? !!s.superseded_by : !s.use_in_generation),
+  );
+}
+

@@ -120,6 +120,11 @@ export type LegalAnalysisResult = {
   evidence_matrix?: LegalAnalysisEvidenceMatrix;
   source_sufficiency?: LegalAnalysisSourceSufficiency;
   challenge_result?: LegalAnalysisChallengeResult;
+  // ---- Phase B corrections ----
+  source_warnings?: LegalAnalysisSourceWarning[];
+  external_search_required?: boolean;
+  external_search_reason?: string | null;
+  generation_allowed?: LegalAnalysisGenerationDecision;
   hashes?: LegalAnalysisHashes;
   analysis_version?: number;
   analysis_reason?: string;
@@ -127,6 +132,7 @@ export type LegalAnalysisResult = {
   previous_analysis_run_id?: string | null;
   redaction_used?: boolean;
 };
+
 
 export type LegalAnalysisFactRecord = {
   fact_id: string;
@@ -153,7 +159,30 @@ export type LegalAnalysisTrustedSource = {
   verification_status: string;
   actuality_status: string;
   appearances?: number;
+  actually_used_in_generation?: boolean;
 };
+
+export type LegalAnalysisSourceWarning = {
+  source_ref: string;
+  warning_type:
+    | "superseded_source"
+    | "low_trust_source"
+    | "low_trust_source_used"
+    | "superseded_source_used"
+    | "ekaterina_not_redacted"
+    | "missing_official_url";
+  superseded_by: string | null;
+  message: string;
+  affected_conclusions?: string[];
+};
+
+export type LegalAnalysisGenerationDecision = {
+  draft: boolean;
+  final: boolean;
+  warnings: LegalAnalysisSourceWarning[];
+  reasons: string[];
+};
+
 
 export type LegalAnalysisConclusionProvenance = {
   facts_used: string[];

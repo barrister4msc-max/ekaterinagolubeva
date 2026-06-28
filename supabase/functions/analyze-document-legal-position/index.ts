@@ -25,8 +25,13 @@ import {
   buildEvidenceMatrix,
   evaluateSufficiency,
   computeHashes,
+  setActuallyUsedInGeneration,
+  buildSourceWarnings,
+  evaluateExternalSearch,
+  decideGeneration,
 } from "./enrich.ts";
 import { runChallenge } from "./challenge.ts";
+
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
 const corsHeaders = {
@@ -346,6 +351,10 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Phase B correction: mark actually-used sources BEFORE challenge,
+    // so blocking decisions reference the correct flag.
+    setActuallyUsedInGeneration(trusted, provBuild.conclusions);
+
     // Layer 8: AI CHALLENGE / critical review pass (second LLM, cheap flash).
     const challengeResult = await runChallenge({
       parsed,
@@ -353,6 +362,18 @@ Deno.serve(async (req) => {
       conclusions: provBuild.conclusions,
     });
     for (const c of provBuild.conclusions) c.provenance.reviewed_by_challenge = true;
+
+    // Phase B correction: warnings + external_search + draft/final decision.
+    const sourceWarnings = buildSourceWarnings(trusted, provBuild.conclusions);
+    const externalSearch = evaluateExternalSearch({ sufficiency, trusted });
+    const generationAllowed = decideGeneration({
+      sufficiency,
+      challenge: challengeResult,
+      warnings: sourceWarnings,
+      conclusions: provBuild.conclusions,
+      trusted,
+    });
+
 
     // Layer 9: Evidence Matrix.
     const evidenceMatrix = buildEvidenceMatrix({
@@ -431,12 +452,17 @@ Deno.serve(async (req) => {
     parsed.evidence_matrix = evidenceMatrix;
     parsed.source_sufficiency = sufficiency;
     parsed.challenge_result = challengeResult;
+    parsed.source_warnings = sourceWarnings;
+    parsed.external_search_required = externalSearch.required;
+    parsed.external_search_reason = externalSearch.reason;
+    parsed.generation_allowed = generationAllowed;
     parsed.hashes = hashes;
     parsed.analysis_version = prevVersion + 1;
     parsed.analysis_reason = analysisReason;
     parsed.created_from = "analyze-document-legal-position";
     parsed.previous_analysis_run_id = prev?.id ?? null;
     parsed.redaction_used = redactionUsedAny;
+
 
     const metrics = computeMetrics(combined_sources, parsed);
     // Override hallucination_risk when challenge blocks the run.
