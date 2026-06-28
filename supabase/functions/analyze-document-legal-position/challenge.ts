@@ -20,11 +20,16 @@ export type ChallengeResult = {
       | "weak_evidence"
       | "unrebutted_opponent_argument"
       | "hallucinated_source"
-      | "low_trust_source_used";
+      | "low_trust_source_used"
+      | "missing_applicable_norm"
+      | "outdated_law_without_replacement"
+      | "critical_missing_evidence"
+      | "critical_legal_contradiction";
     description: string;
     affected_conclusions: string[];
     affected_sources: string[];
   }>;
+
   required_changes: string[];
   adverse_sources: string[];
   unresolved_risks: string[];
