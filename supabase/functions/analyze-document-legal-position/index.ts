@@ -25,8 +25,13 @@ import {
   buildEvidenceMatrix,
   evaluateSufficiency,
   computeHashes,
+  setActuallyUsedInGeneration,
+  buildSourceWarnings,
+  evaluateExternalSearch,
+  decideGeneration,
 } from "./enrich.ts";
 import { runChallenge } from "./challenge.ts";
+
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
 const corsHeaders = {
