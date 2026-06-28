@@ -962,3 +962,100 @@ export function evaluateSufficiency(opts: {
 
   return { status, gaps, rationale };
 }
+
+// ---------- Phase B correction: external_search + generation decision -------
+
+export function evaluateExternalSearch(opts: {
+  sufficiency: { status: string; gaps: string[] };
+  trusted: TrustedSource[];
+}): { required: boolean; reason: string | null } {
+  const winners = opts.trusted.filter((s) => s.is_winner && s.use_in_generation);
+  const hasLaws = winners.some((s) => s.bucket === "laws");
+  const hasCourt = winners.some((s) => s.bucket === "court_practice");
+  if (opts.sufficiency.status === "insufficient_critical") {
+    return {
+      required: true,
+      reason: !hasLaws
+        ? "Не найдена применимая норма в локальной базе — нужен внешний поиск."
+        : "Критически недостаточно источников — нужен внешний поиск.",
+    };
+  }
+  if (opts.sufficiency.status === "partial" && !hasCourt) {
+    return {
+      required: true,
+      reason: "Нет авторитетной судебной практики — рекомендован внешний поиск.",
+    };
+  }
+  return { required: false, reason: null };
+}
+
+export function decideGeneration(opts: {
+  sufficiency: { status: string };
+  challenge: { status: string; issues: Array<{ kind: string; description?: string }> };
+  warnings: SourceWarning[];
+  conclusions: Conclusion[];
+  trusted: TrustedSource[];
+}): GenerationDecision {
+  const reasons: string[] = [];
+  const criticalKinds = new Set([
+    "hallucinated_source",
+    "missing_applicable_norm",
+    "outdated_law_without_replacement",
+    "critical_missing_evidence",
+    "critical_legal_contradiction",
+  ]);
+  const criticalIssues = opts.challenge.issues.filter(
+    (i) =>
+      criticalKinds.has(i.kind) ||
+      // use_in_generation=false AND actually_used_in_generation=true
+      (i.kind === "low_trust_source_used" && lowTrustActuallyUsed(opts.trusted)) ||
+      (i.kind === "newer_norm_revision" && lowTrustActuallyUsed(opts.trusted, true)),
+  );
+
+  const hallucinated = opts.conclusions.some((c) => c.provenance.hallucinated_source);
+  if (hallucinated) reasons.push("hallucinated_source");
+  if (opts.sufficiency.status === "insufficient_critical")
+    reasons.push("source_sufficiency_insufficient_critical");
+  for (const i of criticalIssues) reasons.push(`challenge:${i.kind}`);
+  // critical evidence gap heuristic: any provenance_missing
+  if (opts.conclusions.some((c) => c.provenance.provenance_missing))
+    reasons.push("provenance_missing");
+
+  const blockDraft =
+    hallucinated ||
+    opts.sufficiency.status === "insufficient_critical" ||
+    criticalIssues.length > 0 ||
+    opts.conclusions.some((c) => c.provenance.provenance_missing);
+
+  // Final is stricter: also blocks on partial sufficiency without high court,
+  // and on any low-trust/superseded source that actually leaked into generation.
+  const finalBlockingWarnings = opts.warnings.filter(
+    (w) =>
+      w.warning_type === "low_trust_source_used" ||
+      w.warning_type === "superseded_source_used",
+  );
+  const blockFinal =
+    blockDraft ||
+    opts.sufficiency.status !== "sufficient" ||
+    finalBlockingWarnings.length > 0;
+  if (finalBlockingWarnings.length > 0)
+    reasons.push("low_trust_or_superseded_used_in_generation");
+  if (!blockDraft && opts.sufficiency.status !== "sufficient")
+    reasons.push("final_requires_sufficient_sources");
+
+  return {
+    draft: !blockDraft,
+    final: !blockFinal,
+    warnings: opts.warnings,
+    reasons: Array.from(new Set(reasons)),
+  };
+}
+
+function lowTrustActuallyUsed(trusted: TrustedSource[], supersededOnly = false): boolean {
+  return trusted.some(
+    (s) =>
+      s.actually_used_in_generation &&
+      (supersededOnly ? !!s.superseded_by : !s.use_in_generation),
+  );
+}
+
