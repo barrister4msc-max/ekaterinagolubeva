@@ -532,6 +532,10 @@ const [isAiFilling, setIsAiFilling] = useState(false);
           availableModes={availableModes}
           sessionId={intakeSessionId}
           onEnsureSession={ensureSession}
+          preflight={preflightQuery.data ?? null}
+          preflightLoading={preflightQuery.isFetching}
+          preflightError={preflightQuery.error ? String((preflightQuery.error as Error).message ?? preflightQuery.error) : null}
+          onRefreshPreflight={() => preflightQuery.refetch()}
         />
       )}
 
@@ -558,9 +562,20 @@ const [isAiFilling, setIsAiFilling] = useState(false);
             <button
               type="button"
               onClick={handleGenerateDraft}
-              disabled={!validation.valid || submitting}
+              disabled={
+                !validation.valid ||
+                submitting ||
+                preflightQuery.isFetching ||
+                !(preflightQuery.data?.ready ?? false)
+              }
               className="db-cta"
-              title={!validation.valid ? "Заполните обязательные поля" : "Сформировать документ"}
+              title={
+                !validation.valid
+                  ? "Заполните обязательные поля"
+                  : !preflightQuery.data?.ready
+                    ? "Подготовка ещё не завершена — см. блок «Готовность документа»"
+                    : "Сформировать документ"
+              }
             >
               <Sparkles size={14} /> {submitting ? "Генерация…" : "Сформировать документ"}
             </button>
