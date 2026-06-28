@@ -127,7 +127,9 @@ export function buildGenerateRequest(
     intake_session_id: extras?.intakeSessionId ?? null,
     legal_analysis: analysis,
     legal_analysis_run_id: extras?.legalAnalysisRunId ?? null,
+    matter_snapshot: extras?.matterSnapshot ?? null,
     document_context: documentContext,
+
     document_context_quality: documentContextQuality,
     document_context_summary: documentContextSummary,
     schema: schema
