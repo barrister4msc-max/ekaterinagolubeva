@@ -452,12 +452,17 @@ Deno.serve(async (req) => {
     parsed.evidence_matrix = evidenceMatrix;
     parsed.source_sufficiency = sufficiency;
     parsed.challenge_result = challengeResult;
+    parsed.source_warnings = sourceWarnings;
+    parsed.external_search_required = externalSearch.required;
+    parsed.external_search_reason = externalSearch.reason;
+    parsed.generation_allowed = generationAllowed;
     parsed.hashes = hashes;
     parsed.analysis_version = prevVersion + 1;
     parsed.analysis_reason = analysisReason;
     parsed.created_from = "analyze-document-legal-position";
     parsed.previous_analysis_run_id = prev?.id ?? null;
     parsed.redaction_used = redactionUsedAny;
+
 
     const metrics = computeMetrics(combined_sources, parsed);
     // Override hallucination_risk when challenge blocks the run.
