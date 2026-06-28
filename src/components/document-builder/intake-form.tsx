@@ -1184,3 +1184,134 @@ function formatValue(v: unknown): string {
   }
   return String(v);
 }
+
+// ---------------------------------------------------------------------------
+// Phase C0 — Preflight readiness panel
+// ---------------------------------------------------------------------------
+
+function PreflightPanel({
+  preflight,
+  loading,
+  error,
+  onRefresh,
+}: {
+  preflight: PreflightResult | null;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+}) {
+  const ready = preflight?.ready ?? false;
+  const headerColor = !preflight
+    ? "rgba(255,255,255,0.55)"
+    : ready
+      ? "#9be0c4"
+      : "#f0b8b8";
+  const headerLabel = !preflight
+    ? "Готовность документа"
+    : ready
+      ? "🟢 Готовность документа: всё готово"
+      : "🔴 Готовность документа: генерация невозможна";
+
+  return (
+    <div
+      className="db-subcard"
+      style={{
+        borderColor: !preflight
+          ? "rgba(255,255,255,0.10)"
+          : ready
+            ? "rgba(102,187,156,0.40)"
+            : "rgba(214,120,120,0.45)",
+        background: !preflight
+          ? "rgba(8,18,26,0.45)"
+          : ready
+            ? "rgba(12,40,30,0.40)"
+            : "rgba(40,12,16,0.40)",
+      }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div
+          className="text-[11px] uppercase tracking-[0.18em]"
+          style={{ color: headerColor }}
+        >
+          {headerLabel}
+        </div>
+        <div className="flex items-center gap-2">
+          {loading && (
+            <span className="flex items-center gap-1 text-[11px] text-white/60">
+              <Loader2 size={12} className="animate-spin" /> проверка…
+            </span>
+          )}
+          <button type="button" className="db-ghost" onClick={onRefresh} disabled={loading}>
+            Обновить
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mt-3 db-warning">
+          Не удалось выполнить проверку готовности: {error}
+        </div>
+      )}
+
+      {preflight && (
+        <ul className="mt-3 space-y-1.5">
+          {preflight.checks.map((c) => (
+            <PreflightCheckRow key={c.id} check={c} />
+          ))}
+        </ul>
+      )}
+
+      {preflight && !ready && (
+        <div className="mt-3 rounded-md border border-rose-400/30 bg-rose-500/10 p-3 text-xs text-rose-100">
+          <div className="font-medium">Для формирования экспертного документа необходимо:</div>
+          <ol className="mt-1 list-decimal pl-5 space-y-0.5">
+            <li>Загрузить документы</li>
+            <li>Дождаться завершения OCR</li>
+            <li>Выполнить AI правовой анализ</li>
+            <li>После этого сформировать документ</li>
+          </ol>
+        </div>
+      )}
+
+      {preflight && ready && preflight.warnings.length > 0 && (
+        <div className="mt-3 text-xs text-amber-200/85">
+          ⚠ Есть предупреждения — генерация разрешена, но рекомендуется ручная проверка.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PreflightCheckRow({ check }: { check: PreflightCheck }) {
+  const Icon =
+    check.status === "ok"
+      ? CircleCheck
+      : check.status === "pending"
+        ? Loader2
+        : check.status === "warn"
+          ? CircleAlert
+          : check.status === "fail"
+            ? CircleAlert
+            : CircleDashed;
+  const color =
+    check.status === "ok"
+      ? "#9be0c4"
+      : check.status === "warn"
+        ? "#f0d59c"
+        : check.status === "pending"
+          ? "rgba(255,255,255,0.65)"
+          : "#f0b8b8";
+  const spin = check.status === "pending" ? "animate-spin" : "";
+  return (
+    <li className="flex items-start gap-2 text-xs">
+      <Icon size={14} className={`mt-0.5 shrink-0 ${spin}`} style={{ color }} />
+      <div className="min-w-0">
+        <div style={{ color }}>{check.label}</div>
+        {check.message && (
+          <div className="text-[11px] text-white/55">{check.message}</div>
+        )}
+      </div>
+    </li>
+  );
+}
+
