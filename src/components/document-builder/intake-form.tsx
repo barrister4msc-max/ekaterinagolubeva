@@ -974,6 +974,14 @@ function ReviewStep({
 
   return (
     <div className="space-y-5">
+      <PreflightPanel
+        preflight={preflight}
+        loading={preflightLoading}
+        error={preflightError}
+        onRefresh={onRefreshPreflight}
+      />
+
+
       <div className="db-subcard">
         <div className="db-section-label">Предпросмотр подготовки документа</div>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
