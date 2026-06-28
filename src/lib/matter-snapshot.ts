@@ -152,6 +152,8 @@ export async function computeSessionSignals(sessionId: string): Promise<SessionS
       .from("documents")
       .select("id, ocr_text, metadata, ocr_status")
       .filter("metadata->>intake_session_id", "eq", sessionId)
+      .filter("metadata->>extraction_status", "eq", "completed")
+      .not("ocr_text", "is", null)
       .limit(200),
   ]);
 

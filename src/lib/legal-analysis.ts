@@ -319,8 +319,10 @@ export async function fetchLatestLegalAnalysis(
 export async function hasSessionDocumentsWithText(sessionId: string): Promise<boolean> {
   const { data: docs, error } = await supabase
     .from("documents")
-    .select("id, ocr_text")
+    .select("id, ocr_text, metadata")
     .eq("metadata->>intake_session_id", sessionId)
+    .eq("metadata->>extraction_status", "completed")
+    .not("ocr_text", "is", null)
     .limit(20);
   if (error) throw error;
   if (!docs || docs.length === 0) return false;

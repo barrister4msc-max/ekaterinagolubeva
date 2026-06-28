@@ -33,8 +33,10 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
     try {
       const { data, error } = await supabase
         .from("documents")
-        .select("id, ocr_text")
-        .filter("metadata->>intake_session_id", "eq", sid);
+        .select("id, ocr_text, metadata")
+        .filter("metadata->>intake_session_id", "eq", sid)
+        .filter("metadata->>extraction_status", "eq", "completed")
+        .not("ocr_text", "is", null);
       if (error) throw error;
       const ok = (data ?? []).some((doc) => {
         const text = ((doc.ocr_text as string | null) ?? "").trim();
