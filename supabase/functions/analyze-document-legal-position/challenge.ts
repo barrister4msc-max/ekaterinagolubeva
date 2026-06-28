@@ -62,7 +62,9 @@ export async function runChallenge(opts: {
       affected_sources: [],
     });
   }
-  // Low-trust / superseded sources actually used
+  // Low-trust / superseded sources — only treat as a challenge issue when
+  // they are actually used in a conclusion. Otherwise this is a warning,
+  // surfaced via buildSourceWarnings(), not a blocker.
   const usedRefs = new Set<string>();
   for (const c of opts.conclusions) {
     for (const r of [
@@ -75,14 +77,31 @@ export async function runChallenge(opts: {
       usedRefs.add(r);
   }
   for (const s of opts.trusted) {
-    if (!usedRefs.has(s.source_ref)) continue;
-    if (!s.use_in_generation || s.superseded_by) {
+    const actuallyUsed = usedRefs.has(s.source_ref);
+    if (!actuallyUsed) continue;
+    if (s.superseded_by) {
       adverseRefs.add(s.source_ref);
       seedIssues.push({
-        kind: s.superseded_by ? "newer_norm_revision" : "low_trust_source_used",
-        description: s.superseded_by
-          ? `Источник ${s.source_ref} вытеснен более авторитетным ${s.superseded_by} (${s.lower_priority_reason ?? "приоритет"}).`
-          : `Источник ${s.source_ref} помечен use_in_generation=false (${s.trust_reason}).`,
+        kind: "newer_norm_revision",
+        description: `Источник ${s.source_ref} вытеснен более авторитетным ${s.superseded_by} (${s.lower_priority_reason ?? "приоритет"}), но используется в выводах.`,
+        affected_conclusions: opts.conclusions
+          .filter((c) =>
+            [
+              ...c.provenance.laws_used,
+              ...c.provenance.court_practice_used,
+              ...c.provenance.letters_used,
+              ...c.provenance.ekaterina_used,
+              ...c.provenance.manuals_used,
+            ].includes(s.source_ref),
+          )
+          .map((c) => c.conclusion_id),
+        affected_sources: [s.source_ref],
+      });
+    } else if (!s.use_in_generation) {
+      adverseRefs.add(s.source_ref);
+      seedIssues.push({
+        kind: "low_trust_source_used",
+        description: `Источник ${s.source_ref} помечен use_in_generation=false (${s.trust_reason}), но используется в выводах.`,
         affected_conclusions: opts.conclusions
           .filter((c) =>
             [
@@ -125,12 +144,21 @@ export async function runChallenge(opts: {
   }
 
   const issues = [...seedIssues, ...llmIssues];
-  const blocked = issues.some(
-    (i) =>
-      i.kind === "hallucinated_source" ||
-      i.kind === "newer_norm_revision" ||
-      i.kind === "low_trust_source_used",
-  );
+  // Phase B correction — only TRUE critical issues block generation.
+  // Superseded sources by themselves are warnings, NOT blockers; they only
+  // become blockers when actually_used_in_generation=true (handled above by
+  // emitting newer_norm_revision/low_trust_source_used only for used refs).
+  const BLOCKING_KINDS = new Set([
+    "hallucinated_source",
+    "missing_applicable_norm",
+    "outdated_law_without_replacement",
+    "critical_missing_evidence",
+    "critical_legal_contradiction",
+    // these are already filtered above to only fire when actually_used:
+    "low_trust_source_used",
+    "newer_norm_revision",
+  ]);
+  const blocked = issues.some((i) => BLOCKING_KINDS.has(i.kind));
   const needsRevision = issues.length > 0 && !blocked;
 
   return {
@@ -142,6 +170,7 @@ export async function runChallenge(opts: {
     reasoning: llmReasoning || EMPTY_RESULT.reasoning,
   };
 }
+
 
 function deriveRequiredChanges(issues: ChallengeResult["issues"]): string[] {
   const out: string[] = [];
