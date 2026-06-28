@@ -17,7 +17,7 @@ import {
   createInitialIntakeState,
   type IntakeState,
 } from "@/lib/document-intake-schemas";
-import { buildGenerateRequest, invokeGenerateLegalDocument, type GeneratedDocumentResult } from "@/lib/generate-legal-document";
+import { buildGenerateRequest, type GeneratedDocumentResult } from "@/lib/generate-legal-document";
 import { IntakeForm } from "@/components/document-builder/intake-form";
 import { supabase } from "@/integrations/supabase/client";
 import { loadIntakeAnswers } from "@/lib/document-intake-storage";
