@@ -2651,6 +2651,8 @@ function DocumentDetailPage() {
 
       {tab === "reasoning" && (
         <div className="space-y-3">
+          <ProvenanceExplorer snapshot={provenanceSnapshot} />
+
           {argumentsList.length > 1 && (
             <div className={`${PANEL} flex items-center justify-between gap-2 p-2`}>
               <button
