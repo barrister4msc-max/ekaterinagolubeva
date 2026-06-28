@@ -252,7 +252,7 @@ const [isAiFilling, setIsAiFilling] = useState(false);
   const preflightQuery = useQuery<PreflightResult>({
     queryKey: ["generation-preflight", intakeSessionId],
     queryFn: () => runGenerationPreflight(intakeSessionId),
-    enabled: isReviewActive,
+    enabled: isReviewActive && !!intakeSessionId,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
     refetchInterval: (q) => {
