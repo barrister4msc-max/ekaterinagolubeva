@@ -56,6 +56,12 @@ export type GenerateLegalDocumentRequest = {
   legal_analysis?: LegalAnalysisResult | null;
   legal_analysis_run_id?: string | null;
   /**
+   * Phase B — Matter Snapshot / Matter Knowledge Package.
+   * Optional in the wire format for backward compat; populated by
+   * prepareAndGenerate() for complex templates.
+   */
+  matter_snapshot?: import("./matter-snapshot").MatterSnapshot | null;
+  /**
    * DocumentContext — populated only when quality >= DOCUMENT_CONTEXT_MIN_QUALITY.
    * Null → legacy generation mode (backwards compatible).
    */
@@ -68,6 +74,7 @@ export type GenerateLegalDocumentRequest = {
     warnings: string[];
   } | null;
 };
+
 
 
 export function buildGenerateRequest(
