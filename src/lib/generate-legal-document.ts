@@ -85,8 +85,10 @@ export function buildGenerateRequest(
     intakeSessionId?: string | null;
     legalAnalysis?: LegalAnalysisResult | null;
     legalAnalysisRunId?: string | null;
+    matterSnapshot?: import("./matter-snapshot").MatterSnapshot | null;
   },
 ): GenerateLegalDocumentRequest {
+
   const analysis = extras?.legalAnalysis ?? null;
 
   // Safe test-mode gating:
