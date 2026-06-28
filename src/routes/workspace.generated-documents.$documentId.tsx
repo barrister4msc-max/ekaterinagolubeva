@@ -136,6 +136,7 @@ const TABS = [
   { id: "evidence", label: "Матрица доказательств" },
   { id: "sources", label: "Источники" },
   { id: "review", label: "AI Review" },
+  { id: "quality", label: "Контроль качества" },
   { id: "chain", label: "История AI" },
   { id: "history", label: "История" },
   { id: "export", label: "Экспорт" },
