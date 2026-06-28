@@ -72,6 +72,7 @@ import {
   type ProvenanceSnapshotInput,
 } from "@/components/document-workspace/provenance-explorer";
 import { QualityReviewCenter } from "@/components/document-workspace/quality-review-center";
+import { LawyerReviewCenter } from "@/components/document-workspace/lawyer-review-center";
 import {
   CoverageReportTab,
   GroundingScoreCompact,
@@ -138,6 +139,7 @@ const TABS = [
   { id: "sources", label: "Источники" },
   { id: "review", label: "AI Review" },
   { id: "quality", label: "Контроль качества" },
+  { id: "lawyer", label: "Проверка юристом" },
   { id: "chain", label: "История AI" },
   { id: "history", label: "История" },
   { id: "export", label: "Экспорт" },
@@ -2857,6 +2859,11 @@ function DocumentDetailPage() {
       {tab === "quality" && (
         <QualityReviewCenter documentId={doc.id} meta={meta} />
       )}
+
+      {tab === "lawyer" && (
+        <LawyerReviewCenter documentId={doc.id} meta={meta} />
+      )}
+
 
       {tab === "chain" && (
         <ChainOfCustodyTab
