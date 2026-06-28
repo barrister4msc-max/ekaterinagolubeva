@@ -290,6 +290,18 @@ export async function prepareAndGenerate(
   // 4. Invoke generator (existing edge function, unmodified).
   const result = await invokeGenerateLegalDocument(payload);
 
+  console.log("[GEN RESULT]", {
+    generated_document_id: result.generated_document_id,
+    result,
+  });
+
+  console.log("[BEFORE PROVENANCE]", {
+    generatedDocumentId: result.generated_document_id,
+    hasSnapshot: !!snapshot,
+    runId,
+    snapshotKeys: snapshot ? Object.keys(snapshot) : null,
+  });
+
   // 5. Write provenance into generated_legal_documents.metadata.
   await writeGenerationProvenance({
     generatedDocumentId: result.generated_document_id,
