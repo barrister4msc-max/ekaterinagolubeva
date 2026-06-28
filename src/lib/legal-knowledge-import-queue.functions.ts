@@ -175,8 +175,14 @@ export const lkqImportToKb = createServerFn({ method: "POST" })
 
     if (!row.approved_by_lawyer) throw new Error("Не одобрено юристом");
     if (row.import_status !== "approved") throw new Error("Статус должен быть 'approved'");
-    if (row.contains_passport_data) throw new Error("Содержит паспортные данные — обезличьте перед импортом");
-    if (row.contains_bank_data) throw new Error("Содержит банковские данные — обезличьте перед импортом");
+    const redactedAccepted = Boolean(row.redacted_text && String(row.redacted_text).trim().length > 0);
+    if (row.contains_personal_data && !redactedAccepted) {
+      throw new Error(
+        "Нельзя импортировать документ в базу знаний: требуется принятое обезличивание.",
+      );
+    }
+    if (row.contains_passport_data && !redactedAccepted) throw new Error("Содержит паспортные данные — обезличьте перед импортом");
+    if (row.contains_bank_data && !redactedAccepted) throw new Error("Содержит банковские данные — обезличьте перед импортом");
     const content = (row.redacted_text ?? row.extracted_text ?? "").trim();
     if (!content) throw new Error("Текст пуст — нечего импортировать");
 

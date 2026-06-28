@@ -62,8 +62,17 @@ type SessionDocument = {
   title: string | null;
   file_name: string | null;
   ocr_text_length: number;
+  ocr_text: string | null;
+  redaction_status: import("@/lib/document-redaction").RedactionStatus | null;
+  contains_personal_data: boolean;
+  contains_passport_data: boolean;
+  contains_bank_data: boolean;
+  contains_signature: boolean;
+  redaction_notes: string[];
+  redacted_text: string | null;
 };
 const [sessionDocuments, setSessionDocuments] = useState<SessionDocument[]>([]);
+const [redactionDocId, setRedactionDocId] = useState<string | null>(null);
 
 const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
@@ -166,7 +175,7 @@ const [isAiFilling, setIsAiFilling] = useState(false);
     }
     const { data, error } = await supabase
       .from("documents")
-      .select("id, title, file_name, ocr_text")
+      .select("id, title, file_name, ocr_text, metadata")
       .filter("metadata->>intake_session_id", "eq", sid)
       .order("created_at", { ascending: true });
     if (error) {
@@ -174,18 +183,61 @@ const [isAiFilling, setIsAiFilling] = useState(false);
       return;
     }
     setSessionDocuments(
-      (data ?? []).map((d: any) => ({
-        id: d.id,
-        title: d.title,
-        file_name: d.file_name,
-        ocr_text_length: typeof d.ocr_text === "string" ? d.ocr_text.length : 0,
-      })),
+      (data ?? []).map((d: any) => {
+        const meta = (d.metadata ?? {}) as Record<string, unknown>;
+        const notes = Array.isArray(meta.redaction_notes)
+          ? (meta.redaction_notes as string[])
+          : [];
+        return {
+          id: d.id,
+          title: d.title,
+          file_name: d.file_name,
+          ocr_text: typeof d.ocr_text === "string" ? (d.ocr_text as string) : null,
+          ocr_text_length: typeof d.ocr_text === "string" ? d.ocr_text.length : 0,
+          redaction_status:
+            (meta.redaction_status as import("@/lib/document-redaction").RedactionStatus | null) ??
+            null,
+          contains_personal_data: Boolean(meta.contains_personal_data),
+          contains_passport_data: Boolean(meta.contains_passport_data),
+          contains_bank_data: Boolean(meta.contains_bank_data),
+          contains_signature: Boolean(meta.contains_signature),
+          redaction_notes: notes,
+          redacted_text:
+            typeof meta.redacted_text === "string" ? (meta.redacted_text as string) : null,
+        };
+      }),
     );
   }, []);
 
   useEffect(() => {
     refreshSessionDocuments(intakeSessionId);
   }, [intakeSessionId, refreshSessionDocuments]);
+
+  // Phase C — auto-detect personal data on freshly-OCR-ed documents that have
+  // never been screened (no redaction_status in metadata).
+  useEffect(() => {
+    const needsScan = sessionDocuments.filter(
+      (d) => d.ocr_text_length > 30 && d.redaction_status === null,
+    );
+    if (needsScan.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const { detectAndPersistRedaction } = await import("@/lib/document-redaction");
+      for (const d of needsScan) {
+        try {
+          await detectAndPersistRedaction(d.id);
+        } catch (err) {
+          console.warn("[redaction] detect failed", d.id, err);
+        }
+        if (cancelled) return;
+      }
+      if (!cancelled) refreshSessionDocuments(intakeSessionId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionDocuments, intakeSessionId, refreshSessionDocuments]);
+
 
   // Phase C0 — preflight readiness check (active only at review step).
   const isReviewActive = stepIdx >= steps.length;
@@ -471,39 +523,88 @@ const [isAiFilling, setIsAiFilling] = useState(false);
               <ul className="space-y-2">
                 {sessionDocuments.map((doc) => {
                   const ready = doc.ocr_text_length > 50;
+                  const tone = redactionStatusTone(doc.redaction_status);
+                  const showRedactButton =
+                    ready &&
+                    (doc.redaction_status === "required" ||
+                      doc.redaction_status === "rejected" ||
+                      (doc.contains_personal_data && doc.redaction_status !== "accepted" && doc.redaction_status !== "suggested"));
                   return (
                     <li
                       key={doc.id}
-                      className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+                      className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 md:flex-row md:items-center"
                     >
-                      <FileText size={14} className="text-white/60 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-white truncate">
-                          {doc.title || doc.file_name || doc.id}
-                        </div>
-                        <div className="text-[11px] text-white/60">
-                          OCR: {doc.ocr_text_length} симв.{" "}
-                          {ready ? (
-                            <span className="text-emerald-300">— готов</span>
-                          ) : (
-                            <span className="text-amber-300">— нет текста</span>
-                          )}
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <FileText size={14} className="text-white/60 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-white truncate">
+                            {doc.title || doc.file_name || doc.id}
+                          </div>
+                          <div className="text-[11px] text-white/60 flex flex-wrap items-center gap-2">
+                            <span>
+                              OCR: {doc.ocr_text_length} симв.{" "}
+                              {ready ? (
+                                <span className="text-emerald-300">— готов</span>
+                              ) : (
+                                <span className="text-amber-300">— нет текста</span>
+                              )}
+                            </span>
+                            <RedactionBadge status={doc.redaction_status} tone={tone} />
+                            {doc.redaction_notes.length > 0 && (
+                              <span className="text-white/45 truncate">
+                                · {doc.redaction_notes.join(", ")}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="text-white/50 hover:text-red-400 p-1"
-                        onClick={() => handleDeleteDocument(doc.id)}
-                        title="Удалить"
-                      >
-                        <X size={14} />
-                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {showRedactButton && (
+                          <button
+                            type="button"
+                            className="db-ghost"
+                            onClick={() => setRedactionDocId(doc.id)}
+                            title="Обезличить документ"
+                          >
+                            Обезличить
+                          </button>
+                        )}
+                        {(doc.redaction_status === "suggested" || doc.redaction_status === "accepted") && (
+                          <button
+                            type="button"
+                            className="db-ghost"
+                            onClick={() => setRedactionDocId(doc.id)}
+                            title="Посмотреть обезличивание"
+                          >
+                            {doc.redaction_status === "accepted" ? "Просмотр" : "Проверить"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="text-white/50 hover:text-red-400 p-1"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          title="Удалить"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
                     </li>
                   );
                 })}
               </ul>
             )}
           </div>
+
+          {redactionDocId && (
+            <RedactionDialog
+              document={
+                sessionDocuments.find((d) => d.id === redactionDocId) ?? null
+              }
+              onClose={() => setRedactionDocId(null)}
+              onChanged={() => refreshSessionDocuments(intakeSessionId)}
+            />
+          )}
+
 
 
           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
@@ -1315,3 +1416,240 @@ function PreflightCheckRow({ check }: { check: PreflightCheck }) {
   );
 }
 
+
+// ---------------------------------------------------------------------------
+// Phase C — Redaction badge + dialog
+// ---------------------------------------------------------------------------
+
+import {
+  statusBadgeLabel,
+  statusBadgeTone,
+  suggestRedaction,
+  acceptRedaction,
+  rejectRedaction,
+  type RedactionStatus,
+} from "@/lib/document-redaction";
+
+function redactionStatusTone(
+  status: RedactionStatus | null | undefined,
+): "neutral" | "warn" | "danger" | "ok" {
+  return statusBadgeTone(status);
+}
+
+function RedactionBadge({
+  status,
+  tone,
+}: {
+  status: RedactionStatus | null | undefined;
+  tone: "neutral" | "warn" | "danger" | "ok";
+}) {
+  const colors = {
+    ok: { bg: "rgba(102,187,156,0.16)", border: "rgba(102,187,156,0.40)", text: "#9be0c4" },
+    warn: { bg: "rgba(214,170,90,0.18)", border: "rgba(214,170,90,0.45)", text: "#f0d59c" },
+    danger: { bg: "rgba(214,120,120,0.18)", border: "rgba(214,120,120,0.45)", text: "#f0b8b8" },
+    neutral: { bg: "rgba(255,255,255,0.06)", border: "rgba(255,255,255,0.18)", text: "rgba(255,255,255,0.75)" },
+  } as const;
+  const c = colors[tone];
+  return (
+    <span
+      className="inline-flex items-center rounded-full border px-2 py-[1px] text-[10px] tracking-wide"
+      style={{ background: c.bg, borderColor: c.border, color: c.text }}
+    >
+      {statusBadgeLabel(status)}
+    </span>
+  );
+}
+
+type RedactionDialogDoc = {
+  id: string;
+  title: string | null;
+  file_name: string | null;
+  ocr_text: string | null;
+  redacted_text: string | null;
+  redaction_status: RedactionStatus | null;
+  redaction_notes: string[];
+};
+
+function RedactionDialog({
+  document: doc,
+  onClose,
+  onChanged,
+}: {
+  document: RedactionDialogDoc | null;
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [editedText, setEditedText] = useState<string>("");
+  const [busy, setBusy] = useState<"suggest" | "accept" | "reject" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    setEditedText(doc?.redacted_text ?? "");
+    setEditing(false);
+    setError(null);
+  }, [doc?.id, doc?.redacted_text]);
+
+  if (!doc) return null;
+
+  const handleSuggest = async () => {
+    setBusy("suggest");
+    setError(null);
+    try {
+      const draft = await suggestRedaction(doc.id);
+      setEditedText(draft.redacted_text);
+      onChanged();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleAccept = async () => {
+    setBusy("accept");
+    setError(null);
+    try {
+      const { data: userResp } = await supabase.auth.getUser();
+      await acceptRedaction(doc.id, {
+        editedText: editing ? editedText : undefined,
+        userId: userResp.user?.id ?? null,
+      });
+      onChanged();
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleReject = async () => {
+    setBusy("reject");
+    setError(null);
+    try {
+      await rejectRedaction(doc.id);
+      onChanged();
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const hasDraft = (doc.redacted_text ?? "").length > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-white/15 bg-[#0c1a24] shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
+              Обезличивание документа
+            </div>
+            <div className="truncate text-sm text-white">
+              {doc.title || doc.file_name || doc.id}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="text-white/55 hover:text-white"
+            onClick={onClose}
+            aria-label="Закрыть"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {doc.redaction_notes.length > 0 && (
+          <div className="border-b border-white/10 px-5 py-2 text-[11px] text-amber-200/85">
+            Обнаружено: {doc.redaction_notes.join(", ")}
+          </div>
+        )}
+
+        <div className="grid max-h-[60vh] grid-cols-1 gap-0 overflow-hidden md:grid-cols-2">
+          <div className="overflow-auto border-white/10 p-4 md:border-r">
+            <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-white/55">
+              Оригинал OCR
+            </div>
+            <pre className="whitespace-pre-wrap break-words text-xs text-white/80">
+              {doc.ocr_text ?? "—"}
+            </pre>
+          </div>
+          <div className="overflow-auto p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
+                Обезличенный текст
+              </div>
+              {hasDraft && !editing && (
+                <button
+                  type="button"
+                  className="db-ghost"
+                  onClick={() => setEditing(true)}
+                >
+                  Редактировать вручную
+                </button>
+              )}
+            </div>
+            {!hasDraft ? (
+              <div className="text-xs text-white/55">
+                Черновик обезличивания ещё не создан. Нажмите «Обезличить», чтобы сгенерировать.
+              </div>
+            ) : editing ? (
+              <textarea
+                className="db-input min-h-[300px] w-full"
+                value={editedText}
+                onChange={(e) => setEditedText(e.target.value)}
+              />
+            ) : (
+              <pre className="whitespace-pre-wrap break-words text-xs text-white/85">
+                {doc.redacted_text}
+              </pre>
+            )}
+          </div>
+        </div>
+
+        {error && (
+          <div className="border-t border-rose-400/30 bg-rose-500/10 px-5 py-2 text-xs text-rose-100">
+            {error}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 px-5 py-3">
+          <button
+            type="button"
+            className="db-ghost"
+            onClick={handleSuggest}
+            disabled={busy !== null}
+          >
+            {busy === "suggest" ? "Обезличиваю…" : hasDraft ? "Перегенерировать" : "Обезличить"}
+          </button>
+          <button
+            type="button"
+            className="db-ghost"
+            onClick={handleReject}
+            disabled={busy !== null}
+          >
+            {busy === "reject" ? "Отклоняю…" : "Отклонить"}
+          </button>
+          <button
+            type="button"
+            className="db-cta"
+            onClick={handleAccept}
+            disabled={busy !== null || !hasDraft}
+            title={!hasDraft ? "Сначала создайте обезличивание" : "Принять обезличивание"}
+          >
+            {busy === "accept" ? "Принимаю…" : "Принять обезличивание"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
