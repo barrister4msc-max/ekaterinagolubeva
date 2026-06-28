@@ -174,7 +174,7 @@ export async function callGeminiPro(prompt: string): Promise<GeminiCallResult> {
   return await callGeminiWithFallback(prompt, {
     models: FULL_GEMINI_MODELS,
     temperature: 0.2,
-    maxOutputTokens: 8192,
+    maxOutputTokens: 16384,
     responseMimeType: "application/json",
   });
 }

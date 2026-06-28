@@ -167,6 +167,8 @@ Deno.serve(async (req) => {
       .from("documents")
       .select("id, title, file_name, ocr_text, metadata")
       .filter("metadata->>intake_session_id", "eq", sessionId)
+      .filter("metadata->>extraction_status", "eq", "completed")
+      .not("ocr_text", "is", null)
       .limit(40);
     const docMetaById = new Map<string, Record<string, unknown>>();
     let redactionUsedAny = false;

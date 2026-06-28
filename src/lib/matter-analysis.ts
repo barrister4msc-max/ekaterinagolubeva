@@ -20,6 +20,7 @@ export type StaleReason =
   | "sources_changed"
   | "redaction_changed"
   | "ocr_changed"
+  | "analysis_schema_outdated"
   | "manual_rerun"
   | "no_analysis";
 
@@ -40,6 +41,14 @@ export function detectStaleReasons(
   signals: SessionSignals,
 ): StaleReason[] {
   if (!run || !run.analysis) return ["no_analysis"];
+  if (
+    !run.analysis.generation_allowed ||
+    !Array.isArray(run.analysis.source_warnings) ||
+    typeof run.analysis.external_search_required !== "boolean" ||
+    !("external_search_reason" in run.analysis)
+  ) {
+    return ["analysis_schema_outdated"];
+  }
   const h = run.analysis.hashes;
   if (!h) return ["no_analysis"];
   const reasons: StaleReason[] = [];
