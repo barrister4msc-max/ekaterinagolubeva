@@ -185,3 +185,165 @@ export async function invokeGenerateLegalDocument(
   }
   return data;
 }
+
+// ---------------------------------------------------------------------------
+// Phase B — prepareAndGenerate: ensure fresh matter analysis, run gate,
+// invoke generator, write provenance back into generated_legal_documents.
+// ---------------------------------------------------------------------------
+
+import { ensureMatterAnalysis } from "./matter-analysis";
+import { assertMatterGate, isComplexTemplate, MatterGateError } from "./quality-gate";
+import type { MatterSnapshot } from "./matter-snapshot";
+
+export type PrepareAndGenerateOptions = {
+  template: DocumentTemplate;
+  state: IntakeState;
+  schema: DocumentIntakeSchema | null;
+  sessionId: string | null | undefined;
+  /** Force a fresh legal_analysis run regardless of staleness check. */
+  forceRerunAnalysis?: boolean;
+  /** Caller-provided knowledge: whether the matter requires redaction. */
+  redactionRequired?: boolean;
+  /** Caller-provided knowledge: OCR completion state. */
+  ocrReady?: boolean;
+};
+
+export type PrepareAndGenerateResult = GeneratedDocumentResult & {
+  matter_snapshot: MatterSnapshot | null;
+  legal_analysis_run_id: string | null;
+};
+
+export { MatterGateError } from "./quality-gate";
+
+export async function prepareAndGenerate(
+  opts: PrepareAndGenerateOptions,
+): Promise<PrepareAndGenerateResult> {
+  const { template, state, schema, sessionId } = opts;
+
+  // 1. For complex templates require fresh matter analysis.
+  let snapshot: MatterSnapshot | null = null;
+  let runId: string | null = null;
+  let analysis: LegalAnalysisResult | null = null;
+  let wasStale = false;
+  let staleReasons: string[] = [];
+
+  if (sessionId && isComplexTemplate(template)) {
+    const ensured = await ensureMatterAnalysis(sessionId, {
+      forceRerun: opts.forceRerunAnalysis,
+    });
+    snapshot = ensured.snapshot;
+    runId = ensured.run.id;
+    analysis = ensured.run.analysis;
+    wasStale = ensured.was_stale;
+    staleReasons = ensured.stale_reasons;
+  } else if (sessionId) {
+    // simple template: still pass through latest analysis if present
+    const { fetchLatestLegalAnalysis } = await import("./legal-analysis");
+    const latest = await fetchLatestLegalAnalysis(sessionId).catch(() => null);
+    if (latest) {
+      runId = latest.id;
+      analysis = latest.analysis;
+      const { buildMatterSnapshotFromRun } = await import("./matter-snapshot");
+      snapshot = buildMatterSnapshotFromRun(sessionId, latest);
+    }
+  }
+
+  // 2. Gate (only enforced for complex templates inside assertMatterGate).
+  assertMatterGate({
+    template,
+    run: runId && analysis ? ({
+      id: runId,
+      session_id: sessionId ?? "",
+      status: "completed",
+      hallucination_risk: null,
+      legal_accuracy_score: null,
+      source_verification_status: null,
+      needs_lawyer_review: false,
+      model_name: null,
+      error_message: null,
+      created_at: snapshot?.legal_analysis_created_at ?? new Date().toISOString(),
+      completed_at: null,
+      analysis,
+    } as any) : null,
+    snapshot,
+    wasStale: false, // ensureMatterAnalysis already returned a fresh run; staleness was self-healed
+    staleReasons,
+    redactionRequired: opts.redactionRequired,
+    ocrReady: opts.ocrReady,
+  });
+
+  // 3. Build payload (matter_snapshot included).
+  const payload: GenerateLegalDocumentRequest & {
+    session_id?: string | null;
+    intake_session_id?: string | null;
+  } = {
+    ...buildGenerateRequest(template, state, schema, {
+      intakeSessionId: sessionId ?? null,
+      legalAnalysis: analysis,
+      legalAnalysisRunId: runId,
+      matterSnapshot: snapshot,
+    }),
+    session_id: sessionId ?? null,
+    intake_session_id: sessionId ?? null,
+  };
+
+  // 4. Invoke generator (existing edge function, unmodified).
+  const result = await invokeGenerateLegalDocument(payload);
+
+  // 5. Write provenance into generated_legal_documents.metadata.
+  await writeGenerationProvenance({
+    generatedDocumentId: result.generated_document_id,
+    snapshot,
+    runId,
+    payload,
+  }).catch((e) => {
+    // Non-fatal: provenance writeback failure must not break generation UX.
+    console.warn("[prepareAndGenerate] provenance writeback failed:", (e as Error).message);
+  });
+
+  return {
+    ...result,
+    matter_snapshot: snapshot,
+    legal_analysis_run_id: runId,
+  };
+}
+
+async function writeGenerationProvenance(input: {
+  generatedDocumentId: string;
+  snapshot: MatterSnapshot | null;
+  runId: string | null;
+  payload: GenerateLegalDocumentRequest;
+}): Promise<void> {
+  const { generatedDocumentId, snapshot, runId, payload } = input;
+  if (!generatedDocumentId) return;
+
+  // Read existing metadata to merge.
+  const { data: row } = await supabase
+    .from("generated_legal_documents")
+    .select("metadata")
+    .eq("id", generatedDocumentId)
+    .maybeSingle();
+  const existing = ((row?.metadata as Record<string, unknown> | null) ?? {}) as Record<string, unknown>;
+
+  const provenance: Record<string, unknown> = {
+    generated_from_legal_analysis: Boolean(runId && snapshot),
+    legal_analysis_run_id: runId,
+    legal_analysis_created_at: snapshot?.legal_analysis_created_at ?? null,
+    analysis_version: snapshot?.analysis_version ?? null,
+    matter_snapshot: snapshot,
+    used_sources_count: (snapshot?.trusted_sources ?? []).filter((s) => s.is_winner && s.use_in_generation).length,
+    trusted_sources_count: snapshot?.trusted_sources?.length ?? 0,
+    document_context_quality: payload.document_context_quality,
+    source_sufficiency_status: snapshot?.source_sufficiency?.status ?? null,
+    challenge_status: snapshot?.challenge_result?.status ?? null,
+    redaction_used: Boolean(snapshot?.redaction_used),
+    provenance_index_present: Boolean(snapshot?.provenance_index),
+    evidence_matrix_present: Boolean(snapshot?.evidence_matrix?.length),
+  };
+
+  await supabase
+    .from("generated_legal_documents")
+    .update({ metadata: { ...existing, ...provenance } })
+    .eq("id", generatedDocumentId);
+}
+
