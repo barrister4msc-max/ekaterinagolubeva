@@ -534,6 +534,7 @@ function DocumentBuilderPage() {
                 onSubmit={handleGenerate}
                 availableModes={["standalone"]}
                 submitting={submitting}
+                initialSessionId={restoredSessionId}
               />
               {submitError && (
                 <div className="db-warning mt-4">Ошибка генерации: {submitError}</div>

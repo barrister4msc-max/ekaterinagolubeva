@@ -48,14 +48,22 @@ type Props = {
   availableModes?: Array<IntakeState["generationMode"]>;
   submitting?: boolean;
   intakeContext?: IntakeContext;
+  initialSessionId?: string | null;
 };
 
-export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack, availableModes, submitting, intakeContext }: Props) {
+export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack, availableModes, submitting, intakeContext, initialSessionId }: Props) {
   const steps = schema.schema_json?.steps ?? [];
   const [stepIdx, setStepIdx] = useState(0);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [intakeSessionId, setIntakeSessionId] = useState<string | null>(null);
+  const [intakeSessionId, setIntakeSessionId] = useState<string | null>(initialSessionId ?? null);
+  useEffect(() => {
+    if (initialSessionId && initialSessionId !== intakeSessionId) {
+      setIntakeSessionId(initialSessionId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSessionId]);
+
 
 type SessionDocument = {
   id: string;
@@ -244,7 +252,7 @@ const [isAiFilling, setIsAiFilling] = useState(false);
   const preflightQuery = useQuery<PreflightResult>({
     queryKey: ["generation-preflight", intakeSessionId],
     queryFn: () => runGenerationPreflight(intakeSessionId),
-    enabled: isReviewActive,
+    enabled: isReviewActive && !!intakeSessionId,
     refetchOnWindowFocus: false,
     staleTime: 10_000,
     refetchInterval: (q) => {
