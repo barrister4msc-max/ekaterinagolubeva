@@ -38,7 +38,31 @@ export type TrustedSource = {
   // actuality (kept compatible with previous shape)
   verification_status: string;
   actuality_status: string;
+  // Phase B correction: was this source actually used in any conclusion?
+  actually_used_in_generation: boolean;
 };
+
+export type SourceWarning = {
+  source_ref: string;
+  warning_type:
+    | "superseded_source"
+    | "low_trust_source"
+    | "low_trust_source_used"
+    | "superseded_source_used"
+    | "ekaterina_not_redacted"
+    | "missing_official_url";
+  superseded_by: string | null;
+  message: string;
+  affected_conclusions?: string[];
+};
+
+export type GenerationDecision = {
+  draft: boolean;
+  final: boolean;
+  warnings: SourceWarning[];
+  reasons: string[];
+};
+
 
 export type Conclusion = {
   conclusion_id: string;
