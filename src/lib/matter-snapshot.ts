@@ -15,6 +15,8 @@ import {
   type LegalAnalysisChallengeResult,
   type LegalAnalysisHashes,
   type LegalAnalysisFactRecord,
+  type LegalAnalysisSourceWarning,
+  type LegalAnalysisGenerationDecision,
 } from "./legal-analysis";
 
 export type QualityGatePreview = {
@@ -44,24 +46,35 @@ export type MatterSnapshot = {
   generation_instructions: string[];
   hashes: LegalAnalysisHashes | null;
   redaction_used: boolean;
+  // Phase B corrections
+  source_warnings: LegalAnalysisSourceWarning[];
+  external_search_required: boolean;
+  external_search_reason: string | null;
+  generation_allowed: LegalAnalysisGenerationDecision;
   quality_gate_preview: QualityGatePreview;
 };
 
+function defaultGenerationDecision(): LegalAnalysisGenerationDecision {
+  return { draft: false, final: false, warnings: [], reasons: ["no_analysis_payload"] };
+}
+
 export function previewQualityGate(run: LegalAnalysisRun): QualityGatePreview {
-  const reasons: string[] = [];
   const a = run.analysis;
-  if (!a) {
-    reasons.push("no_analysis_payload");
-    return { ok: false, reasons };
+  if (!a) return { ok: false, reasons: ["no_analysis_payload"] };
+  const decision = a.generation_allowed;
+  if (decision) {
+    return { ok: decision.draft, reasons: decision.reasons };
   }
+  // Legacy fallback for analyses written before Phase B correction.
+  const reasons: string[] = [];
   if (run.status !== "completed") reasons.push("analysis_not_completed");
   if (a.challenge_result?.status === "blocked") reasons.push("challenge_blocked");
   if (a.source_sufficiency?.status === "insufficient_critical")
     reasons.push("source_sufficiency_insufficient_critical");
-  const provMissing = (a.conclusions ?? []).some((c) => c.provenance?.provenance_missing);
-  if (provMissing) reasons.push("provenance_missing");
-  const hallucinated = (a.conclusions ?? []).some((c) => c.provenance?.hallucinated_source);
-  if (hallucinated) reasons.push("hallucinated_source");
+  if ((a.conclusions ?? []).some((c) => c.provenance?.provenance_missing))
+    reasons.push("provenance_missing");
+  if ((a.conclusions ?? []).some((c) => c.provenance?.hallucinated_source))
+    reasons.push("hallucinated_source");
   return { ok: reasons.length === 0, reasons };
 }
 
@@ -95,9 +108,14 @@ export function buildMatterSnapshotFromRun(
     generation_instructions: a?.generation_instructions ?? [],
     hashes: a?.hashes ?? null,
     redaction_used: Boolean(a?.redaction_used),
+    source_warnings: a?.source_warnings ?? [],
+    external_search_required: Boolean(a?.external_search_required),
+    external_search_reason: a?.external_search_reason ?? null,
+    generation_allowed: a?.generation_allowed ?? defaultGenerationDecision(),
     quality_gate_preview: previewQualityGate(run),
   };
 }
+
 
 export async function buildMatterSnapshot(
   sessionId: string,
