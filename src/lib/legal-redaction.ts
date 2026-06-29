@@ -383,7 +383,7 @@ export function redactLegalDocument(input: string): LegalRedactionResult {
   return {
     redacted_text: redacted,
     entities,
-    remaining_entities: review,
+    remaining_entities: allRemaining,
     stats,
     quality,
     version: LEGAL_REDACTION_VERSION,
