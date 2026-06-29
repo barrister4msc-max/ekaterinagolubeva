@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Check, Copy, FileText, Plus, Trash2, Upload, Sparkles, AlertTriangle, X, Loader2, CircleAlert, CircleCheck, CircleDashed } from "lucide-react";
 import {
