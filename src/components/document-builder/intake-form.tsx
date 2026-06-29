@@ -541,7 +541,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                   className="hidden"
                   accept=".pdf,.doc,.docx,.txt,.rtf,.html,.htm,.jpg,.jpeg,.png,.webp"
                   onChange={handleUploadDocument}
-                  disabled={isUploadingDocument || isAiFilling}
+                  disabled={isUploadingDocument || isAiFilling || isBuildingCaseIntelligence}
                 />
               </label>
 
