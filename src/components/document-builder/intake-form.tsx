@@ -413,7 +413,28 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
       alert("Не удалось удалить документ");
     }
   };
+    const buildCaseIntelligenceIfReady = async (reason: string) => {
+    if (!intakeSessionId) return null;
 
+    const readyDocs = sessionDocuments.filter((d) => d.ocr_text_length > 50);
+    if (readyDocs.length === 0) return null;
+
+    const key = `${intakeSessionId}:${readyDocs.map((d) => `${d.id}:${d.ocr_text_length}`).sort().join("|")}`;
+    if (lastCaseIntelligenceKeyRef.current === key) return null;
+
+    try {
+      setIsBuildingCaseIntelligence(true);
+      const matrix = await buildCaseIntelligenceForSession(intakeSessionId);
+      lastCaseIntelligenceKeyRef.current = key;
+      console.info("[case-intelligence] built", reason, matrix.summary);
+      return matrix;
+    } catch (error) {
+      console.warn("[case-intelligence] build failed", reason, error);
+      return null;
+    } finally {
+      setIsBuildingCaseIntelligence(false);
+    }
+  };  
   const handleAiFillFromDocument = async () => {
     if (!intakeSessionId) {
       alert("Сначала загрузите документы");
