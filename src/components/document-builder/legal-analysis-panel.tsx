@@ -5,6 +5,7 @@ import {
   runLegalAnalysis,
   type LegalAnalysisRun,
 } from "@/lib/legal-analysis";
+import { buildCaseIntelligenceForSession } from "@/lib/case-intelligence";
 import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
