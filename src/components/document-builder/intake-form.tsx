@@ -555,7 +555,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                 }
               >
                 <Sparkles size={14} />
-                {isAiFilling ? "AI заполняет…" : "AI заполнить поля"}
+                {isBuildingCaseIntelligence ? "Строю матрицу дела…" : isAiFilling ? "AI заполняет…" : "AI заполнить поля"}
               </button>
 
               {sessionDocuments.length > 0 && (
