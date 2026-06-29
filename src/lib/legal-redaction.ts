@@ -291,7 +291,7 @@ function findRiskMarkers(text: string): RemainingEntity[] {
   const markers: Array<{ type: LegalEntityType; re: RegExp; reason: string }> = [
     { type: "COMPANY", re: /\b(?:ООО|ОАО|АО|ПАО|ЗАО|НПАО|ИП)\b/iu, reason: "company marker" },
         { type: "BANK_DETAILS", re: /\b(?:ИНН|КПП|ОГРН|ОГРНИП|БИК|р\/с|к\/с)\s*\d{5,}/iu, reason: "bank/details marker" },
-    { type: "DOCUMENT_NUMBER", re: /\b(?:договор|акт|счет|счёт|доверенность|решение|требование|приказ|упд|счет-фактура|счёт-фактура)\s*(?:№|N|#)?/iu, reason: "document marker" },
+        { type: "DOCUMENT_NUMBER", re: /\b(?:договор|акт|счет|счёт|доверенность|решение|требование|приказ|упд|счет-фактура|счёт-фактура)\s*(?:№|N|#)\s*[А-ЯЁA-Z0-9\-\/.]+/iu, reason: "document marker" },
     { type: "DATE", re: /\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}\s+год)\b/iu, reason: "date marker" },
     { type: "PERSON", re: /\b(?:ФИО|представитель|директор|подписант|в лице|действующ\w+\s+на\s+основании)\b/iu, reason: "person marker" },
         {
