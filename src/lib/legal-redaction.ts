@@ -527,6 +527,7 @@ export function reviewRedactedText(
         : "warning";
 
   return { remaining_entities: allRemaining, stats, quality };
+  }
 
 export function qualityLabel(q: RedactionQuality): string {
   switch (q) {
