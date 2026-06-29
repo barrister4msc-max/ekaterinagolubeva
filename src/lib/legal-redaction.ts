@@ -294,6 +294,11 @@ function findRiskMarkers(text: string): RemainingEntity[] {
     { type: "DOCUMENT_NUMBER", re: /\b(?:договор|акт|счет|счёт|доверенность|решение|требование|приказ|упд|счет-фактура|счёт-фактура)\s*(?:№|N|#)?/iu, reason: "document marker" },
     { type: "DATE", re: /\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}\s+год)\b/iu, reason: "date marker" },
     { type: "PERSON", re: /\b(?:ФИО|представитель|директор|подписант|в лице|действующ\w+\s+на\s+основании)\b/iu, reason: "person marker" },
+        {
+      type: "PERSON",
+      re: /\b[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.(?=\s|$|[.,;:)\]])/u,
+      reason: "surname initials remain",
+    },
     { type: "ADDRESS", re: /\b(?:г\.|ул\.|улица|дом|д\.|офис|кв\.|помещение|склад)\b/iu, reason: "address marker" },
     { type: "EMAIL", re: /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu, reason: "email marker" },
     { type: "PHONE", re: /(?:\+7|\b8)[\s\-(]*\d{3}/u, reason: "phone marker" },
