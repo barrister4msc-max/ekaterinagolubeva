@@ -149,9 +149,9 @@ const PATTERNS: Pattern[] = [
   { type: "PASSPORT", re: /\bкод\s+подразделения[:\s]*\d{3}-\d{3}\b/gi, reason: "issuer code" },
 
   // Банковские реквизиты
-  { type: "BANK_DETAILS", re: /ИНН[:\s]*\d{10,12}/gi, reason: "ИНН" },
-  { type: "BANK_DETAILS", re: /КПП[:\s]*\d{9}/gi, reason: "КПП" },
-  { type: "BANK_DETAILS", re: /ОГРН(?:ИП)?[:\s]*\d{13,15}/gi, reason: "ОГРН" },
+  { type: "BANK_DETAILS", re: /ИНН\s*\d{10,12}/gi, reason: "ИНН" },
+  { type: "BANK_DETAILS", re: /КПП\s*\d{9}/gi, reason: "КПП" },
+  { type: "BANK_DETAILS", re: /ОГРН(?:ИП)?\s*\d{13,15}/gi, reason: "ОГРН" },
   { type: "BANK_DETAILS", re: /\bБИК[:\s]*\d{9}\b/gi, reason: "БИК" },
   { type: "BANK_DETAILS", re: /\b(?:р\/?с|к\/?с|расч[её]тн\w*\s+сч[её]т|корр?\.?\s*сч[её]т)[:\s№]*\d{20}\b/gi, reason: "счёт" },
   { type: "BANK_DETAILS", re: /\bIBAN[:\s]*[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/gi, reason: "IBAN" },
