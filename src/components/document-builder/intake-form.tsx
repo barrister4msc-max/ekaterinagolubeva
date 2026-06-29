@@ -1487,23 +1487,34 @@ function redactionStatusTone(
 function RedactionBadge({
   status,
   tone,
+  quality,
+  coverage,
 }: {
   status: RedactionStatus | null | undefined;
   tone: "neutral" | "warn" | "danger" | "ok";
+  quality?: RedactionQuality | null;
+  coverage?: number | null;
 }) {
+  // If quality says unsafe, force danger tone visually.
+  const effectiveTone: typeof tone =
+    status === "suggested" && quality === "unsafe"
+      ? "danger"
+      : status === "suggested" && quality === "warning"
+        ? "warn"
+        : tone;
   const colors = {
     ok: { bg: "rgba(102,187,156,0.16)", border: "rgba(102,187,156,0.40)", text: "#9be0c4" },
     warn: { bg: "rgba(214,170,90,0.18)", border: "rgba(214,170,90,0.45)", text: "#f0d59c" },
     danger: { bg: "rgba(214,120,120,0.18)", border: "rgba(214,120,120,0.45)", text: "#f0b8b8" },
     neutral: { bg: "rgba(255,255,255,0.06)", border: "rgba(255,255,255,0.18)", text: "rgba(255,255,255,0.75)" },
   } as const;
-  const c = colors[tone];
+  const c = colors[effectiveTone];
   return (
     <span
       className="inline-flex items-center rounded-full border px-2 py-[1px] text-[10px] tracking-wide"
       style={{ background: c.bg, borderColor: c.border, color: c.text }}
     >
-      {statusBadgeLabel(status)}
+      {statusBadgeLabel(status, { quality: quality ?? null, coverage: coverage ?? null })}
     </span>
   );
 }
