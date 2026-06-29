@@ -291,10 +291,11 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
     setIsSavingDraft(false);
   }
 };
-  const handleGenerateDraft = async () => {
+    const handleGenerateDraft = async () => {
   try {
     setIsSavingDraft(true);
     const sessionId = await ensureSession();
+    await buildCaseIntelligenceIfReady("before_generation");
     onSubmit(state, sessionId);
   } catch (e) {
     console.error("Failed to save intake before generation", e);
