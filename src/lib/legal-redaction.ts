@@ -260,6 +260,11 @@ const PATTERNS: Pattern[] = [
     re: /\b\d{1,2}\s+(?:январ[яь]|феврал[яь]|март[а]?|апрел[яь]|ма[йя]|июн[яь]|июл[яь]|август[а]?|сентябр[яь]|октябр[яь]|ноябр[яь]|декабр[яь])\s+\d{4}\s*(?:г\.?|года)?/gi,
     reason: "date long",
   },
+    {
+    type: "DATE",
+    re: /\b(?:за\s+|в\s+|по\s+|период\s+проверки:\s*)?\d{4}\s+год(?:а|у|ом)?\b/gi,
+    reason: "year period",
+  },
 ];
 
 // Types treated as critical when leftover in self-review.
