@@ -363,20 +363,31 @@ export function redactLegalDocument(input: string): LegalRedactionResult {
   // 3) Unmask public bodies.
   const redacted = unmaskGov(text, govPh);
 
-  // 4) Self-review.
+    // 4) Self-review + fallback risk markers.
   const review = selfReview(redacted);
-  for (const r of review) {
+  const riskMarkers = stats.detected_total === 0 ? findRiskMarkers(input) : [];
+  const allRemaining = [...review, ...riskMarkers];
+
+  for (const r of allRemaining) {
     stats.by_type[r.type].remaining += 1;
     stats.remaining_total += 1;
   }
-  const denom = stats.replaced_total + stats.remaining_total;
-  stats.coverage_percent =
-    denom === 0 ? 100 : Math.max(0, Math.min(100, Math.round((stats.replaced_total / denom) * 100)));
+
+  if (stats.detected_total === 0 && riskMarkers.length > 0) {
+    stats.coverage_percent = 0;
+  } else if (stats.detected_total === 0) {
+    stats.coverage_percent = 100;
+  } else {
+    stats.coverage_percent = Math.max(
+      0,
+      Math.min(100, Math.round((stats.replaced_total / stats.detected_total) * 100))
+    );
+  }
 
   const quality: RedactionQuality =
-    review.length === 0
+    allRemaining.length === 0
       ? "excellent"
-      : review.some((r) => r.severity === "high" || CRITICAL_TYPES.has(r.type))
+      : allRemaining.some((r) => r.severity === "high" || CRITICAL_TYPES.has(r.type))
         ? "unsafe"
         : "warning";
 
