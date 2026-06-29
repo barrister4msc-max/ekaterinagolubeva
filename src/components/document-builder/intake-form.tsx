@@ -89,6 +89,8 @@ const [redactionDocId, setRedactionDocId] = useState<string | null>(null);
 const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
 const [isAiFilling, setIsAiFilling] = useState(false);
+  const [isBuildingCaseIntelligence, setIsBuildingCaseIntelligence] = useState(false);
+const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
   const totalSteps = steps.length + 1; // +1 for review
 
   const requiredSet = useMemo(
