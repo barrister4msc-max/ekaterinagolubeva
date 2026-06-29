@@ -1460,8 +1460,18 @@ import {
   suggestRedaction,
   acceptRedaction,
   rejectRedaction,
+  reviewManualEdit,
   type RedactionStatus,
 } from "@/lib/document-redaction";
+import {
+  isAcceptable,
+  qualityLabel,
+  reviewRedactedText,
+  type LegalEntityType,
+  type RedactionQuality,
+  type RedactionStats,
+  type RemainingEntity,
+} from "@/lib/legal-redaction";
 
 function redactionStatusTone(
   status: RedactionStatus | null | undefined,
