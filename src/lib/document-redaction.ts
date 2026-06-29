@@ -8,6 +8,24 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { anonymize, type FoundEntity } from "./anonymization";
+import {
+  redactLegalDocument,
+  reviewRedactedText,
+  LEGAL_REDACTION_VERSION,
+  type LegalEntity,
+  type LegalRedactionResult,
+  type RedactionQuality,
+  type RedactionStats,
+  type RemainingEntity,
+} from "./legal-redaction";
+
+export type {
+  LegalEntity,
+  LegalRedactionResult,
+  RedactionQuality,
+  RedactionStats,
+  RemainingEntity,
+} from "./legal-redaction";
 
 export type RedactionStatus =
   | "not_required"
@@ -34,6 +52,11 @@ export type RedactionMetadata = RedactionFlags & {
   redaction_accepted_by: string | null;
   redaction_original_text_length?: number | null;
   redaction_entities_count?: number | null;
+  redaction_quality?: RedactionQuality | null;
+  redaction_stats?: RedactionStats | null;
+  redaction_remaining_entities?: RemainingEntity[] | null;
+  redaction_removed_entities?: LegalEntity[] | null;
+  redaction_version?: number | null;
 };
 
 // ----------------------------------------------------------------------------
@@ -110,15 +133,55 @@ export type RedactionDraft = {
   redacted_text: string;
   entities: FoundEntity[];
   notes: string[];
+  legal: LegalRedactionResult;
 };
 
 export function buildRedactionDraft(ocrText: string): RedactionDraft {
-  const { text, entities } = anonymize(ocrText, "strict");
-  const counts = new Map<string, number>();
-  for (const e of entities) counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1);
-  const notes = Array.from(counts.entries()).map(([kind, n]) => `${kind}: ${n}`);
-  return { redacted_text: text, entities, notes };
+  const legal = redactLegalDocument(ocrText);
+  // Backwards-compatible FoundEntity[] (anonymization.ts shape) so legacy
+  // callers (practice/anonymize-dialog) keep working — we map LegalEntity
+  // to the closest FoundEntity kind label.
+  const entities: FoundEntity[] = legal.entities.map((e) => ({
+    kind: legalTypeToFoundKind(e.type),
+    original: e.original,
+    placeholder: e.placeholder,
+  }));
+  const notes = Object.entries(legal.stats.by_type)
+    .filter(([, v]) => v.replaced > 0)
+    .map(([t, v]) => `${t}: ${v.replaced}`);
+  return { redacted_text: legal.redacted_text, entities, notes, legal };
 }
+
+function legalTypeToFoundKind(t: LegalEntity["type"]): FoundEntity["kind"] {
+  switch (t) {
+    case "PERSON":
+    case "COUNTERPARTY":
+      return "ФИО";
+    case "COMPANY":
+      return "КОМПАНИЯ";
+    case "ADDRESS":
+      return "АДРЕС";
+    case "EMAIL":
+      return "EMAIL";
+    case "PHONE":
+      return "ТЕЛЕФОН";
+    case "PASSPORT":
+      return "ПАСПОРТ";
+    case "BANK_DETAILS":
+      return "БИК";
+    case "DATE":
+      return "ДАТА";
+    case "DOCUMENT_NUMBER":
+      return "ДОГОВОР";
+    case "CADASTRAL":
+      return "КАДАСТР";
+    default:
+      return "ФИО";
+  }
+}
+
+// Keep the legacy `anonymize()` import live so existing callers compile.
+void anonymize;
 
 // ----------------------------------------------------------------------------
 // DB ops — all writes are merge-into-metadata patches.
@@ -201,26 +264,56 @@ export async function detectAndPersistRedaction(documentId: string): Promise<Red
  * the user must accept first.
  */
 export async function suggestRedaction(documentId: string): Promise<RedactionDraft> {
-  const { ocr_text } = await readDocMetadata(documentId);
-  if (!ocr_text || ocr_text.trim().length === 0) {
+  const { ocr_text, metadata } = await readDocMetadata(documentId);
+  const sourceText =
+    typeof metadata.original_ocr_text === "string" && (metadata.original_ocr_text as string).length > 0
+      ? (metadata.original_ocr_text as string)
+      : ocr_text;
+  if (!sourceText || sourceText.trim().length === 0) {
     throw new Error("Документ ещё не содержит OCR-текста — обезличивание невозможно.");
   }
-  const draft = buildRedactionDraft(ocr_text);
+  const draft = buildRedactionDraft(sourceText);
   await patchMetadata(documentId, {
     redaction_status: "suggested" as RedactionStatus,
     redacted_text: draft.redacted_text,
     redaction_notes: draft.notes,
-    redaction_entities_count: draft.entities.length,
-    redaction_original_text_length: ocr_text.length,
+    redaction_entities_count: draft.legal.entities.length,
+    redaction_original_text_length: sourceText.length,
     redaction_checked_at: new Date().toISOString(),
+    redaction_quality: draft.legal.quality,
+    redaction_stats: draft.legal.stats,
+    redaction_remaining_entities: draft.legal.remaining_entities,
+    redaction_removed_entities: draft.legal.entities,
+    redaction_version: draft.legal.version,
   });
   return draft;
+}
+
+/** Re-run self-review on hand-edited text and persist updated stats. */
+export async function reviewManualEdit(
+  documentId: string,
+  editedText: string,
+): Promise<{ remaining_entities: RemainingEntity[]; stats: RedactionStats; quality: RedactionQuality }> {
+  const { metadata } = await readDocMetadata(documentId);
+  const baseStats = (metadata.redaction_stats as RedactionStats | null) ?? undefined;
+  const review = reviewRedactedText(editedText, baseStats);
+  await patchMetadata(documentId, {
+    redacted_text: editedText,
+    redaction_stats: review.stats,
+    redaction_remaining_entities: review.remaining_entities,
+    redaction_quality: review.quality,
+    redaction_checked_at: new Date().toISOString(),
+  });
+  return review;
 }
 
 /**
  * Accept the suggested (or manually edited) redacted text. Copies redacted
  * text into documents.ocr_text so the existing analyze-document-legal-position
  * edge function reads only the safe version even via legacy code paths.
+ *
+ * Enforces enterprise safety gate: refuses to accept if self-review reports
+ * the document as unsafe / coverage < 95% / remaining entities present.
  */
 export async function acceptRedaction(
   documentId: string,
@@ -234,6 +327,13 @@ export async function acceptRedaction(
   if (!redacted) {
     throw new Error("Нет предложенного обезличивания — нажмите «Обезличить» сначала.");
   }
+  // Re-run self-review on the final text so the persisted stats reflect what
+  // is actually being accepted (covers the manual-edit-then-accept path).
+  const baseStats = (metadata.redaction_stats as RedactionStats | null) ?? undefined;
+  const review = reviewRedactedText(redacted, baseStats);
+  if (review.quality === "unsafe" || review.remaining_entities.length > 0 || review.stats.coverage_percent < 95) {
+    throw new Error("Требуется дополнительное обезличивание перед принятием.");
+  }
   const original =
     typeof metadata.original_ocr_text === "string"
       ? (metadata.original_ocr_text as string)
@@ -246,6 +346,11 @@ export async function acceptRedaction(
       redaction_accepted_at: new Date().toISOString(),
       redaction_accepted_by: opts.userId ?? null,
       original_ocr_text: original,
+      redaction_quality: review.quality,
+      redaction_stats: review.stats,
+      redaction_remaining_entities: review.remaining_entities,
+      redaction_removed_entities: metadata.redaction_removed_entities ?? null,
+      redaction_version: LEGAL_REDACTION_VERSION,
     },
     redacted,
   );
@@ -261,23 +366,38 @@ export async function rejectRedaction(documentId: string): Promise<void> {
 // UI helpers
 // ----------------------------------------------------------------------------
 
-export function statusBadgeLabel(status: RedactionStatus | null | undefined): string {
-  switch (status) {
-    case "not_required":
-      return "Без ПДн";
-    case "required":
-      return "Требует обезличивания";
-    case "pending":
-      return "Обезличивание выполняется";
-    case "suggested":
-      return "Обезличивание предложено";
-    case "accepted":
-      return "Обезличено";
-    case "rejected":
-      return "Отклонено";
-    default:
-      return "ПДн не проверены";
+export function statusBadgeLabel(
+  status: RedactionStatus | null | undefined,
+  extras?: { quality?: RedactionQuality | null; coverage?: number | null },
+): string {
+  const base = (() => {
+    switch (status) {
+      case "not_required":
+        return "Без ПДн";
+      case "required":
+        return "Требует обезличивания";
+      case "pending":
+        return "Обезличивание выполняется";
+      case "suggested":
+        return "Обезличивание предложено";
+      case "accepted":
+        return "Обезличено";
+      case "rejected":
+        return "Отклонено";
+      default:
+        return "ПДн не проверены";
+    }
+  })();
+  if (status === "accepted" && typeof extras?.coverage === "number") {
+    return `${base} · ${extras.coverage}%`;
   }
+  if (status === "suggested" && extras?.quality === "unsafe") {
+    return "Требует ручной проверки";
+  }
+  if (status === "suggested" && extras?.quality === "warning") {
+    return "Обезличивание предложено · warning";
+  }
+  return base;
 }
 
 export function statusBadgeTone(
