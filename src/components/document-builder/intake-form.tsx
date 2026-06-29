@@ -216,6 +216,14 @@ const [isAiFilling, setIsAiFilling] = useState(false);
           redaction_notes: notes,
           redacted_text:
             typeof meta.redacted_text === "string" ? (meta.redacted_text as string) : null,
+          redaction_quality:
+            (meta.redaction_quality as import("@/lib/legal-redaction").RedactionQuality | null) ??
+            null,
+          redaction_stats:
+            (meta.redaction_stats as import("@/lib/legal-redaction").RedactionStats | null) ?? null,
+          redaction_remaining_entities: Array.isArray(meta.redaction_remaining_entities)
+            ? (meta.redaction_remaining_entities as import("@/lib/legal-redaction").RemainingEntity[])
+            : [],
         };
       }),
     );
