@@ -1542,17 +1542,32 @@ function RedactionDialog({
   onChanged: () => void;
 }) {
   const [editedText, setEditedText] = useState<string>("");
-  const [busy, setBusy] = useState<"suggest" | "accept" | "reject" | null>(null);
+  const [busy, setBusy] = useState<"suggest" | "accept" | "reject" | "review" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // Live review of the in-memory edited text. Falls back to persisted stats.
+  const [liveStats, setLiveStats] = useState<RedactionStats | null>(null);
+  const [liveRemaining, setLiveRemaining] = useState<RemainingEntity[] | null>(null);
+  const [liveQuality, setLiveQuality] = useState<RedactionQuality | null>(null);
 
   useEffect(() => {
     setEditedText(doc?.redacted_text ?? "");
     setEditing(false);
     setError(null);
+    setLiveStats(null);
+    setLiveRemaining(null);
+    setLiveQuality(null);
   }, [doc?.id, doc?.redacted_text]);
 
   if (!doc) return null;
+
+  const stats: RedactionStats | null = liveStats ?? doc.redaction_stats;
+  const remaining: RemainingEntity[] = liveRemaining ?? doc.redaction_remaining_entities ?? [];
+  const quality: RedactionQuality | null = liveQuality ?? doc.redaction_quality;
+  const currentText = editing ? editedText : (doc.redacted_text ?? "");
+  const acceptCheck = stats
+    ? isAcceptable(currentText, stats, remaining, quality ?? "warning")
+    : { ok: false, reason: "Сначала выполните обезличивание" };
 
   const handleSuggest = async () => {
     setBusy("suggest");
@@ -1560,6 +1575,9 @@ function RedactionDialog({
     try {
       const draft = await suggestRedaction(doc.id);
       setEditedText(draft.redacted_text);
+      setLiveStats(draft.legal.stats);
+      setLiveRemaining(draft.legal.remaining_entities);
+      setLiveQuality(draft.legal.quality);
       onChanged();
     } catch (e) {
       setError((e as Error).message);
@@ -1567,6 +1585,32 @@ function RedactionDialog({
       setBusy(null);
     }
   };
+
+  const handleManualReview = async () => {
+    setBusy("review");
+    setError(null);
+    try {
+      const review = await reviewManualEdit(doc.id, editedText);
+      setLiveStats(review.stats);
+      setLiveRemaining(review.remaining_entities);
+      setLiveQuality(review.quality);
+      onChanged();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Cheap, debounced-ish in-memory re-review while editing so the user sees
+  // coverage update live without DB writes.
+  useEffect(() => {
+    if (!editing) return;
+    const r = reviewRedactedText(editedText, doc.redaction_stats ?? undefined);
+    setLiveStats(r.stats);
+    setLiveRemaining(r.remaining_entities);
+    setLiveQuality(r.quality);
+  }, [editedText, editing, doc.redaction_stats]);
 
   const handleAccept = async () => {
     setBusy("accept");
@@ -1600,7 +1644,17 @@ function RedactionDialog({
     }
   };
 
-  const hasDraft = (doc.redacted_text ?? "").length > 0;
+  const hasDraft = (doc.redacted_text ?? "").length > 0 || editedText.length > 0;
+  const acceptDisabled = busy !== null || !hasDraft || !acceptCheck.ok;
+
+  const typeRows: LegalEntityType[] = stats
+    ? (Object.keys(stats.by_type) as LegalEntityType[]).filter(
+        (k) =>
+          stats.by_type[k].detected > 0 ||
+          stats.by_type[k].replaced > 0 ||
+          stats.by_type[k].remaining > 0,
+      )
+    : [];
 
   return (
     <div
@@ -1608,7 +1662,7 @@ function RedactionDialog({
       onClick={onClose}
     >
       <div
-        className="relative max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-white/15 bg-[#0c1a24] shadow-2xl"
+        className="relative max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-2xl border border-white/15 bg-[#0c1a24] shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
@@ -1636,7 +1690,79 @@ function RedactionDialog({
           </div>
         )}
 
-        <div className="grid max-h-[60vh] grid-cols-1 gap-0 overflow-hidden md:grid-cols-2">
+        {/* Stats panel */}
+        {stats && (
+          <div className="border-b border-white/10 px-5 py-3 space-y-2">
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <span className="text-white/55 uppercase tracking-[0.16em] text-[10px]">
+                Статистика обезличивания
+              </span>
+              <span className="text-white">Coverage: <b>{stats.coverage_percent}%</b></span>
+              <span className="text-white/75">Найдено: {stats.detected_total}</span>
+              <span className="text-white/75">Заменено: {stats.replaced_total}</span>
+              <span className={stats.remaining_total > 0 ? "text-rose-200" : "text-emerald-300"}>
+                Осталось: {stats.remaining_total}
+              </span>
+              {quality && (
+                <span className="ml-auto text-white">{qualityLabel(quality)}</span>
+              )}
+            </div>
+            {typeRows.length > 0 && (
+              <div className="max-h-32 overflow-auto rounded-md border border-white/10">
+                <table className="w-full text-[11px]">
+                  <thead className="bg-white/[0.04] text-white/55">
+                    <tr>
+                      <th className="text-left px-2 py-1">Тип</th>
+                      <th className="text-right px-2 py-1">Найдено</th>
+                      <th className="text-right px-2 py-1">Заменено</th>
+                      <th className="text-right px-2 py-1">Осталось</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {typeRows.map((t) => (
+                      <tr key={t} className="border-t border-white/5 text-white/80">
+                        <td className="px-2 py-1">{t}</td>
+                        <td className="px-2 py-1 text-right">{stats.by_type[t].detected}</td>
+                        <td className="px-2 py-1 text-right">{stats.by_type[t].replaced}</td>
+                        <td
+                          className={
+                            "px-2 py-1 text-right " +
+                            (stats.by_type[t].remaining > 0 ? "text-rose-200" : "")
+                          }
+                        >
+                          {stats.by_type[t].remaining}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Remaining entities */}
+        {remaining.length > 0 && (
+          <div className="border-b border-rose-400/30 bg-rose-500/5 px-5 py-3">
+            <div className="text-[11px] uppercase tracking-[0.16em] text-rose-200 mb-2">
+              Остались возможные данные ({remaining.length})
+            </div>
+            <div className="max-h-32 overflow-auto space-y-1 text-[11px]">
+              {remaining.slice(0, 50).map((r, i) => (
+                <div key={i} className="flex items-center gap-2 text-rose-100/90">
+                  <span className="rounded border border-rose-300/40 px-1 text-[10px]">
+                    {r.type}
+                  </span>
+                  <span className="text-rose-100/70 text-[10px]">{r.severity}</span>
+                  <span className="truncate">{r.text}</span>
+                  <span className="ml-auto text-rose-100/50 text-[10px]">{r.reason}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="grid flex-1 min-h-0 grid-cols-1 gap-0 overflow-hidden md:grid-cols-2">
           <div className="overflow-auto border-white/10 p-4 md:border-r">
             <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-white/55">
               Оригинал OCR
@@ -1646,19 +1772,31 @@ function RedactionDialog({
             </pre>
           </div>
           <div className="overflow-auto p-4">
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex items-center justify-between gap-2">
               <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
                 Обезличенный текст
               </div>
-              {hasDraft && !editing && (
-                <button
-                  type="button"
-                  className="db-ghost"
-                  onClick={() => setEditing(true)}
-                >
-                  Редактировать вручную
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {editing && (
+                  <button
+                    type="button"
+                    className="db-ghost"
+                    onClick={handleManualReview}
+                    disabled={busy !== null}
+                  >
+                    {busy === "review" ? "Сохраняю…" : "Сохранить и проверить"}
+                  </button>
+                )}
+                {hasDraft && !editing && (
+                  <button
+                    type="button"
+                    className="db-ghost"
+                    onClick={() => setEditing(true)}
+                  >
+                    Редактировать вручную
+                  </button>
+                )}
+              </div>
             </div>
             {!hasDraft ? (
               <div className="text-xs text-white/55">
@@ -1666,7 +1804,7 @@ function RedactionDialog({
               </div>
             ) : editing ? (
               <textarea
-                className="db-input min-h-[300px] w-full"
+                className="db-input min-h-[300px] w-full font-mono text-xs"
                 value={editedText}
                 onChange={(e) => setEditedText(e.target.value)}
               />
@@ -1681,6 +1819,12 @@ function RedactionDialog({
         {error && (
           <div className="border-t border-rose-400/30 bg-rose-500/10 px-5 py-2 text-xs text-rose-100">
             {error}
+          </div>
+        )}
+
+        {!acceptCheck.ok && hasDraft && (
+          <div className="border-t border-amber-400/30 bg-amber-500/10 px-5 py-2 text-xs text-amber-100">
+            Требуется дополнительное обезличивание перед принятием. {acceptCheck.reason}
           </div>
         )}
 
@@ -1705,8 +1849,8 @@ function RedactionDialog({
             type="button"
             className="db-cta"
             onClick={handleAccept}
-            disabled={busy !== null || !hasDraft}
-            title={!hasDraft ? "Сначала создайте обезличивание" : "Принять обезличивание"}
+            disabled={acceptDisabled}
+            title={acceptCheck.ok ? "Принять обезличивание" : (acceptCheck.reason ?? "")}
           >
             {busy === "accept" ? "Принимаю…" : "Принять обезличивание"}
           </button>
