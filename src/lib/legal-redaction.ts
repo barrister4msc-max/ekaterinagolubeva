@@ -149,9 +149,9 @@ const PATTERNS: Pattern[] = [
   { type: "PASSPORT", re: /\bкод\s+подразделения[:\s]*\d{3}-\d{3}\b/gi, reason: "issuer code" },
 
   // Банковские реквизиты
-  { type: "BANK_DETAILS", re: /\bИНН[:\s]*\d{10,12}\b/gi, reason: "ИНН" },
-  { type: "BANK_DETAILS", re: /\bКПП[:\s]*\d{9}\b/gi, reason: "КПП" },
-  { type: "BANK_DETAILS", re: /\bОГРН(?:ИП)?[:\s]*\d{13,15}\b/gi, reason: "ОГРН" },
+  { type: "BANK_DETAILS", re: /ИНН[:\s]*\d{10,12}/gi, reason: "ИНН" },
+  { type: "BANK_DETAILS", re: /КПП[:\s]*\d{9}/gi, reason: "КПП" },
+  { type: "BANK_DETAILS", re: /ОГРН(?:ИП)?[:\s]*\d{13,15}/gi, reason: "ОГРН" },
   { type: "BANK_DETAILS", re: /\bБИК[:\s]*\d{9}\b/gi, reason: "БИК" },
   { type: "BANK_DETAILS", re: /\b(?:р\/?с|к\/?с|расч[её]тн\w*\s+сч[её]т|корр?\.?\s*сч[её]т)[:\s№]*\d{20}\b/gi, reason: "счёт" },
   { type: "BANK_DETAILS", re: /\bIBAN[:\s]*[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/gi, reason: "IBAN" },
@@ -232,7 +232,7 @@ const PATTERNS: Pattern[] = [
   },
     {
     type: "PERSON",
-    re: /\b[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.(?=\s|$|[.,;:)\]])/g,
+    re: /[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.(?=\s|$|[.,;:)\]])/g,
     reason: "Фамилия И.О. simple",
   }, 
   // Юридические лица: ООО/АО/...
@@ -296,7 +296,7 @@ function findRiskMarkers(text: string): RemainingEntity[] {
     { type: "PERSON", re: /\b(?:ФИО|представитель|директор|подписант|в лице|действующ\w+\s+на\s+основании)\b/iu, reason: "person marker" },
         {
       type: "PERSON",
-      re: /\b[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.(?=\s|$|[.,;:)\]])/u,
+      re: /[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.(?=\s|$|[.,;:)\]])/u,
       reason: "surname initials remain",
     },
     { type: "ADDRESS", re: /\b(?:г\.|ул\.|улица|дом|д\.|офис|кв\.|помещение|склад)\b/iu, reason: "address marker" },
