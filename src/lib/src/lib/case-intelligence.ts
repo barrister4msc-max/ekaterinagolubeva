@@ -147,7 +147,6 @@ export type CaseIntelligenceMatrix = {
     low: number;
   };
 };
-
 function uniq<T>(items: T[], keyFn: (item: T) => string): T[] {
   const seen = new Set<string>();
   const out: T[] = [];
