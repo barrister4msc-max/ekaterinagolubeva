@@ -8,6 +8,24 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { anonymize, type FoundEntity } from "./anonymization";
+import {
+  redactLegalDocument,
+  reviewRedactedText,
+  LEGAL_REDACTION_VERSION,
+  type LegalEntity,
+  type LegalRedactionResult,
+  type RedactionQuality,
+  type RedactionStats,
+  type RemainingEntity,
+} from "./legal-redaction";
+
+export type {
+  LegalEntity,
+  LegalRedactionResult,
+  RedactionQuality,
+  RedactionStats,
+  RemainingEntity,
+} from "./legal-redaction";
 
 export type RedactionStatus =
   | "not_required"
