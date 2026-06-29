@@ -264,26 +264,56 @@ export async function detectAndPersistRedaction(documentId: string): Promise<Red
  * the user must accept first.
  */
 export async function suggestRedaction(documentId: string): Promise<RedactionDraft> {
-  const { ocr_text } = await readDocMetadata(documentId);
-  if (!ocr_text || ocr_text.trim().length === 0) {
+  const { ocr_text, metadata } = await readDocMetadata(documentId);
+  const sourceText =
+    typeof metadata.original_ocr_text === "string" && (metadata.original_ocr_text as string).length > 0
+      ? (metadata.original_ocr_text as string)
+      : ocr_text;
+  if (!sourceText || sourceText.trim().length === 0) {
     throw new Error("Документ ещё не содержит OCR-текста — обезличивание невозможно.");
   }
-  const draft = buildRedactionDraft(ocr_text);
+  const draft = buildRedactionDraft(sourceText);
   await patchMetadata(documentId, {
     redaction_status: "suggested" as RedactionStatus,
     redacted_text: draft.redacted_text,
     redaction_notes: draft.notes,
-    redaction_entities_count: draft.entities.length,
-    redaction_original_text_length: ocr_text.length,
+    redaction_entities_count: draft.legal.entities.length,
+    redaction_original_text_length: sourceText.length,
     redaction_checked_at: new Date().toISOString(),
+    redaction_quality: draft.legal.quality,
+    redaction_stats: draft.legal.stats,
+    redaction_remaining_entities: draft.legal.remaining_entities,
+    redaction_removed_entities: draft.legal.entities,
+    redaction_version: draft.legal.version,
   });
   return draft;
+}
+
+/** Re-run self-review on hand-edited text and persist updated stats. */
+export async function reviewManualEdit(
+  documentId: string,
+  editedText: string,
+): Promise<{ remaining_entities: RemainingEntity[]; stats: RedactionStats; quality: RedactionQuality }> {
+  const { metadata } = await readDocMetadata(documentId);
+  const baseStats = (metadata.redaction_stats as RedactionStats | null) ?? undefined;
+  const review = reviewRedactedText(editedText, baseStats);
+  await patchMetadata(documentId, {
+    redacted_text: editedText,
+    redaction_stats: review.stats,
+    redaction_remaining_entities: review.remaining_entities,
+    redaction_quality: review.quality,
+    redaction_checked_at: new Date().toISOString(),
+  });
+  return review;
 }
 
 /**
  * Accept the suggested (or manually edited) redacted text. Copies redacted
  * text into documents.ocr_text so the existing analyze-document-legal-position
  * edge function reads only the safe version even via legacy code paths.
+ *
+ * Enforces enterprise safety gate: refuses to accept if self-review reports
+ * the document as unsafe / coverage < 95% / remaining entities present.
  */
 export async function acceptRedaction(
   documentId: string,
@@ -297,6 +327,13 @@ export async function acceptRedaction(
   if (!redacted) {
     throw new Error("Нет предложенного обезличивания — нажмите «Обезличить» сначала.");
   }
+  // Re-run self-review on the final text so the persisted stats reflect what
+  // is actually being accepted (covers the manual-edit-then-accept path).
+  const baseStats = (metadata.redaction_stats as RedactionStats | null) ?? undefined;
+  const review = reviewRedactedText(redacted, baseStats);
+  if (review.quality === "unsafe" || review.remaining_entities.length > 0 || review.stats.coverage_percent < 95) {
+    throw new Error("Требуется дополнительное обезличивание перед принятием.");
+  }
   const original =
     typeof metadata.original_ocr_text === "string"
       ? (metadata.original_ocr_text as string)
@@ -309,6 +346,11 @@ export async function acceptRedaction(
       redaction_accepted_at: new Date().toISOString(),
       redaction_accepted_by: opts.userId ?? null,
       original_ocr_text: original,
+      redaction_quality: review.quality,
+      redaction_stats: review.stats,
+      redaction_remaining_entities: review.remaining_entities,
+      redaction_removed_entities: metadata.redaction_removed_entities ?? null,
+      redaction_version: LEGAL_REDACTION_VERSION,
     },
     redacted,
   );
