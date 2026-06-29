@@ -7,7 +7,38 @@ import {
 } from "@/lib/legal-analysis";
 import { buildCaseIntelligenceForSession } from "@/lib/case-intelligence";
 import { supabase } from "@/integrations/supabase/client";
+const ANALYSIS_METRIC_LABELS: Record<string, string> = {
+  fns_found: "Материалы ФНС",
+  laws_found: "Нормы законодательства",
+  minfin_found: "Материалы Минфина",
+  manuals_found: "Методические материалы",
+  documents_used: "Использовано документов",
+  documents_total: "Всего документов",
+  documents_rejected: "Отклонено документов",
+  ekaterina_found: "Практика Екатерины",
+  court_practice_found: "Судебная практика",
+  sources_raw: "Найдено источников",
+  sources_winners: "Отобрано источников",
+  sources_after_caps: "После ограничения",
+  sources_after_dedupe: "После удаления дублей",
+  sources_after_enrich: "После обогащения",
+  sources_after_ranking: "После ранжирования",
+  sources_used_by_model: "Использовано ИИ",
+  semantic_enabled: "Семантический поиск",
+  gap_retry_used: "Повторный поиск пробелов",
+};
 
+const ANALYSIS_STATUS_LABELS: Record<string, string> = {
+  actual: "Актуально",
+  outdated: "Устарело",
+  unknown: "Не определено",
+  needs_check: "Требует проверки",
+  requires_actuality_check: "Требует проверки актуальности",
+  requires_manual_verification: "Требует ручной проверки",
+  missing_url: "Нет ссылки",
+  passed: "Проверено",
+  partial: "Частично",
+};
 type Props = {
   sessionId: string | null;
   onEnsureSession: () => Promise<string>;
