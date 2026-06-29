@@ -133,15 +133,55 @@ export type RedactionDraft = {
   redacted_text: string;
   entities: FoundEntity[];
   notes: string[];
+  legal: LegalRedactionResult;
 };
 
 export function buildRedactionDraft(ocrText: string): RedactionDraft {
-  const { text, entities } = anonymize(ocrText, "strict");
-  const counts = new Map<string, number>();
-  for (const e of entities) counts.set(e.kind, (counts.get(e.kind) ?? 0) + 1);
-  const notes = Array.from(counts.entries()).map(([kind, n]) => `${kind}: ${n}`);
-  return { redacted_text: text, entities, notes };
+  const legal = redactLegalDocument(ocrText);
+  // Backwards-compatible FoundEntity[] (anonymization.ts shape) so legacy
+  // callers (practice/anonymize-dialog) keep working — we map LegalEntity
+  // to the closest FoundEntity kind label.
+  const entities: FoundEntity[] = legal.entities.map((e) => ({
+    kind: legalTypeToFoundKind(e.type),
+    original: e.original,
+    placeholder: e.placeholder,
+  }));
+  const notes = Object.entries(legal.stats.by_type)
+    .filter(([, v]) => v.replaced > 0)
+    .map(([t, v]) => `${t}: ${v.replaced}`);
+  return { redacted_text: legal.redacted_text, entities, notes, legal };
 }
+
+function legalTypeToFoundKind(t: LegalEntity["type"]): FoundEntity["kind"] {
+  switch (t) {
+    case "PERSON":
+    case "COUNTERPARTY":
+      return "ФИО";
+    case "COMPANY":
+      return "КОМПАНИЯ";
+    case "ADDRESS":
+      return "АДРЕС";
+    case "EMAIL":
+      return "EMAIL";
+    case "PHONE":
+      return "ТЕЛЕФОН";
+    case "PASSPORT":
+      return "ПАСПОРТ";
+    case "BANK_DETAILS":
+      return "БИК";
+    case "DATE":
+      return "ДАТА";
+    case "DOCUMENT_NUMBER":
+      return "ДОГОВОР";
+    case "CADASTRAL":
+      return "КАДАСТР";
+    default:
+      return "ФИО";
+  }
+}
+
+// Keep the legacy `anonymize()` import live so existing callers compile.
+void anonymize;
 
 // ----------------------------------------------------------------------------
 // DB ops — all writes are merge-into-metadata patches.
