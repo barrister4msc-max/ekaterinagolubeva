@@ -121,9 +121,16 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
     setRunning(true);
     try {
       const id = sessionId ?? (await onEnsureSession());
-      await refreshHasDocuments(id);
-      const result = await runLegalAnalysis(id);
-      setRun(result);
+await refreshHasDocuments(id);
+
+try {
+  await buildCaseIntelligenceForSession(id);
+} catch (caseIntelligenceError) {
+  console.warn("[case-intelligence] build before legal analysis failed", caseIntelligenceError);
+}
+
+const result = await runLegalAnalysis(id);
+setRun(result);
     } catch (e) {
       const msg = (e as Error).message;
       if (msg === "no_documents") {
