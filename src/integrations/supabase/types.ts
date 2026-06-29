@@ -1751,6 +1751,7 @@ export type Database = {
           last_opened_at: string | null
           lead_id: string | null
           matter_id: string | null
+          metadata: Json
           reviewed_at: string | null
           reviewed_by: string | null
           source_type: string
@@ -1777,6 +1778,7 @@ export type Database = {
           last_opened_at?: string | null
           lead_id?: string | null
           matter_id?: string | null
+          metadata?: Json
           reviewed_at?: string | null
           reviewed_by?: string | null
           source_type?: string
@@ -1803,6 +1805,7 @@ export type Database = {
           last_opened_at?: string | null
           lead_id?: string | null
           matter_id?: string | null
+          metadata?: Json
           reviewed_at?: string | null
           reviewed_by?: string | null
           source_type?: string
