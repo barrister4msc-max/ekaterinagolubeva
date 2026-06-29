@@ -145,7 +145,7 @@ const PATTERNS: Pattern[] = [
     reason: "passport block",
   },
   { type: "PASSPORT", re: /\bсерия\s+\d{2}\s?\d{2}\s+(?:№\s*)?\d{6}\b/gi, reason: "passport" },
-  { type: "PASSPORT", re: /\b\d{2}\s?\d{2}\s?\d{6}\b/g, reason: "passport-like" },
+  
   { type: "PASSPORT", re: /\bкод\s+подразделения[:\s]*\d{3}-\d{3}\b/gi, reason: "issuer code" },
 
   // Банковские реквизиты
