@@ -366,23 +366,38 @@ export async function rejectRedaction(documentId: string): Promise<void> {
 // UI helpers
 // ----------------------------------------------------------------------------
 
-export function statusBadgeLabel(status: RedactionStatus | null | undefined): string {
-  switch (status) {
-    case "not_required":
-      return "Без ПДн";
-    case "required":
-      return "Требует обезличивания";
-    case "pending":
-      return "Обезличивание выполняется";
-    case "suggested":
-      return "Обезличивание предложено";
-    case "accepted":
-      return "Обезличено";
-    case "rejected":
-      return "Отклонено";
-    default:
-      return "ПДн не проверены";
+export function statusBadgeLabel(
+  status: RedactionStatus | null | undefined,
+  extras?: { quality?: RedactionQuality | null; coverage?: number | null },
+): string {
+  const base = (() => {
+    switch (status) {
+      case "not_required":
+        return "Без ПДн";
+      case "required":
+        return "Требует обезличивания";
+      case "pending":
+        return "Обезличивание выполняется";
+      case "suggested":
+        return "Обезличивание предложено";
+      case "accepted":
+        return "Обезличено";
+      case "rejected":
+        return "Отклонено";
+      default:
+        return "ПДн не проверены";
+    }
+  })();
+  if (status === "accepted" && typeof extras?.coverage === "number") {
+    return `${base} · ${extras.coverage}%`;
   }
+  if (status === "suggested" && extras?.quality === "unsafe") {
+    return "Требует ручной проверки";
+  }
+  if (status === "suggested" && extras?.quality === "warning") {
+    return "Обезличивание предложено · warning";
+  }
+  return base;
 }
 
 export function statusBadgeTone(
