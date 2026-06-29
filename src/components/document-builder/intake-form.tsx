@@ -31,7 +31,7 @@ import {
   type PreflightCheck,
   type PreflightResult,
 } from "@/lib/document-generation-preflight";
-
+import { buildCaseIntelligenceForSession } from "@/lib/case-intelligence";
 type IntakeContext = {
   matterId?: string | null;
   clientId?: string | null;
