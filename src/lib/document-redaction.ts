@@ -54,6 +54,22 @@ export type RedactionMetadata = RedactionFlags & {
   redaction_entities_count?: number | null;
 };
 
+export type RedactionMetadata = RedactionFlags & {
+  redaction_status: RedactionStatus;
+  redacted_text: string | null;
+  redaction_notes: string[];
+  redaction_checked_at: string | null;
+  redaction_accepted_at: string | null;
+  redaction_accepted_by: string | null;
+  redaction_original_text_length?: number | null;
+  redaction_entities_count?: number | null;
+  redaction_quality?: RedactionQuality | null;
+  redaction_stats?: RedactionStats | null;
+  redaction_remaining_entities?: RemainingEntity[] | null;
+  redaction_removed_entities?: LegalEntity[] | null;
+  redaction_version?: number | null;
+};
+
 // ----------------------------------------------------------------------------
 // Detection — light regex sweep, reuses anonymization patterns.
 // ----------------------------------------------------------------------------
@@ -66,6 +82,10 @@ const PASSPORT_RE =
 const ADDRESS_RE = /(?:г\.?\s?[А-ЯЁ][а-яё-]+).{0,80}?(?:ул\.?|улица|пр-?т|проспект|шоссе|д\.?|дом|кв\.?|квартира)/i;
 const PHONE_RE = /(?:\+7|8)[\s\-(]*\d{3}[\s\-)]*\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/;
 const EMAIL_RE = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/;
+const FIO_RE =
+  /\b[А-ЯЁ][а-яё]+(?:ов|ев|ин|ын|ский|цкий|ова|ева|ина|ына|ская|цкая)\s+[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)?\b/;
+const INN_RE = /\b\d{12}\b/; // 12 цифр — физлицо
+const SNILS_RE = /\b\d{3}-\d{3}-\d{3}\s?\d{2}\b/;
 const FIO_RE =
   /\b[А-ЯЁ][а-яё]+(?:ов|ев|ин|ын|ский|цкий|ова|ева|ина|ына|ская|цкая)\s+[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)?\b/;
 const INN_RE = /\b\d{12}\b/; // 12 цифр — физлицо
