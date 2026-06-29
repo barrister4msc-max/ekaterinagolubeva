@@ -1527,6 +1527,9 @@ type RedactionDialogDoc = {
   redacted_text: string | null;
   redaction_status: RedactionStatus | null;
   redaction_notes: string[];
+  redaction_quality: RedactionQuality | null;
+  redaction_stats: RedactionStats | null;
+  redaction_remaining_entities: RemainingEntity[];
 };
 
 function RedactionDialog({
