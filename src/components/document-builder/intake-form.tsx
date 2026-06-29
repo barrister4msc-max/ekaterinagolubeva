@@ -446,8 +446,10 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
       return;
     }
 
-    try {
+        try {
       setIsAiFilling(true);
+
+      await buildCaseIntelligenceIfReady("before_ai_fill");
 
       for (const doc of readyDocs) {
         const { error } = await supabase.functions.invoke(
