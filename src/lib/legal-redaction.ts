@@ -273,7 +273,33 @@ const CRITICAL_TYPES = new Set<LegalEntityType>([
   "LICENSE_PLATE",
   "CADASTRAL",
 ]);
+function findRiskMarkers(text: string): RemainingEntity[] {
+  const markers: Array<{ type: LegalEntityType; re: RegExp; reason: string }> = [
+    { type: "COMPANY", re: /\b(?:ООО|ОАО|АО|ПАО|ЗАО|НПАО|ИП)\b/iu, reason: "company marker" },
+    { type: "BANK_DETAILS", re: /\b(?:ИНН|КПП|ОГРН|ОГРНИП|БИК|р\/с|к\/с)\b/iu, reason: "bank/details marker" },
+    { type: "DOCUMENT_NUMBER", re: /\b(?:договор|акт|счет|счёт|доверенность|решение|требование|приказ|упд|счет-фактура|счёт-фактура)\s*(?:№|N|#)?/iu, reason: "document marker" },
+    { type: "DATE", re: /\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}\s+год)\b/iu, reason: "date marker" },
+    { type: "PERSON", re: /\b(?:ФИО|представитель|директор|подписант|в лице|действующ\w+\s+на\s+основании)\b/iu, reason: "person marker" },
+    { type: "ADDRESS", re: /\b(?:г\.|ул\.|улица|дом|д\.|офис|кв\.|помещение|склад)\b/iu, reason: "address marker" },
+    { type: "EMAIL", re: /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu, reason: "email marker" },
+    { type: "PHONE", re: /(?:\+7|\b8)[\s\-(]*\d{3}/u, reason: "phone marker" },
+  ];
 
+  const found: RemainingEntity[] = [];
+
+  for (const marker of markers) {
+    if (marker.re.test(text)) {
+      found.push({
+        type: marker.type,
+        text: marker.reason,
+        reason: `Risk marker remains: ${marker.reason}`,
+        severity: "high",
+      });
+    }
+  }
+
+  return found;
+}
 // ---------------------------------------------------------------------------
 // Redaction core.
 // ---------------------------------------------------------------------------
