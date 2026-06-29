@@ -79,6 +79,9 @@ type SessionDocument = {
   contains_signature: boolean;
   redaction_notes: string[];
   redacted_text: string | null;
+  redaction_quality: import("@/lib/legal-redaction").RedactionQuality | null;
+  redaction_stats: import("@/lib/legal-redaction").RedactionStats | null;
+  redaction_remaining_entities: import("@/lib/legal-redaction").RemainingEntity[];
 };
 const [sessionDocuments, setSessionDocuments] = useState<SessionDocument[]>([]);
 const [redactionDocId, setRedactionDocId] = useState<string | null>(null);
