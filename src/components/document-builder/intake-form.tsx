@@ -569,7 +569,12 @@ const [isAiFilling, setIsAiFilling] = useState(false);
                                 <span className="text-amber-300">— нет текста</span>
                               )}
                             </span>
-                            <RedactionBadge status={doc.redaction_status} tone={tone} />
+                            <RedactionBadge
+                              status={doc.redaction_status}
+                              tone={tone}
+                              quality={doc.redaction_quality}
+                              coverage={doc.redaction_stats?.coverage_percent ?? null}
+                            />
                             {doc.redaction_notes.length > 0 && (
                               <span className="text-white/45 truncate">
                                 · {doc.redaction_notes.join(", ")}
