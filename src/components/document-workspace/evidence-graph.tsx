@@ -237,7 +237,7 @@ function FactInspector({
       {node.sub && <div className="text-[11px] text-slate-300">{node.sub}</div>}
 
       {confirming.length === 0 && (
-        <div className="flex items-start gap-2 rounded-md border border-red-400/50 bg-red-500/15 p-2 text-[12px] text-red-50">
+        <div className="flex items-start gap-2 rounded-md border border-red-400/50 bg-red-500/15 p-2 text-[14px] text-red-50">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <div>
             <div className="font-semibold">Факт документально не подтверждён.</div>
