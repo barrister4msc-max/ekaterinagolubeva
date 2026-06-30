@@ -58,7 +58,7 @@ export function EvidenceGraphTab({ analysis, review, attachments, onOpenSource }
   if (graph.nodes.length === 0) {
     return (
       <section className={`${PANEL} p-5 text-sm text-slate-200`}>
-        <h2 className="font-display text-lg text-white">Evidence Graph</h2>
+        <h2 className="font-display text-lg text-white">Граф доказательств</h2>
         <p className="mt-2 text-slate-300">
           В AI-анализе нет данных для построения графа доказательств.
         </p>
@@ -79,7 +79,7 @@ export function EvidenceGraphTab({ analysis, review, attachments, onOpenSource }
     <section className={`${PANEL} p-4 space-y-3`}>
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display text-lg text-white">Evidence Graph</h2>
+          <h2 className="font-display text-lg text-white">Граф доказательств</h2>
           <p className="mt-1 text-[14px] text-slate-300">
             Факт → Документы → Нормы → Практика → Вывод. Кликните узел — справа откроется детальная информация.
           </p>
@@ -189,10 +189,10 @@ function NodeInspector({
     <aside className={`${PANEL_SUB} p-3 space-y-3 text-[14px] text-slate-100`}>
       <div className="flex items-center gap-2">
         <KindBadge kind={node.kind} />
-        <span className="text-[10px] uppercase tracking-wider text-slate-400">узел</span>
+        <span className="text-[14px] uppercase tracking-wider text-slate-400">узел</span>
       </div>
-      <div className="text-sm font-semibold text-white">{node.label}</div>
-      {node.sub && <div className="text-[11px] text-slate-300">{node.sub}</div>}
+      <div className="text-[15px] font-semibold text-white">{node.label}</div>
+      {node.sub && <div className="text-[14px] leading-6 text-slate-300">{node.sub}</div>}
 
       {(node.kind === "law" || node.kind === "practice") && (
         <CitationBlock source={node.data} onOpenSource={onOpenSource} />
@@ -231,17 +231,17 @@ function FactInspector({
     <aside className={`${PANEL_SUB} p-3 space-y-3 text-[14px] text-slate-100`}>
       <div className="flex items-center gap-2">
         <KindBadge kind="fact" />
-        <span className="text-[10px] uppercase tracking-wider text-slate-400">Fact Inspector</span>
+        <span className="text-[14px] uppercase tracking-wider text-slate-400">Инспектор факта</span>
       </div>
-      <div className="text-sm font-semibold text-white">{node.label}</div>
-      {node.sub && <div className="text-[11px] text-slate-300">{node.sub}</div>}
+      <div className="text-[15px] font-semibold text-white">{node.label}</div>
+      {node.sub && <div className="text-[14px] leading-6 text-slate-300">{node.sub}</div>}
 
       {confirming.length === 0 && (
         <div className="flex items-start gap-2 rounded-md border border-red-400/50 bg-red-500/15 p-2 text-[14px] text-red-50">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <div>
             <div className="font-semibold">Факт документально не подтверждён.</div>
-            <div className="mt-0.5 text-[11px] text-red-100/85">
+            <div className="mt-0.5 text-[14px] leading-6 text-red-100/85">
               В AI-анализе не найдено доказательств. Требуется добавить документ или вручную сослаться на источник.
             </div>
           </div>
@@ -257,7 +257,7 @@ function FactInspector({
 
       {missing.length > 0 && (
         <div className="space-y-1">
-          <div className={COL_TITLE}>Missing evidence</div>
+          <div className={COL_TITLE}>Недостающие доказательства</div>
           <ul className="space-y-1 text-[14px] text-amber-100">
             {missing.map((m, i) => (
               <li key={i} className="rounded-md border border-amber-400/30 bg-amber-500/10 p-1.5">
@@ -284,7 +284,7 @@ function FactInspector({
       {reviewItems.length > 0 && (
         <div className="space-y-1">
           <div className={COL_TITLE}>
-            <MessageSquare size={12} /> Замечания AI Review
+            <MessageSquare size={12} /> Замечания AI-проверки
           </div>
           <ul className="space-y-1 text-[14px] text-rose-100">
             {reviewItems.map((r) => (
@@ -294,7 +294,7 @@ function FactInspector({
                 onClick={() => onSelect(r.id)}
               >
                 {r.label}
-                {r.sub && <div className="text-[10px] text-rose-200/80">{r.sub}</div>}
+                {r.sub && <div className="text-[14px] leading-6 text-rose-200/80">{r.sub}</div>}
               </li>
             ))}
           </ul>
@@ -304,7 +304,7 @@ function FactInspector({
       {onOpenSource && grouped.law[0] && (
         <button
           type="button"
-          className="inline-flex items-center gap-1 rounded-md border border-sky-400/50 bg-sky-500/20 px-2.5 py-1 text-[11px] text-sky-50 hover:bg-sky-500/30"
+          className="inline-flex items-center gap-1 rounded-md border border-sky-400/50 bg-sky-500/20 px-2.5 py-1 text-[14px] text-sky-50 hover:bg-sky-500/30"
           onClick={() => onOpenSource(grouped.law[0].data)}
         >
           <ExternalLink size={11} /> Открыть первый источник
@@ -332,7 +332,7 @@ function LinkedGroup({
     <div className="space-y-1">
       <div className={COL_TITLE}>{title}</div>
       {items.length === 0 ? (
-        <div className="text-[11px] text-slate-500">{emptyHint}</div>
+        <div className="text-[14px] text-slate-500">{emptyHint}</div>
       ) : (
         <ul className="space-y-1">
           {items.map((n) => (
@@ -369,7 +369,7 @@ function KindBadge({ kind }: { kind: GraphNodeKind }) {
   };
   const [label, cls] = map[kind];
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[14px] font-semibold ${cls}`}>
       {label}
     </span>
   );
@@ -395,7 +395,7 @@ function CitationBlock({
         <button
           type="button"
           onClick={() => onOpenSource(source)}
-          className="mt-2 inline-flex items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/15 px-2 py-0.5 text-[11px] text-sky-50 hover:bg-sky-500/25"
+          className="mt-2 inline-flex items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/15 px-2 py-0.5 text-[14px] text-sky-50 hover:bg-sky-500/25"
         >
           <ExternalLink size={10} /> Открыть источник
         </button>
