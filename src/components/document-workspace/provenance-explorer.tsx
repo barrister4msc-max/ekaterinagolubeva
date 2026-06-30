@@ -367,7 +367,9 @@ function ConclusionCard({
     <div className={SUBPANEL}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">{c.kind}</div>
+          <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">
+  {trCaseLabel(c.kind)}
+</div>
           <div className="text-sm text-white">{c.statement}</div>
         </div>
         <div className="text-right text-[14px] text-slate-400">
@@ -427,7 +429,7 @@ function ConclusionCard({
         </div>
         <div className={SUBPANEL}>
           <div className="text-slate-400">Sufficiency</div>
-          <div>status: {p?.sufficiency?.status ?? "—"}</div>
+          <div>Статус: {trCaseLabel(p?.sufficiency?.status ?? "—")}</div>
           <div className="opacity-80">{p?.sufficiency?.reason ?? ""}</div>
           <div className="mt-1">derivation: {p?.derivation ?? "—"}</div>
           {p?.provenance_missing && (
@@ -545,7 +547,7 @@ function FactsMode({
               <div className="opacity-70">{f.fact_id}</div>
               <div className="line-clamp-2 break-words">{f.fact_text}</div>
               <div className="mt-1 opacity-60">
-                evidence: {f.evidence_status} · strength {f.evidence_strength}
+                Доказательство: {trCaseLabel(f.evidence_status)} · Сила: {f.evidence_strength}
               </div>
             </button>
           ))}
@@ -561,7 +563,7 @@ function FactsMode({
           <div className={SUBPANEL}>
             <div className="text-slate-400">Evidence</div>
             <div>status: {current.evidence_status}</div>
-            <div>strength: {current.evidence_strength}</div>
+            <div>Статус: {trCaseLabel(current.evidence_status)}</div>
           </div>
           <div className={SUBPANEL}>
             <div className="text-slate-400">Документы</div>
@@ -737,14 +739,17 @@ function SourceCard({
           <Row label="is_winner" value={source.is_winner ? "yes" : "no"} />
           <Row label="superseded_by" value={source.superseded_by ?? "—"} />
           <Row label="lower_priority_reason" value={source.lower_priority_reason ?? "—"} />
-          <Row label="actuality_status" value={source.actuality_status} />
+          <Row
+  label={trCaseLabel("actuality_status")}
+  value={trCaseLabel(source.actuality_status)}
+/>
         </div>
       </div>
 
       {warnings.length > 0 && (
         <div className={`${SUBPANEL} space-y-1`}>
           <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">
-            Source warnings · review_status
+            Предупреждения по источнику · Статус проверки
           </div>
           {warnings.map((w) => {
             const rev = reviews[warningKey(w)];
@@ -765,7 +770,10 @@ function SourceCard({
                     {w.message}
                   </div>
                   <div className="opacity-70">
-                    review_status: <span className={color}>{rev?.status ?? "pending"}</span>
+                    Статус проверки:
+<span className={color}>
+  {trCaseLabel(rev?.status ?? "pending")}
+</span>
                     {rev?.comment && <> · «{rev.comment}»</>}
                   </div>
                 </div>
