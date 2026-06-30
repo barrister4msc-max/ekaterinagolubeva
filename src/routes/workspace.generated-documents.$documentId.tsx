@@ -2525,7 +2525,7 @@ function DocumentDetailPage() {
                 if (confirm("Утвердить документ?")) approve.mutate();
               }}
               disabled={approve.isPending || approveBlocked}
-              title={approveBlocked ? (consistency.blockReason ?? "Quality Gate не пройден") : undefined}
+              title={approveBlocked ? (consistency.blockReason ?? "Контроль качества не пройден") : undefined}
               className={`${BTN_EMERALD} whitespace-nowrap`}
             >
               {approve.isPending ? (
