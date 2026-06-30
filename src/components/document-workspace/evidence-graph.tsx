@@ -29,7 +29,7 @@ const PANEL_SUB = "rounded-xl border border-slate-700/60 bg-slate-800/90";
 const COL = "rounded-xl border border-slate-700/60 bg-slate-900/70 p-2";
 const NODE_BASE =
   "w-full cursor-pointer rounded-lg border px-2.5 py-1.5 text-left text-[14px] leading-6 transition focus:outline-none focus:ring-2 focus:ring-sky-400";
-const COL_TITLE = "mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-300";
+const COL_TITLE = "mb-2 flex items-center gap-1.5 text-[15px] font-semibold uppercase tracking-wider text-slate-300";
 
 type GraphNodeKind = "fact" | "doc" | "law" | "practice" | "conclusion" | "review";
 
