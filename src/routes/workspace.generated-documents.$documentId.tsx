@@ -2595,7 +2595,7 @@ function DocumentDetailPage() {
             </button>
             {!consistency.ready && (
               <span className="inline-flex items-center gap-1 rounded-lg border border-amber-400/60 bg-amber-500/15 px-2.5 py-1.5 text-xs text-amber-700">
-                <AlertTriangle size={12} /> Утверждён, но Quality Gate не пройден
+                <AlertTriangle size={12} /> Утверждён, но контроль качества не пройден
               </span>
             )}
           </>
