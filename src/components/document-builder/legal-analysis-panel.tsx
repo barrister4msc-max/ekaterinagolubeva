@@ -439,7 +439,7 @@ function ListSection({ title, items, warn }: { title: string; items: string[]; w
   return (
     <div>
       <div className="db-section-label">{title}</div>
-      <ul className={`mt-2 list-disc pl-5 space-y-1 text-xs ${warn ? "text-amber-200" : "text-white/85"}`}>
+      <ul className={`mt-2 list-disc pl-5 space-y-1 text-[13px] ${warn ? "text-amber-200" : "text-white/85"}`}>
         {items.map((it, i) => (
           <li key={i}>{it}</li>
         ))}
