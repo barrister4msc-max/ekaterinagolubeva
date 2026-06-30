@@ -331,7 +331,7 @@ export function GroundingScoreCompact({
       className={`w-full rounded-xl border px-3 py-2 text-left transition hover:opacity-90 ${tone}`}
     >
       <div className="flex items-center justify-between">
-        <div className={LABEL}>Grounding</div>
+        <div className={LABEL}>Обоснование</div>
         <div className="text-lg font-bold leading-none">{score}</div>
       </div>
       <div className="mt-1 grid grid-cols-3 gap-1 text-[10px] opacity-90">
