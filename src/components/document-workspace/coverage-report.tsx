@@ -144,8 +144,10 @@ export function CoverageReportTab({
     <section className={`${PANEL} space-y-4 p-5`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-lg text-white">Coverage Report</h2>
-          <p className="mt-1 text-xs text-slate-300">
+          <h2 className="font-display text-[16px] font-semibold text-white">
+       Отчёт о полноте доказательств
+       </h2>
+          <p className="mt-1 text-[14px] leading-6 text-slate-300">
             Покрытие фактов, документов, норм и практики. Метрики рассчитаны из существующих данных, без обращения к AI.
           </p>
         </div>
@@ -219,7 +221,7 @@ function CoverageCard({
   rows: Array<{ label: string; value: number; tone: "good" | "warn" | "bad" }>;
 }) {
   return (
-    <div className={`${PANEL_SUB} p-3 text-xs text-slate-100`}>
+    <div className={`${PANEL_SUB} p-3 text-[14px] leading-6 text-slate-100`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-slate-200">
           {icon}
@@ -258,7 +260,7 @@ function GroundingScore({ score }: { score: number }) {
     <div className={`rounded-2xl border px-4 py-3 text-center ${tone}`}>
       <div className={LABEL}>Обоснование</div>
       <div className="mt-1 text-3xl font-bold leading-none">{score}</div>
-      <div className="mt-1 text-[10px] opacity-80">из 100</div>
+      <div className="mt-1 text-[14px] opacity-80">из 100</div>
     </div>
   );
 }
@@ -274,13 +276,13 @@ function GroundingBreakdown({
         <CheckCircle2 size={14} />
         <span className="text-sm font-semibold text-white">Как считается оценка обоснования</span>
       </div>
-      <p className="mt-1 text-[11px] text-slate-400">
+      <p className="mt-1 text-[14px] leading-6 text-slate-400">
         Взвешенное среднее по шести компонентам. Считается на клиенте из данных AI-анализа, AI Review и аудита документов.
       </p>
       <ul className="mt-2 space-y-2">
         {components.map((c) => (
           <li key={c.key}>
-            <div className="flex items-center justify-between text-[11px]">
+            <div className="flex items-center justify-between text-[14px]">
               <span className="text-slate-200">
                 {c.label} <span className="text-slate-500">· вес {Math.round(c.weight * 100)}%</span>
               </span>
