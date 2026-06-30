@@ -194,7 +194,7 @@ export function ProvenanceExplorer({ snapshot }: { snapshot: ProvenanceSnapshotI
       <section className={`${PANEL} p-5`}>
         <div className="flex items-center gap-2 text-white">
           <Network size={16} />
-          <h2 className="font-display text-lg">Provenance Explorer</h2>
+          <h2 className="font-display text-lg">Происхождение выводов</h2>
         </div>
         <p className="mt-3 text-sm text-slate-300">
           Для этого документа нет Matter Snapshot / provenance_index. Сформируйте
