@@ -256,7 +256,7 @@ function GroundingScore({ score }: { score: number }) {
     : "bg-red-500/25 text-red-50 border-red-400/50";
   return (
     <div className={`rounded-2xl border px-4 py-3 text-center ${tone}`}>
-      <div className={LABEL}>Grounding Score</div>
+      <div className={LABEL}>Обоснование</div>
       <div className="mt-1 text-3xl font-bold leading-none">{score}</div>
       <div className="mt-1 text-[10px] opacity-80">из 100</div>
     </div>
