@@ -148,23 +148,29 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
     return () => window.removeEventListener("intake-documents-updated", handler as EventListener);
   }, [sessionId, refreshHasDocuments]);
 
-  const handleRun = async () => {
+    const handleRun = async () => {
     setError(null);
     setRunning(true);
+
     try {
       const id = sessionId ?? (await onEnsureSession());
-await refreshHasDocuments(id);
 
-try {
-  await buildCaseIntelligenceForSession(id);
-} catch (caseIntelligenceError) {
-  console.warn("[case-intelligence] build before legal analysis failed", caseIntelligenceError);
-}
+      await refreshHasDocuments(id);
 
-const result = await runLegalAnalysis(id);
-setRun(result);
+      try {
+        await buildCaseIntelligenceForSession(id);
+      } catch (caseIntelligenceError) {
+        console.warn(
+          "[case-intelligence] build before legal analysis failed",
+          caseIntelligenceError,
+        );
+      }
+
+      const result = await runLegalAnalysis(id);
+      setRun(result);
     } catch (e) {
       const msg = (e as Error).message;
+
       if (msg === "no_documents") {
         setError(
           "Сначала прикрепите документы. После извлечения текста запустите AI правовой анализ.",
