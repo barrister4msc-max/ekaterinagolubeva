@@ -22,7 +22,7 @@ import { trCaseLabel } from "@/lib/case-intelligence-i18n";
 const PANEL = "rounded-2xl border border-slate-700/70 bg-slate-900/95 shadow-xl";
 const PANEL_SUB = "rounded-xl border border-slate-700/60 bg-slate-800/90";
 const BTN =
-  "inline-flex items-center gap-1.5 rounded-md border border-slate-600 bg-slate-800 px-2.5 py-1 text-xs text-slate-100 hover:bg-slate-700";
+  "inline-flex items-center gap-1.5 rounded-md border border-slate-600 bg-slate-800 px-2.5 py-1 text-[14px] text-slate-100 hover:bg-slate-700";
 
 /* ============ Types ============ */
 
