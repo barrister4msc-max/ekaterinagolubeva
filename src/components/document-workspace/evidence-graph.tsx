@@ -249,13 +249,34 @@ function FactInspector({
       <div className="text-[15px] font-semibold text-white">{node.label}</div>
       {node.sub && <div className="text-[14px] leading-6 text-slate-300">{node.sub}</div>}
 
-      {confirming.length === 0 && (
-        <div className="flex items-start gap-2 rounded-md border border-red-400/50 bg-red-500/15 p-2 text-[14px] text-red-50">
-          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            {confirming.length === 0 && (
+        <div
+          className={[
+            "flex items-start gap-2 rounded-md p-2 text-[14px] leading-6",
+            hasPartialSupport
+              ? "border border-amber-400/50 bg-amber-500/15 text-amber-50"
+              : "border border-red-400/50 bg-red-500/15 text-red-50",
+          ].join(" ")}
+        >
+          <AlertTriangle
+            size={14}
+            className={[
+              "mt-0.5 shrink-0",
+              hasPartialSupport ? "text-amber-300" : "text-red-300",
+            ].join(" ")}
+          />
+
           <div>
-            <div className="font-semibold">Факт документально не подтверждён.</div>
-            <div className="mt-0.5 text-[14px] leading-6 text-red-100/85">
-              В AI-анализе не найдено доказательств. Требуется добавить документ или вручную сослаться на источник.
+            <div className="font-semibold">
+              {hasPartialSupport
+                ? "Связь с документом найдена частично."
+                : "Факт документально не подтверждён."}
+            </div>
+
+            <div className="mt-0.5 text-[14px] leading-6 opacity-90">
+              {hasPartialSupport
+                ? "Есть ссылка на документ, цитату или источник. Требуется проверка юристом."
+                : "В AI-анализе не найдено доказательств. Требуется добавить документ или вручную сослаться на источник."}
             </div>
           </div>
         </div>
