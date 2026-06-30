@@ -306,14 +306,14 @@ function ConclusionsMode({
   return (
     <div className="grid gap-3 md:grid-cols-[260px_1fr]">
       <div className="space-y-1.5">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Список выводов</div>
+        <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">Список выводов</div>
         <div className="space-y-1">
           {conclusions.map((c) => (
             <button
               key={c.conclusion_id}
               type="button"
               onClick={() => onSelectConclusion(c.conclusion_id)}
-              className={`block w-full rounded-md border px-2 py-1.5 text-left text-xs ${
+              className={`block w-full rounded-md border px-2 py-1.5 text-left text-[14px] ${
                 current?.conclusion_id === c.conclusion_id
                   ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-50"
                   : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
@@ -328,7 +328,7 @@ function ConclusionsMode({
 
       <div className="space-y-3">
         {!current ? (
-          <div className="text-slate-300 text-xs">Нет conclusion для отображения.</div>
+          <div className="text-slate-300 text-[14px]">Нет conclusion для отображения.</div>
         ) : (
           <ConclusionCard
             c={current}
@@ -367,10 +367,10 @@ function ConclusionCard({
     <div className={SUBPANEL}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{c.kind}</div>
+          <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">{c.kind}</div>
           <div className="text-sm text-white">{c.statement}</div>
         </div>
-        <div className="text-right text-[11px] text-slate-400">
+        <div className="text-right text-[14px] text-slate-400">
           <div>conf. {(p?.confidence ?? 0).toFixed(2)}</div>
           <div>{c.conclusion_id}</div>
         </div>
@@ -418,7 +418,7 @@ function ConclusionCard({
         </Section>
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 text-[11px] text-slate-300">
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 text-[14px] text-slate-300">
         <div className={SUBPANEL}>
           <div className="text-slate-400">Trust summary</div>
           <div>min: {p?.trust_summary?.min_trust_score ?? "—"}</div>
@@ -453,7 +453,7 @@ function Section({
 }) {
   return (
     <div className={SUBPANEL}>
-      <div className="mb-1 flex items-center gap-1 text-[11px] uppercase tracking-[0.18em] text-slate-400">
+      <div className="mb-1 flex items-center gap-1 text-[14px] uppercase tracking-[0.18em] text-slate-400">
         {icon} {title}
       </div>
       <div className="flex flex-wrap gap-1">{children}</div>
@@ -519,7 +519,7 @@ function FactsMode({
   const current = facts.find((f) => f.fact_id === selectedFact) ?? facts[0];
 
   if (!current) {
-    return <div className="text-xs text-slate-300">Факты отсутствуют в snapshot.</div>;
+    return <div className="text-[14px] text-slate-300">Факты отсутствуют в snapshot.</div>;
   }
 
   const usedInConclusions = current.conclusions?.length
@@ -529,14 +529,14 @@ function FactsMode({
   return (
     <div className="grid gap-3 md:grid-cols-[260px_1fr]">
       <div className="space-y-1.5">
-        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Список фактов</div>
+        <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">Список фактов</div>
         <div className="space-y-1">
           {facts.map((f) => (
             <button
               key={f.fact_id}
               type="button"
               onClick={() => onSelectFact(f.fact_id)}
-              className={`block w-full rounded-md border px-2 py-1.5 text-left text-xs ${
+              className={`block w-full rounded-md border px-2 py-1.5 text-left text-[14px] ${
                 current.fact_id === f.fact_id
                   ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-50"
                   : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
@@ -554,7 +554,7 @@ function FactsMode({
 
       <div className={`${SUBPANEL} space-y-3`}>
         <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{current.fact_id}</div>
+          <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">{current.fact_id}</div>
           <div className="text-sm text-white">{current.fact_text}</div>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 text-[11px] text-slate-300">
@@ -627,7 +627,7 @@ function SourcesMode({
     <div className="grid gap-3 md:grid-cols-[280px_1fr]">
       <div className="space-y-3">
         <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Источники</div>
+          <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">Источники</div>
           <div className="mt-1 space-y-1 max-h-[320px] overflow-y-auto pr-1">
             {trustedSources.map((s) => (
               <button
@@ -637,7 +637,7 @@ function SourcesMode({
                   onSelectSource(s.source_ref);
                   onSelectDocument("");
                 }}
-                className={`block w-full rounded-md border px-2 py-1.5 text-left text-xs ${
+                className={`block w-full rounded-md border px-2 py-1.5 text-left text-[14px] ${
                   currentSourceRef === s.source_ref && !currentDocId
                     ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-50"
                     : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
@@ -652,7 +652,7 @@ function SourcesMode({
           </div>
         </div>
         <div>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Документы клиента</div>
+          <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">Документы клиента</div>
           <div className="mt-1 space-y-1 max-h-[200px] overflow-y-auto pr-1">
             {documents.map((d) => (
               <button
@@ -662,7 +662,7 @@ function SourcesMode({
                   onSelectDocument(d.id);
                   onSelectSource("");
                 }}
-                className={`block w-full rounded-md border px-2 py-1.5 text-left text-xs ${
+                className={`block w-full rounded-md border px-2 py-1.5 text-left text-[14px] ${
                   currentDocId === d.id
                     ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-50"
                     : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
@@ -694,7 +694,7 @@ function SourcesMode({
             onJumpConclusion={onJumpConclusion}
           />
         ) : (
-          <div className="text-xs text-slate-300">Выберите источник или документ слева.</div>
+          <div className="text-[14px] text-slate-300">Выберите источник или документ слева.</div>
         )}
       </div>
     </div>
@@ -719,14 +719,14 @@ function SourceCard({
   return (
     <div className="space-y-3">
       <div>
-        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+        <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">
           {source.source_type} · {source.bucket}
         </div>
         <div className="text-sm text-white">{source.title}</div>
-        <div className="mt-0.5 break-all text-[11px] text-slate-400">{source.source_ref}</div>
+        <div className="mt-0.5 break-all text-[14px] text-slate-400">{source.source_ref}</div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 text-[11px] text-slate-300">
+      <div className="grid gap-2 sm:grid-cols-2 text-[14px] text-slate-300">
         <div className={SUBPANEL}>
           <Row label="trust_score" value={source.trust_score} />
           <Row label="trust_reason" value={source.trust_reason} />
@@ -743,7 +743,7 @@ function SourceCard({
 
       {warnings.length > 0 && (
         <div className={`${SUBPANEL} space-y-1`}>
-          <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+          <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">
             Source warnings · review_status
           </div>
           {warnings.map((w) => {
@@ -757,7 +757,7 @@ function SourceCard({
                   ? "text-rose-300"
                   : "text-amber-300";
             return (
-              <div key={`${w.source_ref}::${w.warning_type}`} className="flex items-start gap-2 text-[11px]">
+              <div key={`${w.source_ref}::${w.warning_type}`} className="flex items-start gap-2 text-[14px]">
                 <Icon size={12} className={`${color} mt-0.5`} />
                 <div className="flex-1">
                   <div>
@@ -802,11 +802,11 @@ function DocumentCard({
   return (
     <div className="space-y-3">
       <div>
-        <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">
+        <div className="text-[14px] uppercase tracking-[0.18em] text-slate-400">
           Документ клиента · {doc.used ? "used" : "rejected"}
         </div>
         <div className="text-sm text-white">{doc.title}</div>
-        <div className="mt-0.5 break-all text-[11px] text-slate-400">{doc.id}</div>
+        <div className="mt-0.5 break-all text-[14px] text-slate-400">{doc.id}</div>
       </div>
       <Section title={`Используется в выводах · ${conclusionIds.length}`}>
         {conclusionIds.length === 0 && <span className="text-[11px] text-slate-400">—</span>}
