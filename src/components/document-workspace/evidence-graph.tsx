@@ -226,7 +226,20 @@ function FactInspector({
   const missing: any[] = Array.isArray(fact?.missing_evidence) ? fact.missing_evidence : [];
   const risks: any[] = Array.isArray(fact?.risks) ? fact.risks : [];
   const reviewItems = grouped.review;
-
+  const hasPartialSupport =
+  confirming.length === 0 &&
+  Boolean(
+    fact?.source_document_id ||
+      fact?.document_id ||
+      fact?.source_file_name ||
+      fact?.file_name ||
+      fact?.quote ||
+      fact?.context ||
+      fact?.source_documents?.length ||
+      fact?.documents?.length ||
+      fact?.used_documents?.length ||
+      fact?.used_sources?.length,
+  );
   return (
     <aside className={`${PANEL_SUB} p-3 space-y-3 text-[14px] text-slate-100`}>
       <div className="flex items-center gap-2">
