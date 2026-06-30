@@ -18,7 +18,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { openAttachment, type AttachmentRow } from "./attachments-viewer";
-
+import { trCaseLabel } from "@/lib/case-intelligence-i18n";
 const PANEL = "rounded-2xl border border-slate-700/70 bg-slate-900/95 shadow-xl";
 const PANEL_SUB = "rounded-xl border border-slate-700/60 bg-slate-800/90";
 const BTN =
