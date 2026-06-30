@@ -2236,7 +2236,7 @@ function DocumentDetailPage() {
     if (approveBlocked) {
       return {
         kind: "fix_quality",
-        label: "Устранить замечания Quality Gate",
+        label: "Устранить замечания контроля качества",
         hint: consistency.blockReason ?? undefined,
       };
     }
