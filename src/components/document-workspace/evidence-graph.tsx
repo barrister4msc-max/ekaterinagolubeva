@@ -412,8 +412,8 @@ function DocMetaBlock({ doc }: { doc: any }) {
         {doc?.file_name ?? "—"}
       </div>
       <div>
-        <span className="text-slate-400">Тип: </span>
-        {doc?.document_type ?? "—"}
+      <span className="text-slate-400">Тип: </span>
+      {doc?.document_type ? trCaseLabel(doc.document_type) : "—"}
       </div>
       <div>
         <span className="text-slate-400">OCR: </span>
