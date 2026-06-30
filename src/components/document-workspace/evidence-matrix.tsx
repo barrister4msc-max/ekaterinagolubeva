@@ -256,7 +256,7 @@ export function EvidenceMatrixTab({
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="font-display text-lg text-white">Матрица доказательств</h2>
-          <p className="mt-1 text-xs text-slate-300">
+          <p className="mt-1 text-[14px] leading-6 text-slate-300">
             Факт → Документы → Норма → Практика → Статус. Источник: AI-анализ + приложения сессии.
           </p>
         </div>
@@ -267,13 +267,13 @@ export function EvidenceMatrixTab({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Поиск по факту или документу…"
-              className="w-[220px] bg-transparent text-xs text-slate-100 outline-none"
+              className="w-[220px] bg-transparent text-[14px] text-slate-100 outline-none"
             />
           </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-slate-100"
+            className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[14px] text-slate-100"
           >
             <option value="all">Все статусы</option>
             <option value="confirmed">Подтверждённые</option>
@@ -290,7 +290,7 @@ export function EvidenceMatrixTab({
       </div>
 
       {facts.length === 0 && (
-        <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+        <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-[14px] leading-6 text-amber-100">
           <AlertTriangle size={12} className="mr-1 inline" />
           В AI-анализе нет фактов или маппингов. Матрицу построить невозможно.
         </div>
@@ -298,7 +298,7 @@ export function EvidenceMatrixTab({
 
       {filtered.length > 0 && (
         <div className="overflow-x-auto rounded-xl border border-slate-700/70">
-          <table className="w-full min-w-[760px] text-left text-xs text-slate-100">
+          <table className="w-full min-w-[760px] text-left text-[14px] text-slate-100">
             <thead className="bg-slate-800/80 text-[10px] uppercase tracking-wider text-slate-300">
               <tr>
                 <th className="px-3 py-2">Факт</th>
