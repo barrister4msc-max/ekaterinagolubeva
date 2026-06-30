@@ -272,7 +272,7 @@ function GroundingBreakdown({
     <div className={`${PANEL_SUB} p-3 text-xs text-slate-100 md:col-span-2 lg:col-span-3`}>
       <div className="flex items-center gap-1.5 text-slate-200">
         <CheckCircle2 size={14} />
-        <span className="text-sm font-semibold text-white">Как считается Grounding Score</span>
+        <span className="text-sm font-semibold text-white">Как считается оценка обоснования</span>
       </div>
       <p className="mt-1 text-[11px] text-slate-400">
         Взвешенное среднее по шести компонентам. Считается на клиенте из данных AI-анализа, AI Review и аудита документов.
