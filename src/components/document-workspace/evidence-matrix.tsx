@@ -324,7 +324,7 @@ export function EvidenceMatrixTab({
                     </td>
                     <td className="px-3 py-2">
                       {f.evidenceDocs.length === 0 ? (
-                        <span className="text-[11px] text-amber-200">
+                        <span className="text-[14px] text-amber-200">
                           Доказательства не привязаны. Требуется ручная проверка.
                         </span>
                       ) : (
@@ -355,7 +355,7 @@ export function EvidenceMatrixTab({
                     </td>
                     <td className="px-3 py-2 max-w-[220px]">
                       {f.laws.length === 0 ? (
-                        <span className="text-[11px] text-slate-400">—</span>
+                        <span className="text-[14px] text-slate-400">—</span>
                       ) : (
                         <ul className="space-y-1">
                           {f.laws.slice(0, 3).map((l, i) => (
@@ -372,7 +372,7 @@ export function EvidenceMatrixTab({
                     </td>
                     <td className="px-3 py-2 max-w-[220px]">
                       {f.practice.length === 0 ? (
-                        <span className="text-[11px] text-slate-400">—</span>
+                        <span className="text-[14px] text-slate-400">—</span>
                       ) : (
                         <ul className="space-y-1">
                           {f.practice.slice(0, 3).map((p, i) => (
@@ -478,12 +478,12 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
               </div>
             )}
             {fact.status_reason && (
-              <div className="text-[11px] text-slate-300">{fact.status_reason}</div>
+              <div className="text-[14px] text-slate-300">{fact.status_reason}</div>
             )}
 
             <Section title="Где используется в документе">
               {usagesInDoc.length === 0 ? (
-                <div className="text-[11px] text-slate-400">
+                <div className="text-[14px] text-slate-400">
                   Прямых вхождений не найдено (текст может быть перефразирован).
                 </div>
               ) : (
@@ -499,7 +499,7 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
 
             <Section title={`Подтверждающие документы · ${resolved.filter((r) => r.doc && r.doc.audit_status !== "rejected").length}`}>
               {resolved.length === 0 ? (
-                <div className="text-[11px] text-amber-200">Доказательства не привязаны.</div>
+                <div className="text-[14px] text-amber-200">Доказательства не привязаны.</div>
               ) : (
                 <ul className="space-y-1">
                   {resolved.map((r, i) => (
@@ -531,13 +531,13 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
 
             <Section title="Не подтверждают / отклонены">
               {resolved.filter((r) => r.doc?.audit_status === "rejected").length === 0 ? (
-                <div className="text-[11px] text-slate-400">—</div>
+                <div className="text-[14px] text-slate-400">—</div>
               ) : (
                 <ul className="space-y-1">
                   {resolved
                     .filter((r) => r.doc?.audit_status === "rejected")
                     .map((r, i) => (
-                      <li key={i} className="text-[11px] text-red-200">
+                      <li key={i} className="text-[14px] text-red-200">
                         {r.doc?.file_name} — отклонён AI ({String(r.doc?.audit_entry?.reason ?? "—")})
                       </li>
                     ))}
@@ -547,7 +547,7 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
 
             <Section title={`Применённые нормы · ${fact.laws.length}`}>
               {fact.laws.length === 0 ? (
-                <div className="text-[11px] text-slate-400">—</div>
+                <div className="text-[14px] text-slate-400">—</div>
               ) : (
                 <ul className="space-y-1">
                   {fact.laws.map((l, i) => (
@@ -564,11 +564,11 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
 
             <Section title={`Практика · ${fact.practice.length}`}>
               {fact.practice.length === 0 ? (
-                <div className="text-[11px] text-slate-400">—</div>
+                <div className="text-[14px] text-slate-400">—</div>
               ) : (
                 <ul className="space-y-1">
                   {fact.practice.map((p, i) => (
-                    <li key={i} className="flex items-center justify-between gap-2 text-[11px] text-slate-100">
+                    <li key={i} className="flex items-center justify-between gap-2 text-[14px] text-slate-100">
                       <span className="flex items-center gap-1.5">
                         <BookOpen size={10} /> {toText(p)}
                       </span>
@@ -581,7 +581,7 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
 
             {fact.missing.length > 0 && (
               <Section title="Не хватает доказательств">
-                <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-red-100">
+                <ul className="list-disc space-y-0.5 pl-4 text-[14px] text-red-100">
                   {fact.missing.map((m, i) => (
                     <li key={i}>{toText(m)}</li>
                   ))}
@@ -591,7 +591,7 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
 
             {fact.weak.length > 0 && (
               <Section title="Слабые места">
-                <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-amber-100">
+                <ul className="list-disc space-y-0.5 pl-4 text-[14px] text-amber-100">
                   {fact.weak.map((w, i) => (
                     <li key={i}>{toText(w)}</li>
                   ))}
@@ -601,7 +601,7 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
 
             {fact.reviewComments.length > 0 && (
               <Section title="Комментарии AI Review">
-                <ul className="list-disc space-y-0.5 pl-4 text-[11px] text-sky-100">
+                <ul className="list-disc space-y-0.5 pl-4 text-[14px] text-sky-100">
                   {fact.reviewComments.map((r, i) => (
                     <li key={i}>{toText(r)}</li>
                   ))}
