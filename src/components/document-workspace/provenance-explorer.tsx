@@ -209,7 +209,7 @@ export function ProvenanceExplorer({ snapshot }: { snapshot: ProvenanceSnapshotI
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-white">
           <Network size={16} />
-          <h2 className="font-display text-lg">Provenance Explorer</h2>
+          <h2 className="font-display text-lg">Происхождение выводов</h2>
         </div>
         <div className="flex items-center gap-1">
           {(["conclusions", "facts", "sources"] as Mode[]).map((m) => (
