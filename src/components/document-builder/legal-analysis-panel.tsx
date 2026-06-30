@@ -341,7 +341,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                         ) : (
                           <AlertTriangle size={10} />
                         )}{" "}
-                        {act.status}
+                        {ANALYSIS_STATUS_LABELS[act.status] ?? act.status}
                       </span>
                     )}
                   </div>
