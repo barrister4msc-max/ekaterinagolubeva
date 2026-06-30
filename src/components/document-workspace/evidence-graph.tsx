@@ -365,7 +365,7 @@ function KindBadge({ kind }: { kind: GraphNodeKind }) {
     law: ["Норма", "bg-indigo-500/25 text-indigo-50"],
     practice: ["Практика", "bg-amber-500/25 text-amber-50"],
     conclusion: ["Вывод", "bg-purple-500/25 text-purple-50"],
-    review: ["AI Review", "bg-rose-500/25 text-rose-50"],
+    review: [trCaseLabel("ai_review"), "bg-rose-500/25 text-rose-50"],
   };
   const [label, cls] = map[kind];
   return (
