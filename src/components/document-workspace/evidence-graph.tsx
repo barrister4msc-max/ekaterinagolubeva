@@ -84,7 +84,7 @@ export function EvidenceGraphTab({ analysis, review, attachments, onOpenSource }
             Факт → Документы → Нормы → Практика → Вывод. Кликните узел — справа откроется детальная информация.
           </p>
         </div>
-        <div className="text-[11px] text-slate-400">
+        <div className="text-[14px] text-slate-400">
           {graph.nodes.length} узлов · {graph.edges} связей
         </div>
       </div>
@@ -127,7 +127,7 @@ function GraphColumn({
         {icon} {title} <span className="text-slate-500">· {nodes.length}</span>
       </div>
       <ul className="space-y-1">
-        {nodes.length === 0 && <li className="px-2 py-1 text-[11px] text-slate-500">—</li>}
+        {nodes.length === 0 && <li className="px-2 py-1 text-[14px] text-slate-500">—</li>}
         {nodes.map((n) => {
           const isSel = n.id === selected;
           const isLinked = highlight.has(n.id) && !isSel;
@@ -258,7 +258,7 @@ function FactInspector({
       {missing.length > 0 && (
         <div className="space-y-1">
           <div className={COL_TITLE}>Missing evidence</div>
-          <ul className="space-y-1 text-[11px] text-amber-100">
+          <ul className="space-y-1 text-[14px] text-amber-100">
             {missing.map((m, i) => (
               <li key={i} className="rounded-md border border-amber-400/30 bg-amber-500/10 p-1.5">
                 {String(m?.what ?? m?.description ?? m?.text ?? m)}
@@ -271,7 +271,7 @@ function FactInspector({
       {risks.length > 0 && (
         <div className="space-y-1">
           <div className={COL_TITLE}>Риски</div>
-          <ul className="space-y-1 text-[11px] text-orange-100">
+          <ul className="space-y-1 text-[14px] text-orange-100">
             {risks.map((r, i) => (
               <li key={i} className="rounded-md border border-orange-400/30 bg-orange-500/10 p-1.5">
                 {String(r?.text ?? r?.description ?? r)}
@@ -286,7 +286,7 @@ function FactInspector({
           <div className={COL_TITLE}>
             <MessageSquare size={12} /> Замечания AI Review
           </div>
-          <ul className="space-y-1 text-[11px] text-rose-100">
+          <ul className="space-y-1 text-[14px] text-rose-100">
             {reviewItems.map((r) => (
               <li
                 key={r.id}
@@ -341,7 +341,7 @@ function LinkedGroup({
                 type="button"
                 onClick={() => onSelect(n.id)}
                 className={[
-                  "flex w-full items-start gap-1 rounded-md border px-2 py-1 text-left text-[11px] transition",
+                  "flex w-full items-start gap-1 rounded-md border px-2 py-1 text-left text-[14px] transition",
                   tone === "red"
                     ? "border-red-400/40 bg-red-500/10 text-red-50 hover:bg-red-500/20"
                     : "border-slate-700 bg-slate-800/60 text-slate-100 hover:bg-slate-700/60",
@@ -384,7 +384,7 @@ function CitationBlock({
 }) {
   const r = resolveCitation(source);
   return (
-    <div className="rounded-md border border-slate-700 bg-slate-900/80 p-2 text-[11px] text-slate-200">
+    <div className="rounded-md border border-slate-700 bg-slate-900/80 p-2 text-[14px] text-slate-200">
       <div className="font-mono text-[11px] text-sky-100">{r.full}</div>
       {r.warning && (
         <div className="mt-1 flex items-center gap-1 text-amber-200">
@@ -406,7 +406,7 @@ function CitationBlock({
 
 function DocMetaBlock({ doc }: { doc: any }) {
   return (
-    <div className="rounded-md border border-slate-700 bg-slate-900/80 p-2 text-[11px] text-slate-200 space-y-0.5">
+    <div className="rounded-md border border-slate-700 bg-slate-900/80 p-2 text-[14px] text-slate-200 space-y-0.5">
       <div>
         <span className="text-slate-400">Файл: </span>
         {doc?.file_name ?? "—"}
