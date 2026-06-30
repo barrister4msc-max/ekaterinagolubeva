@@ -128,7 +128,7 @@ export function QualityReviewCenter({
             type="button"
             onClick={() => recompute.mutate()}
             disabled={recompute.isPending}
-            className="inline-flex items-center gap-1 rounded-md border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-xs text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-md border border-emerald-400/40 bg-emerald-500/10 px-3 py-1.5 text-[14px] text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-50"
           >
             {recompute.isPending ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
             Пересчитать
@@ -137,11 +137,11 @@ export function QualityReviewCenter({
       </div>
 
       {persisted && (
-        <div className="text-[11px] text-slate-400">
+        <div className="text-[14px] leading-6 text-slate-400">
           Последнее сохранение: {new Date(persisted.checked_at).toLocaleString("ru-RU")} ·{" "}
-          ready_for_lawyer:{" "}
+          Готово для проверки юристом:{" "}
           <span className={persisted.ready_for_lawyer ? "text-emerald-200" : "text-rose-200"}>
-            {persisted.ready_for_lawyer ? "true" : "false"}
+            {persisted.ready_for_lawyer ? "Да" : "Нет"}
           </span>
           {live && live.checked_at !== persisted.checked_at && (
             <span className="ml-2 text-amber-200/80">
@@ -152,7 +152,7 @@ export function QualityReviewCenter({
       )}
 
       {recompute.isError && (
-        <div className="text-xs text-rose-200">
+        <div className="text-[14px] leading-6 text-rose-200">
           Ошибка сохранения: {String((recompute.error as Error).message)}
         </div>
       )}
@@ -187,7 +187,7 @@ function Header({
           <ShieldCheck size={14} className="opacity-70" />
           <h2 className="font-display text-lg">{title}</h2>
         </div>
-        <div className="text-xs text-slate-300">{subtitle}</div>
+        <div className="text-[14px] text-slate-300">{subtitle}</div>
       </div>
     </div>
   );
@@ -195,7 +195,7 @@ function Header({
 
 function Counts({ counts }: { counts: { success: number; warning: number; blocked: number } }) {
   return (
-    <div className="flex items-center gap-1 text-[11px]">
+    <div className="flex items-center gap-1 text-[14px]">
       <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-emerald-100">
         success {counts.success}
       </span>
@@ -217,7 +217,7 @@ function CheckRow({ check }: { check: QualityCheck }) {
       <Icon size={14} className={`${color} mt-0.5`} />
       <div className="min-w-0 flex-1">
         <div className="text-white">{check.label}</div>
-        <div className="text-xs text-slate-300 break-words">{check.message}</div>
+        <div className="text-[14px] leading-6 text-slate-300 break-words">{check.message}</div>
       </div>
       <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400">{check.status}</div>
     </li>
@@ -229,12 +229,12 @@ function TimelineBlock({ events }: { events: any[] }) {
   if (items.length === 0) return null;
   return (
     <div className="space-y-1">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Review Timeline</div>
+      <div className="text-[15px] uppercase tracking-[0.18em] text-slate-400">История проверки</div>
       <ul className="space-y-1">
         {items.map((e, i) => (
-          <li key={`${e.created_at}-${i}`} className="rounded-md border border-white/10 bg-slate-950/30 px-3 py-1.5 text-[11px] text-slate-300">
+          <li key={`${e.created_at}-${i}`} className="rounded-md border border-white/10 bg-slate-950/30 px-3 py-1.5 text-[14px] leading-6 text-slate-300">
             <span className="text-slate-400">{new Date(e.created_at).toLocaleString("ru-RU")} · </span>
-            <span className="text-white">{e.status}</span>
+            <span className="text-white">{trCaseLabel(e.status)}</span>
             <span className="ml-2 opacity-80">{e.summary}</span>
           </li>
         ))}
