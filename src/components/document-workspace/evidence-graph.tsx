@@ -80,7 +80,7 @@ export function EvidenceGraphTab({ analysis, review, attachments, onOpenSource }
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-lg text-white">Evidence Graph</h2>
-          <p className="mt-1 text-xs text-slate-300">
+          <p className="mt-1 text-[14px] text-slate-300">
             Факт → Документы → Нормы → Практика → Вывод. Кликните узел — справа откроется детальная информация.
           </p>
         </div>
@@ -186,7 +186,7 @@ function NodeInspector({
   }
 
   return (
-    <aside className={`${PANEL_SUB} p-3 space-y-3 text-xs text-slate-100`}>
+    <aside className={`${PANEL_SUB} p-3 space-y-3 text-[14px] text-slate-100`}>
       <div className="flex items-center gap-2">
         <KindBadge kind={node.kind} />
         <span className="text-[10px] uppercase tracking-wider text-slate-400">узел</span>
@@ -228,7 +228,7 @@ function FactInspector({
   const reviewItems = grouped.review;
 
   return (
-    <aside className={`${PANEL_SUB} p-3 space-y-3 text-xs text-slate-100`}>
+    <aside className={`${PANEL_SUB} p-3 space-y-3 text-[14px] text-slate-100`}>
       <div className="flex items-center gap-2">
         <KindBadge kind="fact" />
         <span className="text-[10px] uppercase tracking-wider text-slate-400">Fact Inspector</span>
