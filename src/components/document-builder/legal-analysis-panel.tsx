@@ -429,7 +429,7 @@ function Section({ title, text }: { title: string; text: string }) {
   return (
     <div>
       <div className="db-section-label">{title}</div>
-      <div className="mt-2 db-subcard text-xs text-white/85 whitespace-pre-wrap">{text}</div>
+      <div className="mt-2 db-subcard text-[13px] text-white/85 whitespace-pre-wrap">{text}</div>
     </div>
   );
 }
