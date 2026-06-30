@@ -17,6 +17,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { trCaseLabel } from "@/lib/case-intelligence-i18n";
 import {
   Network,
   FileText,
