@@ -256,7 +256,7 @@ function GroundingScore({ score }: { score: number }) {
     : "bg-red-500/25 text-red-50 border-red-400/50";
   return (
     <div className={`rounded-2xl border px-4 py-3 text-center ${tone}`}>
-      <div className={LABEL}>Grounding Score</div>
+      <div className={LABEL}>Обоснование</div>
       <div className="mt-1 text-3xl font-bold leading-none">{score}</div>
       <div className="mt-1 text-[10px] opacity-80">из 100</div>
     </div>
@@ -272,7 +272,7 @@ function GroundingBreakdown({
     <div className={`${PANEL_SUB} p-3 text-xs text-slate-100 md:col-span-2 lg:col-span-3`}>
       <div className="flex items-center gap-1.5 text-slate-200">
         <CheckCircle2 size={14} />
-        <span className="text-sm font-semibold text-white">Как считается Grounding Score</span>
+        <span className="text-sm font-semibold text-white">Как считается оценка обоснования</span>
       </div>
       <p className="mt-1 text-[11px] text-slate-400">
         Взвешенное среднее по шести компонентам. Считается на клиенте из данных AI-анализа, AI Review и аудита документов.
@@ -331,7 +331,7 @@ export function GroundingScoreCompact({
       className={`w-full rounded-xl border px-3 py-2 text-left transition hover:opacity-90 ${tone}`}
     >
       <div className="flex items-center justify-between">
-        <div className={LABEL}>Grounding</div>
+        <div className={LABEL}>Обоснование</div>
         <div className="text-lg font-bold leading-none">{score}</div>
       </div>
       <div className="mt-1 grid grid-cols-3 gap-1 text-[10px] opacity-90">

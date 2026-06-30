@@ -335,7 +335,7 @@ export function QualityGateSummary({
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-1.5 font-semibold">
           {result.ready ? <ShieldCheck size={13} /> : <ShieldAlert size={13} />}
-          Quality Gate
+          Контроль качества
         </span>
         <span className="font-mono text-[11px]">{passed}/{total}</span>
       </div>

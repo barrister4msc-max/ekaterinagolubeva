@@ -2236,7 +2236,7 @@ function DocumentDetailPage() {
     if (approveBlocked) {
       return {
         kind: "fix_quality",
-        label: "Устранить замечания Quality Gate",
+        label: "Устранить замечания контроля качества",
         hint: consistency.blockReason ?? undefined,
       };
     }
@@ -2525,7 +2525,7 @@ function DocumentDetailPage() {
                 if (confirm("Утвердить документ?")) approve.mutate();
               }}
               disabled={approve.isPending || approveBlocked}
-              title={approveBlocked ? (consistency.blockReason ?? "Quality Gate не пройден") : undefined}
+              title={approveBlocked ? (consistency.blockReason ?? "Контроль качества не пройден") : undefined}
               className={`${BTN_EMERALD} whitespace-nowrap`}
             >
               {approve.isPending ? (
@@ -2595,7 +2595,7 @@ function DocumentDetailPage() {
             </button>
             {!consistency.ready && (
               <span className="inline-flex items-center gap-1 rounded-lg border border-amber-400/60 bg-amber-500/15 px-2.5 py-1.5 text-xs text-amber-700">
-                <AlertTriangle size={12} /> Утверждён, но Quality Gate не пройден
+                <AlertTriangle size={12} /> Утверждён, но контроль качества не пройден
               </span>
             )}
           </>
