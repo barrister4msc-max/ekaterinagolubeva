@@ -473,7 +473,7 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
         {fact && (
           <div className="flex h-[calc(100vh-110px)] flex-col gap-3 overflow-y-auto p-4 text-sm">
             {fact.status === "unconfirmed" && (
-              <div className="flex items-center gap-1.5 rounded-md border border-red-400/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-100">
+              <div className="flex items-center gap-1.5 rounded-md border border-red-400/40 bg-red-500/10 px-2 py-1 text-[14px] text-red-100">
                 <AlertTriangle size={12} /> Факт не подтверждён приложенными документами.
               </div>
             )}
@@ -489,7 +489,7 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
               ) : (
                 <ul className="space-y-1">
                   {usagesInDoc.map((u, i) => (
-                    <li key={i} className="rounded border border-slate-700/70 bg-slate-900/80 p-2 text-[11px]">
+                    <li key={i} className="rounded border border-slate-700/70 bg-slate-900/80 p-2 text-[14px]">
                       …{u}…
                     </li>
                   ))}
@@ -503,7 +503,7 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
               ) : (
                 <ul className="space-y-1">
                   {resolved.map((r, i) => (
-                    <li key={i} className={`${PANEL_SUB} p-2 text-[11px]`}>
+                    <li key={i} className={`${PANEL_SUB} p-2 text-[14px]`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-slate-100">
                           {r.doc?.file_name ?? toText(r.ev) ?? "Документ"}
@@ -551,7 +551,7 @@ export function FactCheckDrawer({ generatedText }: { generatedText: string }) {
               ) : (
                 <ul className="space-y-1">
                   {fact.laws.map((l, i) => (
-                    <li key={i} className="flex items-center justify-between gap-2 text-[11px] text-slate-100">
+                    <li key={i} className="flex items-center justify-between gap-2 text-[14px] text-slate-100">
                       <span className="flex items-center gap-1.5">
                         <Scale size={10} /> {toText(l)}
                       </span>
