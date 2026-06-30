@@ -23,7 +23,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { resolveCitation } from "@/lib/citation-resolver";
-
+import { trCaseLabel } from "@/lib/case-intelligence-i18n";
 const PANEL = "rounded-2xl border border-slate-700/70 bg-slate-900/95 shadow-xl";
 const PANEL_SUB = "rounded-xl border border-slate-700/60 bg-slate-800/90";
 const COL = "rounded-xl border border-slate-700/60 bg-slate-900/70 p-2";
