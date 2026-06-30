@@ -406,13 +406,13 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
           {a.research_summary && Object.keys(a.research_summary).length > 0 && (
             <div>
               <div className="db-section-label">Сводка исследования</div>
-              <div className="mt-2 db-subcard text-xs flex flex-wrap gap-2">
-                {Object.entries(a.research_summary).map(([k, v]) => (
-                  <span key={k} className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-white/80">
-                    {k}: {v}
-                  </span>
-                ))}
-              </div>
+              <div className="mt-2 db-subcard text-[13px] flex flex-wrap gap-2">
+      {Object.entries(a.research_summary).map(([k, v]) => (
+       <span key={k} className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-white/80">
+      {ANALYSIS_METRIC_LABELS[k] ?? k}: {String(v)}
+      </span>
+      ))}
+      </div>
             </div>
           )}
 
