@@ -293,7 +293,10 @@ export type CaseReviewContext = {
   unsupported_amounts: string[];
   unsupported_entities: string[];
   hallucination_risk: "low" | "medium" | "high";
-};
+  unsupported_reasoning: string[];
+  unsupported_conclusions: string[];
+  unsupported_recommendations: string[];
+  };
 
 export type CaseProcedural = {
   deadlines: string[];
