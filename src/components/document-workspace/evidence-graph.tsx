@@ -576,6 +576,8 @@ function buildGraph(analysis: any, review: any, attachments: any[]): BuiltGraph 
     if (a?.audit_status === "rejected") return; // skip rejected from main graph (still visible in matrix)
     const id = `doc:${i}`;
     docIdByKey.set(String(a.file_name ?? a.id).toLowerCase(), id);
+    if (a?.id) docIdByKey.set(String(a.id).toLowerCase(), id);
+    if (a?.document_id) docIdByKey.set(String(a.document_id).toLowerCase(), id);
     nodes.push({
       id,
       kind: "doc",
