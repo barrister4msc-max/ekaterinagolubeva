@@ -481,9 +481,54 @@ type BuiltGraph = { nodes: GraphNode[]; edges: number };
 function buildGraph(analysis: any, review: any, attachments: any[]): BuiltGraph {
   if (!analysis || typeof analysis !== "object") return { nodes: [], edges: 0 };
   const nodes: GraphNode[] = [];
-  let edges = 0;
+  let edges = 0;   
+    const matrix =
+    analysis?.case_intelligence_matrix ??
+    analysis?.metadata?.case_intelligence_matrix ??
+    analysis?.result?.case_intelligence_matrix ??
+    analysis?.case_intelligence ??
+    null;
 
-  const factToLaw: any[] = Array.isArray(analysis.fact_to_law_mapping) ? analysis.fact_to_law_mapping : [];
+  const v2Facts = normalizeCaseFacts(matrix);
+  const v2Documents = normalizeCaseDocuments(matrix);
+  const v2Evidence = normalizeCaseEvidence(matrix);
+  const v2Contradictions = normalizeCaseContradictions(matrix);
+  const v2MissingEvidence = normalizeMissingEvidence(matrix);
+
+  const graphDocuments = [
+    ...(attachments ?? []),
+    ...v2Documents.filter((d) => {
+      const id = String(d?.document_id ?? d?.id ?? "");
+      const name = String(d?.file_name ?? "");
+      return !(attachments ?? []).some(
+        (a) =>
+          String(a?.id ?? a?.document_id ?? "") === id ||
+          String(a?.file_name ?? "") === name,
+      );
+    }),
+  ];
+    const legacyFactToLaw: any[] = Array.isArray(analysis.fact_to_law_mapping) ? analysis.fact_to_law_mapping : [];
+
+  const factToLaw: any[] =
+    v2Facts.length > 0
+      ? v2Facts.map((f: any) => ({
+          fact_id: f.fact_id,
+          fact_key: f.fact_hash ?? f.fact_id,
+          fact: f.text ?? f.title,
+          fact_text: f.text ?? f.title,
+          description: f.text ?? f.title,
+          conclusion: f.disputed ? "Спорный факт" : "Факт дела",
+          source_document_id: f.source_documents?.[0],
+          source_documents: f.source_documents ?? [],
+          documents: f.source_documents ?? [],
+          missing_evidence: v2MissingEvidence.filter((m: any) =>
+            m?.fact_id === f.fact_id || f.used_in_issues?.includes?.(m?.issue_id),
+          ),
+          risks: v2Contradictions.filter((c: any) =>
+            c?.affected_facts?.includes?.(f.fact_id),
+          ),
+        }))
+      : legacyFactToLaw;
   const factToEvidence: any[] = Array.isArray(analysis.fact_to_evidence_mapping)
     ? analysis.fact_to_evidence_mapping
     : Array.isArray(analysis.evidence_mapping)
