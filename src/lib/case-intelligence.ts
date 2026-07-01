@@ -151,6 +151,7 @@ export type IssueParticipantRole =
 
 export type CaseFact = {
   fact_id: string;
+  fact_hash: string;
   title: string;
   text: string;
   source_documents: string[];
