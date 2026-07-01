@@ -145,10 +145,25 @@ function buildFacts(analysis: any, attachments: AttachmentRow[], review: any): F
   const v2Documents = normalizeCaseDocuments(matrix);
   const v2Missing = normalizeMissingEvidence(matrix);
   normalizeCaseContradictions(matrix); // подготовлено для следующего этапа
-  const factsArr = asArr(analysis?.facts);
-  const factToEv = asArr(analysis?.fact_to_evidence_mapping);
-  const factToLaw = asArr(analysis?.fact_to_law_mapping);
-  const missing = asArr(analysis?.missing_evidence);
+    const factsArr =
+    v2Facts.length > 0
+      ? v2Facts
+      : asArr(analysis?.facts);
+
+  const factToEv =
+    v2Evidence.length > 0
+      ? v2Evidence
+      : asArr(analysis?.fact_to_evidence_mapping);
+
+  const factToLaw =
+    v2Facts.length > 0
+      ? v2Facts
+      : asArr(analysis?.fact_to_law_mapping);
+
+  const missing =
+    v2Missing.length > 0
+      ? v2Missing
+      : asArr(analysis?.missing_evidence);
   const weak = asArr(analysis?.weak_points);
   const reviewProblems = [
     ...asArr(review?.problems),
