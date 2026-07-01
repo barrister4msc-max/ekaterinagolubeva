@@ -529,11 +529,29 @@ function buildGraph(analysis: any, review: any, attachments: any[]): BuiltGraph 
           ),
         }))
       : legacyFactToLaw;
-  const factToEvidence: any[] = Array.isArray(analysis.fact_to_evidence_mapping)
+    const legacyFactToEvidence: any[] = Array.isArray(analysis.fact_to_evidence_mapping)
     ? analysis.fact_to_evidence_mapping
     : Array.isArray(analysis.evidence_mapping)
       ? analysis.evidence_mapping
       : [];
+
+  const factToEvidence: any[] =
+    v2Evidence.length > 0
+      ? v2Evidence.map((e: any) => ({
+          fact_id: e.fact_id,
+          fact_key: e.fact_id,
+          documents: [
+            {
+              document_id: e.document_id,
+              file_name: e.file_name,
+              quote: e.quote,
+              strength: e.strength,
+              relevance: e.relevance,
+              reliability: e.reliability,
+            },
+          ],
+        }))
+      : legacyFactToEvidence;
   const applicableLaws: any[] = Array.isArray(analysis.applicable_laws) ? analysis.applicable_laws : [];
   const courtPractice: any[] = Array.isArray(analysis.court_practice) ? analysis.court_practice : [];
   const fnsLetters: any[] = Array.isArray(analysis.fns_letters) ? analysis.fns_letters : [];
