@@ -530,20 +530,46 @@ function buildContradictions(
   const logical: CaseContradiction[] = [];
   const missing: CaseContradiction[] = [];
 
-  const inns = entities.filter((e) => e.type === "inn");
-  const innValues = uniq(inns, (e) => e.value.replace(/\D/g, ""));
-  if (innValues.length > 1) {
+  // inn_mismatch: ONLY when the same company/role appears with different INNs,
+  // OR the same INN is bound to different companies. Different INNs for
+  // different counterparties (buyer vs seller) is NORMAL and not a contradiction.
+  const companyToInns = new Map<string, Set<string>>();
+  const innToCompanies = new Map<string, Set<string>>();
+  for (const e of entities) {
+    if (e.type !== "inn") continue;
+    const innDigits = e.value.replace(/\D/g, "");
+    if (!innDigits) continue;
+    const ctx = (e.context || "").toLowerCase();
+    // find nearest company mention in same context window
+    const companyMatch = ctx.match(/(?:ооо|оао|ао|пао|зао|ип)\s+[«"]?[a-zа-яё0-9\-\s]{2,80}[»"]?/i);
+    if (!companyMatch) continue;
+    const companyKey = companyMatch[0].replace(/\s+/g, " ").trim().toLowerCase();
+    if (!companyToInns.has(companyKey)) companyToInns.set(companyKey, new Set());
+    companyToInns.get(companyKey)!.add(innDigits);
+    if (!innToCompanies.has(innDigits)) innToCompanies.set(innDigits, new Set());
+    innToCompanies.get(innDigits)!.add(companyKey);
+  }
+  const conflictingCompanies = Array.from(companyToInns.entries()).filter(([, s]) => s.size > 1);
+  const conflictingInns = Array.from(innToCompanies.entries()).filter(([, s]) => s.size > 1);
+  if (conflictingCompanies.length > 0 || conflictingInns.length > 0) {
+    const affectedInns = new Set<string>([
+      ...conflictingCompanies.flatMap(([, s]) => Array.from(s)),
+      ...conflictingInns.map(([inn]) => inn),
+    ]);
     logical.push({
       type: "inn_mismatch",
       severity: "high",
-      title: "Несовпадение ИНН",
-      description: "В документах обнаружены разные ИНН. Нужно проверить, относятся ли документы к одному контрагенту.",
-      documents: innValues.map((e) => ({
-        document_id: e.document_id,
-        file_name: e.file_name,
-        value: e.value,
-        quote: e.context,
-      })),
+      title: "Несовпадение ИНН для одного участника",
+      description:
+        "Один и тот же участник указан с разными ИНН, либо один ИНН привязан к разным компаниям.",
+      documents: entities
+        .filter((e) => e.type === "inn" && affectedInns.has(e.value.replace(/\D/g, "")))
+        .map((e) => ({
+          document_id: e.document_id,
+          file_name: e.file_name,
+          value: e.value,
+          quote: e.context,
+        })),
       recommendation: "Сверить контрагента по договору, счету, УПД, акту и платежным документам.",
       needs_lawyer_review: true,
       review_status: "pending",
