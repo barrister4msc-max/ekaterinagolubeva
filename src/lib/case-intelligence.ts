@@ -183,7 +183,21 @@ export type IssueParticipant = {
   attacks: string[];
   supports: string[];
 };
-
+export type CaseIssueType =
+  | "reality_of_supply"
+  | "debt_existence"
+  | "contract_validity"
+  | "signer_authority"
+  | "deadline_compliance"
+  | "good_faith_purchaser"
+  | "damage_existence"
+  | "claim_amount"
+  | "tax_reconstruction"
+  | "business_splitting"
+  | "transaction_invalidity"
+  | "contract_breach"
+  | "missing_primary_documents"
+  | "general_dispute";
 export type CaseIssue = {
   issue_id: string;
   title: string;
