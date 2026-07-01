@@ -912,6 +912,9 @@ function buildReviewContext(facts: CaseFact[], evidence: CaseEvidenceItem[]): Ca
     unsupported_amounts: [],
     unsupported_entities: [],
     hallucination_risk: unsupported.length > facts.length / 2 ? "high" : unsupported.length > 0 ? "medium" : "low",
+    unsupported_reasoning: [],
+    unsupported_conclusions: [],
+    unsupported_recommendations: [],
   };
 }
 
