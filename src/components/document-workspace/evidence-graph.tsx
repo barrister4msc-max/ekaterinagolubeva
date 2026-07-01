@@ -549,7 +549,7 @@ function buildGraph(analysis: any, review: any, attachments: any[]): BuiltGraph 
 
   // Index attachments by name
   const docByName = new Map<string, any>();
-  for (const a of attachments ?? []) {
+  for (const a of graphDocuments ?? []) {
     if (a?.file_name) docByName.set(String(a.file_name).toLowerCase(), a);
   }
 
@@ -572,7 +572,7 @@ function buildGraph(analysis: any, review: any, attachments: any[]): BuiltGraph 
 
   // Document nodes (from attachments used in analysis)
   const docIdByKey = new Map<string, string>();
-  attachments?.forEach((a: any, i: number) => {
+  graphDocuments?.forEach((a: any, i: number) => {
     if (a?.audit_status === "rejected") return; // skip rejected from main graph (still visible in matrix)
     const id = `doc:${i}`;
     docIdByKey.set(String(a.file_name ?? a.id).toLowerCase(), id);
