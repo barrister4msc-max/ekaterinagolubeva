@@ -20,7 +20,6 @@ import {
 import { openAttachment, type AttachmentRow } from "./attachments-viewer";
 import { trCaseLabel } from "@/lib/case-intelligence-i18n";
 import {
-  normalizeCaseDocuments,
   normalizeCaseEvidence,
   normalizeCaseFacts,
   normalizeCaseContradictions,
