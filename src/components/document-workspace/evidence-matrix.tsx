@@ -142,7 +142,7 @@ function buildFacts(analysis: any, attachments: AttachmentRow[], review: any): F
 
   const v2Facts = normalizeCaseFacts(matrix);
   const v2Evidence = normalizeCaseEvidence(matrix);
-  const v2Documents = normalizeCaseDocuments(matrix);
+  
   const v2Missing = normalizeMissingEvidence(matrix);
   normalizeCaseContradictions(matrix); // подготовлено для следующего этапа
     const factsArr =
