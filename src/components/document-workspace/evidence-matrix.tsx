@@ -133,6 +133,18 @@ function StatusPill({ status }: { status: FactStatus }) {
 /* ============ Build facts ============ */
 
 function buildFacts(analysis: any, attachments: AttachmentRow[], review: any): FactRow[] {
+    const matrix =
+    analysis?.case_intelligence_matrix ??
+    analysis?.metadata?.case_intelligence_matrix ??
+    analysis?.result?.case_intelligence_matrix ??
+    analysis?.case_intelligence ??
+    null;
+
+  const v2Facts = normalizeCaseFacts(matrix);
+  const v2Evidence = normalizeCaseEvidence(matrix);
+  const v2Documents = normalizeCaseDocuments(matrix);
+  const v2Missing = normalizeMissingEvidence(matrix);
+  normalizeCaseContradictions(matrix); // подготовлено для следующего этапа
   const factsArr = asArr(analysis?.facts);
   const factToEv = asArr(analysis?.fact_to_evidence_mapping);
   const factToLaw = asArr(analysis?.fact_to_law_mapping);
