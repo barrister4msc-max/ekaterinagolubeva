@@ -202,7 +202,7 @@ export type CaseIssueType =
 export type CaseIssue = {
   issue_id: string;
   title: string;
-  type: string;
+  type: CaseIssueType;
   priority: Severity;
   status: "open" | "resolved" | "needs_review";
   participants: IssueParticipant[];
