@@ -281,7 +281,10 @@ export type CaseGenerationContext = {
   disputed_facts: string[];
   recommended_structure: string[];
   missing_before_generation: string[];
-};
+  recommended_document_type: string | null;
+  recommended_document_goal: string | null;
+  recommended_document_strategy: string | null;
+  };
 
 export type CaseReviewContext = {
   unsupported_claims: string[];
