@@ -896,6 +896,9 @@ function buildGenerationContext(
       "Требования",
     ],
     missing_before_generation: missing.map((m) => m.required_document),
+    recommended_document_type: null,
+    recommended_document_goal: null,
+    recommended_document_strategy: null,
   };
 }
 
