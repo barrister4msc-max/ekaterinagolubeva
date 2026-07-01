@@ -121,8 +121,180 @@ export type DocumentCaseIntelligence = {
   version: 1;
 };
 
+// ============================================================
+// v2: Case Knowledge Graph types
+// ============================================================
+export type IssueParticipantRole =
+  | "tax_authority"
+  | "taxpayer"
+  | "plaintiff"
+  | "defendant"
+  | "applicant"
+  | "respondent"
+  | "seller"
+  | "buyer"
+  | "landlord"
+  | "tenant"
+  | "contractor"
+  | "customer"
+  | "creditor"
+  | "debtor"
+  | "bankruptcy_manager"
+  | "notary"
+  | "court"
+  | "administrative_body"
+  | "third_party"
+  | "expert"
+  | "client"
+  | "counterparty"
+  | "unknown";
+
+export type CaseFact = {
+  fact_id: string;
+  title: string;
+  text: string;
+  source_documents: string[];
+  entities: string[];
+  confidence: number;
+  verified: boolean;
+  disputed: boolean;
+  used_in_issues: string[];
+};
+
+export type CaseEvidenceItem = {
+  evidence_id: string;
+  fact_id: string | null;
+  issue_id: string | null;
+  document_id: string;
+  file_name?: string | null;
+  quote: string;
+  strength: "low" | "medium" | "high";
+  admissibility: "unknown" | "admissible" | "questionable" | "inadmissible";
+  relevance: "low" | "medium" | "high";
+  reliability: "low" | "medium" | "high";
+};
+
+export type IssueParticipant = {
+  role: IssueParticipantRole;
+  side: "pro" | "contra" | "neutral";
+  claims: string[];
+  arguments: string[];
+  evidence: string[];
+  attacks: string[];
+  supports: string[];
+};
+
+export type CaseIssue = {
+  issue_id: string;
+  title: string;
+  type: string;
+  priority: Severity;
+  status: "open" | "resolved" | "needs_review";
+  participants: IssueParticipant[];
+  supporting_facts: string[];
+  contradicting_facts: string[];
+  evidence: string[];
+  missing_evidence: string[];
+  contradictions: string[];
+  legal_basis: string[];
+  court_practice: string[];
+  ai_assessment: string;
+};
+
+export type CaseContradictionV2 = {
+  contradiction_id: string;
+  type: string;
+  severity: Severity;
+  description: string;
+  between: Array<{ document_id: string; file_name?: string | null; value?: string; quote?: string }>;
+  affected_issues: string[];
+  affected_facts: string[];
+  recommendation: string;
+  needs_lawyer_review: boolean;
+  review_status: "pending" | "accepted" | "dismissed";
+};
+
+export type CaseMissingEvidenceV2 = {
+  missing_id: string;
+  issue_id: string | null;
+  participant_role: IssueParticipantRole | null;
+  required_document: string;
+  importance: Severity;
+  reason: string;
+  effect: string;
+  recommendation: string;
+};
+
+export type CaseTimelineEvent = {
+  event_id: string;
+  date: string;
+  title: string;
+  description: string;
+  source_documents: string[];
+  confidence: number;
+};
+
+export type CaseKnowledgeEntities = {
+  persons: string[];
+  companies: string[];
+  authorities: string[];
+  courts: string[];
+  objects: string[];
+  contracts: string[];
+  tax_numbers: string[];
+  addresses: string[];
+  bank_accounts: string[];
+};
+
+export type CaseDocumentV2 = {
+  document_id: string;
+  file_name?: string | null;
+  document_type: string | null;
+  role: string | null;
+  reliability: "low" | "medium" | "high";
+  extracted_entities: string[];
+  extracted_facts: string[];
+  extracted_claims: string[];
+  extracted_positions: string[];
+  extracted_evidence: string[];
+};
+
+export type CaseGenerationContext = {
+  strongest_arguments: string[];
+  weakest_arguments: string[];
+  strongest_evidence: string[];
+  disputed_facts: string[];
+  recommended_structure: string[];
+  missing_before_generation: string[];
+};
+
+export type CaseReviewContext = {
+  unsupported_claims: string[];
+  unsupported_articles: string[];
+  unsupported_dates: string[];
+  unsupported_amounts: string[];
+  unsupported_entities: string[];
+  hallucination_risk: "low" | "medium" | "high";
+};
+
+export type CaseProcedural = {
+  deadlines: string[];
+  risks: string[];
+  missed_terms: string[];
+  procedural_actions: string[];
+};
+
+export type CaseLegalReasoning = {
+  applicable_law: string[];
+  conflicting_law: string[];
+  court_practice: string[];
+  tax_letters: string[];
+  methodology: string[];
+  ai_reasoning: string[];
+};
+
 export type CaseIntelligenceMatrix = {
-  version: 1;
+  version: 1 | 2;
   built_at: string;
   session_id: string;
   documents: Array<{
@@ -131,6 +303,7 @@ export type CaseIntelligenceMatrix = {
     entities_count: number;
     positions_count: number;
   }>;
+  // v1 (kept for compatibility)
   entities_matrix: Record<string, CaseEntity[]>;
   party_position_matrix: PartyPosition[];
   position_verifications: PositionVerification[];
@@ -145,7 +318,24 @@ export type CaseIntelligenceMatrix = {
     high: number;
     medium: number;
     low: number;
+    // v2 additions (optional at read time)
+    facts_total?: number;
+    issues_total?: number;
+    missing_evidence_total?: number;
   };
+  // v2 (new — optional so existing consumers keep working)
+  entities?: CaseKnowledgeEntities;
+  documents_v2?: CaseDocumentV2[];
+  facts?: CaseFact[];
+  issues?: CaseIssue[];
+  evidence_matrix?: CaseEvidenceItem[];
+  contradictions?: CaseContradictionV2[];
+  missing_evidence_v2?: CaseMissingEvidenceV2[];
+  timeline?: CaseTimelineEvent[];
+  procedural?: CaseProcedural;
+  legal_reasoning?: CaseLegalReasoning;
+  generation_context?: CaseGenerationContext;
+  review_context?: CaseReviewContext;
 };
 function uniq<T>(items: T[], keyFn: (item: T) => string): T[] {
   const seen = new Set<string>();
