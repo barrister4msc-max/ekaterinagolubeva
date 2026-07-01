@@ -715,7 +715,17 @@ function classifyEntities(entities: CaseEntity[]): CaseKnowledgeEntities {
     bank_accounts: [],
   };
 }
+function stableHash(input: string): string {
+  let hash = 0;
+  const normalized = input.trim().toLowerCase().replace(/\s+/g, " ");
 
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash = (hash << 5) - hash + normalized.charCodeAt(i);
+    hash |= 0;
+  }
+
+  return `h_${Math.abs(hash)}`;
+}
 function extractFactsFromDocs(
   perDocument: DocumentCaseIntelligence[],
   documents: CaseDocument[],
