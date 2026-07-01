@@ -346,7 +346,7 @@ export type CaseIntelligenceMatrix = {
   };
   // v2 (new — optional so existing consumers keep working)
   entities?: CaseKnowledgeEntities;
-  documents_v2?: CaseDocumentV2[];
+  knowledge_documents?: CaseDocumentV2[];
   facts?: CaseFact[];
   issues?: CaseIssue[];
   evidence_matrix?: CaseEvidenceItem[];
