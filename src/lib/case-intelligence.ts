@@ -1041,7 +1041,7 @@ export async function buildCaseIntelligenceForSession(
     missing_evidence,
     summary,
     entities: entitiesV2,
-    documents_v2: documentsV2,
+    knowledge_documents: documentsV2,
     facts,
     issues,
     evidence_matrix: evidenceMatrix,
