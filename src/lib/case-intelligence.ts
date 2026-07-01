@@ -754,9 +754,12 @@ function extractFactsFromDocs(
       if (!m) continue;
       const factText = contextAround(text, m.index ?? 0, m[0].length);
       idx += 1;
-      facts.push({
-        fact_id: `fact_${item.document_id}_${idx}`,
-        title: p.title,
+      const factId = `fact_${item.document_id}_${idx}`;
+
+facts.push({
+  fact_id: factId,
+  fact_hash: stableHash(`${p.title}:${factText}:${item.document_id}`),
+  title: p.title,
         text: factText,
         source_documents: [item.document_id],
         entities: item.entities.slice(0, 5).map((e) => e.value),
