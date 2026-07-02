@@ -50,8 +50,17 @@ export type MatterSnapshot = {
   source_warnings: LegalAnalysisSourceWarning[];
   external_search_required: boolean;
   external_search_reason: string | null;
-  generation_allowed: LegalAnalysisGenerationDecision;
+    generation_allowed: LegalAnalysisGenerationDecision;
   quality_gate_preview: QualityGatePreview;
+
+  case_intelligence_version?: number;
+  facts_total?: number;
+  issues_total?: number;
+  contradictions_total?: number;
+  missing_evidence_total?: number;
+  strongest_arguments?: string[];
+  weakest_arguments?: string[];
+  missing_before_generation?: string[];
 };
 
 function defaultGenerationDecision(): LegalAnalysisGenerationDecision {
