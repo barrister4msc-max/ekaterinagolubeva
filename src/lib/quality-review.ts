@@ -94,7 +94,7 @@ const LABELS: Record<QualityCheckId, string> = {
   ai_review: "AI Review",
   redaction: "Redaction",
   generation_metadata: "Generation Metadata",
-  case_intelligence_review: "Case Intelligence",
+  case_intelligence_review: "Матрица дела",
   ready_for_lawyer: "Готовность к юристу",
 };
 
