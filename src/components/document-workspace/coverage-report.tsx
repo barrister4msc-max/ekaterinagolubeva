@@ -49,12 +49,46 @@ export function computeCoverage(analysis: any, review: any, attachments: any[]):
   const v2Facts = normalizeCaseFacts(matrix);
   const v2Evidence = normalizeCaseEvidence(matrix);
   const v2Missing = normalizeMissingEvidence(matrix);
-  const factToLaw: any[] = Array.isArray(analysis?.fact_to_law_mapping) ? analysis.fact_to_law_mapping : [];
-  const factToEvidence: any[] = Array.isArray(analysis?.fact_to_evidence_mapping)
-    ? analysis.fact_to_evidence_mapping
-    : Array.isArray(analysis?.evidence_mapping)
-      ? analysis.evidence_mapping
+    const legacyFactToLaw: any[] =
+    Array.isArray(analysis?.fact_to_law_mapping)
+      ? analysis.fact_to_law_mapping
       : [];
+
+  const factToLaw: any[] =
+    v2Facts.length > 0
+      ? v2Facts.map((f: any) => ({
+          fact_id: f.fact_id,
+          fact_key: f.fact_hash ?? f.fact_id,
+          fact: f.text ?? f.title,
+          fact_text: f.text ?? f.title,
+          law: f.legal_basis?.[0],
+        }))
+      : legacyFactToLaw;
+
+  const legacyFactToEvidence: any[] =
+    Array.isArray(analysis?.fact_to_evidence_mapping)
+      ? analysis.fact_to_evidence_mapping
+      : Array.isArray(analysis?.evidence_mapping)
+        ? analysis.evidence_mapping
+        : [];
+
+  const factToEvidence: any[] =
+    v2Evidence.length > 0
+      ? v2Evidence.map((e: any) => ({
+          fact_id: e.fact_id,
+          fact_key: e.fact_id,
+          documents: [
+            {
+              document_id: e.document_id,
+              file_name: e.file_name,
+              quote: e.quote,
+              strength: e.strength,
+              relevance: e.relevance,
+              reliability: e.reliability,
+            },
+          ],
+        }))
+      : legacyFactToEvidence;
   const applicableLaws: any[] = Array.isArray(analysis?.applicable_laws) ? analysis.applicable_laws : [];
   const rejectedLaws: any[] = Array.isArray(analysis?.rejected_laws) ? analysis.rejected_laws : [];
   const practice = [
