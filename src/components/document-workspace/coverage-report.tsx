@@ -114,7 +114,8 @@ export function computeCoverage(analysis: any, review: any, attachments: any[]):
   const low = items.filter((it) => sev(it) === "low" || sev(it) === "").length;
 
   // Grounding
-  const factsTotal = factToLaw.length;
+    const factsTotal =
+    v2Facts.length > 0 ? v2Facts.length : factToLaw.length;
   const factsRatio = factsTotal ? (confirmed + partial * 0.5) / factsTotal : 0;
   const docsRatio = docTotal ? used / docTotal : 0;
   const lawsRatio = applicableLaws.length ? lawsUsed / applicableLaws.length : 0;
