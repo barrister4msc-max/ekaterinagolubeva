@@ -124,8 +124,26 @@ export function buildMatterSnapshotFromRun(
     source_warnings: a?.source_warnings ?? [],
     external_search_required: Boolean(a?.external_search_required),
     external_search_reason: a?.external_search_reason ?? null,
-    generation_allowed: a?.generation_allowed ?? defaultGenerationDecision(),
+        generation_allowed: a?.generation_allowed ?? defaultGenerationDecision(),
     quality_gate_preview: previewQualityGate(run),
+
+    case_intelligence_version: matrix?.version ?? 1,
+    facts_total: Array.isArray(matrix?.facts) ? matrix.facts.length : 0,
+    issues_total: Array.isArray(matrix?.issues) ? matrix.issues.length : 0,
+    contradictions_total: Array.isArray(matrix?.contradictions)
+      ? matrix.contradictions.length
+      : Array.isArray(matrix?.logical_contradictions)
+        ? matrix.logical_contradictions.length
+        : 0,
+    missing_evidence_total: Array.isArray(matrix?.missing_evidence_v2)
+      ? matrix.missing_evidence_v2.length
+      : Array.isArray(matrix?.missing_evidence)
+        ? matrix.missing_evidence.length
+        : 0,
+    strongest_arguments: matrix?.generation_context?.strongest_arguments ?? [],
+    weakest_arguments: matrix?.generation_context?.weakest_arguments ?? [],
+    missing_before_generation:
+      matrix?.generation_context?.missing_before_generation ?? [],
   };
 }
 
