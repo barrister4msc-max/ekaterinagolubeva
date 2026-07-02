@@ -415,6 +415,7 @@ export function redactLegalDocument(input: string): LegalRedactionResult {
   const mapping = new Map<string, string>(); // key = `${type}::${match}` → placeholder
 
   let text = masked;
+  text = forceCompanyRedaction(text, counters, mapping, stats, entities);
   for (const { type, re } of PATTERNS) {
     text = text.replace(re, (match) => {
       // Guard: never touch our own gov placeholders.
