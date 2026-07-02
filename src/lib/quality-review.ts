@@ -78,7 +78,7 @@ type ComputeInput = {
   meta: Record<string, any> | null | undefined;
   reviewRun?: { status?: string | null; ai_result?: any } | null;
   reviews: SourceWarningReviewMap;
-  reviewContext?: unknown;
+  reviewContext?: Record<string, any> | null;
 };
 
 const LABELS: Record<QualityCheckId, string> = {
