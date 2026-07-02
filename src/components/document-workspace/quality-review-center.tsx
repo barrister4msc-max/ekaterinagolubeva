@@ -22,6 +22,7 @@ import {
   type QualityReviewResult,
 } from "@/lib/quality-review";
 import { trCaseLabel } from "@/lib/case-intelligence-i18n";
+import { normalizeReviewContext } from "@/lib/case-intelligence-adapters";
 const PANEL = "rounded-xl border border-white/10 bg-slate-900/40";
 
 export function QualityReviewCenter({
