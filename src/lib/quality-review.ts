@@ -115,7 +115,7 @@ export function computeQualityReview(input: ComputeInput): QualityReviewResult {
   const meta = input.meta ?? {};
   const snap = (meta.matter_snapshot ?? null) as Record<string, any> | null;
   const reviews = input.reviews ?? {};
-
+  const reviewContext = input.reviewContext ?? {};
   const checks: QualityCheck[] = [];
 
   // ---- Documents
