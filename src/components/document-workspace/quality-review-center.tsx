@@ -48,11 +48,17 @@ export function QualityReviewCenter({
   const live: QualityReviewResult | null = useMemo(() => {
     if (!documentId) return null;
     if (!inputsQuery.data) return null;
-    return computeQualityReview({
-      meta,
-      reviews: inputsQuery.data.reviews,
-      reviewRun: inputsQuery.data.reviewRun,
-    });
+    const matrix =
+  meta?.case_intelligence_matrix ??
+  meta?.matter_snapshot?.case_intelligence_matrix ??
+  null;
+
+return computeQualityReview({
+  meta,
+  reviews: inputsQuery.data.reviews,
+  reviewRun: inputsQuery.data.reviewRun,
+  reviewContext: normalizeReviewContext(matrix),
+});
   }, [documentId, inputsQuery.data, meta]);
 
   const persisted = (meta?.quality_review ?? null) as
