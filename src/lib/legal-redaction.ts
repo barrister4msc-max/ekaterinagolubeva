@@ -347,7 +347,44 @@ function emptyByType(): RedactionStats["by_type"] {
   for (const t of all) r[t] = { detected: 0, replaced: 0, remaining: 0 };
   return r;
 }
+function forceCompanyRedaction(
+  text: string,
+  counters: Map<LegalEntityType, number>,
+  mapping: Map<string, string>,
+  stats: RedactionStats,
+  entities: LegalEntity[],
+): string {
+  const companyRe =
+    /\b(?:ООО|ОАО|АО|ПАО|ЗАО|НПАО|ИП|НКО|ФГУП|МУП|ГУП|ТСЖ|ЖСК|СНТ|АНО)\s+[«"][^»"\n]{1,120}[»"]/g;
 
+  return text.replace(companyRe, (match) => {
+    if (match.includes("\u0001GOV")) return match;
+
+    const key = `COMPANY::${match}`;
+    const known = mapping.get(key);
+
+    if (known) return known;
+
+    const n = (counters.get("COMPANY") ?? 0) + 1;
+    counters.set("COMPANY", n);
+
+    const placeholder = `[COMPANY_${n}]`;
+    mapping.set(key, placeholder);
+
+    stats.by_type.COMPANY.detected += 1;
+    stats.by_type.COMPANY.replaced += 1;
+    stats.detected_total += 1;
+    stats.replaced_total += 1;
+
+    entities.push({
+      type: "COMPANY",
+      original: match,
+      placeholder,
+    });
+
+    return placeholder;
+  });
+}
 export function redactLegalDocument(input: string): LegalRedactionResult {
   const stats: RedactionStats = {
     detected_total: 0,
