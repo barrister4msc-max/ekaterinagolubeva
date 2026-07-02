@@ -275,7 +275,61 @@ export function computeQualityReview(input: ComputeInput): QualityReviewResult {
     if (!matrixPresent) missing.push("evidence_matrix_present");
     checks.push(block("generation_metadata", `Отсутствуют поля: ${missing.join(", ")}.`));
   }
+    // ---- Case Intelligence Review Context
+  const unsupportedClaims = Array.isArray(reviewContext.unsupported_claims)
+    ? reviewContext.unsupported_claims.length
+    : 0;
+  const unsupportedArticles = Array.isArray(reviewContext.unsupported_articles)
+    ? reviewContext.unsupported_articles.length
+    : 0;
+  const unsupportedDates = Array.isArray(reviewContext.unsupported_dates)
+    ? reviewContext.unsupported_dates.length
+    : 0;
+  const unsupportedAmounts = Array.isArray(reviewContext.unsupported_amounts)
+    ? reviewContext.unsupported_amounts.length
+    : 0;
+  const unsupportedEntities = Array.isArray(reviewContext.unsupported_entities)
+    ? reviewContext.unsupported_entities.length
+    : 0;
+  const unsupportedReasoning = Array.isArray(reviewContext.unsupported_reasoning)
+    ? reviewContext.unsupported_reasoning.length
+    : 0;
+  const unsupportedConclusions = Array.isArray(reviewContext.unsupported_conclusions)
+    ? reviewContext.unsupported_conclusions.length
+    : 0;
+  const unsupportedRecommendations = Array.isArray(reviewContext.unsupported_recommendations)
+    ? reviewContext.unsupported_recommendations.length
+    : 0;
 
+  const hallucinationRisk = String(reviewContext.hallucination_risk ?? "low");
+
+  const totalUnsupported =
+    unsupportedClaims +
+    unsupportedArticles +
+    unsupportedDates +
+    unsupportedAmounts +
+    unsupportedEntities +
+    unsupportedReasoning +
+    unsupportedConclusions +
+    unsupportedRecommendations;
+
+  if (hallucinationRisk === "high") {
+    checks.push(
+      block(
+        "case_intelligence_review",
+        `Case Intelligence: высокий риск галлюцинаций, неподтверждённых элементов: ${totalUnsupported}.`,
+      ),
+    );
+  } else if (totalUnsupported > 0 || hallucinationRisk === "medium") {
+    checks.push(
+      warn(
+        "case_intelligence_review",
+        `Case Intelligence: требуется проверка. Неподтверждённых элементов: ${totalUnsupported}, риск: ${hallucinationRisk}.`,
+      ),
+    );
+  } else {
+    checks.push(ok("case_intelligence_review", "Case Intelligence не выявил неподтверждённых элементов."));
+  }
   // ---- Aggregate
   const blocked = checks.filter((c) => c.status === "blocked").length;
   const warningCount = checks.filter((c) => c.status === "warning").length;
