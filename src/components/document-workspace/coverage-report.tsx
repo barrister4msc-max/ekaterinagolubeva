@@ -168,8 +168,13 @@ export function computeCoverage(analysis: any, review: any, attachments: any[]):
   ];
   const score = Math.round(components.reduce((acc, c) => acc + c.weight * c.ratio, 0) * 100);
 
-  return {
-    facts: { total: factsTotal, confirmed, partial, unsupported },
+    return {
+    facts: {
+    total: factsTotal,
+    confirmed,
+    partial,
+    unsupported: v2Missing.length > 0 ? v2Missing.length : unsupported,
+    },
     documents: { total: docTotal, used, unused, rejected, noOcr },
     laws: { total: applicableLaws.length, used: lawsUsed, rejected: rejectedLaws.length },
     practice: { total: practice.length },
@@ -247,10 +252,10 @@ export function CoverageReportTab({
           title="AI Review"
           total={data.review.total}
           rows={[
-            { label: "Critical", value: data.review.critical, tone: data.review.critical ? "bad" : "good" },
-            { label: "High", value: data.review.high, tone: data.review.high ? "warn" : "good" },
-            { label: "Medium", value: data.review.medium, tone: "warn" },
-            { label: "Low", value: data.review.low, tone: "warn" },
+            { label: "Критические", value: data.review.critical, tone: data.review.critical ? "bad" : "good" },
+            { label: "Высокие", value: data.review.high, tone: data.review.high ? "warn" : "good" },
+            { label: "Средние", value: data.review.medium, tone: "warn" },
+            { label: "Низкие", value: data.review.low, tone: "warn" },
           ]}
         />
         <GroundingBreakdown components={data.grounding.components} />
@@ -321,7 +326,7 @@ function GroundingBreakdown({
   components: CoverageData["grounding"]["components"];
 }) {
   return (
-    <div className={`${PANEL_SUB} p-3 text-xs text-slate-100 md:col-span-2 lg:col-span-3`}>
+    <div className={`${PANEL_SUB} p-3 text-[14px] leading-6 text-slate-100 md:col-span-2 lg:col-span-3`}>
       <div className="flex items-center gap-1.5 text-slate-200">
         <CheckCircle2 size={14} />
         <span className="text-sm font-semibold text-white">Как считается оценка обоснования</span>
@@ -350,7 +355,7 @@ function GroundingBreakdown({
                 style={{ width: `${Math.round(c.ratio * 100)}%` }}
               />
             </div>
-            <div className="mt-0.5 text-[10px] text-slate-400">{c.sub}</div>
+            <div className="mt-0.5 text-[14px] leading-6 text-slate-400">{c.sub}</div>
           </li>
         ))}
       </ul>
