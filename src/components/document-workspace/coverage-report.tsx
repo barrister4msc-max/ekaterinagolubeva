@@ -17,6 +17,11 @@
 import { useMemo } from "react";
 import { CheckCircle2, AlertTriangle, XCircle, FileText, Landmark, Gavel, MessageSquare, ShieldCheck } from "lucide-react";
 import { trCaseLabel } from "@/lib/case-intelligence-i18n";
+import {
+  normalizeCaseEvidence,
+  normalizeCaseFacts,
+  normalizeMissingEvidence,
+} from "@/lib/case-intelligence-adapters";
 const PANEL = "rounded-2xl border border-slate-700/70 bg-slate-900/95 shadow-xl";
 const PANEL_SUB = "rounded-xl border border-slate-700/60 bg-slate-800/90";
 const LABEL = "text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400";
