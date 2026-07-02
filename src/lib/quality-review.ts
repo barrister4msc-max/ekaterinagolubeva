@@ -40,6 +40,7 @@ export type QualityCheckId =
   | "ai_review"
   | "redaction"
   | "generation_metadata"
+  | "case_intelligence_review"
   | "ready_for_lawyer";
 
 export type QualityCheck = {
