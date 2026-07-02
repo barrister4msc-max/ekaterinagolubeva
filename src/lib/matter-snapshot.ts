@@ -92,6 +92,10 @@ export function buildMatterSnapshotFromRun(
   run: LegalAnalysisRun,
 ): MatterSnapshot {
   const a: LegalAnalysisResult | null = run.analysis;
+  const matrix =
+  (run as any)?.metadata?.case_intelligence_matrix ??
+  (a as any)?.case_intelligence_matrix ??
+  null;
   const audit = a?.documents_audit;
   const docs: Array<{ id: string; title: string; used: boolean }> = [];
   for (const d of audit?.used ?? []) docs.push({ id: d.id, title: d.title, used: true });
