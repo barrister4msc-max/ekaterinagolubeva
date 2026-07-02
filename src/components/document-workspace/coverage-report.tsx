@@ -39,6 +39,16 @@ export type CoverageData = {
 };
 
 export function computeCoverage(analysis: any, review: any, attachments: any[]): CoverageData {
+    const matrix =
+    analysis?.case_intelligence_matrix ??
+    analysis?.metadata?.case_intelligence_matrix ??
+    analysis?.result?.case_intelligence_matrix ??
+    analysis?.case_intelligence ??
+    null;
+
+  const v2Facts = normalizeCaseFacts(matrix);
+  const v2Evidence = normalizeCaseEvidence(matrix);
+  const v2Missing = normalizeMissingEvidence(matrix);
   const factToLaw: any[] = Array.isArray(analysis?.fact_to_law_mapping) ? analysis.fact_to_law_mapping : [];
   const factToEvidence: any[] = Array.isArray(analysis?.fact_to_evidence_mapping)
     ? analysis.fact_to_evidence_mapping
