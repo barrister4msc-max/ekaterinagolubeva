@@ -269,7 +269,45 @@ export type LegalAnalysisRun = {
   completed_at: string | null;
   analysis: LegalAnalysisResult | null;
 };
+function mapLegalAnalysisRunRow(data: any): LegalAnalysisRun {
+  return {
+    id: data.id as string,
+    session_id: data.session_id as string,
+    status: data.status as string,
+    hallucination_risk: (data.hallucination_risk as string | null) ?? null,
+    legal_accuracy_score: (data.legal_accuracy_score as number | null) ?? null,
+    source_verification_status: (data.source_verification_status as string | null) ?? null,
+    needs_lawyer_review: Boolean(data.needs_lawyer_review),
+    model_name: (data.model_name as string | null) ?? null,
+    error_message: (data.error_message as string | null) ?? null,
+    created_at: data.created_at as string,
+    completed_at: (data.completed_at as string | null) ?? null,
+    analysis: (data.ai_result as unknown as LegalAnalysisResult | null) ?? null,
+  };
+}
 
+export async function fetchLegalAnalysisRunById(
+  runId: string,
+  sessionId?: string,
+): Promise<LegalAnalysisRun | null> {
+  let query = supabase
+    .from("document_intake_ai_runs")
+    .select(
+      "id, session_id, status, hallucination_risk, legal_accuracy_score, source_verification_status, needs_lawyer_review, model_name, error_message, created_at, completed_at, ai_result",
+    )
+    .eq("id", runId);
+
+  if (sessionId) {
+    query = query.eq("session_id", sessionId);
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  return mapLegalAnalysisRunRow(data);
+}
 export async function runLegalAnalysis(sessionId: string): Promise<LegalAnalysisRun> {
   const { data, error } = await supabase.functions.invoke<{
     success?: boolean;
