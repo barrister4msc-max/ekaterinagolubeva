@@ -312,14 +312,52 @@ export async function runLegalAnalysis(sessionId: string): Promise<LegalAnalysis
   const { data, error } = await supabase.functions.invoke<{
     success?: boolean;
     error?: string;
-    run_id: string;
-    analysis: LegalAnalysisResult;
+    run_id?: string | null;
+    analysis?: LegalAnalysisResult | null;
   }>("analyze-document-legal-position", { body: { session_id: sessionId } });
+
   if (error) throw error;
+
   if (!data || data.success === false) {
     throw new Error(data?.error ?? "Не удалось выполнить правовой анализ");
   }
-  return fetchLatestLegalAnalysis(sessionId) as Promise<LegalAnalysisRun>;
+
+  const returnedRunId = typeof data.run_id === "string" ? data.run_id.trim() : "";
+
+  if (returnedRunId) {
+    const runById = await fetchLegalAnalysisRunById(returnedRunId, sessionId);
+
+    if (runById?.analysis) {
+      return runById;
+    }
+
+    if (data.analysis) {
+      return {
+        id: returnedRunId,
+        session_id: sessionId,
+        status: "completed",
+        hallucination_risk: null,
+        legal_accuracy_score: null,
+        source_verification_status: null,
+        needs_lawyer_review: true,
+        model_name: null,
+        error_message: null,
+        created_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        analysis: data.analysis,
+      };
+    }
+  }
+
+  const latest = await fetchLatestLegalAnalysis(sessionId);
+
+  if (latest?.analysis) {
+    return latest;
+  }
+
+  throw new Error(
+    "AI правовой анализ выполнен, но результат не найден в document_intake_ai_runs. Проверьте run_id и статус анализа.",
+  );
 }
 
 export async function fetchLatestLegalAnalysis(
