@@ -23,7 +23,8 @@ export type GateErrorCode =
   | "HALLUCINATED_SOURCE"
   | "LOW_TRUST_OR_SUPERSEDED_USED"
   | "REDACTION_REQUIRED"
-  | "OCR_NOT_READY";
+  | "OCR_NOT_READY"
+  | "UNSUPPORTED_CONCLUSIONS";
 
 export class MatterGateError extends Error {
   code: GateErrorCode;
