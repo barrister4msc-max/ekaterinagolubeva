@@ -53,7 +53,14 @@ export type GateInput = {
   redactionRequired?: boolean;
   ocrReady?: boolean;
 };
-
+function getUnsupportedConclusions(snapshot: MatterSnapshot) {
+  return (snapshot.blocked_conclusions ?? []).filter(
+    (c) =>
+      c?.provenance?.needs_source === true ||
+      c?.provenance?.use_in_generation === false ||
+      c?.provenance?.support_level === "unsupported",
+  );
+}
 // Issues that always block draft (truly critical).
 const DRAFT_BLOCKING_CHALLENGE_KINDS = new Set([
   "hallucinated_source",
