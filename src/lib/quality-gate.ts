@@ -118,7 +118,22 @@ function computeDraftBlockers(snapshot: MatterSnapshot): { code: GateErrorCode; 
       reasons: ["low_trust_or_superseded_used_in_generation"],
     };
   }
+const unsupported = getUnsupportedConclusions(snapshot);
 
+const criticalUnsupported = unsupported.filter((c) =>
+  [
+    "main_position",
+    "qualification",
+    "recommendation",
+  ].includes(c.kind),
+);
+
+if (criticalUnsupported.length > 0) {
+  return {
+    code: "UNSUPPORTED_CONCLUSIONS",
+    reasons: criticalUnsupported.map((c) => c.kind),
+  };
+}
   // 4. Source sufficiency only blocks draft when explicitly insufficient_critical.
   if (snapshot.source_sufficiency?.status === "insufficient_critical") {
     return {
