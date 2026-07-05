@@ -171,6 +171,14 @@ function computeFinalExtraBlockers(snapshot: MatterSnapshot): { code: GateErrorC
       reasons: warningsOnUsed.map((w) => `${w.warning_type}:${w.source_ref}`),
     };
   }
+  const unsupported = getUnsupportedConclusions(snapshot);
+
+if (unsupported.length > 0) {
+  return {
+    code: "UNSUPPORTED_CONCLUSIONS",
+    reasons: unsupported.map((c) => c.kind),
+  };
+}
   return null;
 }
 
