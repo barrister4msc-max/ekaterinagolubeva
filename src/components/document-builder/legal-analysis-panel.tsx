@@ -582,115 +582,103 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
 
           <ListSection title="Рекомендации" items={a.recommendations ?? []} />
           <ListSection title="Инструкции для генерации документа" items={a.generation_instructions} />
-          {a.reasoning_engine && (
-  <div>
-    <div className="db-section-label">
-      🧠 Логика выбора правовой позиции
-    </div>
+          {(() => {
+            const re = (a as unknown as {
+              reasoning_engine?: {
+                selected_strategy_id?: string;
+                strategy_summary?: string;
+                reasoning_quality?: string;
+                explanation?: string;
+                considered_positions?: Array<Record<string, any>>;
+              };
+            }).reasoning_engine;
+            if (!re) return null;
+            return (
+              <div>
+                <div className="db-section-label">Логика выбора правовой позиции</div>
+                <div className="mt-2 db-subcard space-y-4">
+                  <div>
+                    <div className="text-white font-semibold">Выбранная стратегия</div>
+                    <div className="mt-1 text-emerald-300">
+                      {labelStrategy(String(re.selected_strategy_id ?? ""))}
+                    </div>
+                    {re.strategy_summary && (
+                      <div className="mt-2 text-white/80 whitespace-pre-wrap">
+                        {re.strategy_summary}
+                      </div>
+                    )}
+                    {re.explanation && (
+                      <div className="mt-3">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                          Основание выбора
+                        </div>
+                        <div className="mt-1 text-sm text-white/80 whitespace-pre-wrap">
+                          {re.explanation}
+                        </div>
+                      </div>
+                    )}
+                    {re.reasoning_quality && (
+                      <div className="mt-2 text-xs text-white/60">
+                        Качество рассуждений: {labelConfidence(re.reasoning_quality)}
+                      </div>
+                    )}
+                  </div>
 
-    <div className="mt-2 db-subcard space-y-4">
+                  <div className="space-y-3">
+                    {re.considered_positions?.map((p, idx) => {
+                      const selected = !!p.selected;
+                      return (
+                        <div
+                          key={p.id ?? idx}
+                          className="rounded-lg border border-white/10 p-3 bg-white/5"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="font-semibold text-white">
+                              {p.title ?? labelStrategy(String(p.id ?? ""))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${selected ? GREEN : NEUTRAL}`}
+                              >
+                                {selected ? "Выбранная стратегия" : "Альтернативная стратегия"}
+                              </span>
+                              {typeof p.score === "number" && (
+                                <span className="text-cyan-300 text-sm">
+                                  {(p.score * 100).toFixed(0)}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
 
-      <div>
-        <div className="text-white font-semibold">
-          Выбранная стратегия
-        </div>
+                          <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-white/70">
+                            <span>Уверенность модели: {labelConfidence(p.confidence)}</span>
+                            <span>Подтверждённых аргументов: {p.argument_count ?? 0}</span>
+                            <span>Неподтверждённых выводов: {p.blocked_argument_count ?? 0}</span>
+                          </div>
 
-        <div className="mt-1 text-emerald-300">
-          {a.reasoning_engine.selected_strategy_id}
-        </div>
-
-        <div className="mt-2 text-white/80 whitespace-pre-wrap">
-          {a.reasoning_engine.strategy_summary}
-        </div>
-
-        <div className="mt-2 text-xs text-white/60">
-          Качество рассуждений:
-          {" "}
-          {a.reasoning_engine.reasoning_quality}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-
-        {a.reasoning_engine.considered_positions?.map((p) => (
-
-          <div
-            key={p.id}
-            className="rounded-lg border border-white/10 p-3 bg-white/5"
-          >
-
-            <div className="flex justify-between">
-
-              <div className="font-semibold text-white">
-
-                {p.title}
-
+                          {selected ? (
+                            p.why_selected && (
+                              <div className="mt-3 text-sm text-emerald-200">
+                                <span className="font-semibold">Основание выбора:</span>{" "}
+                                {p.why_selected}
+                              </div>
+                            )
+                          ) : (
+                            p.why_not_selected && (
+                              <div className="mt-3 text-sm text-amber-200">
+                                <span className="font-semibold">Причина отклонения:</span>{" "}
+                                {p.why_not_selected}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-
-              <div className="text-cyan-300">
-
-                {(p.score * 100).toFixed(0)}%
-
-              </div>
-
-            </div>
-
-            <div className="mt-2 text-xs text-white/60">
-
-              confidence:
-              {" "}
-              {p.confidence}
-
-              {" • "}
-
-              аргументов:
-              {" "}
-              {p.argument_count}
-
-              {" • "}
-
-              заблокировано:
-              {" "}
-              {p.blocked_argument_count}
-
-            </div>
-
-            {p.selected ? (
-
-              <div className="mt-3 text-emerald-300 text-sm">
-
-                ✔ Выбрана
-
-                <br />
-
-                {p.why_selected}
-
-              </div>
-
-            ) : (
-
-              <div className="mt-3 text-amber-300 text-sm">
-
-                ✖ Не выбрана
-
-                <br />
-
-                {p.why_not_selected}
-
-              </div>
-
-            )}
-
-          </div>
-
-        ))}
-
-      </div>
-
-    </div>
-
-  </div>
-)}
+            );
+          })()}
           
         </div>
       )}
