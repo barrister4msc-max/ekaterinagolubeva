@@ -429,6 +429,7 @@ async function writeGenerationProvenance(input: {
   }
   const existing = ((row?.metadata as Record<string, unknown> | null) ?? {}) as Record<string, unknown>;
 
+  const ws = payload.working_strategy ?? null;
   const provenance: Record<string, unknown> = {
     generated_from_legal_analysis: Boolean(runId && snapshot),
     legal_analysis_run_id: runId,
@@ -443,6 +444,11 @@ async function writeGenerationProvenance(input: {
     redaction_used: Boolean(snapshot?.redaction_used),
     provenance_index_present: Boolean(snapshot?.provenance_index),
     evidence_matrix_present: Boolean(snapshot?.evidence_matrix?.length),
+    // Lawyer-vs-AI strategy provenance
+    strategy_source: ws?.strategy_source ?? null,
+    selected_strategy_id: ws?.selected_strategy_id ?? null,
+    ai_selected_strategy_id: ws?.ai_selected_strategy_id ?? null,
+    lawyer_override_reason: ws?.lawyer_override_reason ?? null,
   };
 
   console.log("[PROVENANCE PAYLOAD]", {
