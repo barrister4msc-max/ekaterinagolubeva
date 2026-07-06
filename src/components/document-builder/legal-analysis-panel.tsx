@@ -39,6 +39,105 @@ const ANALYSIS_STATUS_LABELS: Record<string, string> = {
   passed: "Проверено",
   partial: "Частично",
 };
+
+const ARGUMENT_KIND_LABELS: Record<string, string> = {
+  qualification: "Правовая квалификация",
+  main_position: "Основная правовая позиция",
+  client_position: "Позиция налогоплательщика",
+  taxpayer_position: "Позиция налогоплательщика",
+  opponent_position: "Позиция ФНС",
+  tax_authority_position: "Позиция ФНС",
+  fact_to_law: "Связь факта с нормой права",
+  counter_argument: "Контраргумент",
+  weak_point: "Слабое место позиции",
+  recommendation: "Рекомендация",
+  risk: "Юридический риск",
+  generation_instruction: "Инструкция для формирования документа",
+};
+
+const EVIDENCE_STRENGTH_LABELS: Record<string, string> = {
+  high: "Высокая",
+  medium: "Средняя",
+  low: "Низкая",
+};
+
+const SUPPORT_LEVEL_LABELS: Record<string, string> = {
+  full: "Полное",
+  strong: "Полное",
+  partial: "Частичное",
+  none: "Не подтверждено",
+  unsupported: "Не подтверждено",
+  weak: "Не подтверждено",
+};
+
+const CONFIDENCE_LABELS: Record<string, string> = {
+  high: "Высокая",
+  medium: "Средняя",
+  low: "Низкая",
+};
+
+const HALLUCINATION_RISK_LABELS: Record<string, string> = {
+  low: "низкий",
+  medium: "средний",
+  high: "высокий",
+};
+
+const STRATEGY_LABELS: Record<string, string> = {
+  strategy_b_tax_reconstruction: "Налоговая реконструкция",
+  strategy_primary_defense: "Основная защита",
+  strategy_c_risk_minimization: "Минимизация рисков",
+  strategy_court: "Судебная защита",
+  strategy_settlement: "Досудебное урегулирование",
+};
+
+function humanize(v: string): string {
+  return v
+    .replace(/^strategy_/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function labelStrategy(id: string): string {
+  return STRATEGY_LABELS[id] ?? humanize(id);
+}
+
+function labelArgumentKind(k: string): string {
+  return ARGUMENT_KIND_LABELS[k] ?? humanize(k);
+}
+
+function labelEvidence(s: string | null | undefined): string {
+  if (!s) return "—";
+  return EVIDENCE_STRENGTH_LABELS[s] ?? humanize(s);
+}
+
+function labelSupport(s: string | null | undefined): string {
+  if (!s) return "—";
+  return SUPPORT_LEVEL_LABELS[s] ?? humanize(s);
+}
+
+function labelConfidence(s: string | null | undefined): string {
+  if (!s) return "—";
+  return CONFIDENCE_LABELS[s] ?? humanize(s);
+}
+
+const GREEN = "bg-emerald-500/20 text-emerald-100";
+const YELLOW = "bg-amber-500/20 text-amber-100";
+const RED = "bg-red-500/20 text-red-200";
+const NEUTRAL = "bg-white/10 text-white/80";
+
+function evidenceTone(s: string | null | undefined): string {
+  if (s === "high") return GREEN;
+  if (s === "medium") return YELLOW;
+  if (s === "low") return RED;
+  return NEUTRAL;
+}
+
+function supportTone(s: string | null | undefined): string {
+  if (s === "full" || s === "strong") return GREEN;
+  if (s === "partial") return YELLOW;
+  if (s === "none" || s === "unsupported" || s === "weak") return RED;
+  return NEUTRAL;
+}
 type Props = {
   sessionId: string | null;
   onEnsureSession: () => Promise<string>;
