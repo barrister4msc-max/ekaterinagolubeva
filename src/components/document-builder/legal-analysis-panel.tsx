@@ -327,7 +327,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             <div className="flex flex-wrap gap-2 text-[11px]">
               {run?.hallucination_risk && (
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${run.hallucination_risk === "low" ? "bg-white/10 text-white/80" : "bg-amber-500/20 text-amber-100"}`}>
-                  риск: {run.hallucination_risk}
+                  риск: {HALLUCINATION_RISK_LABELS[run.hallucination_risk] ?? run.hallucination_risk}
                 </span>
               )}
               {run?.legal_accuracy_score != null && (
