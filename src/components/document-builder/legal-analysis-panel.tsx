@@ -572,50 +572,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
 
   </div>
 )}
-          {a.argument_map?.length ? (
-  <div>
-    <div className="db-section-label">
-      🔗 Аргументы, доказательства и источники
-    </div>
-
-    <div className="mt-2 db-subcard space-y-3">
-      {a.argument_map.slice(0, 12).map((arg) => (
-        <div
-          key={arg.argument_id}
-          className="rounded-lg border border-white/10 bg-white/5 p-3"
-        >
-          <div className="text-white font-semibold">{arg.kind}</div>
-
-          <div className="mt-2 text-sm text-white/80 whitespace-pre-wrap">
-            {arg.argument}
-          </div>
-
-          <div className="mt-3 text-xs text-white/60">
-            evidence: {arg.evidence_strength}
-            {" • "}
-            support: {arg.support_level}
-            {" • "}
-            generation: {arg.use_in_generation ? "allowed" : "blocked"}
-          </div>
-
-          {arg.blocked_reason && (
-            <div className="mt-2 text-xs text-red-300">
-              Заблокировано: {arg.blocked_reason}
-            </div>
-          )}
-
-          <div className="mt-2 text-xs text-white/50">
-            Факты: {arg.facts_used?.length ?? 0}
-            {" • "}
-            Документы: {arg.documents_used?.length ?? 0}
-            {" • "}
-            Источники: {arg.sources_used?.length ?? 0}
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-) : null}
+          
         </div>
       )}
     </div>
