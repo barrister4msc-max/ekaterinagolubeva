@@ -681,6 +681,17 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                     </div>
                   </div>
 
+                  {/* Warning: AI reran and changed strategy after lawyer override */}
+                  {savedOverrideId && savedOverrideId !== aiSelectedId && (
+                    <div className="rounded-lg border border-amber-300/30 bg-amber-500/10 p-3 text-sm text-amber-100 flex items-start gap-2">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                      <div>
+                        Юрист ранее изменил стратегию вручную ({labelStrategy(savedOverrideId)}).
+                        AI сейчас предлагает: {labelStrategy(aiSelectedId)}. Проверьте актуальность выбора.
+                      </div>
+                    </div>
+                  )}
+
                   {/* Выбор юриста */}
                   <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/10 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -691,7 +702,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                           onClick={() => setSelectedStrategyOverrideId(null)}
                           className="rounded-md border border-white/20 bg-white/10 px-2 py-1 text-[11px] text-white/85 hover:bg-white/15"
                         >
-                          Вернуть выбор AI
+                          Сбросить к выбору AI
                         </button>
                       )}
                     </div>
@@ -707,10 +718,92 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                         Юрист пока не изменял стратегию. Используется стратегия AI.
                       </div>
                     )}
+
+                    <div className="mt-3 space-y-1">
+                      <label className="text-[11px] text-white/70">
+                        Причина изменения стратегии (необязательно)
+                      </label>
+                      <Textarea
+                        value={overrideReason}
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        placeholder="Например: выбрана судебная защита вместо налоговой реконструкции, поскольку получены новые доказательства."
+                        rows={3}
+                        className="bg-white/5 border-white/15 text-white/90 placeholder:text-white/40"
+                      />
+                    </div>
+
+                    {(() => {
+                      const dirty =
+                        (selectedStrategyOverrideId ?? null) !== (savedOverrideId ?? null) ||
+                        overrideReason.trim() !== savedOverrideReason.trim();
+                      if (!dirty) {
+                        return savedOverrideId ? (
+                          <div className="mt-3 text-[11px] text-white/60">
+                            Сохранено{overrideSavedAt ? ` • ${new Date(overrideSavedAt).toLocaleString("ru-RU")}` : ""}
+                            {overrideSavedBy ? ` • юрист ${overrideSavedBy.slice(0, 8)}` : ""}
+                          </div>
+                        ) : null;
+                      }
+                      return (
+                        <div className="mt-3 flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={savingOverride || !run?.id}
+                            onClick={async () => {
+                              if (!run?.id) return;
+                              setSaveError(null);
+                              setSavingOverride(true);
+                              try {
+                                const nextOverride: LegalAnalysisLawyerStrategyOverride | null =
+                                  selectedStrategyOverrideId
+                                    ? {
+                                        strategy_id: selectedStrategyOverrideId,
+                                        ai_strategy_id: aiSelectedId || null,
+                                        selected_at: new Date().toISOString(),
+                                        selected_by: user?.id ?? null,
+                                        reason: overrideReason.trim(),
+                                      }
+                                    : null;
+                                await saveLawyerStrategyOverride(run.id, nextOverride);
+                                setSavedOverrideId(nextOverride?.strategy_id ?? null);
+                                setSavedOverrideReason(nextOverride?.reason ?? "");
+                                setOverrideSavedAt(nextOverride?.selected_at ?? null);
+                                setOverrideSavedBy(nextOverride?.selected_by ?? null);
+                                // Reflect in-memory analysis so downstream reads see it
+                                setRun((prev) =>
+                                  prev && prev.analysis
+                                    ? {
+                                        ...prev,
+                                        analysis: {
+                                          ...prev.analysis,
+                                          lawyer_strategy_override: nextOverride,
+                                        } as any,
+                                      }
+                                    : prev,
+                                );
+                              } catch (e) {
+                                setSaveError((e as Error).message);
+                              } finally {
+                                setSavingOverride(false);
+                              }
+                            }}
+                            className="db-cta"
+                          >
+                            {savingOverride ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                            {savingOverride ? "Сохранение…" : "Сохранить выбор юриста"}
+                          </button>
+                          {saveError && (
+                            <span className="text-[11px] text-red-300">{saveError}</span>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     <div className="mt-3 text-[11px] text-white/55">
-                      Ручной выбор стратегии не меняет исходный AI-анализ. Он используется как рабочая позиция юриста на этом экране.
+                      Ручной выбор стратегии не меняет исходный AI-анализ. Выбор юриста сохраняется в деле и используется при генерации документа.
                     </div>
                   </div>
+
 
                   {/* Выбранная стратегия (итог) */}
                   <div>
