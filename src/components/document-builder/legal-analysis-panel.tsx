@@ -418,6 +418,115 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
 
           <ListSection title="Рекомендации" items={a.recommendations ?? []} />
           <ListSection title="Инструкции для генерации документа" items={a.generation_instructions} />
+          {a.reasoning_engine && (
+  <div>
+    <div className="db-section-label">
+      🧠 Логика выбора правовой позиции
+    </div>
+
+    <div className="mt-2 db-subcard space-y-4">
+
+      <div>
+        <div className="text-white font-semibold">
+          Выбранная стратегия
+        </div>
+
+        <div className="mt-1 text-emerald-300">
+          {a.reasoning_engine.selected_strategy_id}
+        </div>
+
+        <div className="mt-2 text-white/80 whitespace-pre-wrap">
+          {a.reasoning_engine.strategy_summary}
+        </div>
+
+        <div className="mt-2 text-xs text-white/60">
+          Качество рассуждений:
+          {" "}
+          {a.reasoning_engine.reasoning_quality}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+
+        {a.reasoning_engine.considered_positions?.map((p) => (
+
+          <div
+            key={p.id}
+            className="rounded-lg border border-white/10 p-3 bg-white/5"
+          >
+
+            <div className="flex justify-between">
+
+              <div className="font-semibold text-white">
+
+                {p.title}
+
+              </div>
+
+              <div className="text-cyan-300">
+
+                {(p.score * 100).toFixed(0)}%
+
+              </div>
+
+            </div>
+
+            <div className="mt-2 text-xs text-white/60">
+
+              confidence:
+              {" "}
+              {p.confidence}
+
+              {" • "}
+
+              аргументов:
+              {" "}
+              {p.argument_count}
+
+              {" • "}
+
+              заблокировано:
+              {" "}
+              {p.blocked_argument_count}
+
+            </div>
+
+            {p.selected ? (
+
+              <div className="mt-3 text-emerald-300 text-sm">
+
+                ✔ Выбрана
+
+                <br />
+
+                {p.why_selected}
+
+              </div>
+
+            ) : (
+
+              <div className="mt-3 text-amber-300 text-sm">
+
+                ✖ Не выбрана
+
+                <br />
+
+                {p.why_not_selected}
+
+              </div>
+
+            )}
+
+          </div>
+
+        ))}
+
+      </div>
+
+    </div>
+
+  </div>
+)}
         </div>
       )}
     </div>
