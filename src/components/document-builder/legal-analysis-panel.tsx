@@ -1384,6 +1384,283 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             );
           })()}
 
+          {(() => {
+            const re = ((a as any).reasoning_engine ?? {}) as {
+              selected_strategy_id?: string;
+              considered_positions?: Array<Record<string, any>>;
+            };
+            const selectedId = re.selected_strategy_id ?? "";
+            const selectedPos = (re.considered_positions ?? []).find(
+              (p) => String(p.id ?? "") === selectedId,
+            );
+            const missingEvidence = (a.missing_evidence ?? []) as string[];
+            const argMap = ((a as any).argument_map ?? []) as Array<Record<string, any>>;
+            const blockedArgs = argMap.filter((x) => x.use_in_generation === false);
+            const conclusions = ((a as any).conclusions ?? []) as Array<{
+              statement: string;
+              provenance?: { sufficiency?: { status?: string; reason?: string } };
+            }>;
+            const insufficientConclusions = conclusions.filter(
+              (c) => c.provenance?.sufficiency?.status && c.provenance.sufficiency.status !== "sufficient",
+            );
+            const challenge = ((a as any).challenge_result ?? {}) as {
+              required_changes?: string[];
+              unresolved_risks?: string[];
+            };
+            const requiredChanges = challenge.required_changes ?? [];
+            const recommendations = (a.recommendations ?? []) as string[];
+            const risks = (a.risks ?? []) as Array<{ risk: string; severity?: string; mitigation?: string }>;
+
+            const severityLabel = (s?: string) => {
+              const v = String(s ?? "").toLowerCase();
+              if (v === "high" || v === "critical" || v === "высокий") return "Высокий";
+              if (v === "medium" || v === "средний") return "Средний";
+              if (v === "low" || v === "низкий") return "Низкий";
+              return "Не определён";
+            };
+            const severityBucket = (s?: string) => {
+              const v = String(s ?? "").toLowerCase();
+              if (v === "high" || v === "critical") return "high";
+              if (v === "medium") return "medium";
+              if (v === "low") return "low";
+              return "other";
+            };
+            const highRisks = risks.filter((r) => severityBucket(r.severity) === "high");
+            const mediumRisks = risks.filter((r) => severityBucket(r.severity) === "medium");
+            const lowRisks = risks.filter((r) => severityBucket(r.severity) === "low");
+            const otherRisks = risks.filter((r) => severityBucket(r.severity) === "other");
+
+            // Классификация доказательств к сбору
+            const kw = (s: string) => s.toLowerCase();
+            const buckets: Record<string, string[]> = {
+              documents: [],
+              explanations: [],
+              counterparty: [],
+              transport: [],
+              price: [],
+              other: [],
+            };
+            for (const raw of missingEvidence) {
+              const t = kw(raw);
+              if (/(поясн|объяснен|допрос|свидетел|сотрудник|показани)/.test(t)) buckets.explanations.push(raw);
+              else if (/(контрагент|поставщик|покупател|запрос|встречн)/.test(t)) buckets.counterparty.push(raw);
+              else if (/(транспорт|тн|ттн|перевоз|путев|логист|доставк)/.test(t)) buckets.transport.push(raw);
+              else if (/(цен|рыноч|прайс|тариф|котировк|стоимост)/.test(t)) buckets.price.push(raw);
+              else if (/(договор|акт|счёт|счет|накладн|документ|регистр|первичк|бухгалтер)/.test(t)) buckets.documents.push(raw);
+              else buckets.other.push(raw);
+            }
+
+            // Определение следующего документа
+            const nextDoc = (() => {
+              if (insufficientConclusions.length > 0 || blockedArgs.length > 0 || missingEvidence.length > 3) {
+                return {
+                  title: "Запрос доказательств у клиента и контрагентов",
+                  reason: "Правовая позиция не обеспечена полным объёмом доказательств.",
+                };
+              }
+              const sid = selectedId.toLowerCase();
+              if (sid.includes("court") || sid.includes("судеб")) {
+                return {
+                  title: "Стратегия судебной защиты",
+                  reason: "Выбрана судебная линия защиты интересов доверителя.",
+                };
+              }
+              if (sid.includes("settlement") || sid.includes("досуд")) {
+                return {
+                  title: "Пояснения в ФНС и досудебное урегулирование",
+                  reason: "Выбран досудебный порядок разрешения спора.",
+                };
+              }
+              if (highRisks.length > 0) {
+                return {
+                  title: "Возражения на акт налогового органа",
+                  reason: "Имеются существенные риски, требующие письменной правовой позиции.",
+                };
+              }
+              return {
+                title: "Правовое заключение по делу",
+                reason: "Материалы дела достаточны для оформления итоговой правовой позиции.",
+              };
+            })();
+
+            // Срочные действия
+            const urgent: string[] = [];
+            if (blockedArgs.length > 0) {
+              urgent.push("Устранить основания, по которым выводы AI не могут быть использованы при подготовке документа.");
+            }
+            if (insufficientConclusions.length > 0) {
+              urgent.push("Подтвердить надлежащими источниками выводы, обеспеченность которых признана недостаточной.");
+            }
+            if (missingEvidence.length > 0) {
+              urgent.push("Организовать сбор недостающих доказательств по делу.");
+            }
+            if (highRisks.length > 0) {
+              urgent.push("Проработать меры по снижению рисков высокой степени.");
+            }
+            for (const r of requiredChanges.slice(0, 3)) urgent.push(r);
+            if (urgent.length === 0) {
+              urgent.push("Срочных действий не требуется: правовая позиция обеспечена, критических пробелов не выявлено.");
+            }
+
+            // Процессуальные шаги
+            const procedural: string[] = [];
+            const sidLower = selectedId.toLowerCase();
+            procedural.push("Подготовить письменную правовую позицию по существу дела.");
+            if (missingEvidence.length > 0 || blockedArgs.length > 0) {
+              procedural.push("Сформировать пакет подтверждающих документов по каждому спорному эпизоду.");
+            }
+            procedural.push("Подготовить пояснения по обстоятельствам дела для представления в налоговый орган.");
+            procedural.push("Подготовить возражения на акт налоговой проверки в установленный срок.");
+            procedural.push("Проверить и зафиксировать процессуальные сроки ответа налогового органа и обжалования его актов.");
+            if (sidLower.includes("court") || sidLower.includes("судеб") || highRisks.length > 0) {
+              procedural.push("Подготовить процессуальные документы для судебной защиты интересов доверителя.");
+            }
+
+            const nothing =
+              urgent.length === 0 &&
+              missingEvidence.length === 0 &&
+              risks.length === 0 &&
+              recommendations.length === 0;
+            if (nothing) return null;
+
+            const RiskList = ({ items, tone }: { items: typeof risks; tone: string }) => (
+              <ul className={`mt-2 list-disc pl-5 space-y-1 text-[13px] ${tone}`}>
+                {items.map((r, i) => (
+                  <li key={i}>
+                    {r.risk}
+                    {r.mitigation ? (
+                      <div className="text-white/60 text-[11px] mt-0.5">Меры: {r.mitigation}</div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            );
+
+            const Bucket = ({ title, items }: { title: string; items: string[] }) =>
+              items.length === 0 ? null : (
+                <div className="rounded-lg border border-white/10 bg-white/5 p-2">
+                  <div className="text-white/85 text-[12px] font-medium">{title}</div>
+                  <ul className="mt-1 list-disc pl-4 text-[12px] text-white/80 space-y-0.5">
+                    {items.map((it, i) => (
+                      <li key={i}>{it}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+
+            return (
+              <div>
+                <div className="db-section-label">План действий юриста</div>
+                <div className="mt-2 db-subcard space-y-4">
+                  <div className="text-xs text-white/60">
+                    Практические шаги по ведению дела с учётом выбранной правовой позиции и выявленных пробелов.
+                  </div>
+
+                  {/* 1. Срочные действия */}
+                  <div className="rounded-lg border border-red-300/20 bg-red-500/5 p-3">
+                    <div className="text-white font-semibold text-sm">1. Срочные действия</div>
+                    <ul className="mt-2 list-disc pl-5 space-y-1 text-[13px] text-red-100">
+                      {urgent.map((it, i) => (
+                        <li key={i}>{it}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* 2. Доказательства к сбору */}
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="text-white font-semibold text-sm">2. Доказательства, которые необходимо собрать</div>
+                    {missingEvidence.length === 0 ? (
+                      <div className="mt-2 text-[12px] text-white/70">
+                        Пробелов в доказательственной базе не выявлено — дополнительного сбора не требуется.
+                      </div>
+                    ) : (
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        <Bucket title="Документы" items={buckets.documents} />
+                        <Bucket title="Пояснения сотрудников" items={buckets.explanations} />
+                        <Bucket title="Запросы контрагентам" items={buckets.counterparty} />
+                        <Bucket title="Транспортные документы" items={buckets.transport} />
+                        <Bucket title="Подтверждение рыночности цены" items={buckets.price} />
+                        <Bucket title="Прочие доказательства" items={buckets.other} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Процессуальные шаги */}
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="text-white font-semibold text-sm">3. Процессуальные шаги</div>
+                    <ul className="mt-2 list-disc pl-5 space-y-1 text-[13px] text-white/85">
+                      {procedural.map((it, i) => (
+                        <li key={i}>{it}</li>
+                      ))}
+                    </ul>
+                    {recommendations.length > 0 && (
+                      <div className="mt-3">
+                        <div className="text-[11px] text-white/55">Рекомендации AI:</div>
+                        <ul className="mt-1 list-disc pl-5 space-y-1 text-[12px] text-white/75">
+                          {recommendations.slice(0, 8).map((it, i) => (
+                            <li key={i}>{it}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 4. Риски, которые надо контролировать */}
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="text-white font-semibold text-sm">4. Риски, которые необходимо контролировать</div>
+                    {risks.length === 0 ? (
+                      <div className="mt-2 text-[12px] text-white/70">Существенных рисков не выявлено.</div>
+                    ) : (
+                      <div className="mt-2 space-y-3">
+                        {highRisks.length > 0 && (
+                          <div>
+                            <div className="text-[12px] font-medium text-red-200">Высокий уровень риска</div>
+                            <RiskList items={highRisks} tone="text-red-100" />
+                          </div>
+                        )}
+                        {mediumRisks.length > 0 && (
+                          <div>
+                            <div className="text-[12px] font-medium text-amber-200">Средний уровень риска</div>
+                            <RiskList items={mediumRisks} tone="text-amber-100" />
+                          </div>
+                        )}
+                        {lowRisks.length > 0 && (
+                          <div>
+                            <div className="text-[12px] font-medium text-emerald-200">Низкий уровень риска</div>
+                            <RiskList items={lowRisks} tone="text-emerald-100" />
+                          </div>
+                        )}
+                        {otherRisks.length > 0 && (
+                          <div>
+                            <div className="text-[12px] font-medium text-white/70">Уровень риска не определён</div>
+                            <RiskList items={otherRisks} tone="text-white/80" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {(challenge.unresolved_risks ?? []).length > 0 && (
+                      <div className="mt-3 text-[11px] text-white/55">
+                        Отдельно контролировать неустранимые обстоятельства дела, указанные выше в разделе «Что может изменить стратегию».
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 5. Следующий документ */}
+                  <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/5 p-3">
+                    <div className="text-white font-semibold text-sm">5. Следующий документ к подготовке</div>
+                    <div className="mt-2 text-emerald-100 text-[14px] font-medium">{nextDoc.title}</div>
+                    <div className="mt-1 text-[12px] text-white/70">{nextDoc.reason}</div>
+                    {selectedPos?.title && (
+                      <div className="mt-2 text-[11px] text-white/55">
+                        Правовая позиция: {selectedPos.title}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
         </div>
       )}
     </div>
