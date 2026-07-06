@@ -207,12 +207,35 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
     }
     setLoading(true);
     fetchLatestLegalAnalysis(sessionId)
-      .then((r) => aliveRef.current && setRun(r))
+      .then((r) => {
+        if (!aliveRef.current) return;
+        setRun(r);
+        const ov = (r?.analysis as any)?.lawyer_strategy_override as
+          | LegalAnalysisLawyerStrategyOverride
+          | null
+          | undefined;
+        if (ov && ov.strategy_id) {
+          setSelectedStrategyOverrideId(ov.strategy_id);
+          setSavedOverrideId(ov.strategy_id);
+          setOverrideReason(ov.reason ?? "");
+          setSavedOverrideReason(ov.reason ?? "");
+          setOverrideSavedAt(ov.selected_at ?? null);
+          setOverrideSavedBy(ov.selected_by ?? null);
+        } else {
+          setSelectedStrategyOverrideId(null);
+          setSavedOverrideId(null);
+          setOverrideReason("");
+          setSavedOverrideReason("");
+          setOverrideSavedAt(null);
+          setOverrideSavedBy(null);
+        }
+      })
       .catch((e) => aliveRef.current && setError((e as Error).message))
       .finally(() => aliveRef.current && setLoading(false));
 
     void refreshHasDocuments(sessionId);
   }, [sessionId, refreshHasDocuments]);
+
 
   // Realtime: re-check when documents table changes
   useEffect(() => {
