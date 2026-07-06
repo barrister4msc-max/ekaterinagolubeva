@@ -1172,6 +1172,218 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             );
           })()}
 
+          {(() => {
+            const missingEvidence = (a.missing_evidence ?? []) as string[];
+            const argMap = ((a as any).argument_map ?? []) as Array<Record<string, any>>;
+            const blockedArgs = argMap.filter((x) => x.use_in_generation === false);
+            const supportedArgs = argMap.filter((x) => x.use_in_generation !== false);
+            const re = ((a as any).reasoning_engine ?? {}) as {
+              selected_strategy_id?: string;
+              considered_positions?: Array<Record<string, any>>;
+            };
+            const selectedId = re.selected_strategy_id ?? "";
+            const positions = re.considered_positions ?? [];
+            const selectedPos = positions.find((p) => String(p.id ?? "") === selectedId);
+            const alternatives = positions.filter((p) => String(p.id ?? "") !== selectedId);
+            const challenge = ((a as any).challenge_result ?? {}) as {
+              unresolved_risks?: string[];
+              required_changes?: string[];
+              issues?: Array<{ description: string }>;
+            };
+            const unresolved = challenge.unresolved_risks ?? [];
+            const requiredChanges = challenge.required_changes ?? [];
+            const conclusions = ((a as any).conclusions ?? []) as Array<{ statement: string; provenance?: { sufficiency?: { status?: string; reason?: string } } }>;
+            const blockedConclusions = conclusions.filter(
+              (c) => c.provenance?.sufficiency?.status && c.provenance.sufficiency.status !== "sufficient",
+            );
+
+            const nothingToShow =
+              missingEvidence.length === 0 &&
+              blockedArgs.length === 0 &&
+              blockedConclusions.length === 0 &&
+              alternatives.length === 0 &&
+              unresolved.length === 0 &&
+              requiredChanges.length === 0;
+            if (nothingToShow) return null;
+
+            return (
+              <div>
+                <div className="db-section-label">Что может изменить стратегию</div>
+                <div className="mt-2 db-subcard space-y-4">
+                  <div className="text-xs text-white/60">
+                    Ниже указаны обстоятельства, при появлении или устранении которых правовая позиция и выбранная стратегия защиты могут быть пересмотрены.
+                  </div>
+
+                  {/* 1. Отсутствующие доказательства */}
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="text-white font-semibold text-sm">1. Отсутствующие доказательства</div>
+                    <div className="text-[11px] text-white/55 mt-0.5">Доказательства, которых сейчас не хватает в материалах дела.</div>
+                    {missingEvidence.length === 0 ? (
+                      <div className="mt-2 text-[12px] text-white/70">Пробелов в доказательственной базе не выявлено.</div>
+                    ) : (
+                      <ul className="mt-2 list-disc pl-5 space-y-1 text-[13px] text-amber-200">
+                        {missingEvidence.map((it, i) => (
+                          <li key={i}>{it}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* 2. Заблокированные выводы */}
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="text-white font-semibold text-sm">
+                      2. Выводы, заблокированные из-за нехватки источников
+                    </div>
+                    <div className="text-[11px] text-white/55 mt-0.5">
+                      Правовые выводы, которые AI не может использовать при генерации до подтверждения надлежащими источниками.
+                    </div>
+                    {blockedArgs.length === 0 && blockedConclusions.length === 0 ? (
+                      <div className="mt-2 text-[12px] text-white/70">Заблокированных выводов нет.</div>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {blockedArgs.map((arg, i) => (
+                          <div key={`ba-${i}`} className="rounded-md border border-white/10 bg-white/5 p-2 text-[12px] text-white/85">
+                            <div className="text-white/60 text-[11px]">
+                              {labelArgumentKind(String(arg.kind ?? ""))}
+                            </div>
+                            <div className="mt-1 whitespace-pre-wrap">{arg.argument ?? "—"}</div>
+                            {arg.blocked_reason && (
+                              <div className="mt-1 text-red-200">
+                                <span className="text-white/55">Причина: </span>
+                                {arg.blocked_reason}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {blockedConclusions.map((c, i) => (
+                          <div key={`bc-${i}`} className="rounded-md border border-white/10 bg-white/5 p-2 text-[12px] text-white/85">
+                            <div className="whitespace-pre-wrap">{c.statement}</div>
+                            {c.provenance?.sufficiency?.reason && (
+                              <div className="mt-1 text-red-200">
+                                <span className="text-white/55">Причина: </span>
+                                {c.provenance.sufficiency.reason}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Что усилит выбранную стратегию */}
+                  <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/5 p-3">
+                    <div className="text-white font-semibold text-sm">
+                      3. Что может усилить выбранную стратегию
+                    </div>
+                    <div className="text-[11px] text-white/55 mt-0.5">
+                      Доказательства и источники, устранение или получение которых укрепит позицию
+                      {selectedId ? <> «{labelStrategy(selectedId)}»</> : null}.
+                    </div>
+                    {(() => {
+                      const items: string[] = [];
+                      // arguments already used in selected strategy that lack support → strengthening them helps
+                      for (const arg of supportedArgs) {
+                        const sup = String(arg.support_level ?? "");
+                        const ev = String(arg.evidence_strength ?? "");
+                        if (sup === "partial" || sup === "weak" || sup === "unsupported" || sup === "none" || ev === "low" || ev === "medium") {
+                          const kind = labelArgumentKind(String(arg.kind ?? ""));
+                          items.push(
+                            `Дополнительное подтверждение аргумента «${kind}»: ${String(arg.argument ?? "").slice(0, 220)}`,
+                          );
+                        }
+                      }
+                      // missing evidence items directly strengthen selected strategy
+                      for (const m of missingEvidence) items.push(`Получить доказательство: ${m}`);
+                      // required_changes from challenge indicate what to fix
+                      for (const r of requiredChanges) items.push(r);
+
+                      if (items.length === 0) {
+                        return (
+                          <div className="mt-2 text-[12px] text-white/70">
+                            Выбранная стратегия обеспечена имеющимися доказательствами; дополнительных мер не требуется.
+                          </div>
+                        );
+                      }
+                      return (
+                        <ul className="mt-2 list-disc pl-5 space-y-1 text-[13px] text-emerald-100">
+                          {items.slice(0, 12).map((it, i) => (
+                            <li key={i}>{it}</li>
+                          ))}
+                        </ul>
+                      );
+                    })()}
+                  </div>
+
+                  {/* 4. Что сделает альтернативную стратегию предпочтительной */}
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                    <div className="text-white font-semibold text-sm">
+                      4. Что может сделать альтернативную стратегию предпочтительной
+                    </div>
+                    <div className="text-[11px] text-white/55 mt-0.5">
+                      Обстоятельства, при появлении которых целесообразно рассмотреть иную правовую позицию.
+                    </div>
+                    {alternatives.length === 0 ? (
+                      <div className="mt-2 text-[12px] text-white/70">Альтернативные стратегии не рассматривались.</div>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {alternatives.map((p, i) => {
+                          const pid = String(p.id ?? "");
+                          const conditions: string[] = [];
+                          if (Array.isArray(p.required_evidence)) {
+                            for (const r of p.required_evidence) conditions.push(String(r));
+                          }
+                          if (Array.isArray(p.trigger_conditions)) {
+                            for (const r of p.trigger_conditions) conditions.push(String(r));
+                          }
+                          if (typeof p.why_not_selected === "string" && p.why_not_selected) {
+                            conditions.push(`Устранение причины отклонения: ${p.why_not_selected}`);
+                          }
+                          return (
+                            <div key={`alt-${i}`} className="rounded-md border border-white/10 bg-white/5 p-2 text-[12px] text-white/85">
+                              <div className="text-white font-medium">
+                                {p.title ?? labelStrategy(pid)}
+                              </div>
+                              {conditions.length > 0 ? (
+                                <ul className="mt-1 list-disc pl-4 text-white/80">
+                                  {conditions.map((c, j) => (
+                                    <li key={j}>{c}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <div className="mt-1 text-white/60">
+                                  Условия перехода на эту стратегию AI не сформулировал.
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 5. Риски, которые останутся */}
+                  <div className="rounded-lg border border-amber-300/20 bg-amber-500/5 p-3">
+                    <div className="text-white font-semibold text-sm">
+                      5. Риски, которые останутся даже после сбора доказательств
+                    </div>
+                    <div className="text-[11px] text-white/55 mt-0.5">
+                      Обстоятельства, которые невозможно устранить только доказательственными средствами.
+                    </div>
+                    {unresolved.length === 0 ? (
+                      <div className="mt-2 text-[12px] text-white/70">Неустранимых рисков не выявлено.</div>
+                    ) : (
+                      <ul className="mt-2 list-disc pl-5 space-y-1 text-[13px] text-amber-200">
+                        {unresolved.map((it, i) => (
+                          <li key={i}>{it}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
         </div>
       )}
     </div>
