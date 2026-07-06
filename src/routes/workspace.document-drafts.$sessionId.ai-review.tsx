@@ -58,6 +58,16 @@ function AIReviewPage() {
   const aiStrategyId = reasoning?.selected_strategy_id ?? null;
   const lawyerStrategyId = override?.strategy_id ?? null;
   const strategiesMatch = !lawyerStrategyId || lawyerStrategyId === aiStrategyId;
+  const history = Array.isArray(aiResult.lawyer_strategy_history)
+    ? (aiResult.lawyer_strategy_history as Array<{
+        changed_at: string;
+        changed_by: string | null;
+        reason: string;
+        previous_strategy_id: string | null;
+        new_strategy_id: string | null;
+      }>)
+    : [];
+
 
 
   return (
