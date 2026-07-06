@@ -39,6 +39,105 @@ const ANALYSIS_STATUS_LABELS: Record<string, string> = {
   passed: "Проверено",
   partial: "Частично",
 };
+
+const ARGUMENT_KIND_LABELS: Record<string, string> = {
+  qualification: "Правовая квалификация",
+  main_position: "Основная правовая позиция",
+  client_position: "Позиция налогоплательщика",
+  taxpayer_position: "Позиция налогоплательщика",
+  opponent_position: "Позиция ФНС",
+  tax_authority_position: "Позиция ФНС",
+  fact_to_law: "Связь факта с нормой права",
+  counter_argument: "Контраргумент",
+  weak_point: "Слабое место позиции",
+  recommendation: "Рекомендация",
+  risk: "Юридический риск",
+  generation_instruction: "Инструкция для формирования документа",
+};
+
+const EVIDENCE_STRENGTH_LABELS: Record<string, string> = {
+  high: "Высокая",
+  medium: "Средняя",
+  low: "Низкая",
+};
+
+const SUPPORT_LEVEL_LABELS: Record<string, string> = {
+  full: "Полное",
+  strong: "Полное",
+  partial: "Частичное",
+  none: "Не подтверждено",
+  unsupported: "Не подтверждено",
+  weak: "Не подтверждено",
+};
+
+const CONFIDENCE_LABELS: Record<string, string> = {
+  high: "Высокая",
+  medium: "Средняя",
+  low: "Низкая",
+};
+
+const HALLUCINATION_RISK_LABELS: Record<string, string> = {
+  low: "низкий",
+  medium: "средний",
+  high: "высокий",
+};
+
+const STRATEGY_LABELS: Record<string, string> = {
+  strategy_b_tax_reconstruction: "Налоговая реконструкция",
+  strategy_primary_defense: "Основная защита",
+  strategy_c_risk_minimization: "Минимизация рисков",
+  strategy_court: "Судебная защита",
+  strategy_settlement: "Досудебное урегулирование",
+};
+
+function humanize(v: string): string {
+  return v
+    .replace(/^strategy_/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function labelStrategy(id: string): string {
+  return STRATEGY_LABELS[id] ?? humanize(id);
+}
+
+function labelArgumentKind(k: string): string {
+  return ARGUMENT_KIND_LABELS[k] ?? humanize(k);
+}
+
+function labelEvidence(s: string | null | undefined): string {
+  if (!s) return "—";
+  return EVIDENCE_STRENGTH_LABELS[s] ?? humanize(s);
+}
+
+function labelSupport(s: string | null | undefined): string {
+  if (!s) return "—";
+  return SUPPORT_LEVEL_LABELS[s] ?? humanize(s);
+}
+
+function labelConfidence(s: string | null | undefined): string {
+  if (!s) return "—";
+  return CONFIDENCE_LABELS[s] ?? humanize(s);
+}
+
+const GREEN = "bg-emerald-500/20 text-emerald-100";
+const YELLOW = "bg-amber-500/20 text-amber-100";
+const RED = "bg-red-500/20 text-red-200";
+const NEUTRAL = "bg-white/10 text-white/80";
+
+function evidenceTone(s: string | null | undefined): string {
+  if (s === "high") return GREEN;
+  if (s === "medium") return YELLOW;
+  if (s === "low") return RED;
+  return NEUTRAL;
+}
+
+function supportTone(s: string | null | undefined): string {
+  if (s === "full" || s === "strong") return GREEN;
+  if (s === "partial") return YELLOW;
+  if (s === "none" || s === "unsupported" || s === "weak") return RED;
+  return NEUTRAL;
+}
 type Props = {
   sessionId: string | null;
   onEnsureSession: () => Promise<string>;
@@ -228,7 +327,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             <div className="flex flex-wrap gap-2 text-[11px]">
               {run?.hallucination_risk && (
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${run.hallucination_risk === "low" ? "bg-white/10 text-white/80" : "bg-amber-500/20 text-amber-100"}`}>
-                  риск: {run.hallucination_risk}
+                  риск: {HALLUCINATION_RISK_LABELS[run.hallucination_risk] ?? run.hallucination_risk}
                 </span>
               )}
               {run?.legal_accuracy_score != null && (
@@ -350,52 +449,72 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
               {(!a.sources || a.sources.length === 0) && <Empty />}
             </div>
           </div>
-                   {a.argument_map?.length ? (
-            <div>
-              <div className="db-section-label">
-                🔗 Аргументы, доказательства и источники
-              </div>
+          {(() => {
+            const argMap = (a as unknown as { argument_map?: Array<Record<string, any>> }).argument_map;
+            if (!argMap?.length) return null;
+            return (
+              <div>
+                <div className="db-section-label">Аргументация и доказательная база</div>
+                <div className="mt-2 db-subcard space-y-3">
+                  {argMap.slice(0, 12).map((arg, idx) => {
+                    const allowed = !!arg.use_in_generation;
+                    return (
+                      <div
+                        key={arg.argument_id ?? idx}
+                        className="rounded-lg border border-white/10 bg-white/5 p-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="text-white font-semibold">
+                            {labelArgumentKind(String(arg.kind ?? ""))}
+                          </div>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${allowed ? GREEN : RED}`}
+                          >
+                            {allowed ? "Разрешено к использованию" : "Запрещено к использованию"}
+                          </span>
+                        </div>
 
-              <div className="mt-2 db-subcard space-y-3">
-                {a.argument_map.slice(0, 12).map((arg) => (
-                  <div
-                    key={arg.argument_id}
-                    className="rounded-lg border border-white/10 bg-white/5 p-3"
-                  >
-                    <div className="text-white font-semibold">
-                      {arg.kind}
-                    </div>
+                        {arg.argument && (
+                          <div className="mt-2 text-sm text-white/85 whitespace-pre-wrap">
+                            {arg.argument}
+                          </div>
+                        )}
 
-                    <div className="mt-2 text-sm text-white/80 whitespace-pre-wrap">
-                      {arg.argument}
-                    </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 ${evidenceTone(arg.evidence_strength)}`}
+                          >
+                            Доказательная сила: {labelEvidence(arg.evidence_strength)}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 ${supportTone(arg.support_level)}`}
+                          >
+                            Подтверждение: {labelSupport(arg.support_level)}
+                          </span>
+                        </div>
 
-                    <div className="mt-3 text-xs text-white/60">
-                      evidence: {arg.evidence_strength}
-                      {" • "}
-                      support: {arg.support_level}
-                      {" • "}
-                      generation: {arg.use_in_generation ? "allowed" : "blocked"}
-                    </div>
+                        {!allowed && arg.blocked_reason && (
+                          <div className="mt-2 text-xs text-red-200">
+                            <span className="font-semibold">Причина блокировки:</span>{" "}
+                            {arg.blocked_reason}
+                          </div>
+                        )}
 
-                    {arg.blocked_reason && (
-                      <div className="mt-2 text-xs text-red-300">
-                        Заблокировано: {arg.blocked_reason}
+                        <div className="mt-3 text-[11px] text-white/60">
+                          <div className="font-semibold text-white/70 mb-1">Основано на:</div>
+                          <div className="flex flex-wrap gap-3">
+                            <span>Фактов: {arg.facts_used?.length ?? 0}</span>
+                            <span>Документов: {arg.documents_used?.length ?? 0}</span>
+                            <span>Юридических источников: {arg.sources_used?.length ?? 0}</span>
+                          </div>
+                        </div>
                       </div>
-                    )}
-
-                    <div className="mt-2 text-xs text-white/50">
-                      Факты: {arg.facts_used?.length ?? 0}
-                      {" • "}
-                      Документы: {arg.documents_used?.length ?? 0}
-                      {" • "}
-                      Источники: {arg.sources_used?.length ?? 0}
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ) : null}      
+            );
+          })()}
           {a.documents_audit && (
             <div>
               <div className="db-section-label">Документы исследования</div>
@@ -463,115 +582,103 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
 
           <ListSection title="Рекомендации" items={a.recommendations ?? []} />
           <ListSection title="Инструкции для генерации документа" items={a.generation_instructions} />
-          {a.reasoning_engine && (
-  <div>
-    <div className="db-section-label">
-      🧠 Логика выбора правовой позиции
-    </div>
+          {(() => {
+            const re = (a as unknown as {
+              reasoning_engine?: {
+                selected_strategy_id?: string;
+                strategy_summary?: string;
+                reasoning_quality?: string;
+                explanation?: string;
+                considered_positions?: Array<Record<string, any>>;
+              };
+            }).reasoning_engine;
+            if (!re) return null;
+            return (
+              <div>
+                <div className="db-section-label">Логика выбора правовой позиции</div>
+                <div className="mt-2 db-subcard space-y-4">
+                  <div>
+                    <div className="text-white font-semibold">Выбранная стратегия</div>
+                    <div className="mt-1 text-emerald-300">
+                      {labelStrategy(String(re.selected_strategy_id ?? ""))}
+                    </div>
+                    {re.strategy_summary && (
+                      <div className="mt-2 text-white/80 whitespace-pre-wrap">
+                        {re.strategy_summary}
+                      </div>
+                    )}
+                    {re.explanation && (
+                      <div className="mt-3">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-white/60">
+                          Основание выбора
+                        </div>
+                        <div className="mt-1 text-sm text-white/80 whitespace-pre-wrap">
+                          {re.explanation}
+                        </div>
+                      </div>
+                    )}
+                    {re.reasoning_quality && (
+                      <div className="mt-2 text-xs text-white/60">
+                        Качество рассуждений: {labelConfidence(re.reasoning_quality)}
+                      </div>
+                    )}
+                  </div>
 
-    <div className="mt-2 db-subcard space-y-4">
+                  <div className="space-y-3">
+                    {re.considered_positions?.map((p, idx) => {
+                      const selected = !!p.selected;
+                      return (
+                        <div
+                          key={p.id ?? idx}
+                          className="rounded-lg border border-white/10 p-3 bg-white/5"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="font-semibold text-white">
+                              {p.title ?? labelStrategy(String(p.id ?? ""))}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${selected ? GREEN : NEUTRAL}`}
+                              >
+                                {selected ? "Выбранная стратегия" : "Альтернативная стратегия"}
+                              </span>
+                              {typeof p.score === "number" && (
+                                <span className="text-cyan-300 text-sm">
+                                  {(p.score * 100).toFixed(0)}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
 
-      <div>
-        <div className="text-white font-semibold">
-          Выбранная стратегия
-        </div>
+                          <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-white/70">
+                            <span>Уверенность модели: {labelConfidence(p.confidence)}</span>
+                            <span>Подтверждённых аргументов: {p.argument_count ?? 0}</span>
+                            <span>Неподтверждённых выводов: {p.blocked_argument_count ?? 0}</span>
+                          </div>
 
-        <div className="mt-1 text-emerald-300">
-          {a.reasoning_engine.selected_strategy_id}
-        </div>
-
-        <div className="mt-2 text-white/80 whitespace-pre-wrap">
-          {a.reasoning_engine.strategy_summary}
-        </div>
-
-        <div className="mt-2 text-xs text-white/60">
-          Качество рассуждений:
-          {" "}
-          {a.reasoning_engine.reasoning_quality}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-
-        {a.reasoning_engine.considered_positions?.map((p) => (
-
-          <div
-            key={p.id}
-            className="rounded-lg border border-white/10 p-3 bg-white/5"
-          >
-
-            <div className="flex justify-between">
-
-              <div className="font-semibold text-white">
-
-                {p.title}
-
+                          {selected ? (
+                            p.why_selected && (
+                              <div className="mt-3 text-sm text-emerald-200">
+                                <span className="font-semibold">Основание выбора:</span>{" "}
+                                {p.why_selected}
+                              </div>
+                            )
+                          ) : (
+                            p.why_not_selected && (
+                              <div className="mt-3 text-sm text-amber-200">
+                                <span className="font-semibold">Причина отклонения:</span>{" "}
+                                {p.why_not_selected}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-
-              <div className="text-cyan-300">
-
-                {(p.score * 100).toFixed(0)}%
-
-              </div>
-
-            </div>
-
-            <div className="mt-2 text-xs text-white/60">
-
-              confidence:
-              {" "}
-              {p.confidence}
-
-              {" • "}
-
-              аргументов:
-              {" "}
-              {p.argument_count}
-
-              {" • "}
-
-              заблокировано:
-              {" "}
-              {p.blocked_argument_count}
-
-            </div>
-
-            {p.selected ? (
-
-              <div className="mt-3 text-emerald-300 text-sm">
-
-                ✔ Выбрана
-
-                <br />
-
-                {p.why_selected}
-
-              </div>
-
-            ) : (
-
-              <div className="mt-3 text-amber-300 text-sm">
-
-                ✖ Не выбрана
-
-                <br />
-
-                {p.why_not_selected}
-
-              </div>
-
-            )}
-
-          </div>
-
-        ))}
-
-      </div>
-
-    </div>
-
-  </div>
-)}
+            );
+          })()}
           
         </div>
       )}
