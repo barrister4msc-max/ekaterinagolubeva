@@ -179,6 +179,7 @@ export function buildGenerateRequest(
 
     document_context_quality: documentContextQuality,
     document_context_summary: documentContextSummary,
+    working_strategy: resolveWorkingStrategy(analysis),
     schema: schema
       ? {
           title: schema.title,
