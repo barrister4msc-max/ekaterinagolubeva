@@ -37,6 +37,16 @@ import {
  */
 export const DOCUMENT_CONTEXT_MIN_QUALITY = 60;
 
+export type StrategySource = "lawyer_override" | "ai_reasoning";
+
+export type WorkingStrategy = {
+  strategy_source: StrategySource;
+  selected_strategy_id: string | null;
+  ai_selected_strategy_id: string | null;
+  lawyer_override_reason: string | null;
+  strategy_position: Record<string, unknown> | null;
+};
+
 export type GenerateLegalDocumentRequest = {
   template_code: string;
   template: {
@@ -68,12 +78,49 @@ export type GenerateLegalDocumentRequest = {
   document_context: DocumentContext | null;
   document_context_quality: number | null;
   document_context_summary: string | null;
+  /**
+   * Working strategy for the generator. If the lawyer manually overrode the
+   * AI-selected strategy in the UI, `strategy_source === "lawyer_override"`
+   * and `selected_strategy_id` points to the lawyer's choice — the generator
+   * MUST build the document around it. Otherwise falls back to the AI's
+   * reasoning_engine.selected_strategy_id.
+   */
+  working_strategy: WorkingStrategy | null;
   schema: {
     title: string;
     required_fields: string[];
     warnings: string[];
   } | null;
 };
+
+function resolveWorkingStrategy(
+  analysis: LegalAnalysisResult | null,
+): WorkingStrategy | null {
+  if (!analysis) return null;
+  const re = (analysis as any).reasoning_engine as
+    | { selected_strategy_id?: string | null; considered_positions?: Array<Record<string, any>> }
+    | undefined;
+  const aiSelectedId: string | null = re?.selected_strategy_id ?? null;
+  const positions = re?.considered_positions ?? [];
+  const override = (analysis as any).lawyer_strategy_override as
+    | { strategy_id?: string | null; ai_strategy_id?: string | null; reason?: string | null }
+    | null
+    | undefined;
+
+  const hasOverride = !!(override && override.strategy_id);
+  const effectiveId = hasOverride ? String(override!.strategy_id) : aiSelectedId;
+  const position = effectiveId
+    ? positions.find((p) => String((p as any).id ?? (p as any).strategy_id) === effectiveId) ?? null
+    : null;
+
+  return {
+    strategy_source: hasOverride ? "lawyer_override" : "ai_reasoning",
+    selected_strategy_id: effectiveId,
+    ai_selected_strategy_id: aiSelectedId,
+    lawyer_override_reason: hasOverride ? (override!.reason ?? null) : null,
+    strategy_position: position,
+  };
+}
 
 
 
@@ -132,6 +179,7 @@ export function buildGenerateRequest(
 
     document_context_quality: documentContextQuality,
     document_context_summary: documentContextSummary,
+    working_strategy: resolveWorkingStrategy(analysis),
     schema: schema
       ? {
           title: schema.title,
@@ -381,6 +429,7 @@ async function writeGenerationProvenance(input: {
   }
   const existing = ((row?.metadata as Record<string, unknown> | null) ?? {}) as Record<string, unknown>;
 
+  const ws = payload.working_strategy ?? null;
   const provenance: Record<string, unknown> = {
     generated_from_legal_analysis: Boolean(runId && snapshot),
     legal_analysis_run_id: runId,
@@ -395,6 +444,11 @@ async function writeGenerationProvenance(input: {
     redaction_used: Boolean(snapshot?.redaction_used),
     provenance_index_present: Boolean(snapshot?.provenance_index),
     evidence_matrix_present: Boolean(snapshot?.evidence_matrix?.length),
+    // Lawyer-vs-AI strategy provenance
+    strategy_source: ws?.strategy_source ?? null,
+    selected_strategy_id: ws?.selected_strategy_id ?? null,
+    ai_selected_strategy_id: ws?.ai_selected_strategy_id ?? null,
+    lawyer_override_reason: ws?.lawyer_override_reason ?? null,
   };
 
   console.log("[PROVENANCE PAYLOAD]", {
