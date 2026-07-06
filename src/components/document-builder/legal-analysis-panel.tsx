@@ -151,6 +151,7 @@ type Props = {
 };
 
 export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
+  const { user } = useAuth();
   const [run, setRun] = useState<LegalAnalysisRun | null>(null);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
@@ -158,7 +159,15 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
   const [hasDocuments, setHasDocuments] = useState<boolean | null>(null);
   const [checkingDocs, setCheckingDocs] = useState(false);
   const [selectedStrategyOverrideId, setSelectedStrategyOverrideId] = useState<string | null>(null);
+  const [overrideReason, setOverrideReason] = useState<string>("");
+  const [savingOverride, setSavingOverride] = useState(false);
+  const [overrideSavedAt, setOverrideSavedAt] = useState<string | null>(null);
+  const [overrideSavedBy, setOverrideSavedBy] = useState<string | null>(null);
+  const [savedOverrideId, setSavedOverrideId] = useState<string | null>(null);
+  const [savedOverrideReason, setSavedOverrideReason] = useState<string>("");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const aliveRef = useRef(true);
+
 
   useEffect(() => {
     aliveRef.current = true;
