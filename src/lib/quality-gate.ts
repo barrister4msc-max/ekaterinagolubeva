@@ -54,13 +54,14 @@ export type GateInput = {
   ocrReady?: boolean;
 };
 function getUnsupportedConclusions(snapshot: MatterSnapshot) {
-  return (snapshot.blocked_conclusions ?? []).filter(
+  return (snapshot.conclusions ?? []).filter(
     (c) =>
-      c?.provenance?.needs_source === true ||
-      c?.provenance?.use_in_generation === false ||
-      c?.provenance?.support_level === "unsupported",
+      (c?.provenance as any)?.needs_source === true ||
+      (c?.provenance as any)?.use_in_generation === false ||
+      (c?.provenance as any)?.support_level === "unsupported",
   );
 }
+
 // Issues that always block draft (truly critical).
 const DRAFT_BLOCKING_CHALLENGE_KINDS = new Set([
   "hallucinated_source",
