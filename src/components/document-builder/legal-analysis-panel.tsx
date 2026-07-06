@@ -449,52 +449,72 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
               {(!a.sources || a.sources.length === 0) && <Empty />}
             </div>
           </div>
-                   {a.argument_map?.length ? (
-            <div>
-              <div className="db-section-label">
-                🔗 Аргументы, доказательства и источники
-              </div>
+          {(() => {
+            const argMap = (a as unknown as { argument_map?: Array<Record<string, any>> }).argument_map;
+            if (!argMap?.length) return null;
+            return (
+              <div>
+                <div className="db-section-label">Аргументация и доказательная база</div>
+                <div className="mt-2 db-subcard space-y-3">
+                  {argMap.slice(0, 12).map((arg, idx) => {
+                    const allowed = !!arg.use_in_generation;
+                    return (
+                      <div
+                        key={arg.argument_id ?? idx}
+                        className="rounded-lg border border-white/10 bg-white/5 p-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="text-white font-semibold">
+                            {labelArgumentKind(String(arg.kind ?? ""))}
+                          </div>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${allowed ? GREEN : RED}`}
+                          >
+                            {allowed ? "Разрешено к использованию" : "Запрещено к использованию"}
+                          </span>
+                        </div>
 
-              <div className="mt-2 db-subcard space-y-3">
-                {a.argument_map.slice(0, 12).map((arg) => (
-                  <div
-                    key={arg.argument_id}
-                    className="rounded-lg border border-white/10 bg-white/5 p-3"
-                  >
-                    <div className="text-white font-semibold">
-                      {arg.kind}
-                    </div>
+                        {arg.argument && (
+                          <div className="mt-2 text-sm text-white/85 whitespace-pre-wrap">
+                            {arg.argument}
+                          </div>
+                        )}
 
-                    <div className="mt-2 text-sm text-white/80 whitespace-pre-wrap">
-                      {arg.argument}
-                    </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 ${evidenceTone(arg.evidence_strength)}`}
+                          >
+                            Доказательная сила: {labelEvidence(arg.evidence_strength)}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 ${supportTone(arg.support_level)}`}
+                          >
+                            Подтверждение: {labelSupport(arg.support_level)}
+                          </span>
+                        </div>
 
-                    <div className="mt-3 text-xs text-white/60">
-                      evidence: {arg.evidence_strength}
-                      {" • "}
-                      support: {arg.support_level}
-                      {" • "}
-                      generation: {arg.use_in_generation ? "allowed" : "blocked"}
-                    </div>
+                        {!allowed && arg.blocked_reason && (
+                          <div className="mt-2 text-xs text-red-200">
+                            <span className="font-semibold">Причина блокировки:</span>{" "}
+                            {arg.blocked_reason}
+                          </div>
+                        )}
 
-                    {arg.blocked_reason && (
-                      <div className="mt-2 text-xs text-red-300">
-                        Заблокировано: {arg.blocked_reason}
+                        <div className="mt-3 text-[11px] text-white/60">
+                          <div className="font-semibold text-white/70 mb-1">Основано на:</div>
+                          <div className="flex flex-wrap gap-3">
+                            <span>Фактов: {arg.facts_used?.length ?? 0}</span>
+                            <span>Документов: {arg.documents_used?.length ?? 0}</span>
+                            <span>Юридических источников: {arg.sources_used?.length ?? 0}</span>
+                          </div>
+                        </div>
                       </div>
-                    )}
-
-                    <div className="mt-2 text-xs text-white/50">
-                      Факты: {arg.facts_used?.length ?? 0}
-                      {" • "}
-                      Документы: {arg.documents_used?.length ?? 0}
-                      {" • "}
-                      Источники: {arg.sources_used?.length ?? 0}
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ) : null}      
+            );
+          })()}
           {a.documents_audit && (
             <div>
               <div className="db-section-label">Документы исследования</div>
