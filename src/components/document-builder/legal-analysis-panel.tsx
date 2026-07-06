@@ -83,7 +83,9 @@ const HALLUCINATION_RISK_LABELS: Record<string, string> = {
 };
 
 const STRATEGY_LABELS: Record<string, string> = {
+  strategy_a_real_operation: "Полная защита реальности операции",
   strategy_b_tax_reconstruction: "Налоговая реконструкция",
+  strategy_c_high_risk_collect_evidence: "Высокий риск: сбор доказательств",
   strategy_primary_defense: "Основная защита",
   strategy_c_risk_minimization: "Минимизация рисков",
   strategy_court: "Судебная защита",
@@ -150,6 +152,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [hasDocuments, setHasDocuments] = useState<boolean | null>(null);
   const [checkingDocs, setCheckingDocs] = useState(false);
+  const [selectedStrategyOverrideId, setSelectedStrategyOverrideId] = useState<string | null>(null);
   const aliveRef = useRef(true);
 
   useEffect(() => {
@@ -593,28 +596,106 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
               };
             }).reasoning_engine;
             if (!re) return null;
+            const aiSelectedId = String(re.selected_strategy_id ?? "");
+            const positions = re.considered_positions ?? [];
+            const aiPosition = positions.find((p) => String(p.id) === aiSelectedId);
+            const overrideId = selectedStrategyOverrideId;
+            const overridePosition = overrideId
+              ? positions.find((p) => String(p.id) === overrideId)
+              : null;
+            const activeId = overrideId ?? aiSelectedId;
+
+            const AI_BADGE = "bg-indigo-500/25 text-indigo-100 border border-indigo-300/30";
+            const LAWYER_BADGE = "bg-emerald-500/25 text-emerald-100 border border-emerald-300/30";
+            const ALT_BADGE = "bg-white/10 text-white/70 border border-white/15";
+
             return (
               <div>
                 <div className="db-section-label">Логика выбора правовой позиции</div>
-                <div className="mt-2 db-subcard space-y-4">
-                  <div>
-                    <div className="text-white font-semibold">Выбранная стратегия</div>
-                    <div className="mt-1 text-emerald-300">
-                      {labelStrategy(String(re.selected_strategy_id ?? ""))}
+                <div className="mt-2 db-subcard space-y-5">
+                  {/* Выбор AI */}
+                  <div className="rounded-lg border border-indigo-300/20 bg-indigo-500/10 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-white font-semibold">Выбор AI</div>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${AI_BADGE}`}>
+                        Выбрано AI
+                      </span>
                     </div>
-                    {re.strategy_summary && (
-                      <div className="mt-2 text-white/80 whitespace-pre-wrap">
-                        {re.strategy_summary}
+                    <div className="mt-2 text-indigo-100">
+                      {labelStrategy(aiSelectedId)}
+                    </div>
+                    {aiPosition?.why_selected && (
+                      <div className="mt-2 text-sm text-white/80">
+                        <span className="font-semibold">Причина выбора:</span> {aiPosition.why_selected}
                       </div>
                     )}
-                    {re.explanation && (
-                      <div className="mt-3">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-white/60">
-                          Основание выбора
+                    {!aiPosition?.why_selected && re.explanation && (
+                      <div className="mt-2 text-sm text-white/80 whitespace-pre-wrap">
+                        <span className="font-semibold">Причина выбора:</span> {re.explanation}
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-white/70">
+                      {typeof aiPosition?.score === "number" && (
+                        <span>Оценка: {(aiPosition.score * 100).toFixed(0)}%</span>
+                      )}
+                      {aiPosition?.confidence && (
+                        <span>Уверенность: {labelConfidence(aiPosition.confidence)}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Выбор юриста */}
+                  <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/10 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-white font-semibold">Выбор юриста</div>
+                      {overridePosition && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStrategyOverrideId(null)}
+                          className="rounded-md border border-white/20 bg-white/10 px-2 py-1 text-[11px] text-white/85 hover:bg-white/15"
+                        >
+                          Вернуть выбор AI
+                        </button>
+                      )}
+                    </div>
+                    {overridePosition ? (
+                      <div className="mt-2">
+                        <div className="text-emerald-100">Юрист выбрал другую стратегию.</div>
+                        <div className="mt-1 text-white font-medium">
+                          {overridePosition.title ?? labelStrategy(String(overridePosition.id ?? ""))}
                         </div>
-                        <div className="mt-1 text-sm text-white/80 whitespace-pre-wrap">
-                          {re.explanation}
-                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-2 text-white/75 text-sm">
+                        Юрист пока не изменял стратегию. Используется стратегия AI.
+                      </div>
+                    )}
+                    <div className="mt-3 text-[11px] text-white/55">
+                      Ручной выбор стратегии не меняет исходный AI-анализ. Он используется как рабочая позиция юриста на этом экране.
+                    </div>
+                  </div>
+
+                  {/* Выбранная стратегия (итог) */}
+                  <div>
+                    <div className="text-white font-semibold">Выбранная стратегия</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <span className="text-emerald-300">
+                        {labelStrategy(String(activeId))}
+                      </span>
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${overrideId ? LAWYER_BADGE : AI_BADGE}`}
+                      >
+                        {overrideId ? "Выбрано юристом" : "Выбрано AI"}
+                      </span>
+                    </div>
+                    {overrideId && (
+                      <div className="mt-1 text-xs text-white/60">
+                        Первоначальный выбор AI: {labelStrategy(aiSelectedId)}
+                      </div>
+                    )}
+                    {re.strategy_summary && !overrideId && (
+                      <div className="mt-2 text-white/80 whitespace-pre-wrap">
+                        {re.strategy_summary}
                       </div>
                     )}
                     {re.reasoning_quality && (
@@ -625,8 +706,16 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                   </div>
 
                   <div className="space-y-3">
-                    {re.considered_positions?.map((p, idx) => {
-                      const selected = !!p.selected;
+                    {positions.map((p, idx) => {
+                      const pid = String(p.id ?? "");
+                      const isAi = pid === aiSelectedId;
+                      const isLawyer = !!overrideId && pid === overrideId;
+                      const badgeCls = isLawyer ? LAWYER_BADGE : isAi ? AI_BADGE : ALT_BADGE;
+                      const badgeText = isLawyer
+                        ? "Выбрано юристом"
+                        : isAi
+                          ? "Выбрано AI"
+                          : "Альтернативная стратегия";
                       return (
                         <div
                           key={p.id ?? idx}
@@ -634,19 +723,12 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="font-semibold text-white">
-                              {p.title ?? labelStrategy(String(p.id ?? ""))}
+                              {p.title ?? labelStrategy(pid)}
                             </div>
                             <div className="flex items-center gap-2">
-                              <span
-                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${selected ? GREEN : NEUTRAL}`}
-                              >
-                                {selected ? "Выбранная стратегия" : "Альтернативная стратегия"}
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ${badgeCls}`}>
+                                {badgeText}
                               </span>
-                              {typeof p.score === "number" && (
-                                <span className="text-cyan-300 text-sm">
-                                  {(p.score * 100).toFixed(0)}%
-                                </span>
-                              )}
                             </div>
                           </div>
 
@@ -656,21 +738,39 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                             <span>Неподтверждённых выводов: {p.blocked_argument_count ?? 0}</span>
                           </div>
 
-                          {selected ? (
-                            p.why_selected && (
-                              <div className="mt-3 text-sm text-emerald-200">
-                                <span className="font-semibold">Основание выбора:</span>{" "}
-                                {p.why_selected}
-                              </div>
-                            )
-                          ) : (
-                            p.why_not_selected && (
-                              <div className="mt-3 text-sm text-amber-200">
-                                <span className="font-semibold">Причина отклонения:</span>{" "}
-                                {p.why_not_selected}
-                              </div>
-                            )
-                          )}
+                          {isAi
+                            ? p.why_selected && (
+                                <div className="mt-3 text-sm text-emerald-200">
+                                  <span className="font-semibold">Основание выбора:</span>{" "}
+                                  {p.why_selected}
+                                </div>
+                              )
+                            : p.why_not_selected && (
+                                <div className="mt-3 text-sm text-amber-200">
+                                  <span className="font-semibold">Причина отклонения:</span>{" "}
+                                  {p.why_not_selected}
+                                </div>
+                              )}
+
+                          <div className="mt-3">
+                            {isLawyer ? (
+                              <span className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] ${LAWYER_BADGE}`}>
+                                Выбрано юристом
+                              </span>
+                            ) : isAi && !overrideId ? (
+                              <span className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] ${AI_BADGE}`}>
+                                Используется AI
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedStrategyOverrideId(pid)}
+                                className="inline-flex items-center rounded-md border border-white/20 bg-white/10 px-2.5 py-1 text-[11px] text-white/90 hover:bg-white/15"
+                              >
+                                Выбрать эту стратегию
+                              </button>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
