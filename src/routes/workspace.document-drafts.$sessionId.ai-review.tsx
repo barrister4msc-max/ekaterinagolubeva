@@ -47,6 +47,19 @@ function AIReviewPage() {
     ? data.recommendations
     : [];
 
+  const aiResult = (data.ai_result ?? {}) as Record<string, any>;
+  const reasoning = aiResult.reasoning_engine as
+    | { selected_strategy_id?: string; considered_positions?: Array<Record<string, any>> }
+    | undefined;
+  const override = aiResult.lawyer_strategy_override as
+    | { strategy_id: string; ai_strategy_id: string | null; selected_at: string; selected_by: string | null; reason: string }
+    | null
+    | undefined;
+  const aiStrategyId = reasoning?.selected_strategy_id ?? null;
+  const lawyerStrategyId = override?.strategy_id ?? null;
+  const strategiesMatch = !lawyerStrategyId || lawyerStrategyId === aiStrategyId;
+
+
   return (
     <div className="p-6 space-y-6">
   <h1 className="text-3xl font-bold">AI юридическое заключение</h1>
