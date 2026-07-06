@@ -527,12 +527,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
 
   </div>
 )}
-        </div>
-      )}
-    </div>
-  );
-}
-{a.argument_map?.length ? (
+          {a.argument_map?.length ? (
   <div>
     <div className="db-section-label">
       🔗 Аргументы, доказательства и источники
@@ -576,6 +571,12 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
     </div>
   </div>
 ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Section({ title, text }: { title: string; text: string }) {
   if (!text) return null;
   return (
