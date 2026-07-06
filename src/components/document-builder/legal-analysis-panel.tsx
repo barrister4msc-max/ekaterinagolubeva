@@ -804,6 +804,48 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                     </div>
                   </div>
 
+                  {/* История изменений стратегии */}
+                  {(() => {
+                    const history = ((a as any).lawyer_strategy_history ?? []) as Array<{
+                      changed_at: string;
+                      changed_by: string | null;
+                      reason: string;
+                      previous_strategy_id: string | null;
+                      new_strategy_id: string | null;
+                    }>;
+                    if (history.length === 0) return null;
+                    return (
+                      <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                        <div className="text-white font-semibold text-sm">История изменений стратегии</div>
+                        <ol className="mt-2 space-y-2 text-xs text-white/80">
+                          {[...history].reverse().map((h, i) => (
+                            <li key={i} className="rounded-md border border-white/10 bg-white/5 p-2">
+                              <div className="flex flex-wrap gap-2 text-[11px] text-white/60">
+                                <span>{new Date(h.changed_at).toLocaleString("ru-RU")}</span>
+                                {h.changed_by && <span>• юрист {h.changed_by.slice(0, 8)}</span>}
+                              </div>
+                              <div className="mt-1">
+                                {h.previous_strategy_id ? labelStrategy(h.previous_strategy_id) : "—"}
+                                {" → "}
+                                <span className="text-emerald-200">
+                                  {h.new_strategy_id ? labelStrategy(h.new_strategy_id) : "сброшено к AI"}
+                                </span>
+                              </div>
+                              {h.reason && (
+                                <div className="mt-1 text-white/75 whitespace-pre-wrap">
+                                  <span className="text-white/55">Причина: </span>
+                                  {h.reason}
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    );
+                  })()}
+
+
+
 
                   {/* Выбранная стратегия (итог) */}
                   <div>
