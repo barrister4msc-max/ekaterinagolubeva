@@ -166,6 +166,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
   const [savedOverrideId, setSavedOverrideId] = useState<string | null>(null);
   const [savedOverrideReason, setSavedOverrideReason] = useState<string>("");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [simulatedStrategyId, setSimulatedStrategyId] = useState<string | null>(null);
   const aliveRef = useRef(true);
 
 
@@ -1744,6 +1745,262 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                       <div className="mt-2 text-[11px] text-white/55">Правовая позиция: {selectedPos.title}</div>
                     )}
                   </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {(() => {
+            const re = ((a as any).reasoning_engine ?? {}) as {
+              selected_strategy_id?: string;
+              considered_positions?: Array<Record<string, any>>;
+            };
+            const positions = (re.considered_positions ?? []) as Array<Record<string, any>>;
+            if (!positions.length) return null;
+
+            const aiSelectedId = String(re.selected_strategy_id ?? "");
+            const lawyerOverrideId = savedOverrideId ?? null;
+            const workingId = lawyerOverrideId ?? aiSelectedId;
+
+            const strategyTitle = (p: Record<string, any>) =>
+              String(p.title ?? labelStrategy(String(p.id ?? "")));
+
+            const simId = simulatedStrategyId ?? workingId;
+            const simPos = positions.find((p) => String(p.id ?? "") === simId) ?? null;
+            const workingPos = positions.find((p) => String(p.id ?? "") === workingId) ?? null;
+
+            const argMap = ((a as any).argument_map ?? []) as Array<Record<string, any>>;
+            const missingEvidence = ((a as any).missing_evidence ?? []) as string[];
+            const blockedConclusions = ((a as any).blocked_conclusions ?? []) as any[];
+            const risksAll = ((a as any).risks ?? []) as Array<{ risk?: string; severity?: string; mitigation?: string }>;
+            const challenge = ((a as any).challenge_result ?? {}) as {
+              required_changes?: string[];
+              unresolved_risks?: string[];
+            };
+
+            const asList = (v: any): string[] => {
+              if (!v) return [];
+              if (Array.isArray(v)) return v.map((x) => (typeof x === "string" ? x : x?.text ?? x?.title ?? x?.name ?? JSON.stringify(x))).filter(Boolean);
+              if (typeof v === "string") return [v];
+              return [];
+            };
+
+            const statusBadge = (id: string) => {
+              const isAi = id === aiSelectedId;
+              const isLawyer = lawyerOverrideId && id === lawyerOverrideId;
+              if (isLawyer && isAi) return { text: "Выбрана юристом и AI", cls: "bg-emerald-500/20 text-emerald-100" };
+              if (isLawyer) return { text: "Выбрана юристом", cls: "bg-sky-500/20 text-sky-100" };
+              if (isAi) return { text: "Выбрана AI", cls: "bg-emerald-500/20 text-emerald-100" };
+              return { text: "Альтернативная", cls: "bg-white/10 text-white/75" };
+            };
+
+            const isSame = simId === workingId;
+
+            // Heuristic simulation vs current working strategy
+            const simRequired = asList(simPos?.required_evidence);
+            const workingRequired = asList(workingPos?.required_evidence);
+            const extraEvidence = simRequired.filter((x) => !workingRequired.includes(x));
+
+            const simRisks = asList(simPos?.risks);
+            const workingRisks = asList(workingPos?.risks);
+            const newRisks = simRisks.filter((x) => !workingRisks.includes(x));
+            const removedRisks = workingRisks.filter((x) => !simRisks.includes(x));
+
+            const whySelected = asList(simPos?.why_selected);
+            const whyNot = asList(simPos?.why_not_selected);
+
+            // Argument shifts: arguments tied to sim strategy become stronger; those tied to working strategy weaken
+            const argsForSim = argMap.filter((x) => String(x.strategy_id ?? "") === simId);
+            const argsForWorking = argMap.filter((x) => String(x.strategy_id ?? "") === workingId);
+            const strongerArgs = argsForSim.map((x) => String(x.thesis ?? x.title ?? labelArgumentKind(String(x.kind ?? "")))).filter(Boolean);
+            const weakerArgs = argsForWorking
+              .filter((x) => !argsForSim.some((y) => String(y.thesis ?? "") === String(x.thesis ?? "")))
+              .map((x) => String(x.thesis ?? x.title ?? labelArgumentKind(String(x.kind ?? "")))).filter(Boolean);
+
+            const highRisks = risksAll.filter((r) => {
+              const v = String(r.severity ?? "").toLowerCase();
+              return v === "high" || v === "critical" || v === "высокий";
+            }).map((r) => String(r.risk ?? ""));
+
+            const requiredChanges = challenge.required_changes ?? [];
+            const unresolved = challenge.unresolved_risks ?? [];
+
+            // "Document changes" — heuristic textual hints
+            const docChanges: string[] = [];
+            if (!isSame && simPos) {
+              docChanges.push(`Основание документа изменится на правовую позицию «${strategyTitle(simPos)}».`);
+              if (extraEvidence.length) docChanges.push("В мотивировочной части появятся ссылки на дополнительно собранные доказательства.");
+              if (strongerArgs.length) docChanges.push("Ключевая аргументация будет перестроена под тезисы новой позиции.");
+              if (newRisks.length) docChanges.push("В разделе рисков потребуется отразить новые обстоятельства.");
+              if (removedRisks.length) docChanges.push("Часть возражений противоположной стороны утратит актуальность.");
+            }
+
+            // "When preferable"
+            const preferableWhen: string[] = [];
+            if (!isSame) {
+              if (extraEvidence.length) preferableWhen.push(`После получения доказательств: ${extraEvidence.slice(0, 4).join("; ")}.`);
+              if (whySelected.length) preferableWhen.push(`Если подтвердятся обстоятельства: ${whySelected.slice(0, 3).join("; ")}.`);
+              if (whyNot.length) preferableWhen.push(`Если будут устранены препятствия: ${whyNot.slice(0, 3).join("; ")}.`);
+              if (blockedConclusions.length) preferableWhen.push("Когда сняты блокировки текущих выводов из-за нехватки источников.");
+              if (unresolved.length) preferableWhen.push("Когда снижены неустранимые процессуальные риски по текущей стратегии.");
+            }
+
+            const notEnoughData =
+              !isSame &&
+              extraEvidence.length === 0 &&
+              newRisks.length === 0 &&
+              removedRisks.length === 0 &&
+              strongerArgs.length === 0 &&
+              weakerArgs.length === 0 &&
+              whySelected.length === 0 &&
+              whyNot.length === 0;
+
+            return (
+              <div>
+                <div className="db-section-label">Симулятор стратегии</div>
+                <div className="mt-2 db-subcard space-y-4">
+                  <div className="text-xs text-white/60">
+                    Сравните, как изменится позиция при выборе другой стратегии. Реальный выбор стратегии не меняется — используйте кнопку «Выбрать эту стратегию» в блоке выше.
+                  </div>
+
+                  {/* Strategy picker */}
+                  <div className="grid gap-2">
+                    {positions.map((p) => {
+                      const pid = String(p.id ?? "");
+                      const badge = statusBadge(pid);
+                      const active = pid === simId;
+                      const conf = p.confidence ?? p.probability ?? p.score;
+                      return (
+                        <div
+                          key={pid}
+                          className={`rounded-lg border p-3 ${active ? "border-emerald-300/40 bg-emerald-500/10" : "border-white/10 bg-white/5"}`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-white text-sm font-medium truncate">{strategyTitle(p)}</div>
+                              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-white/70">
+                                <span className={`rounded-full px-2 py-0.5 ${badge.cls}`}>{badge.text}</span>
+                                {conf != null && (
+                                  <span className="rounded-full bg-white/10 px-2 py-0.5">
+                                    Оценка: {typeof conf === "string" ? labelConfidence(conf) : `${Math.round(Number(conf) * 100)}%`}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSimulatedStrategyId(pid)}
+                              disabled={active}
+                              className="rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/15 disabled:opacity-50"
+                            >
+                              {active ? "Смоделировано" : "Смоделировать"}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Simulation result */}
+                  {simPos && (
+                    <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-3">
+                      <div className="text-white text-sm font-semibold">
+                        {isSame
+                          ? "Это текущая рабочая стратегия."
+                          : "Это альтернативная стратегия. Ниже показано, что может измениться."}
+                      </div>
+
+                      {isSame ? (
+                        <div className="text-[12px] text-white/70">
+                          Дополнительное сравнение недоступно — выберите другую стратегию из списка выше.
+                        </div>
+                      ) : notEnoughData ? (
+                        <div className="text-[12px] text-amber-100">
+                          Недостаточно данных для полноценной симуляции. Требуется дополнительный анализ или документы.
+                        </div>
+                      ) : (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="rounded-lg border border-emerald-300/20 bg-emerald-500/5 p-3">
+                            <div className="text-emerald-100 text-[12px] font-medium">Потенциальные преимущества</div>
+                            <ul className="mt-1 list-disc pl-5 space-y-1 text-[12px] text-white/85">
+                              {(whySelected.length ? whySelected : removedRisks.length ? removedRisks.map((r) => `Снимается риск: ${r}`) : ["Существенных преимуществ по имеющимся данным не выявлено."]).map((t, i) => (
+                                <li key={i}>{t}</li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div className="rounded-lg border border-red-300/20 bg-red-500/5 p-3">
+                            <div className="text-red-100 text-[12px] font-medium">Потенциальные риски</div>
+                            <ul className="mt-1 list-disc pl-5 space-y-1 text-[12px] text-white/85">
+                              {(newRisks.length ? newRisks : whyNot.length ? whyNot : ["Дополнительных рисков по имеющимся данным не выявлено."]).map((t, i) => (
+                                <li key={i}>{t}</li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                            <div className="text-white/80 text-[12px] font-medium">Какие доказательства потребуются</div>
+                            <ul className="mt-1 list-disc pl-5 space-y-1 text-[12px] text-white/85">
+                              {(extraEvidence.length ? extraEvidence : simRequired.length ? simRequired : ["Дополнительные доказательства не требуются либо перечень совпадает с текущей стратегией."]).map((t, i) => (
+                                <li key={i}>{t}</li>
+                              ))}
+                            </ul>
+                            {missingEvidence.length > 0 && (
+                              <div className="mt-2 text-[11px] text-white/55">
+                                Учтите уже выявленные пробелы доказательственной базы ({missingEvidence.length}).
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                            <div className="text-white/80 text-[12px] font-medium">Какие аргументы станут сильнее</div>
+                            <ul className="mt-1 list-disc pl-5 space-y-1 text-[12px] text-white/85">
+                              {(strongerArgs.length ? strongerArgs : ["Смещений в аргументации по имеющимся данным не выявлено."]).map((t, i) => (
+                                <li key={i}>{t}</li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                            <div className="text-white/80 text-[12px] font-medium">Какие аргументы ослабнут</div>
+                            <ul className="mt-1 list-disc pl-5 space-y-1 text-[12px] text-white/85">
+                              {(weakerArgs.length ? weakerArgs : ["Ослабления аргументации по имеющимся данным не выявлено."]).map((t, i) => (
+                                <li key={i}>{t}</li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+                            <div className="text-white/80 text-[12px] font-medium">Что изменится в документе</div>
+                            <ul className="mt-1 list-disc pl-5 space-y-1 text-[12px] text-white/85">
+                              {(docChanges.length ? docChanges : ["Существенных изменений структуры документа не ожидается."]).map((t, i) => (
+                                <li key={i}>{t}</li>
+                              ))}
+                            </ul>
+                            {requiredChanges.length > 0 && (
+                              <div className="mt-2 text-[11px] text-white/55">
+                                Учтите обязательные корректировки из проверки качества ({requiredChanges.length}).
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="rounded-lg border border-sky-300/20 bg-sky-500/5 p-3 md:col-span-2">
+                            <div className="text-sky-100 text-[12px] font-medium">Когда эта стратегия станет предпочтительной</div>
+                            <ul className="mt-1 list-disc pl-5 space-y-1 text-[12px] text-white/85">
+                              {(preferableWhen.length ? preferableWhen : ["Достаточных условий для предпочтения этой стратегии из имеющихся данных не следует."]).map((t, i) => (
+                                <li key={i}>{t}</li>
+                              ))}
+                            </ul>
+                            {highRisks.length > 0 && (
+                              <div className="mt-2 text-[11px] text-white/55">
+                                Учтите высокие риски по делу ({highRisks.length}) — они сохраняются независимо от выбора стратегии.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );
