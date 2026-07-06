@@ -83,7 +83,9 @@ const HALLUCINATION_RISK_LABELS: Record<string, string> = {
 };
 
 const STRATEGY_LABELS: Record<string, string> = {
+  strategy_a_real_operation: "Полная защита реальности операции",
   strategy_b_tax_reconstruction: "Налоговая реконструкция",
+  strategy_c_high_risk_collect_evidence: "Высокий риск: сбор доказательств",
   strategy_primary_defense: "Основная защита",
   strategy_c_risk_minimization: "Минимизация рисков",
   strategy_court: "Судебная защита",
