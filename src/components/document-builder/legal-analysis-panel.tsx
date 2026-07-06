@@ -1411,6 +1411,34 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             const recommendations = (a.recommendations ?? []) as string[];
             const risks = (a.risks ?? []) as Array<{ risk: string; severity?: string; mitigation?: string }>;
 
+            // ---- Detect practice area from existing fields (no backend changes) ----
+            const rq = ((a as any).research_query ?? {}) as { practice_area?: string | null; subcategory?: string | null; document_type?: string | null };
+            const rawArea = String(rq.practice_area ?? (a as any).practice_area ?? (a as any).category ?? (a as any).template ?? "").toLowerCase();
+            const detectArea = (): "tax" | "real_estate" | "contracts" | "court" | "corporate" | "bankruptcy" | "inheritance" | "civil" | "unknown" => {
+              const s = rawArea + " " + String(rq.subcategory ?? "").toLowerCase() + " " + String(rq.document_type ?? "").toLowerCase();
+              if (/tax|налог|фнс|ндс|ндфл|усн|прибыл/.test(s)) return "tax";
+              if (/real_?estate|недвижим|егрн|росреестр|земел|аренд/.test(s)) return "real_estate";
+              if (/contract|договор|поставк|подряд|услуг/.test(s)) return "contracts";
+              if (/court|суд|иск|арбитраж|апелляц|кассац/.test(s)) return "court";
+              if (/corporate|корпорат|егрюл|устав|учредител|акционер|участник/.test(s)) return "corporate";
+              if (/bankrupt|банкрот|несостоятельн/.test(s)) return "bankruptcy";
+              if (/inherit|наследств|завещан/.test(s)) return "inheritance";
+              if (/civil|граждан|деликт|возмещен|моральн/.test(s)) return "civil";
+              return "unknown";
+            };
+            const area = detectArea();
+            const areaLabel = {
+              tax: "Налоговый спор",
+              real_estate: "Недвижимость",
+              contracts: "Договорная работа",
+              court: "Судебный спор",
+              corporate: "Корпоративное право",
+              bankruptcy: "Банкротство",
+              inheritance: "Наследственное право",
+              civil: "Гражданский спор",
+              unknown: "Юридическое дело",
+            }[area];
+
             const severityLabel = (s?: string) => {
               const v = String(s ?? "").toLowerCase();
               if (v === "high" || v === "critical" || v === "высокий") return "Высокий";
@@ -1430,97 +1458,160 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             const lowRisks = risks.filter((r) => severityBucket(r.severity) === "low");
             const otherRisks = risks.filter((r) => severityBucket(r.severity) === "other");
 
-            // Классификация доказательств к сбору
-            const kw = (s: string) => s.toLowerCase();
-            const buckets: Record<string, string[]> = {
-              documents: [],
-              explanations: [],
-              counterparty: [],
-              transport: [],
-              price: [],
-              other: [],
+            // ---- Evidence bucket dictionaries by practice area ----
+            type BucketKey = string;
+            type BucketDef = { key: BucketKey; title: string; match: RegExp };
+            const commonBuckets: BucketDef[] = [
+              { key: "documents", title: "Документы и первичные материалы", match: /(договор|акт|соглашен|приложен|документ|справк|выписк|расписк|протокол)/ },
+              { key: "explanations", title: "Пояснения и свидетельские показания", match: /(поясн|объяснен|допрос|свидетел|показани|интервью)/ },
+              { key: "counterparty", title: "Запросы контрагентам и третьим лицам", match: /(контрагент|поставщик|покупател|запрос|встречн|третьи? лиц)/ },
+              { key: "official", title: "Запросы в государственные органы", match: /(росреестр|егрн|егрюл|фнс|мвд|загс|нотариус|орган)/ },
+              { key: "expert", title: "Заключения экспертов и специалистов", match: /(эксперт|оценк|заключен|специалист|техническ|строительн)/ },
+            ];
+            const areaBuckets: Record<string, BucketDef[]> = {
+              tax: [
+                { key: "transport", title: "Транспортные и логистические документы", match: /(транспорт|ттн|тн|перевоз|путев|логист|доставк)/ },
+                { key: "price", title: "Подтверждение рыночности цены", match: /(цен|рыноч|прайс|тариф|котировк|стоимост)/ },
+                { key: "accounting", title: "Регистры бухгалтерского и налогового учёта", match: /(регистр|учёт|учет|бухгалтер|налогов.*учёт|первичк)/ },
+              ],
+              real_estate: [
+                { key: "title", title: "Правоустанавливающие документы", match: /(правоустанав|титул|свидетельств|основани.*прав)/ },
+                { key: "registry", title: "Сведения ЕГРН и кадастра", match: /(егрн|кадастр|росреестр|обременен)/ },
+                { key: "tech", title: "Техническая документация на объект", match: /(технич|план|обмер|инвентариз|бти)/ },
+              ],
+              contracts: [
+                { key: "performance", title: "Доказательства исполнения обязательств", match: /(исполнен|акт.*вып|накладн|отгруз|приём|приемк)/ },
+                { key: "correspondence", title: "Переписка сторон", match: /(переписк|претензи|уведомлен|письм|email|электронн)/ },
+              ],
+              court: [
+                { key: "procedural", title: "Процессуальные документы по делу", match: /(иск|отзыв|ходатайств|определен|решен|постановлен)/ },
+                { key: "practice", title: "Судебная практика по аналогичным делам", match: /(практик|прецедент|аналогичн|верховн)/ },
+              ],
+              corporate: [
+                { key: "charter", title: "Учредительные и корпоративные документы", match: /(устав|учредительн|решен.*участник|протокол.*собран|егрюл)/ },
+                { key: "authority", title: "Документы, подтверждающие полномочия", match: /(доверен|полномочи|назначен|приказ)/ },
+              ],
+              bankruptcy: [
+                { key: "claims", title: "Требования кредиторов и реестр", match: /(требован|кредитор|реестр|очерёдност|очередност)/ },
+                { key: "assets", title: "Сведения об имуществе и сделках должника", match: /(имуществ|актив|сделк|отчужден|оспарив)/ },
+              ],
+              inheritance: [
+                { key: "family", title: "Документы о родстве и семейном статусе", match: /(родств|свидетельств.*рожд|брак|загс)/ },
+                { key: "will", title: "Завещание и наследственное дело", match: /(завещан|наследств|нотариус)/ },
+              ],
+              civil: [
+                { key: "damages", title: "Доказательства причинения вреда и убытков", match: /(вред|убыт|ущерб|повреж|расчёт|расчет)/ },
+              ],
+              unknown: [],
             };
+            const buckets: BucketDef[] = [...commonBuckets, ...(areaBuckets[area] ?? [])];
+            const grouped: Record<BucketKey, string[]> = {};
+            const other: string[] = [];
+            for (const b of buckets) grouped[b.key] = [];
             for (const raw of missingEvidence) {
-              const t = kw(raw);
-              if (/(поясн|объяснен|допрос|свидетел|сотрудник|показани)/.test(t)) buckets.explanations.push(raw);
-              else if (/(контрагент|поставщик|покупател|запрос|встречн)/.test(t)) buckets.counterparty.push(raw);
-              else if (/(транспорт|тн|ттн|перевоз|путев|логист|доставк)/.test(t)) buckets.transport.push(raw);
-              else if (/(цен|рыноч|прайс|тариф|котировк|стоимост)/.test(t)) buckets.price.push(raw);
-              else if (/(договор|акт|счёт|счет|накладн|документ|регистр|первичк|бухгалтер)/.test(t)) buckets.documents.push(raw);
-              else buckets.other.push(raw);
+              const t = raw.toLowerCase();
+              const hit = buckets.find((b) => b.match.test(t));
+              if (hit) grouped[hit.key].push(raw);
+              else other.push(raw);
             }
 
-            // Определение следующего документа
+            // ---- Procedural / working steps by area ----
+            const proceduralByArea: Record<string, string[]> = {
+              tax: [
+                "Подготовить пояснения по спорным эпизодам для представления в налоговый орган.",
+                "Подготовить возражения на акт налоговой проверки в установленный законом срок.",
+                "Проверить и зафиксировать процессуальные сроки обжалования актов налогового органа.",
+              ],
+              real_estate: [
+                "Проверить актуальные сведения ЕГРН и наличие обременений в отношении объекта.",
+                "Согласовать проект договора и порядок расчётов между сторонами сделки.",
+                "Подготовить документы для государственной регистрации перехода прав.",
+              ],
+              contracts: [
+                "Подготовить редакцию договора с учётом выявленных правовых рисков.",
+                "Сформулировать протокол разногласий и позицию по спорным условиям.",
+                "Подготовить претензию либо ответ на претензию контрагента.",
+              ],
+              court: [
+                "Подготовить процессуальную позицию (иск, отзыв, возражения) по существу спора.",
+                "Сформировать перечень ходатайств: об истребовании доказательств, о назначении экспертизы, о вызове свидетелей.",
+                "Проверить и соблюсти процессуальные сроки подачи документов и обжалования.",
+              ],
+              corporate: [
+                "Проверить полномочия лиц, участвующих в принятии корпоративного решения.",
+                "Подготовить проекты решений органов управления и корпоративных документов.",
+                "Подготовить документы для внесения изменений в ЕГРЮЛ.",
+              ],
+              bankruptcy: [
+                "Подготовить заявление о включении требований в реестр требований кредиторов.",
+                "Проверить основания для оспаривания сделок должника.",
+                "Соблюсти сроки предъявления требований и обжалования судебных актов.",
+              ],
+              inheritance: [
+                "Подготовить документы для нотариуса в рамках наследственного дела.",
+                "Проверить наличие завещания и круг наследников по закону.",
+                "Оценить необходимость судебного установления юридически значимых фактов.",
+              ],
+              civil: [
+                "Сформировать доказательственную базу по обстоятельствам причинения вреда и его размеру.",
+                "Подготовить претензионное письмо и, при необходимости, исковое заявление.",
+              ],
+              unknown: [
+                "Подготовить пояснения и правовую позицию по существу дела.",
+                "Проверить и зафиксировать процессуальные и материальные сроки.",
+              ],
+            };
+            const procedural: string[] = [
+              "Подготовить письменную правовую позицию по существу дела.",
+              ...(proceduralByArea[area] ?? proceduralByArea.unknown),
+            ];
+            if (missingEvidence.length > 0 || blockedArgs.length > 0) {
+              procedural.push("Сформировать пакет подтверждающих документов по каждому спорному эпизоду.");
+            }
+
+            // ---- Next document suggestion by area ----
             const nextDoc = (() => {
               if (insufficientConclusions.length > 0 || blockedArgs.length > 0 || missingEvidence.length > 3) {
                 return {
-                  title: "Запрос доказательств у клиента и контрагентов",
+                  title: "Запрос дополнительных доказательств у доверителя и иных лиц",
                   reason: "Правовая позиция не обеспечена полным объёмом доказательств.",
                 };
               }
               const sid = selectedId.toLowerCase();
               if (sid.includes("court") || sid.includes("судеб")) {
-                return {
-                  title: "Стратегия судебной защиты",
-                  reason: "Выбрана судебная линия защиты интересов доверителя.",
-                };
+                return { title: "Процессуальные документы для судебной защиты", reason: "Выбрана судебная линия защиты интересов доверителя." };
               }
-              if (sid.includes("settlement") || sid.includes("досуд")) {
-                return {
-                  title: "Пояснения в ФНС и досудебное урегулирование",
-                  reason: "Выбран досудебный порядок разрешения спора.",
-                };
+              if (sid.includes("settlement") || sid.includes("досуд") || sid.includes("mediation")) {
+                return { title: "Документы досудебного урегулирования спора", reason: "Выбран досудебный порядок разрешения спора." };
               }
-              if (highRisks.length > 0) {
-                return {
-                  title: "Возражения на акт налогового органа",
-                  reason: "Имеются существенные риски, требующие письменной правовой позиции.",
-                };
-              }
-              return {
-                title: "Правовое заключение по делу",
-                reason: "Материалы дела достаточны для оформления итоговой правовой позиции.",
+              const byArea: Record<string, { title: string; reason: string }> = {
+                tax: {
+                  title: highRisks.length > 0 ? "Возражения на акт налогового органа" : "Пояснения в налоговый орган",
+                  reason: highRisks.length > 0 ? "Имеются существенные риски, требующие письменной правовой позиции." : "Требуется представить обоснованную позицию по спорным эпизодам.",
+                },
+                real_estate: { title: "Проект договора и пакет документов для сделки", reason: "Материалы дела достаточны для оформления сделки с недвижимостью." },
+                contracts: { title: "Редакция договора либо протокол разногласий", reason: "Основные правовые риски по договору определены." },
+                court: { title: highRisks.length > 0 ? "Исковое заявление / отзыв на иск" : "Процессуальный документ по существу спора", reason: "Позиция по делу сформирована." },
+                corporate: { title: "Проект корпоративного решения и сопроводительных документов", reason: "Материалы позволяют оформить корпоративную процедуру." },
+                bankruptcy: { title: "Заявление в рамках дела о банкротстве", reason: "Позиция по делу о банкротстве определена." },
+                inheritance: { title: "Заявление и документы для нотариального оформления наследства", reason: "Круг наследников и наследственная масса установлены." },
+                civil: { title: "Претензия либо исковое заявление", reason: "Основания и размер требований определены." },
+                unknown: { title: "Правовое заключение по делу", reason: "Материалы дела достаточны для оформления итоговой правовой позиции." },
               };
+              return byArea[area];
             })();
 
-            // Срочные действия
+            // ---- Urgent actions ----
             const urgent: string[] = [];
-            if (blockedArgs.length > 0) {
-              urgent.push("Устранить основания, по которым выводы AI не могут быть использованы при подготовке документа.");
-            }
-            if (insufficientConclusions.length > 0) {
-              urgent.push("Подтвердить надлежащими источниками выводы, обеспеченность которых признана недостаточной.");
-            }
-            if (missingEvidence.length > 0) {
-              urgent.push("Организовать сбор недостающих доказательств по делу.");
-            }
-            if (highRisks.length > 0) {
-              urgent.push("Проработать меры по снижению рисков высокой степени.");
-            }
+            if (blockedArgs.length > 0) urgent.push("Устранить основания, по которым выводы AI не могут быть использованы при подготовке документа.");
+            if (insufficientConclusions.length > 0) urgent.push("Подтвердить надлежащими источниками выводы, обеспеченность которых признана недостаточной.");
+            if (missingEvidence.length > 0) urgent.push("Организовать сбор недостающих доказательств по делу.");
+            if (highRisks.length > 0) urgent.push("Проработать меры по снижению рисков высокой степени.");
             for (const r of requiredChanges.slice(0, 3)) urgent.push(r);
-            if (urgent.length === 0) {
-              urgent.push("Срочных действий не требуется: правовая позиция обеспечена, критических пробелов не выявлено.");
-            }
-
-            // Процессуальные шаги
-            const procedural: string[] = [];
-            const sidLower = selectedId.toLowerCase();
-            procedural.push("Подготовить письменную правовую позицию по существу дела.");
-            if (missingEvidence.length > 0 || blockedArgs.length > 0) {
-              procedural.push("Сформировать пакет подтверждающих документов по каждому спорному эпизоду.");
-            }
-            procedural.push("Подготовить пояснения по обстоятельствам дела для представления в налоговый орган.");
-            procedural.push("Подготовить возражения на акт налоговой проверки в установленный срок.");
-            procedural.push("Проверить и зафиксировать процессуальные сроки ответа налогового органа и обжалования его актов.");
-            if (sidLower.includes("court") || sidLower.includes("судеб") || highRisks.length > 0) {
-              procedural.push("Подготовить процессуальные документы для судебной защиты интересов доверителя.");
-            }
+            if (urgent.length === 0) urgent.push("Срочных действий не требуется: правовая позиция обеспечена, критических пробелов не выявлено.");
 
             const nothing =
-              urgent.length === 0 &&
-              missingEvidence.length === 0 &&
-              risks.length === 0 &&
-              recommendations.length === 0;
+              urgent.length === 0 && missingEvidence.length === 0 && risks.length === 0 && recommendations.length === 0;
             if (nothing) return null;
 
             const RiskList = ({ items, tone }: { items: typeof risks; tone: string }) => (
@@ -1528,9 +1619,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                 {items.map((r, i) => (
                   <li key={i}>
                     {r.risk}
-                    {r.mitigation ? (
-                      <div className="text-white/60 text-[11px] mt-0.5">Меры: {r.mitigation}</div>
-                    ) : null}
+                    {r.mitigation ? <div className="text-white/60 text-[11px] mt-0.5">Меры: {r.mitigation}</div> : null}
                   </li>
                 ))}
               </ul>
@@ -1552,8 +1641,11 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
               <div>
                 <div className="db-section-label">План действий юриста</div>
                 <div className="mt-2 db-subcard space-y-4">
-                  <div className="text-xs text-white/60">
-                    Практические шаги по ведению дела с учётом выбранной правовой позиции и выявленных пробелов.
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+                    <span>Практические шаги по ведению дела с учётом выбранной правовой позиции.</span>
+                    <span className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] text-white/75">
+                      Область права: {areaLabel}
+                    </span>
                   </div>
 
                   {/* 1. Срочные действия */}
@@ -1575,19 +1667,17 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                       </div>
                     ) : (
                       <div className="mt-2 grid gap-2 md:grid-cols-2">
-                        <Bucket title="Документы" items={buckets.documents} />
-                        <Bucket title="Пояснения сотрудников" items={buckets.explanations} />
-                        <Bucket title="Запросы контрагентам" items={buckets.counterparty} />
-                        <Bucket title="Транспортные документы" items={buckets.transport} />
-                        <Bucket title="Подтверждение рыночности цены" items={buckets.price} />
-                        <Bucket title="Прочие доказательства" items={buckets.other} />
+                        {buckets.map((b) => (
+                          <Bucket key={b.key} title={b.title} items={grouped[b.key] ?? []} />
+                        ))}
+                        <Bucket title="Иные доказательства" items={other} />
                       </div>
                     )}
                   </div>
 
-                  {/* 3. Процессуальные шаги */}
+                  {/* 3. Процессуальные / рабочие шаги */}
                   <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                    <div className="text-white font-semibold text-sm">3. Процессуальные шаги</div>
+                    <div className="text-white font-semibold text-sm">3. Процессуальные и рабочие шаги</div>
                     <ul className="mt-2 list-disc pl-5 space-y-1 text-[13px] text-white/85">
                       {procedural.map((it, i) => (
                         <li key={i}>{it}</li>
@@ -1605,7 +1695,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                     )}
                   </div>
 
-                  {/* 4. Риски, которые надо контролировать */}
+                  {/* 4. Риски к контролю */}
                   <div className="rounded-lg border border-white/10 bg-white/5 p-3">
                     <div className="text-white font-semibold text-sm">4. Риски, которые необходимо контролировать</div>
                     {risks.length === 0 ? (
@@ -1640,7 +1730,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                     )}
                     {(challenge.unresolved_risks ?? []).length > 0 && (
                       <div className="mt-3 text-[11px] text-white/55">
-                        Отдельно контролировать неустранимые обстоятельства дела, указанные выше в разделе «Что может изменить стратегию».
+                        Отдельно контролировать неустранимые обстоятельства, указанные в разделе «Что может изменить стратегию».
                       </div>
                     )}
                   </div>
@@ -1651,9 +1741,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                     <div className="mt-2 text-emerald-100 text-[14px] font-medium">{nextDoc.title}</div>
                     <div className="mt-1 text-[12px] text-white/70">{nextDoc.reason}</div>
                     {selectedPos?.title && (
-                      <div className="mt-2 text-[11px] text-white/55">
-                        Правовая позиция: {selectedPos.title}
-                      </div>
+                      <div className="mt-2 text-[11px] text-white/55">Правовая позиция: {selectedPos.title}</div>
                     )}
                   </div>
                 </div>
