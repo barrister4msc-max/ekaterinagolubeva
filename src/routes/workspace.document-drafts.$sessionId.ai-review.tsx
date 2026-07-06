@@ -206,6 +206,33 @@ function AIReviewPage() {
         )}
       </section>
 
+      {history.length > 0 && (
+        <section className="rounded-xl border p-5 space-y-3">
+          <h2 className="text-xl font-semibold">История изменений стратегии</h2>
+          <ol className="space-y-2 text-sm">
+            {[...history].reverse().map((h, i) => (
+              <li key={i} className="rounded-md border p-3">
+                <div className="text-xs opacity-70">
+                  {formatDate(h.changed_at)}
+                  {h.changed_by ? ` • юрист ${h.changed_by.slice(0, 8)}` : ""}
+                </div>
+                <div className="mt-1">
+                  {h.previous_strategy_id ?? "—"} → <span className="font-medium">{h.new_strategy_id ?? "сброшено к AI"}</span>
+                </div>
+                {h.reason && (
+                  <div className="mt-1 opacity-80">
+                    <span className="font-medium">Причина: </span>
+                    {h.reason}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+
+
       <section className="rounded-xl border p-5 space-y-3">
         <h2 className="text-xl font-semibold">Технические данные</h2>
 
