@@ -160,6 +160,43 @@ function AIReviewPage() {
       </section>
 
       <section className="rounded-xl border p-5 space-y-3">
+        <h2 className="text-xl font-semibold">Стратегия защиты</h2>
+        <div className="grid gap-3 md:grid-cols-3">
+          <Info title="Стратегия AI" value={aiStrategyId ?? "—"} />
+          <Info title="Стратегия юриста" value={lawyerStrategyId ?? "—"} />
+          <Info
+            title="Совпадение"
+            value={
+              !lawyerStrategyId
+                ? "Юрист не изменял"
+                : strategiesMatch
+                  ? "Совпадают"
+                  : "Различаются"
+            }
+          />
+        </div>
+        {override && (
+          <div className="text-sm space-y-1">
+            {override.reason && (
+              <div>
+                <span className="font-medium">Причина изменения: </span>
+                {override.reason}
+              </div>
+            )}
+            <div className="text-xs opacity-70">
+              Выбрано {formatDate(override.selected_at)}
+              {override.selected_by ? ` • юрист ${override.selected_by.slice(0, 8)}` : ""}
+            </div>
+            {!strategiesMatch && (
+              <div className="text-amber-600 text-xs">
+                Юрист изменил стратегию вручную. При генерации документа используется выбор юриста.
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-xl border p-5 space-y-3">
         <h2 className="text-xl font-semibold">Технические данные</h2>
 
         <div className="grid gap-3 md:grid-cols-3">
@@ -171,6 +208,7 @@ function AIReviewPage() {
     </div>
   );
 }
+
 
 function Info({ title, value }: { title: string; value: string }) {
   return (
