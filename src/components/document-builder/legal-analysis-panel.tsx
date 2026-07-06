@@ -3,10 +3,15 @@ import { Loader2, Sparkles, AlertTriangle, CheckCircle2, ExternalLink, FileText 
 import {
   fetchLatestLegalAnalysis,
   runLegalAnalysis,
+  saveLawyerStrategyOverride,
   type LegalAnalysisRun,
+  type LegalAnalysisLawyerStrategyOverride,
 } from "@/lib/legal-analysis";
 import { buildCaseIntelligenceForSession } from "@/lib/case-intelligence";
 import { supabase } from "@/integrations/supabase/client";
+import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/hooks/use-auth";
+
 const ANALYSIS_METRIC_LABELS: Record<string, string> = {
   fns_found: "Материалы ФНС",
   laws_found: "Нормы законодательства",
