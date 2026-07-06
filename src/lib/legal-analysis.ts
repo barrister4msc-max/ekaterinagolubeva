@@ -131,7 +131,38 @@ export type LegalAnalysisResult = {
   created_from?: string;
   previous_analysis_run_id?: string | null;
   redaction_used?: boolean;
+
+  // ---- Lawyer override (UI-persisted; not produced by AI) ----
+  lawyer_strategy_override?: LegalAnalysisLawyerStrategyOverride | null;
 };
+
+export type LegalAnalysisLawyerStrategyOverride = {
+  strategy_id: string;
+  ai_strategy_id: string | null;
+  selected_at: string;
+  selected_by: string | null;
+  reason: string;
+};
+
+export async function saveLawyerStrategyOverride(
+  runId: string,
+  override: LegalAnalysisLawyerStrategyOverride | null,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from("document_intake_ai_runs")
+    .select("ai_result")
+    .eq("id", runId)
+    .maybeSingle();
+  if (error) throw error;
+  const current = (data?.ai_result as Record<string, unknown> | null) ?? {};
+  const next = { ...current, lawyer_strategy_override: override };
+  const { error: upErr } = await supabase
+    .from("document_intake_ai_runs")
+    .update({ ai_result: next as any })
+    .eq("id", runId);
+  if (upErr) throw upErr;
+}
+
 
 
 export type LegalAnalysisFactRecord = {
