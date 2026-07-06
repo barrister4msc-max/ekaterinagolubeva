@@ -152,6 +152,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [hasDocuments, setHasDocuments] = useState<boolean | null>(null);
   const [checkingDocs, setCheckingDocs] = useState(false);
+  const [selectedStrategyOverrideId, setSelectedStrategyOverrideId] = useState<string | null>(null);
   const aliveRef = useRef(true);
 
   useEffect(() => {
