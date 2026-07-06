@@ -134,6 +134,7 @@ export type LegalAnalysisResult = {
 
   // ---- Lawyer override (UI-persisted; not produced by AI) ----
   lawyer_strategy_override?: LegalAnalysisLawyerStrategyOverride | null;
+  lawyer_strategy_history?: LegalAnalysisLawyerStrategyHistoryEntry[];
 };
 
 export type LegalAnalysisLawyerStrategyOverride = {
@@ -142,6 +143,15 @@ export type LegalAnalysisLawyerStrategyOverride = {
   selected_at: string;
   selected_by: string | null;
   reason: string;
+};
+
+export type LegalAnalysisLawyerStrategyHistoryEntry = {
+  changed_at: string;
+  changed_by: string | null;
+  reason: string;
+  previous_strategy_id: string | null;
+  new_strategy_id: string | null;
+  ai_strategy_id: string | null;
 };
 
 export async function saveLawyerStrategyOverride(
@@ -155,13 +165,30 @@ export async function saveLawyerStrategyOverride(
     .maybeSingle();
   if (error) throw error;
   const current = (data?.ai_result as Record<string, unknown> | null) ?? {};
-  const next = { ...current, lawyer_strategy_override: override };
+  const prevOverride = (current.lawyer_strategy_override as LegalAnalysisLawyerStrategyOverride | null) ?? null;
+  const prevHistory = Array.isArray(current.lawyer_strategy_history)
+    ? (current.lawyer_strategy_history as LegalAnalysisLawyerStrategyHistoryEntry[])
+    : [];
+  const entry: LegalAnalysisLawyerStrategyHistoryEntry = {
+    changed_at: new Date().toISOString(),
+    changed_by: override?.selected_by ?? null,
+    reason: override?.reason ?? "",
+    previous_strategy_id: prevOverride?.strategy_id ?? null,
+    new_strategy_id: override?.strategy_id ?? null,
+    ai_strategy_id: override?.ai_strategy_id ?? prevOverride?.ai_strategy_id ?? null,
+  };
+  const next = {
+    ...current,
+    lawyer_strategy_override: override,
+    lawyer_strategy_history: [...prevHistory, entry],
+  };
   const { error: upErr } = await supabase
     .from("document_intake_ai_runs")
     .update({ ai_result: next as any })
     .eq("id", runId);
   if (upErr) throw upErr;
 }
+
 
 
 
