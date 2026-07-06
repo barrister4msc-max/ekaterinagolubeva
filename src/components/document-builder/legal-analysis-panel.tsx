@@ -166,6 +166,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
   const [savedOverrideId, setSavedOverrideId] = useState<string | null>(null);
   const [savedOverrideReason, setSavedOverrideReason] = useState<string>("");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [simulatedStrategyId, setSimulatedStrategyId] = useState<string | null>(null);
   const aliveRef = useRef(true);
 
 
