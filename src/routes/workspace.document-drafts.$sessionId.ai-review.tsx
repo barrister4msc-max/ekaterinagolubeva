@@ -47,6 +47,19 @@ function AIReviewPage() {
     ? data.recommendations
     : [];
 
+  const aiResult = (data.ai_result ?? {}) as Record<string, any>;
+  const reasoning = aiResult.reasoning_engine as
+    | { selected_strategy_id?: string; considered_positions?: Array<Record<string, any>> }
+    | undefined;
+  const override = aiResult.lawyer_strategy_override as
+    | { strategy_id: string; ai_strategy_id: string | null; selected_at: string; selected_by: string | null; reason: string }
+    | null
+    | undefined;
+  const aiStrategyId = reasoning?.selected_strategy_id ?? null;
+  const lawyerStrategyId = override?.strategy_id ?? null;
+  const strategiesMatch = !lawyerStrategyId || lawyerStrategyId === aiStrategyId;
+
+
   return (
     <div className="p-6 space-y-6">
   <h1 className="text-3xl font-bold">AI юридическое заключение</h1>
@@ -147,6 +160,43 @@ function AIReviewPage() {
       </section>
 
       <section className="rounded-xl border p-5 space-y-3">
+        <h2 className="text-xl font-semibold">Стратегия защиты</h2>
+        <div className="grid gap-3 md:grid-cols-3">
+          <Info title="Стратегия AI" value={aiStrategyId ?? "—"} />
+          <Info title="Стратегия юриста" value={lawyerStrategyId ?? "—"} />
+          <Info
+            title="Совпадение"
+            value={
+              !lawyerStrategyId
+                ? "Юрист не изменял"
+                : strategiesMatch
+                  ? "Совпадают"
+                  : "Различаются"
+            }
+          />
+        </div>
+        {override && (
+          <div className="text-sm space-y-1">
+            {override.reason && (
+              <div>
+                <span className="font-medium">Причина изменения: </span>
+                {override.reason}
+              </div>
+            )}
+            <div className="text-xs opacity-70">
+              Выбрано {formatDate(override.selected_at)}
+              {override.selected_by ? ` • юрист ${override.selected_by.slice(0, 8)}` : ""}
+            </div>
+            {!strategiesMatch && (
+              <div className="text-amber-600 text-xs">
+                Юрист изменил стратегию вручную. При генерации документа используется выбор юриста.
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-xl border p-5 space-y-3">
         <h2 className="text-xl font-semibold">Технические данные</h2>
 
         <div className="grid gap-3 md:grid-cols-3">
@@ -158,6 +208,7 @@ function AIReviewPage() {
     </div>
   );
 }
+
 
 function Info({ title, value }: { title: string; value: string }) {
   return (
