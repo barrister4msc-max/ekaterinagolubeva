@@ -951,7 +951,227 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
               </div>
             );
           })()}
-          
+
+          {(() => {
+            const argMap = ((a as any).argument_map ?? []) as Array<Record<string, any>>;
+            if (!argMap.length) return null;
+
+            const factsIndex = ((a as any).facts_index ?? []) as Array<{ fact_id: string; text: string }>;
+            const factById = new Map(factsIndex.map((f) => [f.fact_id, f.text]));
+
+            const evidenceMatrix = ((a as any).evidence_matrix ?? []) as Array<{
+              fact_id: string;
+              fact_text: string;
+              documents: string[];
+              evidence_status: string;
+              evidence_strength: number;
+            }>;
+            const evByFact = new Map(evidenceMatrix.map((e) => [e.fact_id, e]));
+
+            const trustedSources = ((a as any).trusted_sources ?? []) as Array<{
+              source_id: string;
+              source_ref: string;
+              title: string;
+              url: string | null;
+              official_url: string | null;
+            }>;
+            const legacySources = (a.sources ?? []) as Array<{ id?: string; title?: string; url?: string; cited_for?: string }>;
+            const sourceById = new Map<string, { title: string; url: string | null }>();
+            for (const s of trustedSources) {
+              sourceById.set(s.source_id, { title: s.title, url: s.official_url ?? s.url });
+              if (s.source_ref) sourceById.set(s.source_ref, { title: s.title, url: s.official_url ?? s.url });
+            }
+            for (const s of legacySources) {
+              if (s.id && !sourceById.has(String(s.id))) sourceById.set(String(s.id), { title: s.title ?? String(s.id), url: s.url ?? null });
+            }
+
+            const re = ((a as any).reasoning_engine ?? {}) as { selected_strategy_id?: string };
+            const selectedStrategyId = re.selected_strategy_id ?? "";
+
+            const evidenceStatusLabel = (st?: string) =>
+              st === "proven" ? "Доказано" : st === "partial" ? "Частично доказано" : st === "missing" ? "Не доказано" : "—";
+
+            return (
+              <div>
+                <div className="db-section-label">Ход юридического мышления AI</div>
+                <div className="mt-2 db-subcard space-y-3">
+                  <div className="text-xs text-white/60">
+                    Показан путь рассуждения AI по каждому ключевому аргументу: от факта дела до влияния на выбранную стратегию.
+                  </div>
+                  {argMap.slice(0, 12).map((arg, idx) => {
+                    const allowed = !!arg.use_in_generation;
+                    const unsupported = String(arg.support_level ?? "") === "unsupported"
+                      || String(arg.support_level ?? "") === "none"
+                      || String(arg.support_level ?? "") === "weak";
+                    const factsUsed: string[] = Array.isArray(arg.facts_used) ? arg.facts_used : [];
+                    const docsUsed: string[] = Array.isArray(arg.documents_used) ? arg.documents_used : [];
+                    const sourcesUsed: string[] = Array.isArray(arg.sources_used) ? arg.sources_used : [];
+
+                    return (
+                      <div
+                        key={`chain-${arg.argument_id ?? idx}`}
+                        className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-2"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="text-white font-semibold text-sm">
+                            {labelArgumentKind(String(arg.kind ?? ""))}
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-[11px]">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${evidenceTone(arg.evidence_strength)}`}>
+                              Доказательная сила: {labelEvidence(arg.evidence_strength)}
+                            </span>
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${allowed ? GREEN : RED}`}>
+                              {allowed ? "Используется при генерации" : "Вывод заблокирован и не используется при генерации"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-[11px] text-white/55">
+                          Факт → Доказательство → Юридический источник → Аргумент → Влияние на стратегию
+                        </div>
+
+                        {/* 1. Факт */}
+                        <details className="rounded-lg border border-white/10 bg-white/5 group" open>
+                          <summary className="cursor-pointer list-none px-3 py-2 text-[12px] text-white/85 flex items-center justify-between">
+                            <span><span className="text-white/50 mr-1">1.</span> Факт</span>
+                            <span className="text-white/40 text-[11px] group-open:hidden">развернуть</span>
+                          </summary>
+                          <div className="px-3 pb-3 space-y-2 text-[12px] text-white/80">
+                            {factsUsed.length === 0 && <div className="text-white/55">Факты не указаны.</div>}
+                            {factsUsed.map((fid) => {
+                              const text = factById.get(fid) ?? evByFact.get(fid)?.fact_text ?? "—";
+                              return (
+                                <div key={fid} className="rounded-md border border-white/10 bg-white/5 p-2">
+                                  {text}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+
+                        {/* 2. Документы */}
+                        <details className="rounded-lg border border-white/10 bg-white/5 group">
+                          <summary className="cursor-pointer list-none px-3 py-2 text-[12px] text-white/85 flex items-center justify-between">
+                            <span><span className="text-white/50 mr-1">2.</span> Документы</span>
+                            <span className="text-white/40 text-[11px]">{docsUsed.length}</span>
+                          </summary>
+                          <div className="px-3 pb-3 space-y-2 text-[12px] text-white/80">
+                            {docsUsed.length === 0 && <div className="text-white/55">Документы не привязаны к аргументу.</div>}
+                            {factsUsed.map((fid) => {
+                              const ev = evByFact.get(fid);
+                              if (!ev) return null;
+                              return (
+                                <div key={`ev-${fid}`} className="rounded-md border border-white/10 bg-white/5 p-2">
+                                  <div className="text-white/60 text-[11px]">
+                                    Статус доказательства: {evidenceStatusLabel(ev.evidence_status)}
+                                  </div>
+                                  {ev.documents?.length ? (
+                                    <ul className="mt-1 list-disc pl-4">
+                                      {ev.documents.map((d, i) => (
+                                        <li key={i}>{d}</li>
+                                      ))}
+                                    </ul>
+                                  ) : (
+                                    <div className="text-white/55 mt-1">Документы по этому факту не найдены.</div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {docsUsed.length > 0 && (
+                              <div className="rounded-md border border-white/10 bg-white/5 p-2">
+                                <div className="text-white/60 text-[11px] mb-1">Использованные документы:</div>
+                                <ul className="list-disc pl-4">
+                                  {docsUsed.map((d, i) => (
+                                    <li key={i}>{d}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </details>
+
+                        {/* 3. Источники права */}
+                        <details className="rounded-lg border border-white/10 bg-white/5 group">
+                          <summary className="cursor-pointer list-none px-3 py-2 text-[12px] text-white/85 flex items-center justify-between">
+                            <span><span className="text-white/50 mr-1">3.</span> Источники права</span>
+                            <span className="text-white/40 text-[11px]">{sourcesUsed.length}</span>
+                          </summary>
+                          <div className="px-3 pb-3 space-y-2 text-[12px] text-white/80">
+                            {unsupported && (
+                              <div className="text-red-200">Не подтверждено юридическим источником</div>
+                            )}
+                            {sourcesUsed.length === 0 && !unsupported && (
+                              <div className="text-white/55">Источники права не указаны.</div>
+                            )}
+                            {sourcesUsed.map((sid) => {
+                              const s = sourceById.get(sid);
+                              return (
+                                <div key={sid} className="rounded-md border border-white/10 bg-white/5 p-2">
+                                  <div className="text-white/90">{s?.title ?? sid}</div>
+                                  {s?.url && (
+                                    <a
+                                      href={s.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="mt-1 inline-flex items-center gap-1 text-sky-300 hover:underline text-[11px]"
+                                    >
+                                      <ExternalLink size={10} /> Открыть источник
+                                    </a>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </details>
+
+                        {/* 4. Аргумент */}
+                        <details className="rounded-lg border border-white/10 bg-white/5 group" open>
+                          <summary className="cursor-pointer list-none px-3 py-2 text-[12px] text-white/85 flex items-center justify-between">
+                            <span><span className="text-white/50 mr-1">4.</span> Аргумент</span>
+                          </summary>
+                          <div className="px-3 pb-3 text-[13px] text-white/85 whitespace-pre-wrap">
+                            {arg.argument || "—"}
+                            <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${supportTone(arg.support_level)}`}>
+                                Подтверждение: {labelSupport(arg.support_level)}
+                              </span>
+                            </div>
+                          </div>
+                        </details>
+
+                        {/* 5. Статус использования / Влияние на стратегию */}
+                        <details className="rounded-lg border border-white/10 bg-white/5 group" open>
+                          <summary className="cursor-pointer list-none px-3 py-2 text-[12px] text-white/85 flex items-center justify-between">
+                            <span><span className="text-white/50 mr-1">5.</span> Статус использования</span>
+                          </summary>
+                          <div className="px-3 pb-3 text-[12px] text-white/85 space-y-2">
+                            {allowed ? (
+                              <div className="text-emerald-200">
+                                Аргумент учитывается при выборе стратегии
+                                {selectedStrategyId ? <> «{labelStrategy(selectedStrategyId)}»</> : null}
+                                {" "}и используется при генерации документа.
+                              </div>
+                            ) : (
+                              <div className="text-red-200">
+                                Вывод заблокирован и не используется при генерации.
+                                {arg.blocked_reason ? (
+                                  <div className="mt-1 text-white/70">
+                                    <span className="text-white/55">Причина: </span>
+                                    {arg.blocked_reason}
+                                  </div>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                        </details>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
         </div>
       )}
     </div>
