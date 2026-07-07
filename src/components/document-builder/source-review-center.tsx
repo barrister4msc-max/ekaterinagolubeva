@@ -104,7 +104,8 @@ export function SourceReviewCenter({ sessionId }: { sessionId: string | null }) 
   });
 
   const reviews = reviewsQuery.data ?? {};
-
+  const [selectedWarning, setSelectedWarning] =
+  useState<LegalAnalysisSourceWarning | null>(null);
   const mutation = useMutation({
     mutationFn: async (args: { key: string; patch: Partial<SourceWarningReview> }) => {
       if (!runId) throw new Error("Нет активного run");
