@@ -338,3 +338,124 @@ function WarningRow({
     </li>
   );
 }
+function SourceWarningDrawer({
+  warning,
+  onClose,
+}: {
+  warning: LegalAnalysisSourceWarning | null;
+  onClose: () => void;
+}) {
+  if (!warning) return null;
+
+  const title = getSourceTitle(warning);
+  const text = getSourceText(warning);
+  const url = getOfficialUrl(warning);
+  const w = warning as any;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
+      <div className="h-full w-full max-w-[520px] overflow-y-auto border-l border-white/15 bg-slate-950 p-5 text-white shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+              Карточка источника
+            </div>
+            <h3 className="mt-1 text-lg font-semibold text-white">{title}</h3>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-white/15 bg-white/10 p-1.5 hover:bg-white/20"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-4 text-xs">
+          <section className="rounded-md border border-white/10 bg-white/5 p-3">
+            <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
+              Основные сведения
+            </div>
+            <InfoRow label="Тип предупреждения" value={WARNING_LABEL[warning.warning_type] ?? warning.warning_type} />
+            <InfoRow label="ID источника" value={warning.source_ref} />
+            <InfoRow label="Заменён на" value={warning.superseded_by} />
+
+            {url && (
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-2 inline-flex items-center gap-1 text-sky-300 hover:underline"
+              >
+                <ExternalLink size={12} />
+                Открыть официальный источник
+              </a>
+            )}
+          </section>
+
+          <section className="rounded-md border border-white/10 bg-white/5 p-3">
+            <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
+              Причина проверки
+            </div>
+            <div className="whitespace-pre-wrap text-white/75">
+              {warning.message}
+            </div>
+          </section>
+
+          <section className="rounded-md border border-white/10 bg-white/5 p-3">
+            <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
+              <FileText size={12} />
+              Текст источника
+            </div>
+
+            {text ? (
+              <div className="max-h-[360px] overflow-y-auto whitespace-pre-wrap rounded border border-white/10 bg-black/20 p-3 text-white/75">
+                {String(text)}
+              </div>
+            ) : (
+              <div className="rounded border border-amber-400/30 bg-amber-500/10 p-3 text-amber-100">
+                Полный текст источника недоступен в текущих данных. Требуется открыть оригинал или проверить источник вручную.
+              </div>
+            )}
+          </section>
+
+          {warning.affected_conclusions?.length > 0 && (
+            <section className="rounded-md border border-white/10 bg-white/5 p-3">
+              <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
+                Где используется
+              </div>
+              <ul className="list-disc space-y-1 pl-5 text-white/75">
+                {warning.affected_conclusions.map((c) => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {w.metadata && (
+            <section className="rounded-md border border-white/10 bg-white/5 p-3">
+              <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
+                Метаданные
+              </div>
+              <pre className="max-h-[260px] overflow-y-auto whitespace-pre-wrap rounded bg-black/20 p-3 text-[11px] text-white/65">
+                {JSON.stringify(w.metadata, null, 2)}
+              </pre>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: unknown }) {
+  if (value == null || value === "") return null;
+
+  return (
+    <div className="grid grid-cols-[130px_1fr] gap-2 border-b border-white/10 py-1 last:border-0">
+      <div className="text-white/45">{label}</div>
+      <div className="break-words text-white/80">{String(value)}</div>
+    </div>
+  );
+}
