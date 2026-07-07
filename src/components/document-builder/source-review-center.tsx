@@ -284,11 +284,6 @@ function WarningRow({
           <XCircle size={12} className="inline mr-1" /> Отклонить
         </button>
         <button
-          type="button"
-          className="db-ghost"
-          onClick={() => setEditing((v) => !v)}
-        >
-          <button
   type="button"
   className="db-ghost"
   onClick={onOpen}
@@ -296,9 +291,15 @@ function WarningRow({
   <BookOpen size={12} className="inline mr-1" />
   Просмотреть источник
 </button>
-          <MessageSquare size={12} className="inline mr-1" />
-          {editing ? "Скрыть комментарий" : "Комментарий"}
-        </button>
+
+<button
+  type="button"
+  className="db-ghost"
+  onClick={() => setEditing((v) => !v)}
+>
+  <MessageSquare size={12} className="inline mr-1" />
+  {editing ? "Скрыть комментарий" : "Комментарий"}
+</button>
         <div className="ml-auto text-[11px] text-white/45">
           Статус:
 <span className="text-white/75">
