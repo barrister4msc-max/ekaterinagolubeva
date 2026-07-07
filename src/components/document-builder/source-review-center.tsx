@@ -281,7 +281,7 @@ function WarningRow({
           disabled={pending}
           onClick={() => onChange({ status: "rejected", comment })}
         >
-          <XCircle size={12} className="inline mr-1" /> Reject
+          <XCircle size={12} className="inline mr-1" /> Отклонить
         </button>
         <button
           type="button"
