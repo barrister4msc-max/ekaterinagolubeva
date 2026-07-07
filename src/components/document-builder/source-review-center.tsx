@@ -37,7 +37,54 @@ const WARNING_LABEL: Record<LegalAnalysisSourceWarning["warning_type"], string> 
   ekaterina_not_redacted: "Практика Екатерины не обезличена",
   missing_official_url: "Нет ссылки на официальный источник",
 };
+const REVIEW_STATUS_LABEL: Record<SourceWarningReviewStatus, string> = {
+  pending: "Ожидает проверки",
+  accepted: "Подтверждено",
+  rejected: "Отклонено",
+};
 
+function getSourceText(warning: LegalAnalysisSourceWarning): string {
+  const w = warning as any;
+
+  return (
+    w.content ??
+    w.text ??
+    w.quote ??
+    w.excerpt ??
+    w.fragment ??
+    w.source_text ??
+    w.source_content ??
+    w.metadata?.content ??
+    w.metadata?.text ??
+    ""
+  );
+}
+
+function getSourceTitle(warning: LegalAnalysisSourceWarning): string {
+  const w = warning as any;
+
+  return (
+    w.title ??
+    w.source_title ??
+    w.name ??
+    w.source_name ??
+    w.source_ref ??
+    "Источник"
+  );
+}
+
+function getOfficialUrl(warning: LegalAnalysisSourceWarning): string {
+  const w = warning as any;
+
+  return (
+    w.official_url ??
+    w.url ??
+    w.link ??
+    w.metadata?.official_url ??
+    w.metadata?.url ??
+    ""
+  );
+}
 export function SourceReviewCenter({ sessionId }: { sessionId: string | null }) {
   const qc = useQueryClient();
 
