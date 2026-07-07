@@ -248,7 +248,7 @@ function WarningRow({
           </div>
           <div className="mt-0.5 text-white/70 break-words">{warning.message}</div>
           <div className="mt-1 text-[11px] text-white/45 break-all">
-            <span className="opacity-70">source_ref: </span>
+            <span className="opacity-70">ID источника: </span>
             {warning.source_ref}
             {warning.superseded_by && (
               <>
@@ -260,7 +260,7 @@ function WarningRow({
           </div>
           {warning.affected_conclusions && warning.affected_conclusions.length > 0 && (
             <div className="mt-1 text-[11px] text-white/45">
-              <span className="opacity-70">влияет на выводы: </span>
+              <span className="opacity-70">Используется в выводах: </span>
               {warning.affected_conclusions.join(", ")}
             </div>
           )}
