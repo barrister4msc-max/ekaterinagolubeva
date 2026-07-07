@@ -273,7 +273,7 @@ function WarningRow({
           disabled={pending}
           onClick={() => onChange({ status: "accepted", comment })}
         >
-          <CheckCircle2 size={12} className="inline mr-1" /> Accept
+          <CheckCircle2 size={12} className="inline mr-1" /> Подтвердить
         </button>
         <button
           type="button"
