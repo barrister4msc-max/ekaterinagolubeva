@@ -180,12 +180,13 @@ export function SourceReviewCenter({ sessionId }: { sessionId: string | null }) 
             const rv = reviews[key];
             return (
               <WarningRow
-                key={key}
-                warning={w}
-                review={rv}
-                pending={mutation.isPending}
-                onChange={(patch) => mutation.mutate({ key, patch })}
-              />
+  key={key}
+  warning={w}
+  review={rv}
+  pending={mutation.isPending}
+  onOpen={() => setSelectedWarning(w)}
+  onChange={(patch) => mutation.mutate({ key, patch })}
+/>
             );
           })}
         </ul>
