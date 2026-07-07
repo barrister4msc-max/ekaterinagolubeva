@@ -288,11 +288,22 @@ function WarningRow({
           className="db-ghost"
           onClick={() => setEditing((v) => !v)}
         >
+          <button
+  type="button"
+  className="db-ghost"
+  onClick={onOpen}
+>
+  <BookOpen size={12} className="inline mr-1" />
+  Просмотреть источник
+</button>
           <MessageSquare size={12} className="inline mr-1" />
           {editing ? "Скрыть комментарий" : "Комментарий"}
         </button>
         <div className="ml-auto text-[11px] text-white/45">
-          Статус: <span className="text-white/75">{status}</span>
+          Статус:
+<span className="text-white/75">
+  {REVIEW_STATUS_LABEL[status]}
+</span>
           {review?.reviewed_at && (
             <>
               {" · "}
