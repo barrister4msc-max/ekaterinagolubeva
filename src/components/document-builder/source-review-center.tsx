@@ -191,7 +191,10 @@ export function SourceReviewCenter({ sessionId }: { sessionId: string | null }) 
           })}
         </ul>
       )}
-
+    <SourceWarningDrawer
+  warning={selectedWarning}
+  onClose={() => setSelectedWarning(null)}
+/>
       {mutation.isError && (
         <div className="mt-3 text-xs text-rose-200">
           Ошибка сохранения: {String((mutation.error as Error).message)}
