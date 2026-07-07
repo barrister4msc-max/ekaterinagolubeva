@@ -208,11 +208,13 @@ function WarningRow({
   warning,
   review,
   pending,
+  onOpen,
   onChange,
 }: {
   warning: LegalAnalysisSourceWarning;
   review: SourceWarningReview | undefined;
   pending: boolean;
+  onOpen: () => void;
   onChange: (patch: Partial<SourceWarningReview>) => void;
 }) {
   const status: SourceWarningReviewStatus = review?.status ?? "pending";
