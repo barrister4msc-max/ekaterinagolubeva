@@ -319,7 +319,7 @@ function WarningRow({
         <div className="mt-2">
           <textarea
             className="db-input min-h-[64px] text-xs"
-            placeholder="Комментарий reviewer-а…"
+            placeholder="Комментарий юриста…"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             onBlur={() => onChange({ comment })}
