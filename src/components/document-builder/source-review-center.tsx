@@ -6,7 +6,17 @@
 
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, CheckCircle2, XCircle, AlertTriangle, MessageSquare } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  MessageSquare,
+  BookOpen,
+  ExternalLink,
+  FileText,
+  X,
+} from "lucide-react";
 import { fetchLatestLegalAnalysis } from "@/lib/legal-analysis";
 import type { LegalAnalysisSourceWarning } from "@/lib/legal-analysis";
 import {
