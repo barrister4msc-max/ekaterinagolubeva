@@ -444,18 +444,7 @@ function SourceWarningDrawer({
             )}
           </section>
 
-          {warning.affected_conclusions?.length > 0 && (
-            <section className="rounded-md border border-white/10 bg-white/5 p-3">
-              <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
-                Где используется
-              </div>
-              <ul className="list-disc space-y-1 pl-5 text-white/75">
-                {warning.affected_conclusions.map((c) => (
-                  <li key={c}>{c}</li>
-                ))}
-              </ul>
-            </section>
-          )}
+          
 
           {w.metadata && (
             <section className="rounded-md border border-white/10 bg-white/5 p-3">
