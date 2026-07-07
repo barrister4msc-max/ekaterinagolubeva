@@ -447,15 +447,28 @@ function SourceWarningDrawer({
           
 
           {w.metadata && (
-            <section className="rounded-md border border-white/10 bg-white/5 p-3">
-              <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
-                Метаданные
-              </div>
-              <pre className="max-h-[260px] overflow-y-auto whitespace-pre-wrap rounded bg-black/20 p-3 text-[11px] text-white/65">
-                {JSON.stringify(w.metadata, null, 2)}
-              </pre>
-            </section>
-          )}
+  <section className="rounded-md border border-white/10 bg-white/5 p-3">
+    <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
+      Сведения об источнике
+    </div>
+
+    <InfoRow label="Категория" value={w.metadata.category} />
+    <InfoRow label="Подкатегория" value={w.metadata.subcategory} />
+    <InfoRow label="Тип источника" value={w.metadata.source_type} />
+    <InfoRow label="Автор" value={w.metadata.author} />
+    <InfoRow label="Орган" value={w.metadata.organization} />
+    <InfoRow label="Дата" value={w.metadata.date} />
+    <InfoRow label="Редакция" value={w.metadata.version} />
+    <InfoRow label="Номер документа" value={w.metadata.document_number} />
+    <InfoRow label="Статья" value={w.metadata.article} />
+
+    {Object.keys(w.metadata).length === 0 && (
+      <div className="text-white/60">
+        Метаданные отсутствуют.
+      </div>
+    )}
+  </section>
+)}
         </div>
       </div>
     </div>
