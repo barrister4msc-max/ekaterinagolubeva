@@ -403,7 +403,30 @@ function SourceWarningDrawer({
               {warning.message}
             </div>
           </section>
+           <section className="rounded-md border border-white/10 bg-white/5 p-3">
+  <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
+    Использование источника
+  </div>
 
+  {warning.affected_conclusions && warning.affected_conclusions.length > 0 ? (
+    <div className="space-y-2">
+      <div className="text-white/70">
+        Этот источник связан со следующими выводами AI:
+      </div>
+
+      <ul className="list-disc space-y-1 pl-5 text-white/75">
+        {warning.affected_conclusions.map((conclusion) => (
+          <li key={conclusion}>{conclusion}</li>
+        ))}
+      </ul>
+    </div>
+  ) : (
+    <div className="rounded border border-amber-400/30 bg-amber-500/10 p-3 text-amber-100">
+      В текущих данных не указано, где именно используется этот источник.
+      Требуется ручная проверка связи источника с выводами.
+    </div>
+  )}
+</section>   
           <section className="rounded-md border border-white/10 bg-white/5 p-3">
             <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
               <FileText size={12} />
