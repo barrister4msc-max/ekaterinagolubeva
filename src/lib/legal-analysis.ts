@@ -544,6 +544,7 @@ export async function runLegalAnalysis(sessionId: string): Promise<LegalAnalysis
     }
 
     if (data.analysis) {
+      normalizeArgumentMap(data.analysis as any);
       return {
         id: returnedRunId,
         session_id: sessionId,
