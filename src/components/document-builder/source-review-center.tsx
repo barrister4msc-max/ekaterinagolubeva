@@ -147,7 +147,7 @@ export function SourceReviewCenter({ sessionId }: { sessionId: string | null }) 
   return (
     <div className="db-subcard">
       <div className="flex items-center justify-between gap-3">
-        <div className="db-section-label">Источники — Review Center</div>
+        <div className="db-section-label">Центр проверки источников</div>
         <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
           Осталось без решения:{" "}
           <span
@@ -164,8 +164,9 @@ export function SourceReviewCenter({ sessionId }: { sessionId: string | null }) 
       </div>
 
       <div className="mt-2 text-[11px] text-white/55">
-        Предупреждения не блокируют генерацию Draft. После accept предупреждение
-        исчезает из remaining; reject оставляет его в списке для дальнейшей работы.
+        Предупреждения не блокируют генерацию Draft. После подтверждения предупреждение
+        исчезает из remaining; После отклонения предупреждение
+остаётся в списке, его в списке для дальнейшей работы.
       </div>
 
       {warnings.length === 0 ? (
