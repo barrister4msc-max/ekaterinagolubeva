@@ -763,3 +763,36 @@ function ReadyBlock({ title, value }: { title: string; value: string }) {
     </div>
   );
 }
+
+function StatBlock({ label, value, tone }: { label: string; value: number; tone: "neutral" | "green" | "amber" | "muted" }) {
+  return (
+    <div className={`db-stat db-stat-${tone}`}>
+      <div className="db-stat-value">{value}</div>
+      <div className="db-stat-label">{label}</div>
+    </div>
+  );
+}
+
+function ReadinessChecklist({ ready }: { ready: boolean }) {
+  const items: Array<{ label: string; ok: boolean }> = [
+    { label: "Интерактивный опросник", ok: ready },
+    { label: "AI-генерация", ok: true },
+    { label: "DOCX", ok: true },
+    { label: "PDF", ok: true },
+    { label: "AI-проверка", ok: true },
+  ];
+  return (
+    <ul className="mt-2 space-y-1">
+      {items.map((it) => (
+        <li key={it.label} className="flex items-center gap-2 text-[11px] text-white/70">
+          {it.ok ? (
+            <Check size={11} className="text-emerald-300" />
+          ) : (
+            <HelpCircle size={11} className="text-amber-300" />
+          )}
+          <span className={it.ok ? "text-white/80" : "text-amber-200/80"}>{it.label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
