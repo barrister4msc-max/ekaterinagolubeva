@@ -1026,7 +1026,11 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
     source.quote ?? source.cited_text ?? source.text_fragment ?? source.fragment ?? source.excerpt;
   const url = source.url ?? source.link ?? source.official_url;
   const why = source.why_selected ?? source.why_used;
-  const usedFor = source.used_for;
+  const usedFor =
+  source.used_for ??
+  source.used_in ??
+  source.used_arguments ??
+  source.used_conclusions;
   const rows: Array<[string, any]> = [];
   const push = (label: string, value: any) => {
     if (value != null && value !== "") rows.push([label, value]);
