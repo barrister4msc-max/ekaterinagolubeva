@@ -57,6 +57,30 @@ function DocumentBuilderPage() {
     queryKey: ["document-templates"],
     queryFn: getTemplates,
   });
+
+  const { data: intakeSchemas = [] } = useQuery({
+    queryKey: ["document-intake-schemas", "active"],
+    queryFn: getActiveIntakeSchemas,
+  });
+
+  const schemaCodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of intakeSchemas) set.add(s.template_code);
+    return set;
+  }, [intakeSchemas]);
+
+  const hasSchema = (code: string) => schemaCodes.has(code);
+
+  const readinessStats = useMemo(() => {
+    const total = templates.length;
+    let ready = 0;
+    let noIntake = 0;
+    for (const t of templates) {
+      if (hasSchema(t.code)) ready += 1;
+      else noIntake += 1;
+    }
+    return { total, ready, noIntake, inProgress: noIntake };
+  }, [templates, schemaCodes]);
         const sortedTemplates = useMemo(() => {
     return [...templates].sort((a, b) => {
       if (a.category === "TAX" && b.category !== "TAX") return -1;
