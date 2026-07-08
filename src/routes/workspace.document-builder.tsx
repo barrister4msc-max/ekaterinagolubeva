@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText, AlertCircle } from "lucide-react";
+import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText, AlertCircle, Sparkles, ShieldCheck, HelpCircle } from "lucide-react";
 import {
   getTemplates,
   CATEGORY_LABELS,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/document-templates";
 import {
   getIntakeSchema,
+  getActiveIntakeSchemas,
   createInitialIntakeState,
   type IntakeState,
 } from "@/lib/document-intake-schemas";
