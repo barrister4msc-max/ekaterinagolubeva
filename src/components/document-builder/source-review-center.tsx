@@ -500,7 +500,11 @@ const w = { ...(warning as any), metadata: sourceMetadata };
     <InfoRow label="Дата" value={w.metadata.date} />
     <InfoRow label="Редакция" value={w.metadata.version} />
     <InfoRow label="Номер документа" value={w.metadata.document_number} />
-    <InfoRow label="Статья" value={w.metadata.article} />
+   <InfoRow label="Оригинальный файл" value={w.metadata.original_file_name} />
+<InfoRow label="Архив" value={w.metadata.archive_name} />
+<InfoRow label="Источник" value={w.metadata.source_origin} />
+<InfoRow label="Статус проверки" value={w.metadata.verification_status} />
+<InfoRow label="Официальная ссылка" value={w.metadata.official_url ?? w.metadata.source_url} />
 
     {Object.keys(w.metadata).length === 0 && (
       <div className="text-white/60">
