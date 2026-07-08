@@ -626,7 +626,12 @@ function SourceViewerDrawer({
             !source?.file_url && (
               <div className="flex items-start gap-2 rounded-md border border-amber-300/40 bg-amber-400/10 p-2 text-[12px] text-amber-50">
                 <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                <span>Файл недоступен: storage_path / url не указаны в данных анализа.</span>
+                <span>
+  Генератор не передал ссылку на исходный документ.
+  Для внутренних источников (законы, практика, письма ФНС, база знаний)
+  это ожидаемо и не является ошибкой.
+  Для документов клиента требуется повторный AI-анализ после загрузки файлов.
+</span>
               </div>
             )}
 
