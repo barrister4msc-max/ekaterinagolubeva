@@ -389,7 +389,12 @@ const sourceMetadata = {
 };
 
 const w = { ...(warning as any), metadata: sourceMetadata };
-
+console.log("SOURCE DRAWER", {
+  source_ref: warning.source_ref,
+  kbChunkId,
+  kbData: kbQuery.data,
+  metadata: sourceMetadata,
+});
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
       <div className="h-full w-full max-w-[520px] overflow-y-auto border-l border-white/15 bg-slate-950 p-5 text-white shadow-2xl">
