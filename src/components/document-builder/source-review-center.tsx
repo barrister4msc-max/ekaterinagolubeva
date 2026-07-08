@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { fetchLatestLegalAnalysis } from "@/lib/legal-analysis";
+import { supabase } from "@/integrations/supabase/client";
 import type { LegalAnalysisSourceWarning } from "@/lib/legal-analysis";
 import {
   loadReviewMap,
