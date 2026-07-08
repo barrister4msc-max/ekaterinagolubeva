@@ -358,10 +358,31 @@ function SourceWarningDrawer({
 }) {
   if (!warning) return null;
 
-  const title = getSourceTitle(warning);
-  const text = getSourceText(warning);
-  const url = getOfficialUrl(warning);
-  const w = warning as any;
+const kbChunkId = extractKbChunkId(warning.source_ref);
+
+const kbQuery = useQuery({
+  queryKey: ["source-warning-kb-chunk", kbChunkId],
+  enabled: !!kbChunkId,
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("legal_knowledge_chunks" as any)
+      .select("id,title,content,source_type,category,metadata")
+      .eq("id", kbChunkId)
+      .maybeSingle();
+
+    if (error) return null;
+    return data;
+  },
+});
+
+const title = kbQuery.data?.title ?? getSourceTitle(warning);
+const text = kbQuery.data?.content ?? getSourceText(warning);
+const url =
+  kbQuery.data?.metadata?.official_url ??
+  kbQuery.data?.metadata?.url ??
+  getOfficialUrl(warning);
+
+const w = warning as any;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
