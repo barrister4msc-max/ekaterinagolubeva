@@ -86,6 +86,15 @@ function getOfficialUrl(warning: LegalAnalysisSourceWarning): string {
     ""
   );
 }
+function extractKbChunkId(sourceRef?: string | null): string | null {
+  if (!sourceRef) return null;
+
+  const match = String(sourceRef).match(
+    /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i,
+  );
+
+  return match?.[1] ?? null;
+}
 export function SourceReviewCenter({ sessionId }: { sessionId: string | null }) {
   const qc = useQueryClient();
 
