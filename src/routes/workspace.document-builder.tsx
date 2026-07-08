@@ -696,6 +696,15 @@ function DocumentBuilderPage() {
         .db-mode-badge { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; background: linear-gradient(135deg, rgba(214,188,120,0.22), rgba(214,188,120,0.10)); border: 1px solid rgba(214,188,120,0.55); }
         .db-mode-badge-label { font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(214,188,120,0.85); }
         .db-mode-badge-value { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: #f5e2a5; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        .db-status { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid transparent; }
+        .db-status-ready { background: rgba(102,187,156,0.14); color: #b6ecd1; border-color: rgba(102,187,156,0.40); }
+        .db-status-noform { background: rgba(214,170,90,0.14); color: #f0d59c; border-color: rgba(214,170,90,0.40); }
+        .db-stat { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 12px 14px; background: rgba(8,18,26,0.45); }
+        .db-stat-value { font-size: 22px; font-weight: 600; color: #fff; line-height: 1.1; }
+        .db-stat-label { margin-top: 4px; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.60); }
+        .db-stat-green .db-stat-value { color: #b6ecd1; }
+        .db-stat-amber .db-stat-value { color: #f0d59c; }
+        .db-stat-muted .db-stat-value { color: rgba(255,255,255,0.65); }
       `}</style>
     </div>
   );
