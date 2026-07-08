@@ -383,7 +383,12 @@ const url =
   kbQuery.data?.metadata?.url ??
   getOfficialUrl(warning);
 
-const w = warning as any;
+const sourceMetadata = {
+  ...((warning as any).metadata ?? {}),
+  ...(kbQuery.data?.metadata ?? {}),
+};
+
+const w = { ...(warning as any), metadata: sourceMetadata };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
