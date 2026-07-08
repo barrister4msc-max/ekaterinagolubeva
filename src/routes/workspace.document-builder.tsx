@@ -402,6 +402,7 @@ function DocumentBuilderPage() {
                 <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {items.map((t) => {
                     const isSel = t.code === selectedCode;
+                    const ready = hasSchema(t.code);
                     return (
                       <button
                         key={t.id}
@@ -418,6 +419,27 @@ function DocumentBuilderPage() {
                         {t.description && (
                           <p className="mt-2 text-xs text-white/65 line-clamp-2">{t.description}</p>
                         )}
+
+                        <div className="mt-3">
+                          {ready ? (
+                            <span className="db-status db-status-ready">
+                              <Check size={11} /> Готов к работе
+                            </span>
+                          ) : (
+                            <span className="db-status db-status-noform">
+                              <HelpCircle size={11} /> Нет интерактивного опросника
+                            </span>
+                          )}
+                        </div>
+
+                        <ReadinessChecklist ready={ready} />
+
+                        {!ready && (
+                          <div className="mt-2 text-[11px] leading-snug text-amber-200/80">
+                            Опросник в разработке. Документ можно подготовить в свободной форме — AI-генерация, экспорт и проверка доступны.
+                          </div>
+                        )}
+
                         <div className="mt-3 flex flex-wrap items-center gap-1.5">
                           {t.jurisdiction.map((j) => (
                             <span key={j} className="db-tag db-tag-juris">
