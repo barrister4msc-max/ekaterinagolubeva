@@ -1693,7 +1693,22 @@ function DocumentDetailPage() {
       return data;
     },
   });
+  const { data: generatedSourceRows } = useQuery({
+  queryKey: ["generated-document-sources", documentId],
+  enabled: !!documentId,
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("generated_document_sources" as any)
+      .select(
+        "id,source_type,source_title,official_url,used_for,why_used,fact_to_law_link,metadata,created_at",
+      )
+      .eq("generated_document_id", documentId)
+      .order("created_at", { ascending: true });
 
+    if (error) return [];
+    return data ?? [];
+  },
+});
   // Related session documents
   const { data: sessionDocs } = useQuery({
     queryKey: ["session-documents", doc?.intake_session_id],
