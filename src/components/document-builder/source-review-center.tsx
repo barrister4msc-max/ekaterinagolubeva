@@ -410,8 +410,11 @@ const w = warning as any;
               Основные сведения
             </div>
             <InfoRow label="Тип предупреждения" value={WARNING_LABEL[warning.warning_type] ?? warning.warning_type} />
-            <InfoRow label="ID источника" value={warning.source_ref} />
-            <InfoRow label="Заменён на" value={warning.superseded_by} />
+<InfoRow label="ID источника" value={warning.source_ref} />
+<InfoRow label="Источник KB" value={kbChunkId} />
+<InfoRow label="Категория" value={kbQuery.data?.category} />
+<InfoRow label="Тип источника" value={kbQuery.data?.source_type} />
+<InfoRow label="Заменён на" value={warning.superseded_by} />
 
             {url && (
               <a
