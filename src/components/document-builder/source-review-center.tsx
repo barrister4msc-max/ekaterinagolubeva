@@ -379,6 +379,7 @@ const title = kbQuery.data?.title ?? getSourceTitle(warning);
 const text = kbQuery.data?.content ?? getSourceText(warning);
 const url =
   kbQuery.data?.metadata?.official_url ??
+  kbQuery.data?.metadata?.source_url ??
   kbQuery.data?.metadata?.url ??
   getOfficialUrl(warning);
 
