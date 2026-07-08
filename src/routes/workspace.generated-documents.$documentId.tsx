@@ -1143,7 +1143,10 @@ function SourceCitation({ source, setTab }: { source: any; setTab: (t: TabId) =>
       {!precise && (
         <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-300/40 bg-amber-400/10 p-2 text-[11px] text-amber-50">
           <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-          <span>Точная локализация источника отсутствует. Требуется ручная проверка.</span>
+          <span>
+  Точная локализация не передана генератором. Требуется доработка provenance,
+  чтобы источник указывал статью, пункт, абзац или цитату.
+</span>
         </div>
       )}
       {loc && (
