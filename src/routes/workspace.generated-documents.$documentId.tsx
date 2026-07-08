@@ -611,11 +611,14 @@ function SourceViewerDrawer({
 
           {/* Warnings */}
           {!precise && (
-            <div className="flex items-start gap-2 rounded-md border border-amber-300/40 bg-amber-400/10 p-2 text-[12px] text-amber-50">
-              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-              <span>Точная локализация источника отсутствует. Требуется ручная проверка.</span>
-            </div>
-          )}
+  <div className="flex items-start gap-2 rounded-md border border-amber-300/40 bg-amber-400/10 p-2 text-[12px] text-amber-50">
+    <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+    <span>
+      Точная локализация не передана генератором. Требуется доработка provenance,
+      чтобы источник указывал статью, пункт, абзац или цитату.
+    </span>
+  </div>
+)}
           {kind === "client_doc" &&
             !source?.storage_path &&
             !source?.file_path &&
