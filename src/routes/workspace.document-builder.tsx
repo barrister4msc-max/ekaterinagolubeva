@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText, AlertCircle } from "lucide-react";
+import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText, AlertCircle, Sparkles, ShieldCheck, HelpCircle } from "lucide-react";
 import {
   getTemplates,
   CATEGORY_LABELS,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/document-templates";
 import {
   getIntakeSchema,
+  getActiveIntakeSchemas,
   createInitialIntakeState,
   type IntakeState,
 } from "@/lib/document-intake-schemas";
@@ -56,6 +57,30 @@ function DocumentBuilderPage() {
     queryKey: ["document-templates"],
     queryFn: getTemplates,
   });
+
+  const { data: intakeSchemas = [] } = useQuery({
+    queryKey: ["document-intake-schemas", "active"],
+    queryFn: getActiveIntakeSchemas,
+  });
+
+  const schemaCodes = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of intakeSchemas) set.add(s.template_code);
+    return set;
+  }, [intakeSchemas]);
+
+  const hasSchema = (code: string) => schemaCodes.has(code);
+
+  const readinessStats = useMemo(() => {
+    const total = templates.length;
+    let ready = 0;
+    let noIntake = 0;
+    for (const t of templates) {
+      if (hasSchema(t.code)) ready += 1;
+      else noIntake += 1;
+    }
+    return { total, ready, noIntake, inProgress: noIntake };
+  }, [templates, schemaCodes]);
         const sortedTemplates = useMemo(() => {
     return [...templates].sort((a, b) => {
       if (a.category === "TAX" && b.category !== "TAX") return -1;
@@ -279,7 +304,14 @@ function DocumentBuilderPage() {
           </div>
           <Stepper step={step} />
         </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatBlock label="Всего шаблонов" value={readinessStats.total} tone="neutral" />
+          <StatBlock label="Полностью готовы" value={readinessStats.ready} tone="green" />
+          <StatBlock label="Без опросника" value={readinessStats.noIntake} tone="amber" />
+          <StatBlock label="В разработке" value={readinessStats.inProgress} tone="muted" />
+        </div>
       </header>
+
 
       {/* STEP 1 */}
       {step === 1 && (
@@ -370,6 +402,7 @@ function DocumentBuilderPage() {
                 <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {items.map((t) => {
                     const isSel = t.code === selectedCode;
+                    const ready = hasSchema(t.code);
                     return (
                       <button
                         key={t.id}
@@ -386,6 +419,27 @@ function DocumentBuilderPage() {
                         {t.description && (
                           <p className="mt-2 text-xs text-white/65 line-clamp-2">{t.description}</p>
                         )}
+
+                        <div className="mt-3">
+                          {ready ? (
+                            <span className="db-status db-status-ready">
+                              <Check size={11} /> Готов к работе
+                            </span>
+                          ) : (
+                            <span className="db-status db-status-noform">
+                              <HelpCircle size={11} /> Нет интерактивного опросника
+                            </span>
+                          )}
+                        </div>
+
+                        <ReadinessChecklist ready={ready} />
+
+                        {!ready && (
+                          <div className="mt-2 text-[11px] leading-snug text-amber-200/80">
+                            Опросник в разработке. Документ можно подготовить в свободной форме — AI-генерация, экспорт и проверка доступны.
+                          </div>
+                        )}
+
                         <div className="mt-3 flex flex-wrap items-center gap-1.5">
                           {t.jurisdiction.map((j) => (
                             <span key={j} className="db-tag db-tag-juris">
@@ -414,7 +468,11 @@ function DocumentBuilderPage() {
               onClick={() => setStep(2)}
               className="db-cta"
             >
-              Далее <ArrowRight size={14} />
+              {selected
+                ? hasSchema(selected.code)
+                  ? "Выбрать"
+                  : "Выбрать без опросника"
+                : "Далее"} <ArrowRight size={14} />
             </button>
           </div>
         </section>
@@ -638,6 +696,15 @@ function DocumentBuilderPage() {
         .db-mode-badge { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 10px; background: linear-gradient(135deg, rgba(214,188,120,0.22), rgba(214,188,120,0.10)); border: 1px solid rgba(214,188,120,0.55); }
         .db-mode-badge-label { font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(214,188,120,0.85); }
         .db-mode-badge-value { font-size: 15px; font-weight: 600; letter-spacing: 0.04em; color: #f5e2a5; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        .db-status { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; padding: 3px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid transparent; }
+        .db-status-ready { background: rgba(102,187,156,0.14); color: #b6ecd1; border-color: rgba(102,187,156,0.40); }
+        .db-status-noform { background: rgba(214,170,90,0.14); color: #f0d59c; border-color: rgba(214,170,90,0.40); }
+        .db-stat { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 12px 14px; background: rgba(8,18,26,0.45); }
+        .db-stat-value { font-size: 22px; font-weight: 600; color: #fff; line-height: 1.1; }
+        .db-stat-label { margin-top: 4px; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.60); }
+        .db-stat-green .db-stat-value { color: #b6ecd1; }
+        .db-stat-amber .db-stat-value { color: #f0d59c; }
+        .db-stat-muted .db-stat-value { color: rgba(255,255,255,0.65); }
       `}</style>
     </div>
   );
@@ -703,5 +770,38 @@ function ReadyBlock({ title, value }: { title: string; value: string }) {
       <div className="db-info-label">{title}</div>
       <div className="db-info-value">{value || "—"}</div>
     </div>
+  );
+}
+
+function StatBlock({ label, value, tone }: { label: string; value: number; tone: "neutral" | "green" | "amber" | "muted" }) {
+  return (
+    <div className={`db-stat db-stat-${tone}`}>
+      <div className="db-stat-value">{value}</div>
+      <div className="db-stat-label">{label}</div>
+    </div>
+  );
+}
+
+function ReadinessChecklist({ ready }: { ready: boolean }) {
+  const items: Array<{ label: string; ok: boolean }> = [
+    { label: "Интерактивный опросник", ok: ready },
+    { label: "AI-генерация", ok: true },
+    { label: "DOCX", ok: true },
+    { label: "PDF", ok: true },
+    { label: "AI-проверка", ok: true },
+  ];
+  return (
+    <ul className="mt-2 space-y-1">
+      {items.map((it) => (
+        <li key={it.label} className="flex items-center gap-2 text-[11px] text-white/70">
+          {it.ok ? (
+            <Check size={11} className="text-emerald-300" />
+          ) : (
+            <HelpCircle size={11} className="text-amber-300" />
+          )}
+          <span className={it.ok ? "text-white/80" : "text-amber-200/80"}>{it.label}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
