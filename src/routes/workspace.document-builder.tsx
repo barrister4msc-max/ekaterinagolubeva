@@ -304,7 +304,14 @@ function DocumentBuilderPage() {
           </div>
           <Stepper step={step} />
         </div>
+        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatBlock label="Всего шаблонов" value={readinessStats.total} tone="neutral" />
+          <StatBlock label="Полностью готовы" value={readinessStats.ready} tone="green" />
+          <StatBlock label="Без опросника" value={readinessStats.noIntake} tone="amber" />
+          <StatBlock label="В разработке" value={readinessStats.inProgress} tone="muted" />
+        </div>
       </header>
+
 
       {/* STEP 1 */}
       {step === 1 && (
