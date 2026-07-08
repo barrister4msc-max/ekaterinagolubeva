@@ -468,7 +468,11 @@ function DocumentBuilderPage() {
               onClick={() => setStep(2)}
               className="db-cta"
             >
-              Далее <ArrowRight size={14} />
+              {selected
+                ? hasSchema(selected.code)
+                  ? "Выбрать"
+                  : "Выбрать без опросника"
+                : "Далее"} <ArrowRight size={14} />
             </button>
           </div>
         </section>
