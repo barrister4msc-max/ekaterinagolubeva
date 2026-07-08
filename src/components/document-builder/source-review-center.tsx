@@ -418,8 +418,18 @@ const w = { ...(warning as any), metadata: sourceMetadata };
             <InfoRow label="Тип предупреждения" value={WARNING_LABEL[warning.warning_type] ?? warning.warning_type} />
 <InfoRow label="ID источника" value={warning.source_ref} />
 <InfoRow label="Источник KB" value={kbChunkId} />
-<InfoRow label="Категория" value={kbQuery.data?.category} />
-<InfoRow label="Тип источника" value={kbQuery.data?.source_type} />
+<InfoRow label="Название" value={kbQuery.data?.title} />
+<InfoRow label="Оригинальный файл" value={w.metadata.original_file_name} />
+<InfoRow label="Категория" value={kbQuery.data?.category ?? w.metadata.category} />
+<InfoRow label="Подкатегория" value={w.metadata.subcategory} />
+<InfoRow label="Тип источника" value={kbQuery.data?.source_type ?? w.metadata.source_type ?? w.metadata.source_kind} />
+<InfoRow label="Статья" value={w.metadata.article} />
+<InfoRow label="Номер документа" value={w.metadata.document_number} />
+<InfoRow label="Дата документа" value={w.metadata.document_date} />
+<InfoRow label="Архив" value={w.metadata.archive_name} />
+<InfoRow label="Источник" value={w.metadata.source_origin} />
+<InfoRow label="Статус проверки" value={w.metadata.verification_status} />
+<InfoRow label="Официальная ссылка" value={w.metadata.official_url ?? w.metadata.source_url} />
 <InfoRow label="Заменён на" value={warning.superseded_by} />
 
             {url && (
