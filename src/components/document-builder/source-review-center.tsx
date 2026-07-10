@@ -371,7 +371,7 @@ const kbQuery = useQuery({
       .maybeSingle();
 
     if (error) return null;
-    return data;
+    return data as any;
   },
 });
 

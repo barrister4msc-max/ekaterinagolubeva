@@ -38,7 +38,11 @@ function s(...vals: unknown[]): string | null {
 
 function makeChunkSource(row: any, bucket: Bucket): RawSource {
   const meta = (row.metadata ?? {}) as Record<string, unknown>;
-  const sourceType = s(meta.source_type) ?? (row.source_type as string | null) ?? bucket;
+  const sourceType =
+    s(meta.source_type) ??
+    s(meta.source_kind) ??
+    (row.source_type as string | null) ??
+    "unknown";
   const title = (row.title as string) || s(meta.title) || sourceType;
   return {
     bucket,
@@ -65,7 +69,12 @@ async function selectChunks(
   practiceArea: string | null,
   limit: number,
 ): Promise<any[]> {
-  const orMeta = types.map((t) => `metadata->>source_type.eq.${t}`).join(",");
+  const orMeta = types
+    .flatMap((t) => [
+      `metadata->>source_type.eq.${t}`,
+      `metadata->>source_kind.eq.${t}`,
+    ])
+    .join(",");
   let q = sb
     .from("legal_knowledge_chunks")
     .select("id, title, content, metadata, category, source_type")
@@ -145,8 +154,8 @@ export class PracticeRepository {
   async search(_q: ResearchQuery, area: string | null): Promise<RawSource[]> {
     const out: RawSource[] = [];
 
-    // 1. chunks tagged as ekaterina_practice
-    const chunks = await selectChunks(this.sb, ["ekaterina_practice"], area, 12);
+    // 1. chunks tagged as ekaterina_practice — cross-category, do NOT filter by practiceArea
+    const chunks = await selectChunks(this.sb, ["ekaterina_practice"], null, 12);
     for (const r of chunks) out.push(makeChunkSource(r, "ekaterina"));
 
     // 2. practice_document_legal_analysis
