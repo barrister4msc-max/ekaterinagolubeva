@@ -154,8 +154,8 @@ export class PracticeRepository {
   async search(_q: ResearchQuery, area: string | null): Promise<RawSource[]> {
     const out: RawSource[] = [];
 
-    // 1. chunks tagged as ekaterina_practice
-    const chunks = await selectChunks(this.sb, ["ekaterina_practice"], area, 12);
+    // 1. chunks tagged as ekaterina_practice — cross-category, do NOT filter by practiceArea
+    const chunks = await selectChunks(this.sb, ["ekaterina_practice"], null, 12);
     for (const r of chunks) out.push(makeChunkSource(r, "ekaterina"));
 
     // 2. practice_document_legal_analysis
