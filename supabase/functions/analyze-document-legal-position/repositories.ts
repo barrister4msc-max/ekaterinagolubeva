@@ -69,7 +69,12 @@ async function selectChunks(
   practiceArea: string | null,
   limit: number,
 ): Promise<any[]> {
-  const orMeta = types.map((t) => `metadata->>source_type.eq.${t}`).join(",");
+  const orMeta = types
+    .flatMap((t) => [
+      `metadata->>source_type.eq.${t}`,
+      `metadata->>source_kind.eq.${t}`,
+    ])
+    .join(",");
   let q = sb
     .from("legal_knowledge_chunks")
     .select("id, title, content, metadata, category, source_type")
