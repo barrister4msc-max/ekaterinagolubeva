@@ -38,7 +38,11 @@ function s(...vals: unknown[]): string | null {
 
 function makeChunkSource(row: any, bucket: Bucket): RawSource {
   const meta = (row.metadata ?? {}) as Record<string, unknown>;
-  const sourceType = s(meta.source_type) ?? (row.source_type as string | null) ?? bucket;
+  const sourceType =
+    s(meta.source_type) ??
+    s(meta.source_kind) ??
+    (row.source_type as string | null) ??
+    "unknown";
   const title = (row.title as string) || s(meta.title) || sourceType;
   return {
     bucket,
