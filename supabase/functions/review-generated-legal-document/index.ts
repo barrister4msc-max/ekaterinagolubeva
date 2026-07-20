@@ -710,6 +710,7 @@ ${JSON.stringify(intakeSourceDocument || {}).slice(0, 25000)}
 6. client_safety:
 Можно ли показывать юристу как рабочий черновик.
 
+${reviewProfileBlock}
 Верни строго JSON без markdown:
 
 {
