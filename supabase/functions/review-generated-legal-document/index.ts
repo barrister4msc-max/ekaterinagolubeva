@@ -15,7 +15,7 @@ serve(async (req) => {
 
   let targetDocumentId: string | null = null;
   let intakeSessionId: string | null = null;
-  let supabase: ReturnType<typeof createClient> | null = null;
+  let supabase: any = null;
 
   try {
     const payload = await req.json();
