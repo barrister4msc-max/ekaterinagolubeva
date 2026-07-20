@@ -56,6 +56,7 @@ import {
   ConsistencyCheck,
   type ConsistencyResult,
 } from "@/components/quality-gate";
+import { computeDocumentReadiness } from "@/lib/document-readiness";
 import {
   AttachmentsTab,
   AttachmentDrawer,
