@@ -11,6 +11,7 @@ import { runAllRepositories, gapSearch } from "./repositories.ts";
 import { rankSources } from "./ranking.ts";
 import { dedupe } from "./dedupe.ts";
 import { buildPrompt, callGeminiPro, limitSources, summarizeDocument } from "./prompt.ts";
+import { resolveDocumentIntent } from "./document-intent.ts";
 import {
   applyDocumentUsage,
   computeMetrics,
