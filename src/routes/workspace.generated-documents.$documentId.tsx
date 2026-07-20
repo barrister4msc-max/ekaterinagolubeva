@@ -56,6 +56,7 @@ import {
   ConsistencyCheck,
   type ConsistencyResult,
 } from "@/components/quality-gate";
+import { computeDocumentReadiness } from "@/lib/document-readiness";
 import {
   AttachmentsTab,
   AttachmentDrawer,
@@ -2186,7 +2187,17 @@ function DocumentDetailPage() {
       }),
     [doc, legalAnalysisRunId, analysisRun, reviewRun, analysis, review, meta, argumentsList.length, sources, usedContext, contextQuality],
   );
-  const approveBlocked = !consistency.ready;
+  // P0-D: Global readiness resolver aggregates existing gate states only.
+  const readiness = useMemo(
+    () =>
+      computeDocumentReadiness({
+        consistency,
+        review,
+        sourceWarnings: (matterSnapshot?.source_warnings as any[]) ?? null,
+      }),
+    [consistency, review, matterSnapshot?.source_warnings],
+  );
+  const approveBlocked = readiness.status !== "READY" && readiness.status !== "READY_WITH_WARNINGS";
 
   // ============ Workflow Engine ============
   // Сводит состояния документа/анализа/review/qg в один обязательный следующий шаг.
@@ -2264,10 +2275,16 @@ function DocumentDetailPage() {
       };
     }
     if (approveBlocked) {
+      const readinessHint =
+        readiness.status === "BLOCKED"
+          ? `Заблокировано: ${readiness.reasons.join("; ")}`
+          : readiness.status === "NEEDS_REVISION"
+          ? `Требует исправлений: ${readiness.reasons.join("; ")}`
+          : null;
       return {
         kind: "fix_quality",
         label: "Устранить замечания контроля качества",
-        hint: consistency.blockReason ?? undefined,
+        hint: consistency.blockReason ?? readinessHint ?? undefined,
       };
     }
     return { kind: "approve", label: "Утвердить документ" };

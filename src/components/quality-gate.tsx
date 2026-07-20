@@ -168,6 +168,33 @@ export function buildConsistencyChecks(input: BuildInput): ConsistencyResult {
       : undefined,
   });
 
+  // 9b. P0-C: review.problems[].severity=critical|blocker OR review_status=needs_revision|blocked
+  const reviewProblems = asArray(review?.problems);
+  const criticalReviewProblems = reviewProblems.filter((p: any) => {
+    const s = String(p?.severity ?? "").toLowerCase();
+    return s === "critical" || s === "blocker";
+  });
+  const reviewStatusRaw = String(review?.review_status ?? "").toLowerCase();
+  const reviewIsNeedsRevision = reviewStatusRaw === "needs_revision" || reviewStatusRaw === "blocked";
+  const reviewGateFail = criticalReviewProblems.length > 0 || reviewIsNeedsRevision;
+  checks.push({
+    id: "review_problems",
+    label: "AI Review: нет критических проблем",
+    severity: "critical",
+    status: reviewGateFail
+      ? "fail"
+      : reviewProblems.length > 0
+      ? "warn"
+      : "pass",
+    detail: reviewGateFail
+      ? (criticalReviewProblems.length > 0
+          ? `${criticalReviewProblems.length} критич. из ${reviewProblems.length}${reviewIsNeedsRevision ? `; статус: ${reviewStatusRaw}` : ""}`
+          : `статус AI Review: ${reviewStatusRaw}`)
+      : reviewProblems.length > 0
+      ? `${reviewProblems.length} некритич. отметок`
+      : undefined,
+  });
+
   // 10. sources exist
   checks.push({
     id: "sources",

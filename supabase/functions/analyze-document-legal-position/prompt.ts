@@ -83,6 +83,12 @@ function docBlock(d: DocSummary): string {
   );
 }
 
+export type PromptIntent = {
+  target_document: string | null;
+  process_stage: string | null;
+  document_intent: string | null;
+};
+
 export function buildPrompt(input: {
   templateCode: string;
   jurisdiction: string;
@@ -90,6 +96,7 @@ export function buildPrompt(input: {
   query: ResearchQuery;
   documents: DocSummary[];
   sources: MergedSource[];
+  intent?: PromptIntent | null;
 }): string {
   const docsBlock = input.documents.length
     ? input.documents.map(docBlock).join("\n")
@@ -111,11 +118,31 @@ export function buildPrompt(input: {
     compactQuery[k] = v;
   }
 
+  const intent = input.intent ?? null;
+  const intentBlock =
+    intent && (intent.target_document || intent.process_stage || intent.document_intent)
+      ? `
+TARGET DOCUMENT CONTEXT
+template_code: ${input.templateCode}
+target_document: ${intent.target_document ?? "—"}
+process_stage: ${intent.process_stage ?? "—"}
+document_intent: ${intent.document_intent ?? "—"}
+
+ПРАВИЛА ПРОЦЕССУАЛЬНОЙ СТАДИИ (СТРОГО):
+1. Все recommendations и generation_instructions должны относиться именно к target_document на указанной process_stage.
+2. AI не имеет права менять текущую процессуальную стадию только потому, что документы содержат сведения о предыдущей стадии (акт налоговой проверки, требование, возражения, решение).
+3. Документы предыдущих стадий — это история дела / evidence / процессуальный контекст, но НЕ меняют целевой документ.
+4. Если target_document = "Жалоба в УФНС" (process_stage=appeal), запрещены recommendations и generation_instructions вида "сформировать возражения на акт".
+5. В выводе обязательно верни поля template_code, target_document, process_stage, document_intent — точно теми значениями, что указаны выше.
+`
+      : "";
+
   return `Ты — старший российский юрист, руководитель Legal Research Engine. Сформируй КОМПАКТНЫЙ JSON-анализ.
 
 ШАБЛОН: ${input.templateCode}
 ЮРИСДИКЦИЯ: ${input.jurisdiction}
 ЯЗЫК: ${input.language}
+${intentBlock}
 
 RESEARCH QUERY:
 ${JSON.stringify(compactQuery)}
@@ -158,7 +185,11 @@ ${kbBlock}
   "adverse_practice":[{"source_id":string,"why_against":string}],
   "rebuttal_strategy":[string],
   "source_sufficiency":{"status":"sufficient|partial|insufficient_critical","gaps":[string],"rationale":string},
-  "document_usage":[{"doc_id":string,"used_for":[string]}]
+  "document_usage":[{"doc_id":string,"used_for":[string]}],
+  "template_code":string,
+  "target_document":string,
+  "process_stage":string,
+  "document_intent":string
 }`;
 }
 

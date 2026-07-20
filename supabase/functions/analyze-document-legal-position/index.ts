@@ -11,6 +11,7 @@ import { runAllRepositories, gapSearch } from "./repositories.ts";
 import { rankSources } from "./ranking.ts";
 import { dedupe } from "./dedupe.ts";
 import { buildPrompt, callGeminiPro, limitSources, summarizeDocument } from "./prompt.ts";
+import { resolveDocumentIntent } from "./document-intent.ts";
 import {
   applyDocumentUsage,
   computeMetrics,
@@ -151,16 +152,23 @@ Deno.serve(async (req) => {
     const answers: Record<string, unknown> = {};
     for (const r of answerRows ?? []) answers[r.field_name as string] = r.field_value;
 
-    // practice_area
+    // practice_area + template title (for document-intent fallback)
     let practiceArea: string | null = null;
+    let templateTitle: string | null = null;
     if (session.template_code) {
       const { data: tpl } = await sb
         .from("document_templates")
-        .select("practice_area")
+        .select("practice_area, title")
         .eq("code", session.template_code)
         .maybeSingle();
       practiceArea = (tpl?.practice_area as string | null) ?? null;
+      templateTitle = (tpl?.title as string | null) ?? null;
     }
+    // P0-A: deterministic Document Intent (safe fallback for unknown template).
+    const documentIntent = resolveDocumentIntent(
+      session.template_code as string | null,
+      templateTitle,
+    );
 
     // documents + audit (also pulls metadata so we can use redacted_text when accepted)
     const { data: docs } = await sb
@@ -289,6 +297,7 @@ Deno.serve(async (req) => {
       query: researchQuery,
       documents: docSummaries,
       sources: merged,
+      intent: documentIntent,
     });
     const { text, rawResponse, model, attempts: modelAttempts, fallback_used } = await callGeminiPro(prompt);
     lastRawResponse = rawResponse ?? "";
@@ -464,6 +473,11 @@ Deno.serve(async (req) => {
     parsed.created_from = "analyze-document-legal-position";
     parsed.previous_analysis_run_id = prev?.id ?? null;
     parsed.redaction_used = redactionUsedAny;
+    // P0-A: deterministic intent always wins over model output.
+    parsed.template_code = session.template_code;
+    parsed.target_document = documentIntent.target_document;
+    parsed.process_stage = documentIntent.process_stage;
+    parsed.document_intent = documentIntent.document_intent;
 
 
     const metrics = computeMetrics(combined_sources, parsed);
