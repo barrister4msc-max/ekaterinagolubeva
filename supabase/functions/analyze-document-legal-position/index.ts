@@ -473,6 +473,11 @@ Deno.serve(async (req) => {
     parsed.created_from = "analyze-document-legal-position";
     parsed.previous_analysis_run_id = prev?.id ?? null;
     parsed.redaction_used = redactionUsedAny;
+    // P0-A: deterministic intent always wins over model output.
+    parsed.template_code = session.template_code;
+    parsed.target_document = documentIntent.target_document;
+    parsed.process_stage = documentIntent.process_stage;
+    parsed.document_intent = documentIntent.document_intent;
 
 
     const metrics = computeMetrics(combined_sources, parsed);
