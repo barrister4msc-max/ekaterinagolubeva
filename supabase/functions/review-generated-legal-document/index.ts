@@ -955,9 +955,10 @@ if (!geminiResponse) {
       error instanceof Error ? error.message : String(error);
 
     try {
-      if (targetDocumentId) {
+      if (supabase && targetDocumentId) {
         await supabase.from("document_intake_ai_runs").insert({
           session_id: intakeSessionId ?? null,
+
           generated_document_id: targetDocumentId,
           run_type: "review",
           status: "failed",
