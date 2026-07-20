@@ -2275,10 +2275,16 @@ function DocumentDetailPage() {
       };
     }
     if (approveBlocked) {
+      const readinessHint =
+        readiness.status === "BLOCKED"
+          ? `Заблокировано: ${readiness.reasons.join("; ")}`
+          : readiness.status === "NEEDS_REVISION"
+          ? `Требует исправлений: ${readiness.reasons.join("; ")}`
+          : null;
       return {
         kind: "fix_quality",
         label: "Устранить замечания контроля качества",
-        hint: consistency.blockReason ?? undefined,
+        hint: consistency.blockReason ?? readinessHint ?? undefined,
       };
     }
     return { kind: "approve", label: "Утвердить документ" };
