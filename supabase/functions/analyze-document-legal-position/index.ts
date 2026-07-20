@@ -297,6 +297,7 @@ Deno.serve(async (req) => {
       query: researchQuery,
       documents: docSummaries,
       sources: merged,
+      intent: documentIntent,
     });
     const { text, rawResponse, model, attempts: modelAttempts, fallback_used } = await callGeminiPro(prompt);
     lastRawResponse = rawResponse ?? "";
