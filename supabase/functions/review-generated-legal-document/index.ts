@@ -13,6 +13,10 @@ const corsHeaders = {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  let targetDocumentId: string | null = null;
+  let intakeSessionId: string | null = null;
+  let supabase: ReturnType<typeof createClient> | null = null;
+
   try {
     const payload = await req.json();
 
@@ -24,7 +28,7 @@ serve(async (req) => {
       parent_document_id = null,
     } = payload;
 
-    const targetDocumentId = generated_document_id || document_id;
+    targetDocumentId = generated_document_id || document_id;
 
     if (!targetDocumentId) {
       return json({ error: "document_id or generated_document_id is required" }, 400);
@@ -36,7 +40,7 @@ serve(async (req) => {
 
     if (!geminiKey) throw new Error("GEMINI_API_KEY is missing");
 
-    const supabase = createClient(supabaseUrl, serviceKey);
+    supabase = createClient(supabaseUrl, serviceKey);
 
     const { data: doc, error: docError } = await supabase
       .from("generated_legal_documents")
@@ -47,7 +51,8 @@ serve(async (req) => {
     if (docError || !doc) return json({ error: "Generated document not found" }, 404);
 
         const matterId = doc.metadata?.matter_id;
-    const intakeSessionId = doc.intake_session_id || doc.metadata?.intake_session_id || null;
+    intakeSessionId = doc.intake_session_id || doc.metadata?.intake_session_id || null;
+
 
         let matter = null;
     let strategy = null;
