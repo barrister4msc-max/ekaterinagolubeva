@@ -1,5 +1,9 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  getGenerationProfile,
+  renderTemplateProfileBlock,
+} from "./template-profiles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -83,6 +87,8 @@ const legalAnalysisForGeneration = legalAnalysisObject
      legalAnalysisObject?.working_strategy ??
     null;
     if (!template_code) return json({ success: false, error: "template_code is required" }, 400);
+    const templateProfile = getGenerationProfile(template_code);
+    const templateProfileBlock = templateProfile ? renderTemplateProfileBlock(templateProfile) : "";
     if (!template?.title) return json({ success: false, error: "template.title is required" }, 400);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -467,6 +473,7 @@ PARAGRAPH PROVENANCE RULES
 
    used_strategy_id must contain the strategy that actually produced this section.
    ==========================================================
+${templateProfileBlock}
 DOCUMENT GENERATION RULES
 ==========================================================
 
@@ -723,6 +730,9 @@ metadata: {
           generation_mode,
           template_code,
           template,
+          generation_profile: templateProfile?.generation_profile ?? "universal",
+          document_type: templateProfile?.document_type ?? (generated?.document_type || null),
+          review_profile: templateProfile?.review_profile ?? "universal",
           intake_session_id: effectiveSessionId,
           legal_analysis_run_id,
           legal_analysis: legalAnalysisForGeneration,

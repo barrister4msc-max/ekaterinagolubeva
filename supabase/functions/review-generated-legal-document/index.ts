@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  resolveReviewProfile,
+  renderReviewProfileBlock,
+} from "./review-profiles.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -637,6 +641,8 @@ if (Array.isArray(revision.evidence_roles)) {
     updated_document: updated,
   });
 }
+    const reviewProfile = resolveReviewProfile(doc);
+    const reviewProfileBlock = reviewProfile ? renderReviewProfileBlock(reviewProfile) : "";
     const prompt = `
 Ты AI Legal Quality Reviewer. Проверяешь юридический документ перед тем, как юрист увидит его как черновик.
 
@@ -704,6 +710,7 @@ ${JSON.stringify(intakeSourceDocument || {}).slice(0, 25000)}
 6. client_safety:
 Можно ли показывать юристу как рабочий черновик.
 
+${reviewProfileBlock}
 Верни строго JSON без markdown:
 
 {
