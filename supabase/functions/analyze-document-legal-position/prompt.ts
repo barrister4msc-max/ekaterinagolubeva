@@ -83,6 +83,12 @@ function docBlock(d: DocSummary): string {
   );
 }
 
+export type PromptIntent = {
+  target_document: string | null;
+  process_stage: string | null;
+  document_intent: string | null;
+};
+
 export function buildPrompt(input: {
   templateCode: string;
   jurisdiction: string;
@@ -90,6 +96,7 @@ export function buildPrompt(input: {
   query: ResearchQuery;
   documents: DocSummary[];
   sources: MergedSource[];
+  intent?: PromptIntent | null;
 }): string {
   const docsBlock = input.documents.length
     ? input.documents.map(docBlock).join("\n")
