@@ -152,16 +152,23 @@ Deno.serve(async (req) => {
     const answers: Record<string, unknown> = {};
     for (const r of answerRows ?? []) answers[r.field_name as string] = r.field_value;
 
-    // practice_area
+    // practice_area + template title (for document-intent fallback)
     let practiceArea: string | null = null;
+    let templateTitle: string | null = null;
     if (session.template_code) {
       const { data: tpl } = await sb
         .from("document_templates")
-        .select("practice_area")
+        .select("practice_area, title")
         .eq("code", session.template_code)
         .maybeSingle();
       practiceArea = (tpl?.practice_area as string | null) ?? null;
+      templateTitle = (tpl?.title as string | null) ?? null;
     }
+    // P0-A: deterministic Document Intent (safe fallback for unknown template).
+    const documentIntent = resolveDocumentIntent(
+      session.template_code as string | null,
+      templateTitle,
+    );
 
     // documents + audit (also pulls metadata so we can use redacted_text when accepted)
     const { data: docs } = await sb
