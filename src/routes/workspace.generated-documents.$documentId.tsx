@@ -2187,7 +2187,17 @@ function DocumentDetailPage() {
       }),
     [doc, legalAnalysisRunId, analysisRun, reviewRun, analysis, review, meta, argumentsList.length, sources, usedContext, contextQuality],
   );
-  const approveBlocked = !consistency.ready;
+  // P0-D: Global readiness resolver aggregates existing gate states only.
+  const readiness = useMemo(
+    () =>
+      computeDocumentReadiness({
+        consistency,
+        review,
+        sourceWarnings: (matterSnapshot?.source_warnings as any[]) ?? null,
+      }),
+    [consistency, review, matterSnapshot?.source_warnings],
+  );
+  const approveBlocked = readiness.status !== "READY" && readiness.status !== "READY_WITH_WARNINGS";
 
   // ============ Workflow Engine ============
   // Сводит состояния документа/анализа/review/qg в один обязательный следующий шаг.
