@@ -185,7 +185,11 @@ ${kbBlock}
   "adverse_practice":[{"source_id":string,"why_against":string}],
   "rebuttal_strategy":[string],
   "source_sufficiency":{"status":"sufficient|partial|insufficient_critical","gaps":[string],"rationale":string},
-  "document_usage":[{"doc_id":string,"used_for":[string]}]
+  "document_usage":[{"doc_id":string,"used_for":[string]}],
+  "template_code":string,
+  "target_document":string,
+  "process_stage":string,
+  "document_intent":string
 }`;
 }
 
