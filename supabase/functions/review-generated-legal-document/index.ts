@@ -641,6 +641,8 @@ if (Array.isArray(revision.evidence_roles)) {
     updated_document: updated,
   });
 }
+    const reviewProfile = resolveReviewProfile(doc);
+    const reviewProfileBlock = reviewProfile ? renderReviewProfileBlock(reviewProfile) : "";
     const prompt = `
 Ты AI Legal Quality Reviewer. Проверяешь юридический документ перед тем, как юрист увидит его как черновик.
 
