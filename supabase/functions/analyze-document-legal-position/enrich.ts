@@ -672,6 +672,9 @@ export function buildConclusionsAndIndex(
 
   const factTextToId = new Map<string, string>();
   for (const f of facts) factTextToId.set(f.fact_text.toLowerCase(), f.fact_id);
+  // Legacy fuzzy fact→text resolver — retained ONLY for non-evidentiary
+  // conclusion attribution (weak_points, counter_arguments etc). NOT used in
+  // fact_to_law_mapping evidentiary path (P0-E4).
   const matchFactIds = (txt: unknown): string[] => {
     if (typeof txt !== "string" || !txt.trim()) return [];
     const lc = txt.toLowerCase();
