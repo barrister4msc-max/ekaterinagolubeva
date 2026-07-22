@@ -158,6 +158,7 @@ ${kbBlock}
 2. Для каждого использованного источника верни ТОЛЬКО {source_id, used_for, why_selected}. Не возвращай title, URL, цитаты, даты — это подставит код из реестра.
 3. Запрещены длинные цитаты, выдержки и пересказы. why_selected — максимум 200 символов.
 4. fact_to_law_mapping: ФАКТ → НОРМА (краткое наименование) → ВЫВОД. Каждое поле ≤ 220 символов.
+   Дополнительно: для каждой записи верни documents_used — массив doc_id ТОЛЬКО из [${docIds}], которые НЕПОСРЕДСТВЕННО и АДРЕСНО подтверждают этот факт (документ содержит прямое свидетельство именно этого факта). Запрещено включать документы «по общему смыслу», по названию, по теме или «на всякий случай». Если ни один документ адресно не подтверждает факт — верни []. Пустой массив предпочтительнее ложной ссылки.
 5. document_usage: для КАЖДОГО doc_id из [${docIds}] верни массив used_for из закрытого набора
    ["facts","legal_qualification","taxpayer_position","court_practice","risks","recommendations","generation"].
 6. Никаких комментариев, markdown, trailing commas. Только один валидный JSON.
@@ -175,7 +176,7 @@ ${kbBlock}
   "minfin_letters":[{"source_id":string,"used_for":string,"why_selected":string}],
   "ekaterina_practice":[{"source_id":string,"used_for":string,"why_selected":string}],
   "manuals":[{"source_id":string,"used_for":string,"why_selected":string}],
-  "fact_to_law_mapping":[{"fact":string,"law":string,"reasoning":string,"conclusion":string}],
+  "fact_to_law_mapping":[{"fact":string,"law":string,"reasoning":string,"conclusion":string,"documents_used":[string]}],
   "counter_arguments":[string],
   "weak_points":[string],
   "missing_evidence":[string],
