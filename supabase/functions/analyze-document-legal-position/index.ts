@@ -399,6 +399,7 @@ Deno.serve(async (req) => {
       parsed,
       conclusions: provBuild.conclusions,
       documents: usedDocs.map((d) => ({ id: d.id, title: d.title, ocr_length: d.ocr_length })),
+      factKeyToId,
     });
 
     // Layer 10: Matter Analysis Versioning — hashes + previous run + version.
