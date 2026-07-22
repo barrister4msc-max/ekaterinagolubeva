@@ -183,19 +183,39 @@ export function makeFactId(text: string): string {
   return "f_" + shortHash(text.trim().toLowerCase());
 }
 
-export function buildFactRecords(facts: unknown): FactRecord[] {
-  const out: FactRecord[] = [];
-  const seen = new Set<string>();
-  if (!Array.isArray(facts)) return out;
+// P0-E4: canonical fact identity contract.
+// Input may be:
+//   - new shape: [{ fact_key: string, text: string }]
+//   - legacy shape: string[]
+// Returns canonical FactRecord[] (fact_id = djb2(text)) plus keyToId map that
+// binds the model-emitted fact_key to the canonical fact_id within THIS run.
+// keyToId is used later to transport identity through fact_to_law_mapping
+// into Evidence Matrix without any text-based guessing.
+export function buildFactRecords(
+  facts: unknown,
+): { records: FactRecord[]; keyToId: Map<string, string> } {
+  const records: FactRecord[] = [];
+  const keyToId = new Map<string, string>();
+  const seenIds = new Set<string>();
+  if (!Array.isArray(facts)) return { records, keyToId };
   for (const f of facts) {
-    const t = typeof f === "string" ? f.trim() : "";
-    if (!t) continue;
-    const id = makeFactId(t);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    out.push({ fact_id: id, fact_text: t });
+    let text = "";
+    let key = "";
+    if (typeof f === "string") {
+      text = f.trim();
+    } else if (f && typeof f === "object") {
+      const rec = f as Record<string, unknown>;
+      text = typeof rec.text === "string" ? rec.text.trim() : "";
+      key = typeof rec.fact_key === "string" ? rec.fact_key.trim() : "";
+    }
+    if (!text) continue;
+    const id = makeFactId(text);
+    if (key && !keyToId.has(key)) keyToId.set(key, id);
+    if (seenIds.has(id)) continue;
+    seenIds.add(id);
+    records.push({ fact_id: id, fact_text: text });
   }
-  return out;
+  return { records, keyToId };
 }
 
 export function makeSourceRef(s: MergedSource): string {
@@ -652,6 +672,9 @@ export function buildConclusionsAndIndex(
 
   const factTextToId = new Map<string, string>();
   for (const f of facts) factTextToId.set(f.fact_text.toLowerCase(), f.fact_id);
+  // Legacy fuzzy fact→text resolver — retained ONLY for non-evidentiary
+  // conclusion attribution (weak_points, counter_arguments etc). NOT used in
+  // fact_to_law_mapping evidentiary path (P0-E4).
   const matchFactIds = (txt: unknown): string[] => {
     if (typeof txt !== "string" || !txt.trim()) return [];
     const lc = txt.toLowerCase();
@@ -858,6 +881,7 @@ export function buildEvidenceMatrix(opts: {
   parsed: any;
   conclusions: Conclusion[];
   documents: Array<{ id: string; title: string; ocr_length: number }>;
+  factKeyToId: Map<string, string>;
 }): EvidenceMatrixEntry[] {
   const missing: string[] = Array.isArray(opts.parsed.missing_evidence)
     ? (opts.parsed.missing_evidence as unknown[]).map((x) => String(x ?? "")).filter(Boolean)
@@ -869,34 +893,33 @@ export function buildEvidenceMatrix(opts: {
   // Allowed client document UUIDs — the ONLY defensible universe for links.
   const allowedDocIds = new Set(opts.documents.map((d) => d.id));
 
-  // Fact text (first 40 chars, lowercased) → fact_id, for matching structured
-  // analyzer output back to the canonical fact record.
-  const factByPrefix = new Map<string, string>();
-  for (const f of opts.facts) {
-    const key = f.fact_text.toLowerCase().slice(0, 40).trim();
-    if (key) factByPrefix.set(key, f.fact_id);
-  }
-  const resolveFactId = (text: unknown): string | null => {
-    if (typeof text !== "string") return null;
-    const lc = text.trim().toLowerCase();
-    if (!lc) return null;
-    // exact prefix hit
-    const direct = factByPrefix.get(lc.slice(0, 40));
-    if (direct) return direct;
-    // reverse: does any fact prefix appear in this text?
-    for (const [prefix, id] of factByPrefix.entries()) {
-      if (lc.includes(prefix)) return id;
+  // Canonical fact identity universe (from facts_index built this run).
+  const validFactIds = new Set(opts.facts.map((f) => f.fact_id));
+
+  // P0-E4: identity is resolved ONLY through explicit structured keys.
+  //   1. fact_to_law_mapping[].fact_key → factKeyToId (canonical)
+  //   2. explicit fact_id echo (must exist in facts_index)
+  // No fuzzy / substring / prefix / keyword / title / filename / embedding
+  // / semantic-only resolution is permitted in the evidentiary path.
+  const resolveFactId = (row: any): string | null => {
+    if (row && typeof row === "object") {
+      const key = typeof row.fact_key === "string" ? row.fact_key.trim() : "";
+      if (key) {
+        const id = opts.factKeyToId.get(key);
+        if (id && validFactIds.has(id)) return id;
+      }
+      const explicit = typeof row.fact_id === "string" ? row.fact_id.trim() : "";
+      if (explicit && validFactIds.has(explicit)) return explicit;
     }
     return null;
   };
 
   // Collect defensible per-fact document links from structured analyzer output.
-  //   Allowed sources (per P0-E1 contract):
+  //   Allowed sources (per P0-E1/E4 contract):
   //     1. fact_to_law_mapping[].documents_used  (structured model output)
   //     2. fact_to_evidence_mapping[].document_ids / .documents[].document_id
   //     3. evidence_mapping[]... (same shape, legacy)
-  //   Filtered to allowedDocIds. No filename, title, keyword, embedding or
-  //   category inference. No all-used-documents fallback.
+  //   Filtered to allowedDocIds. Identity resolved only via fact_key / fact_id.
   const linksByFact = new Map<string, Set<string>>();
   const addLink = (factId: string | null, docId: unknown) => {
     if (!factId) return;
@@ -908,7 +931,7 @@ export function buildEvidenceMatrix(opts: {
 
   if (Array.isArray(opts.parsed.fact_to_law_mapping)) {
     for (const m of opts.parsed.fact_to_law_mapping as any[]) {
-      const factId = resolveFactId(m?.fact);
+      const factId = resolveFactId(m);
       const docs = Array.isArray(m?.documents_used) ? m.documents_used : [];
       for (const d of docs) addLink(factId, d);
     }
@@ -920,9 +943,7 @@ export function buildEvidenceMatrix(opts: {
       ? opts.parsed.evidence_mapping
       : [];
   for (const em of evidenceMappings) {
-    const factId =
-      resolveFactId(em?.fact) ??
-      (typeof em?.fact_id === "string" ? em.fact_id : null);
+    const factId = resolveFactId(em);
     const direct: unknown[] = Array.isArray(em?.document_ids) ? em.document_ids : [];
     for (const d of direct) addLink(factId, d);
     const nested: any[] = Array.isArray(em?.documents)
