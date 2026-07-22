@@ -206,39 +206,106 @@ function isKeyLaw(law: { article?: string; title?: string; code?: string }): boo
   return /(54\.1|169|171|172|252|346|45\.1|252\.1)/.test(blob) || /ст\.?\s*\d+/.test(blob);
 }
 
+/**
+ * P0-E3: DocumentContext MUST CONSUME, not RE-DERIVE, fact→document linkage.
+ *
+ * Primary (and only) evidentiary transport for fact→client-document links:
+ *   analysis.evidence_matrix[].fact_id → documents / documents_used
+ *
+ * Fact identity is resolved deterministically via analysis.facts_index
+ * (fact_id ↔ text). Analyzer output stores canonical string facts in
+ * analysis.facts[]; we match by EXACT normalized text against facts_index
+ * (or evidence_matrix.fact_text) to recover fact_id. No fuzzy overlap,
+ * no title/keyword inference, no "all used documents" fallback. Empty
+ * honest evidence is preferable to fabricated evidence.
+ *
+ * `evidence` (textual reasoning per fact) still comes from
+ * fact_to_law_mapping.reasoning / .conclusion, matched by EXACT normalized
+ * fact string (not overlap score). If no exact match, evidence is empty.
+ */
 function buildFactToEvidenceMapping(
   facts: string[],
   usedDocs: LegalAnalysisDocAudit[],
   mappings: LegalAnalysisMapping[],
   missingEvidence: string[],
+  analysis: LegalAnalysisResult,
 ): FactEvidenceLink[] {
+  // Whitelist of allowed client document UUIDs from run-level audit.
+  const allowedDocIds = new Set(usedDocs.map((d) => d.id));
+  const docTitleById = new Map(usedDocs.map((d) => [d.id, d.title]));
+
+  // Canonical fact identity: facts_index (fact_id ↔ text).
+  const factsIndex = Array.isArray(analysis.facts_index) ? analysis.facts_index : [];
+  const factIdByNormText = new Map<string, string>();
+  for (const f of factsIndex) {
+    const key = normalizeText(f.text);
+    if (key && f.fact_id) factIdByNormText.set(key, f.fact_id);
+  }
+
+  // Structured Evidence Matrix: fact_id → allowed document UUIDs.
+  const evidenceMatrix: any[] = Array.isArray((analysis as any).evidence_matrix)
+    ? ((analysis as any).evidence_matrix as any[])
+    : [];
+  const docsByFactId = new Map<string, string[]>();
+  const factIdByEmText = new Map<string, string>();
+  for (const em of evidenceMatrix) {
+    if (!em?.fact_id) continue;
+    const raw: unknown[] = Array.isArray(em.documents)
+      ? em.documents
+      : Array.isArray(em.documents_used)
+        ? em.documents_used
+        : [];
+    const ids = raw
+      .map((x) => (typeof x === "string" ? x.trim() : ""))
+      .filter((x) => x && allowedDocIds.has(x));
+    docsByFactId.set(em.fact_id, Array.from(new Set(ids)));
+    const emKey = normalizeText(em.fact_text ?? "");
+    if (emKey) factIdByEmText.set(emKey, em.fact_id);
+  }
+
+  // Exact-match reasoning per fact from fact_to_law_mapping (no overlap score).
+  const reasoningByNormFact = new Map<string, { evidence: string[]; laws: string[] }>();
+  for (const m of mappings) {
+    const key = normalizeText(m.fact ?? "");
+    if (!key) continue;
+    const bucket = reasoningByNormFact.get(key) ?? { evidence: [], laws: [] };
+    if (m.reasoning) bucket.evidence.push(m.reasoning);
+    if (m.conclusion) bucket.evidence.push(m.conclusion);
+    if (m.law) bucket.laws.push(m.law);
+    reasoningByNormFact.set(key, bucket);
+  }
+  const missingByNorm = missingEvidence.map((me) => ({
+    text: me,
+    key: normalizeText(me),
+  }));
+
+  // Silence unused-var lint: usedDocs is intentionally used only as whitelist.
+  void usedDocs;
+
   return facts.map((fact) => {
-    // Match mappings whose `fact` text overlaps with this fact
-    const linkedMappings = mappings.filter((m) => overlapScore(fact, m.fact) >= 0.25 || normalizeText(m.fact).includes(normalizeText(fact).slice(0, 40)));
-    const supporting_laws = Array.from(
-      new Set(linkedMappings.map((m) => m.law).filter(Boolean)),
-    );
-    // Match docs: title or used_for tag overlap
-    const linkedDocs = usedDocs.filter((d) => {
-      const blob = `${d.title} ${(d.used_for ?? []).join(" ")}`;
-      return overlapScore(fact, blob) >= 0.15;
-    });
-    const docs = linkedDocs.length > 0 ? linkedDocs : usedDocs; // fallback: all used docs cover the fact
-    const evidence: string[] = [];
-    for (const m of linkedMappings) {
-      if (m.reasoning) evidence.push(m.reasoning);
-      if (m.conclusion) evidence.push(m.conclusion);
+    const normFact = normalizeText(fact);
+    // Fact identity: facts_index first, then evidence_matrix fact_text.
+    const factId =
+      factIdByNormText.get(normFact) ?? factIdByEmText.get(normFact) ?? null;
+
+    // Documents: ONLY from structured Evidence Matrix for this fact_id.
+    // No fallback to all used docs, no title/keyword inference.
+    const docIds = factId ? (docsByFactId.get(factId) ?? []) : [];
+    const docTitles = docIds.map((id) => docTitleById.get(id) ?? id);
+
+    // Reasoning + laws: exact normalized fact match only.
+    const bucket = reasoningByNormFact.get(normFact) ?? { evidence: [], laws: [] };
+    const evidence: string[] = [...bucket.evidence];
+    for (const me of missingByNorm) {
+      if (me.key && me.key === normFact) evidence.push(`[gap] ${me.text}`);
     }
-    // Note known gaps for this fact
-    for (const me of missingEvidence) {
-      if (overlapScore(fact, me) >= 0.2) evidence.push(`[gap] ${me}`);
-    }
+
     return {
       fact,
-      document_ids: docs.map((d) => d.id),
-      document_titles: docs.map((d) => d.title),
+      document_ids: docIds,
+      document_titles: docTitles,
       evidence: Array.from(new Set(evidence)),
-      supporting_laws,
+      supporting_laws: Array.from(new Set(bucket.laws.filter(Boolean))),
     };
   });
 }
