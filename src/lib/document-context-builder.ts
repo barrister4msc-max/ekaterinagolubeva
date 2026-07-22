@@ -243,10 +243,10 @@ function buildFactToEvidenceMapping(
   const factIdByEmText = new Map<string, string>();
   for (const em of evidenceMatrix) {
     if (!em?.fact_id) continue;
-    const raw: unknown[] = Array.isArray(em.documents)
-      ? em.documents
-      : Array.isArray(em.documents_used)
-        ? em.documents_used
+    const raw: unknown[] = Array.isArray(em.documents_used)
+      ? em.documents_used
+      : Array.isArray(em.documents)
+        ? em.documents
         : [];
     const ids = raw
       .map((x) => (typeof x === "string" ? x.trim() : ""))
