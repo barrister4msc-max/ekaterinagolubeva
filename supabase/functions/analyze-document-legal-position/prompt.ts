@@ -176,7 +176,7 @@ ${kbBlock}
   "minfin_letters":[{"source_id":string,"used_for":string,"why_selected":string}],
   "ekaterina_practice":[{"source_id":string,"used_for":string,"why_selected":string}],
   "manuals":[{"source_id":string,"used_for":string,"why_selected":string}],
-  "fact_to_law_mapping":[{"fact":string,"law":string,"reasoning":string,"conclusion":string}],
+  "fact_to_law_mapping":[{"fact":string,"law":string,"reasoning":string,"conclusion":string,"documents_used":[string]}],
   "counter_arguments":[string],
   "weak_points":[string],
   "missing_evidence":[string],
