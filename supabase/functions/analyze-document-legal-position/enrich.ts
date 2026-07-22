@@ -865,21 +865,77 @@ export function buildEvidenceMatrix(opts: {
   const weak: string[] = Array.isArray(opts.parsed.weak_points)
     ? (opts.parsed.weak_points as unknown[]).map((x) => String(x ?? "")).filter(Boolean)
     : [];
-  const docByText = (factText: string): string[] => {
-    const out: string[] = [];
-    const lc = factText.toLowerCase();
-    for (const d of opts.documents) {
-      const tlc = (d.title ?? "").toLowerCase();
-      // crude heuristic: title token overlap
-      const tokens = lc.split(/\s+/).filter((t) => t.length > 3);
-      if (tokens.some((t) => tlc.includes(t))) out.push(d.id);
+
+  // Allowed client document UUIDs — the ONLY defensible universe for links.
+  const allowedDocIds = new Set(opts.documents.map((d) => d.id));
+
+  // Fact text (first 40 chars, lowercased) → fact_id, for matching structured
+  // analyzer output back to the canonical fact record.
+  const factByPrefix = new Map<string, string>();
+  for (const f of opts.facts) {
+    const key = f.fact_text.toLowerCase().slice(0, 40).trim();
+    if (key) factByPrefix.set(key, f.fact_id);
+  }
+  const resolveFactId = (text: unknown): string | null => {
+    if (typeof text !== "string") return null;
+    const lc = text.trim().toLowerCase();
+    if (!lc) return null;
+    // exact prefix hit
+    const direct = factByPrefix.get(lc.slice(0, 40));
+    if (direct) return direct;
+    // reverse: does any fact prefix appear in this text?
+    for (const [prefix, id] of factByPrefix.entries()) {
+      if (lc.includes(prefix)) return id;
     }
-    return out;
+    return null;
   };
+
+  // Collect defensible per-fact document links from structured analyzer output.
+  //   Allowed sources (per P0-E1 contract):
+  //     1. fact_to_law_mapping[].documents_used  (structured model output)
+  //     2. fact_to_evidence_mapping[].document_ids / .documents[].document_id
+  //     3. evidence_mapping[]... (same shape, legacy)
+  //   Filtered to allowedDocIds. No filename, title, keyword, embedding or
+  //   category inference. No all-used-documents fallback.
+  const linksByFact = new Map<string, Set<string>>();
+  const addLink = (factId: string | null, docId: unknown) => {
+    if (!factId) return;
+    const id = typeof docId === "string" ? docId.trim() : "";
+    if (!id || !allowedDocIds.has(id)) return;
+    if (!linksByFact.has(factId)) linksByFact.set(factId, new Set());
+    linksByFact.get(factId)!.add(id);
+  };
+
+  if (Array.isArray(opts.parsed.fact_to_law_mapping)) {
+    for (const m of opts.parsed.fact_to_law_mapping as any[]) {
+      const factId = resolveFactId(m?.fact);
+      const docs = Array.isArray(m?.documents_used) ? m.documents_used : [];
+      for (const d of docs) addLink(factId, d);
+    }
+  }
+
+  const evidenceMappings: any[] = Array.isArray(opts.parsed.fact_to_evidence_mapping)
+    ? opts.parsed.fact_to_evidence_mapping
+    : Array.isArray(opts.parsed.evidence_mapping)
+      ? opts.parsed.evidence_mapping
+      : [];
+  for (const em of evidenceMappings) {
+    const factId =
+      resolveFactId(em?.fact) ??
+      (typeof em?.fact_id === "string" ? em.fact_id : null);
+    const direct: unknown[] = Array.isArray(em?.document_ids) ? em.document_ids : [];
+    for (const d of direct) addLink(factId, d);
+    const nested: any[] = Array.isArray(em?.documents)
+      ? em.documents
+      : Array.isArray(em?.evidence)
+        ? em.evidence
+        : [];
+    for (const n of nested) addLink(factId, n?.document_id ?? n?.id);
+  }
 
   const out: EvidenceMatrixEntry[] = [];
   for (const f of opts.facts) {
-    const docs = docByText(f.fact_text);
+    const docs = Array.from(linksByFact.get(f.fact_id) ?? []);
     const used_in_conclusions = opts.conclusions
       .filter((c) => c.provenance.facts_used.includes(f.fact_id))
       .map((c) => c.conclusion_id);
