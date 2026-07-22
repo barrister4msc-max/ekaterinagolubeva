@@ -183,19 +183,39 @@ export function makeFactId(text: string): string {
   return "f_" + shortHash(text.trim().toLowerCase());
 }
 
-export function buildFactRecords(facts: unknown): FactRecord[] {
-  const out: FactRecord[] = [];
-  const seen = new Set<string>();
-  if (!Array.isArray(facts)) return out;
+// P0-E4: canonical fact identity contract.
+// Input may be:
+//   - new shape: [{ fact_key: string, text: string }]
+//   - legacy shape: string[]
+// Returns canonical FactRecord[] (fact_id = djb2(text)) plus keyToId map that
+// binds the model-emitted fact_key to the canonical fact_id within THIS run.
+// keyToId is used later to transport identity through fact_to_law_mapping
+// into Evidence Matrix without any text-based guessing.
+export function buildFactRecords(
+  facts: unknown,
+): { records: FactRecord[]; keyToId: Map<string, string> } {
+  const records: FactRecord[] = [];
+  const keyToId = new Map<string, string>();
+  const seenIds = new Set<string>();
+  if (!Array.isArray(facts)) return { records, keyToId };
   for (const f of facts) {
-    const t = typeof f === "string" ? f.trim() : "";
-    if (!t) continue;
-    const id = makeFactId(t);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    out.push({ fact_id: id, fact_text: t });
+    let text = "";
+    let key = "";
+    if (typeof f === "string") {
+      text = f.trim();
+    } else if (f && typeof f === "object") {
+      const rec = f as Record<string, unknown>;
+      text = typeof rec.text === "string" ? rec.text.trim() : "";
+      key = typeof rec.fact_key === "string" ? rec.fact_key.trim() : "";
+    }
+    if (!text) continue;
+    const id = makeFactId(text);
+    if (key && !keyToId.has(key)) keyToId.set(key, id);
+    if (seenIds.has(id)) continue;
+    seenIds.add(id);
+    records.push({ fact_id: id, fact_text: text });
   }
-  return out;
+  return { records, keyToId };
 }
 
 export function makeSourceRef(s: MergedSource): string {
