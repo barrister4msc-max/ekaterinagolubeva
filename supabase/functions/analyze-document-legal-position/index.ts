@@ -331,7 +331,14 @@ Deno.serve(async (req) => {
 
     // Layer 7: ENRICH — stable IDs, trust score, priority/supersede.
     let trusted = enrichSources(merged);
-    let facts = buildFactRecords(parsed.facts);
+    // P0-E4: canonical fact identity built once from parsed.facts, and the
+    // model-emitted fact_key → fact_id map is carried into Evidence Matrix.
+    const { records: factsRecords, keyToId: factKeyToId } = buildFactRecords(parsed.facts);
+    let facts = factsRecords;
+    // Normalize parsed.facts to string[] for downstream / frontend adapters
+    // that read analysis.facts as text array. Canonical identity lives in
+    // parsed.facts_index (fact_id ↔ text) written below.
+    parsed.facts = facts.map((f) => f.fact_text);
     let provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
     let sufficiency = evaluateSufficiency({
       trusted,
