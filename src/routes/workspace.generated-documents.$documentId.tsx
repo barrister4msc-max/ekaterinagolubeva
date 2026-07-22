@@ -1795,11 +1795,14 @@ function DocumentDetailPage() {
     },
   });
 
-  // Phase 7: full attachments list for Attachments tab + Evidence Matrix
-  const { data: attachmentsData } = useSessionAttachments(
-    sessionId,
-    ((latestSessionAnalysis as any)?.ai_result?.documents_audit) ?? null,
-  );
+  // Phase 7 / P0-E2: Coverage + Attachments must reflect the EXACT analysis run
+  // this generated document was built from (generated_legal_documents.metadata
+  // .legal_analysis_run_id → document_intake_ai_runs.id → ai_result.documents_audit).
+  // Never fall back to "latest analysis by session_id" when a linked run exists —
+  // that would rebind historical documents to a newer, unrelated analysis.
+  const linkedAudit =
+    (analysisRun as any)?.ai_result?.documents_audit ?? null;
+  const { data: attachmentsData } = useSessionAttachments(sessionId, linkedAudit);
   const attachments = useMemo(() => attachmentsData ?? [], [attachmentsData]);
 
   const lastAnalysisAt = latestSessionAnalysis?.created_at ?? null;
