@@ -187,18 +187,11 @@ function normalizeText(s: string | undefined | null): string {
   return (s ?? "").toLowerCase().replace(/[«»"'.,;:()\[\]]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function tokens(s: string): string[] {
-  return normalizeText(s).split(" ").filter((t) => t.length >= 4);
-}
+// NOTE (P0-E3): token/overlap-based similarity helpers were removed from the
+// evidentiary path. Fact→document linkage is now consumed exclusively from
+// analysis.evidence_matrix via canonical fact_id. Only `normalizeText` remains,
+// used for exact-string keying (facts_index lookup, missing_evidence match).
 
-function overlapScore(a: string, b: string): number {
-  const ta = new Set(tokens(a));
-  const tb = tokens(b);
-  if (ta.size === 0 || tb.length === 0) return 0;
-  let hits = 0;
-  for (const t of tb) if (ta.has(t)) hits++;
-  return hits / Math.max(ta.size, 1);
-}
 
 function isKeyLaw(law: { article?: string; title?: string; code?: string }): boolean {
   const blob = `${law.code ?? ""} ${law.article ?? ""} ${law.title ?? ""}`.toLowerCase();
