@@ -477,6 +477,7 @@ export function buildDocumentContext(analysis: LegalAnalysisResult): DocumentCon
     usedAudit,
     analysis.fact_to_law_mapping ?? [],
     analysis.missing_evidence ?? [],
+    analysis,
   );
   const generationInstructions = expandGenerationInstructions(analysis);
 
