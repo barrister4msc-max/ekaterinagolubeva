@@ -106,18 +106,46 @@ export type ProvenanceIndex = {
   document_to_conclusions: Record<string, string[]>; // document_id → [conclusion_id]
 };
 
+export type EvidenceRelation =
+  | "DIRECTLY_RECORDS"
+  | "SUPPORTS"
+  | "PARTIALLY_SUPPORTS"
+  | "MERELY_STATES"
+  | "CONTRADICTS";
+
 export type EvidenceMatrixEntry = {
   fact_id: string;
   fact_text: string;
   documents_used: string[];
+  // P0-E4.2: additive per-pair evidentiary role. Same document may appear
+  // with different relation values against different facts. `documents_used`
+  // is preserved (= document_relations.map(d => d.document_id)) so existing
+  // consumers (DocumentContext, Evidence Graph, UI) remain untouched.
+  document_relations: Array<{ document_id: string; relation: EvidenceRelation }>;
   evidence_status: "proven" | "partial" | "missing" | "contradicted";
   evidence_strength: "high" | "medium" | "low";
   missing_evidence: string[];
   contradiction_notes: string | null;
   used_in_conclusions: string[];
+  // P0-E4.2: provenance of the evidentiary link, for observability.
+  //  - "canonical"      = from fact_to_evidence_mapping (authoritative)
+  //  - "legacy_f2l"     = fell back to fact_to_law_mapping.documents_used
+  //                       (only when canonical mapping is absent — legacy runs)
+  //  - "none"           = fact was evaluated but no defensible link exists
+  evidence_source: "canonical" | "legacy_f2l" | "none";
 };
 
-export type FactRecord = { fact_id: string; fact_text: string };
+// P0-E4.2: optional per-fact semantic classification carried through from
+// the model. Only classification of the proposition itself; legal / evaluative
+// inference lives in `conclusions`, `counter_arguments`, `weak_points`, `risks`.
+export type FactClaimType =
+  | "documentary_observation"
+  | "party_assertion"
+  | "authority_finding"
+  | "objective_proposition"
+  | "relational_proposition";
+
+export type FactRecord = { fact_id: string; fact_text: string; claim_type?: FactClaimType };
 
 // ---------- hashing ---------------------------------------------------------
 
