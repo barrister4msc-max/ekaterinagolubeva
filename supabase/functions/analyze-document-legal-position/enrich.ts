@@ -768,58 +768,49 @@ export function buildConclusionsAndIndex(
     });
   };
 
-  const allLaws = extractRefs(parsed.applicable_laws, "laws", refIndex);
-  const allCourt = extractRefs(parsed.court_practice, "court_practice", refIndex);
-  const allFns = extractRefs(parsed.fns_letters, "fns_letters", refIndex);
-  const allMinfin = extractRefs(parsed.minfin_letters, "minfin_letters", refIndex);
-  const allEk = extractRefs(parsed.ekaterina_practice, "ekaterina", refIndex);
-  const allManuals = extractRefs(parsed.manuals, "manuals", refIndex);
-  const allLetters = [...allFns.refs, ...allMinfin.refs];
-  const lettersHallucinated = allFns.hallucinated || allMinfin.hallucinated;
+  // B-CONSERVATIVE: run-wide blanket attribution removed. The prior code
+  // assigned every conclusion the full run-level union of facts/documents/
+  // source refs, which manufactured precision downstream (source_warnings
+  // affected_conclusions, provenance_missing, hallucination scoping). We
+  // now emit ONLY explicit / structurally traceable provenance for each
+  // conclusion. Empty arrays mean "precise provenance not established" —
+  // NOT "no factual/legal basis". No conclusion validator is introduced
+  // here; consumers continue to fail-open on absent per-conclusion fields.
+  //
+  // extractRefs()/allLaws/allCourt/... are intentionally not computed here
+  // anymore because there is no per-conclusion structural link from the
+  // top-level parsed.applicable_laws / court_practice / letters arrays to
+  // a specific conclusion statement. Restoring a run-wide hallucination
+  // flag on every conclusion would itself be blanket attribution. Any
+  // future per-conclusion source attribution belongs to B-FULL with an
+  // explicit contract.
 
   if (parsed.legal_qualification) {
     pushConclusion("qualification", String(parsed.legal_qualification), {
-      facts: facts.map((f) => f.fact_id),
-      documents: docIds,
-      laws: allLaws.refs,
-      court: allCourt.refs,
-      letters: allLetters,
-      ekaterina: allEk.refs,
-      manuals: allManuals.refs,
       derivation: "fact→law",
-      hallucinated: allLaws.hallucinated,
     });
   }
   if (parsed.main_legal_position) {
     pushConclusion("main_position", String(parsed.main_legal_position), {
-      facts: facts.map((f) => f.fact_id),
-      documents: docIds,
-      laws: allLaws.refs,
-      court: allCourt.refs,
-      letters: allLetters,
-      ekaterina: allEk.refs,
       derivation: "fact→law",
-      hallucinated: allLaws.hallucinated || allCourt.hallucinated,
     });
   }
   if (parsed.taxpayer_position) {
     pushConclusion("client_position", String(parsed.taxpayer_position), {
-      facts: facts.map((f) => f.fact_id),
-      laws: allLaws.refs,
-      court: allCourt.refs,
       derivation: "fact→law",
     });
   }
   if (parsed.tax_authority_position) {
     pushConclusion("opponent_position", String(parsed.tax_authority_position), {
-      laws: allLaws.refs,
-      letters: allLetters,
       derivation: "law→fact",
-      hallucinated: lettersHallucinated,
     });
   }
 
-  // fact_to_law_mapping → per-row conclusion
+  // fact_to_law_mapping → per-row conclusion.
+  // matchFactIds is LEGACY / NON-CANONICAL identity reconstruction; it is
+  // preserved unchanged (P0-E4.1 canonical identity remains authoritative
+  // elsewhere). No new law/court refs are attached — the row carries only
+  // free-text m.law with no structural link to a source_ref.
   if (Array.isArray(parsed.fact_to_law_mapping)) {
     for (const m of parsed.fact_to_law_mapping as Array<{
       fact?: string;
@@ -833,8 +824,6 @@ export function buildConclusionsAndIndex(
       if (!statement) continue;
       pushConclusion("fact_to_law", statement, {
         facts: matchFactIds(m.fact),
-        laws: allLaws.refs,
-        court: allCourt.refs,
         derivation: "fact→law",
       });
     }
@@ -842,42 +831,30 @@ export function buildConclusionsAndIndex(
 
   for (const ca of (parsed.counter_arguments ?? []) as unknown[]) {
     pushConclusion("counter_argument", String(ca ?? ""), {
-      laws: allLaws.refs,
-      court: allCourt.refs,
       derivation: "law→fact",
     });
   }
   for (const wp of (parsed.weak_points ?? []) as unknown[]) {
     pushConclusion("weak_point", String(wp ?? ""), {
-      facts: facts.map((f) => f.fact_id),
-      documents: docIds,
       derivation: "ai_inference",
     });
   }
   for (const r of (parsed.risks ?? []) as Array<{ risk?: string }>) {
     pushConclusion("risk", String(r?.risk ?? ""), {
-      laws: allLaws.refs,
-      court: allCourt.refs,
-      letters: allLetters,
       derivation: "policy",
-      hallucinated: lettersHallucinated,
     });
   }
   for (const rec of (parsed.recommendations ?? []) as unknown[]) {
     pushConclusion("recommendation", String(rec ?? ""), {
-      laws: allLaws.refs,
-      court: allCourt.refs,
       derivation: "policy",
     });
   }
   for (const gi of (parsed.generation_instructions ?? []) as unknown[]) {
     pushConclusion("generation_instruction", String(gi ?? ""), {
-      laws: allLaws.refs,
-      court: allCourt.refs,
-      ekaterina: allEk.refs,
       derivation: "policy",
     });
   }
+
 
   // provenance_index
   const src2c: Record<string, string[]> = {};
@@ -1127,9 +1104,20 @@ export function buildEvidenceMatrix(opts: {
       const supporting = relations.filter(
         (r) => r.relation === "DIRECTLY_RECORDS" || r.relation === "SUPPORTS",
       ).length;
-      status = "proven";
-      strength = supporting >= 2 ? "high" : "medium";
+      if (supporting === 0) {
+        // A-CONSERVATIVE: PARTIALLY_SUPPORTS-only evidence (no
+        // DIRECTLY_RECORDS and no SUPPORTS) must NOT auto-upgrade to
+        // PROVEN. Without explicit subclaim/coverage semantics we cannot
+        // prove that a set of partial relations covers the full fact.
+        // Preserve uncertainty as PARTIAL/medium.
+        status = "partial";
+        strength = "medium";
+      } else {
+        status = "proven";
+        strength = supporting >= 2 ? "high" : "medium";
+      }
     }
+
 
     out.push({
       fact_id: f.fact_id,
