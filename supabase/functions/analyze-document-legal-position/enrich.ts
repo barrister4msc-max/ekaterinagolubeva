@@ -1127,9 +1127,20 @@ export function buildEvidenceMatrix(opts: {
       const supporting = relations.filter(
         (r) => r.relation === "DIRECTLY_RECORDS" || r.relation === "SUPPORTS",
       ).length;
-      status = "proven";
-      strength = supporting >= 2 ? "high" : "medium";
+      if (supporting === 0) {
+        // A-CONSERVATIVE: PARTIALLY_SUPPORTS-only evidence (no
+        // DIRECTLY_RECORDS and no SUPPORTS) must NOT auto-upgrade to
+        // PROVEN. Without explicit subclaim/coverage semantics we cannot
+        // prove that a set of partial relations covers the full fact.
+        // Preserve uncertainty as PARTIAL/medium.
+        status = "partial";
+        strength = "medium";
+      } else {
+        status = "proven";
+        strength = supporting >= 2 ? "high" : "medium";
+      }
     }
+
 
     out.push({
       fact_id: f.fact_id,
