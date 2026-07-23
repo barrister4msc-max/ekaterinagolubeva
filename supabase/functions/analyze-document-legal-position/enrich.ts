@@ -229,19 +229,30 @@ export function buildFactRecords(
   for (const f of facts) {
     let text = "";
     let key = "";
+    let claim: FactClaimType | undefined;
     if (typeof f === "string") {
       text = f.trim();
     } else if (f && typeof f === "object") {
       const rec = f as Record<string, unknown>;
       text = typeof rec.text === "string" ? rec.text.trim() : "";
       key = typeof rec.fact_key === "string" ? rec.fact_key.trim() : "";
+      const ct = typeof rec.claim_type === "string" ? rec.claim_type.trim() : "";
+      if (
+        ct === "documentary_observation" ||
+        ct === "party_assertion" ||
+        ct === "authority_finding" ||
+        ct === "objective_proposition" ||
+        ct === "relational_proposition"
+      ) {
+        claim = ct;
+      }
     }
     if (!text) continue;
     const id = makeFactId(text);
     if (key && !keyToId.has(key)) keyToId.set(key, id);
     if (seenIds.has(id)) continue;
     seenIds.add(id);
-    records.push({ fact_id: id, fact_text: text });
+    records.push({ fact_id: id, fact_text: text, ...(claim ? { claim_type: claim } : {}) });
   }
   return { records, keyToId };
 }
