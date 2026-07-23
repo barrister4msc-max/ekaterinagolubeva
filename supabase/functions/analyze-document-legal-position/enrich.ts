@@ -106,18 +106,46 @@ export type ProvenanceIndex = {
   document_to_conclusions: Record<string, string[]>; // document_id → [conclusion_id]
 };
 
+export type EvidenceRelation =
+  | "DIRECTLY_RECORDS"
+  | "SUPPORTS"
+  | "PARTIALLY_SUPPORTS"
+  | "MERELY_STATES"
+  | "CONTRADICTS";
+
 export type EvidenceMatrixEntry = {
   fact_id: string;
   fact_text: string;
   documents_used: string[];
+  // P0-E4.2: additive per-pair evidentiary role. Same document may appear
+  // with different relation values against different facts. `documents_used`
+  // is preserved (= document_relations.map(d => d.document_id)) so existing
+  // consumers (DocumentContext, Evidence Graph, UI) remain untouched.
+  document_relations: Array<{ document_id: string; relation: EvidenceRelation }>;
   evidence_status: "proven" | "partial" | "missing" | "contradicted";
   evidence_strength: "high" | "medium" | "low";
   missing_evidence: string[];
   contradiction_notes: string | null;
   used_in_conclusions: string[];
+  // P0-E4.2: provenance of the evidentiary link, for observability.
+  //  - "canonical"      = from fact_to_evidence_mapping (authoritative)
+  //  - "legacy_f2l"     = fell back to fact_to_law_mapping.documents_used
+  //                       (only when canonical mapping is absent — legacy runs)
+  //  - "none"           = fact was evaluated but no defensible link exists
+  evidence_source: "canonical" | "legacy_f2l" | "none";
 };
 
-export type FactRecord = { fact_id: string; fact_text: string };
+// P0-E4.2: optional per-fact semantic classification carried through from
+// the model. Only classification of the proposition itself; legal / evaluative
+// inference lives in `conclusions`, `counter_arguments`, `weak_points`, `risks`.
+export type FactClaimType =
+  | "documentary_observation"
+  | "party_assertion"
+  | "authority_finding"
+  | "objective_proposition"
+  | "relational_proposition";
+
+export type FactRecord = { fact_id: string; fact_text: string; claim_type?: FactClaimType };
 
 // ---------- hashing ---------------------------------------------------------
 
@@ -201,19 +229,30 @@ export function buildFactRecords(
   for (const f of facts) {
     let text = "";
     let key = "";
+    let claim: FactClaimType | undefined;
     if (typeof f === "string") {
       text = f.trim();
     } else if (f && typeof f === "object") {
       const rec = f as Record<string, unknown>;
       text = typeof rec.text === "string" ? rec.text.trim() : "";
       key = typeof rec.fact_key === "string" ? rec.fact_key.trim() : "";
+      const ct = typeof rec.claim_type === "string" ? rec.claim_type.trim() : "";
+      if (
+        ct === "documentary_observation" ||
+        ct === "party_assertion" ||
+        ct === "authority_finding" ||
+        ct === "objective_proposition" ||
+        ct === "relational_proposition"
+      ) {
+        claim = ct;
+      }
     }
     if (!text) continue;
     const id = makeFactId(text);
     if (key && !keyToId.has(key)) keyToId.set(key, id);
     if (seenIds.has(id)) continue;
     seenIds.add(id);
-    records.push({ fact_id: id, fact_text: text });
+    records.push({ fact_id: id, fact_text: text, ...(claim ? { claim_type: claim } : {}) });
   }
   return { records, keyToId };
 }
@@ -914,49 +953,142 @@ export function buildEvidenceMatrix(opts: {
     return null;
   };
 
-  // Collect defensible per-fact document links from structured analyzer output.
-  //   Allowed sources (per P0-E1/E4 contract):
-  //     1. fact_to_law_mapping[].documents_used  (structured model output)
-  //     2. fact_to_evidence_mapping[].document_ids / .documents[].document_id
-  //     3. evidence_mapping[]... (same shape, legacy)
-  //   Filtered to allowedDocIds. Identity resolved only via fact_key / fact_id.
-  const linksByFact = new Map<string, Set<string>>();
-  const addLink = (factId: string | null, docId: unknown) => {
+  // P0-E4.2 — ONE authoritative Fact→Evidence producer.
+  //
+  //  Authoritative source:  parsed.fact_to_evidence_mapping[]
+  //    shape: { fact_key, documents: [{ doc_id, relation }] }
+  //    - one entry per canonical fact_key (empty documents=[] is valid and
+  //      means "fact was evaluated and no defensible link was established").
+  //    - relation is proposition-specific; the same doc may appear against
+  //      different facts with different relations.
+  //
+  //  Legacy fallback (ONLY when canonical mapping is entirely absent — i.e.
+  //  historical runs and back-compat model output):
+  //    parsed.fact_to_law_mapping[].documents_used → relation = "SUPPORTS".
+  //    Never mixed with canonical output for the same run.
+  //
+  //  Legacy shapes fact_to_evidence_mapping[].document_ids /
+  //  .documents[].document_id / evidence_mapping[]... are also accepted and
+  //  count as "canonical" for provenance purposes (they carry no relation,
+  //  default to "SUPPORTS").
+  //
+  //  Forbidden inputs (per P0-E4.2 safety matrix): documents_audit.used,
+  //  document_usage.used_for, filename / title / keyword / substring / prefix
+  //  / fuzzy / embedding-only / semantic-only / all-doc fallback.
+
+  const ALLOWED_RELATIONS: ReadonlySet<EvidenceRelation> = new Set([
+    "DIRECTLY_RECORDS",
+    "SUPPORTS",
+    "PARTIALLY_SUPPORTS",
+    "MERELY_STATES",
+    "CONTRADICTS",
+  ]);
+  const normalizeRelation = (raw: unknown): EvidenceRelation | null => {
+    if (typeof raw !== "string") return null;
+    const v = raw.trim().toUpperCase();
+    return ALLOWED_RELATIONS.has(v as EvidenceRelation) ? (v as EvidenceRelation) : null;
+  };
+
+  // Canonical producer output: fact_id → (doc_id → strongest relation).
+  // Relation precedence for de-dup within one fact when the model repeats a
+  // doc_id: DIRECTLY_RECORDS > CONTRADICTS > SUPPORTS > PARTIALLY_SUPPORTS >
+  // MERELY_STATES. Higher rank wins; CONTRADICTS never silently downgrades.
+  const RELATION_RANK: Record<EvidenceRelation, number> = {
+    DIRECTLY_RECORDS: 5,
+    CONTRADICTS: 4,
+    SUPPORTS: 3,
+    PARTIALLY_SUPPORTS: 2,
+    MERELY_STATES: 1,
+  };
+  const canonicalByFact = new Map<string, Map<string, EvidenceRelation>>();
+  const addCanonical = (
+    factId: string | null,
+    docId: unknown,
+    relation: EvidenceRelation,
+  ) => {
     if (!factId) return;
     const id = typeof docId === "string" ? docId.trim() : "";
     if (!id || !allowedDocIds.has(id)) return;
-    if (!linksByFact.has(factId)) linksByFact.set(factId, new Set());
-    linksByFact.get(factId)!.add(id);
+    let m = canonicalByFact.get(factId);
+    if (!m) {
+      m = new Map();
+      canonicalByFact.set(factId, m);
+    }
+    const prev = m.get(id);
+    if (!prev || RELATION_RANK[relation] > RELATION_RANK[prev]) m.set(id, relation);
   };
 
-  if (Array.isArray(opts.parsed.fact_to_law_mapping)) {
-    for (const m of opts.parsed.fact_to_law_mapping as any[]) {
-      const factId = resolveFactId(m);
-      const docs = Array.isArray(m?.documents_used) ? m.documents_used : [];
-      for (const d of docs) addLink(factId, d);
-    }
-  }
-
-  const evidenceMappings: any[] = Array.isArray(opts.parsed.fact_to_evidence_mapping)
+  const rawCanonical: any[] = Array.isArray(opts.parsed.fact_to_evidence_mapping)
     ? opts.parsed.fact_to_evidence_mapping
     : Array.isArray(opts.parsed.evidence_mapping)
       ? opts.parsed.evidence_mapping
       : [];
-  for (const em of evidenceMappings) {
-    const factId = resolveFactId(em);
-    const direct: unknown[] = Array.isArray(em?.document_ids) ? em.document_ids : [];
-    for (const d of direct) addLink(factId, d);
-    const nested: any[] = Array.isArray(em?.documents)
-      ? em.documents
-      : Array.isArray(em?.evidence)
-        ? em.evidence
+  const canonicalFactIdsSeen = new Set<string>();
+  for (const row of rawCanonical) {
+    const factId = resolveFactId(row);
+    if (factId) canonicalFactIdsSeen.add(factId);
+    // Preferred shape: { documents: [{ doc_id, relation }] }
+    const docsField: any[] = Array.isArray(row?.documents)
+      ? row.documents
+      : Array.isArray(row?.evidence)
+        ? row.evidence
         : [];
-    for (const n of nested) addLink(factId, n?.document_id ?? n?.id);
+    for (const d of docsField) {
+      if (d && typeof d === "object") {
+        const rel = normalizeRelation(d.relation) ?? "SUPPORTS";
+        addCanonical(factId, d.doc_id ?? d.document_id ?? d.id, rel);
+      } else if (typeof d === "string") {
+        addCanonical(factId, d, "SUPPORTS");
+      }
+    }
+    // Legacy nested shape: { document_ids: [uuid, ...] } (no per-pair relation).
+    const direct: unknown[] = Array.isArray(row?.document_ids) ? row.document_ids : [];
+    for (const d of direct) addCanonical(factId, d, "SUPPORTS");
+  }
+
+  // Legacy fallback: only if the model emitted NO canonical mapping at all
+  // for this run (protects historical runs and back-compat outputs). The
+  // legacy path never overrides canonical output when both are present.
+  const canonicalPresent = rawCanonical.length > 0;
+  const legacyByFact = new Map<string, Set<string>>();
+  if (!canonicalPresent && Array.isArray(opts.parsed.fact_to_law_mapping)) {
+    for (const m of opts.parsed.fact_to_law_mapping as any[]) {
+      const factId = resolveFactId(m);
+      if (!factId) continue;
+      const docs = Array.isArray(m?.documents_used) ? m.documents_used : [];
+      for (const d of docs) {
+        const id = typeof d === "string" ? d.trim() : "";
+        if (!id || !allowedDocIds.has(id)) continue;
+        if (!legacyByFact.has(factId)) legacyByFact.set(factId, new Set());
+        legacyByFact.get(factId)!.add(id);
+      }
+    }
   }
 
   const out: EvidenceMatrixEntry[] = [];
   for (const f of opts.facts) {
-    const docs = Array.from(linksByFact.get(f.fact_id) ?? []);
+    // Emit exactly one row per canonical fact — even with empty relations —
+    // so "no defensible link" is explicit, not an omission by the producer.
+    const canonicalMap = canonicalByFact.get(f.fact_id);
+    let relations: Array<{ document_id: string; relation: EvidenceRelation }> = [];
+    let evidenceSource: EvidenceMatrixEntry["evidence_source"];
+    if (canonicalMap && canonicalMap.size > 0) {
+      relations = Array.from(canonicalMap.entries()).map(([document_id, relation]) => ({
+        document_id,
+        relation,
+      }));
+      evidenceSource = "canonical";
+    } else if (!canonicalPresent && legacyByFact.has(f.fact_id)) {
+      relations = Array.from(legacyByFact.get(f.fact_id)!).map((document_id) => ({
+        document_id,
+        relation: "SUPPORTS" as EvidenceRelation,
+      }));
+      evidenceSource = "legacy_f2l";
+    } else {
+      evidenceSource = "none";
+    }
+    const docs = relations.map((r) => r.document_id);
+
     const used_in_conclusions = opts.conclusions
       .filter((c) => c.provenance.facts_used.includes(f.fact_id))
       .map((c) => c.conclusion_id);
@@ -967,33 +1099,53 @@ export function buildEvidenceMatrix(opts: {
       w.toLowerCase().includes(f.fact_text.toLowerCase().slice(0, 24)),
     );
 
+    // Aggregate status is a separate question from per-pair relation.
+    // If ALL defensible links for this fact are CONTRADICTS, aggregate is
+    // "contradicted"; otherwise existing rules apply. document_relations is
+    // additive — legacy consumers keep reading documents_used unchanged.
+    const nonContradictSupport = relations.some(
+      (r) => r.relation !== "CONTRADICTS" && r.relation !== "MERELY_STATES",
+    );
+    const allContradict =
+      relations.length > 0 && relations.every((r) => r.relation === "CONTRADICTS");
+
     let status: EvidenceMatrixEntry["evidence_status"];
     let strength: EvidenceMatrixEntry["evidence_strength"];
-    if (missingForFact.length > 0 && docs.length === 0) {
+    if (allContradict) {
+      status = "contradicted";
+      strength = "low";
+    } else if (missingForFact.length > 0 && !nonContradictSupport) {
       status = "missing";
       strength = "low";
-    } else if (docs.length === 0) {
+    } else if (!nonContradictSupport) {
       status = "partial";
       strength = "low";
     } else if (weakForFact.length > 0) {
       status = "partial";
       strength = "medium";
     } else {
+      const supporting = relations.filter(
+        (r) => r.relation === "DIRECTLY_RECORDS" || r.relation === "SUPPORTS",
+      ).length;
       status = "proven";
-      strength = docs.length >= 2 ? "high" : "medium";
+      strength = supporting >= 2 ? "high" : "medium";
     }
 
     out.push({
       fact_id: f.fact_id,
       fact_text: f.fact_text,
       documents_used: docs,
+      document_relations: relations,
       evidence_status: status,
       evidence_strength: strength,
       missing_evidence: missingForFact,
       contradiction_notes: null,
       used_in_conclusions,
+      evidence_source: evidenceSource,
     });
   }
+  // Silence unused-var lint from earlier canonical fact-id bookkeeping.
+  void canonicalFactIdsSeen;
   return out;
 }
 
