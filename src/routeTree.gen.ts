@@ -56,6 +56,7 @@ import { Route as WorkspaceDashboardRouteImport } from './routes/workspace.dashb
 import { Route as WorkspaceCrmRouteImport } from './routes/workspace.crm'
 import { Route as WorkspaceArchiveRouteImport } from './routes/workspace.archive'
 import { Route as WorkspaceAiPodborRouteImport } from './routes/workspace.ai-podbor'
+import { Route as PrivateAccessSecretRouteImport } from './routes/private-access.$secret'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as AdminReviewsRouteImport } from './routes/admin.reviews'
 import { Route as WorkspaceMatterMatterIdRouteImport } from './routes/workspace.matter.$matterId'
@@ -303,6 +304,11 @@ const WorkspaceAiPodborRoute = WorkspaceAiPodborRouteImport.update({
   path: '/ai-podbor',
   getParentRoute: () => WorkspaceRoute,
 } as any)
+const PrivateAccessSecretRoute = PrivateAccessSecretRouteImport.update({
+  id: '/private-access/$secret',
+  path: '/private-access/$secret',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -389,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/private-access/$secret': typeof PrivateAccessSecretRoute
   '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/archive': typeof WorkspaceArchiveRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
@@ -447,6 +454,7 @@ export interface FileRoutesByTo {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/private-access/$secret': typeof PrivateAccessSecretRoute
   '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/archive': typeof WorkspaceArchiveRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
@@ -506,6 +514,7 @@ export interface FileRoutesById {
   '/workspace': typeof WorkspaceRouteWithChildren
   '/admin/reviews': typeof AdminReviewsRoute
   '/api/chat': typeof ApiChatRoute
+  '/private-access/$secret': typeof PrivateAccessSecretRoute
   '/workspace/ai-podbor': typeof WorkspaceAiPodborRoute
   '/workspace/archive': typeof WorkspaceArchiveRoute
   '/workspace/crm': typeof WorkspaceCrmRoute
@@ -566,6 +575,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/private-access/$secret'
     | '/workspace/ai-podbor'
     | '/workspace/archive'
     | '/workspace/crm'
@@ -624,6 +634,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/private-access/$secret'
     | '/workspace/ai-podbor'
     | '/workspace/archive'
     | '/workspace/crm'
@@ -682,6 +693,7 @@ export interface FileRouteTypes {
     | '/workspace'
     | '/admin/reviews'
     | '/api/chat'
+    | '/private-access/$secret'
     | '/workspace/ai-podbor'
     | '/workspace/archive'
     | '/workspace/crm'
@@ -740,6 +752,7 @@ export interface RootRouteChildren {
   VzyskanieZadolzhennostiRoute: typeof VzyskanieZadolzhennostiRoute
   WorkspaceRoute: typeof WorkspaceRouteWithChildren
   ApiChatRoute: typeof ApiChatRoute
+  PrivateAccessSecretRoute: typeof PrivateAccessSecretRoute
   ApiPublicWebhooksTelegramRoute: typeof ApiPublicWebhooksTelegramRoute
 }
 
@@ -1074,6 +1087,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAiPodborRouteImport
       parentRoute: typeof WorkspaceRoute
     }
+    '/private-access/$secret': {
+      id: '/private-access/$secret'
+      path: '/private-access/$secret'
+      fullPath: '/private-access/$secret'
+      preLoaderRoute: typeof PrivateAccessSecretRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -1279,18 +1299,9 @@ const rootRouteChildren: RootRouteChildren = {
   VzyskanieZadolzhennostiRoute: VzyskanieZadolzhennostiRoute,
   WorkspaceRoute: WorkspaceRouteWithChildren,
   ApiChatRoute: ApiChatRoute,
+  PrivateAccessSecretRoute: PrivateAccessSecretRoute,
   ApiPublicWebhooksTelegramRoute: ApiPublicWebhooksTelegramRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
