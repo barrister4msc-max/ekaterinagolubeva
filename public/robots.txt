@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /private-access/
+Disallow: /workspace/
 Host: legalpracticelife.ru
 Sitemap: https://legalpracticelife.ru/sitemap.xml
