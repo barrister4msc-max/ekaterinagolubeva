@@ -1,6 +1,7 @@
 export * from "./constants.ts";
 export * from "./errors.ts";
 export * from "./feature-flags.ts";
+export * from "./projection-builder.ts";
 export * from "./result.ts";
 export * from "./relation-validator.ts";
 export * from "./source-identity.ts";
