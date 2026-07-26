@@ -5,6 +5,13 @@ entities and their directed relations, an opt-in feature flag, and deterministic
 serialization. It deliberately performs no producer, generator, reviewer, database, or
 other runtime integration.
 
+## Relation validation
+
+`isCanonicalRelation` performs shallow structural validation only. Relation kinds remain
+open strings, and empty strings and additional properties are accepted. It performs no
+normalization, resolution, referential-integrity checks, mutation, sorting,
+deduplication, persistence, or runtime wiring.
+
 ## Usage claims
 
 `extractUsageClaims` projects source-reference strings from each conclusion's
