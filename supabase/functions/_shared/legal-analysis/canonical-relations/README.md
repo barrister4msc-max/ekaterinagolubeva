@@ -5,6 +5,14 @@ entities and their directed relations, an opt-in feature flag, and deterministic
 serialization. It deliberately performs no producer, generator, reviewer, database, or
 other runtime integration.
 
+## Structured analysis result
+
+`createStructuredAnalysisResult` is a pure contract constructor for pairing an exact
+legacy analysis snapshot with a `CanonicalRelationSet`. Callers must supply the schema
+version, identifiers, and timestamp. The constructor creates fresh top-level, legacy,
+and canonical containers while preserving all nested value references; it performs no
+generation, validation, deep cloning, persistence, or runtime wiring.
+
 ## Feature flag
 
 `CANONICAL_RELATIONS_ENABLED` is disabled unless its trimmed, case-insensitive value is
