@@ -14,6 +14,16 @@ and source ID. It preserves conclusion, category, and source order (including re
 references) and performs no ID generation, validation, deduplication, sorting,
 persistence, or runtime wiring.
 
+## Source identity
+
+`UsageClaim.sourceId` semantically contains a trusted source's `source_ref`.
+`resolveSourceIdentity` compares those values using exact, case-sensitive equality only;
+it performs no normalization or fallback matching. Unresolved claims return `undefined`,
+and duplicate `source_ref` values resolve to the first entry in input array order.
+
+The helper is infrastructure only and is not wired into Producer, Generator, Reviewer,
+database, frontend, or other runtime behavior.
+
 ## Structured analysis result
 
 `createStructuredAnalysisResult` is a pure contract constructor for pairing an exact
