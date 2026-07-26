@@ -13,3 +13,5 @@ export interface CanonicalRelation {
   readonly targetEntityId: CanonicalEntityId;
   readonly kind: CanonicalRelationKind;
 }
+
+export type CanonicalRelationSet = readonly CanonicalRelation[];
