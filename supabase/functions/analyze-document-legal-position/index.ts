@@ -34,6 +34,10 @@ import {
 import { runChallenge } from "./challenge.ts";
 import { readCanonicalRelationsFeatureFlags } from "../_shared/legal-analysis/canonical-relations/index.ts";
 import { computeCanonicalRelationsShadow } from "./canonical-shadow.ts";
+import {
+  buildCanonicalShadowPersistenceRecord,
+  persistCanonicalShadowBestEffort,
+} from "./canonical-shadow-persistence.ts";
 
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
@@ -506,7 +510,7 @@ Deno.serve(async (req) => {
       challengeResult.status !== "passed" ||
       sufficiency.status !== "sufficient";
 
-    computeCanonicalRelationsShadow({
+    const canonicalShadowResult = computeCanonicalRelationsShadow({
       enabled: canonicalRelationsEnabled,
       conclusions: parsed.conclusions,
       trustedSources: trusted,
@@ -536,6 +540,24 @@ Deno.serve(async (req) => {
       })
       .eq("id", runId);
     if (updErr) throw new Error(`update_run: ${updErr.message}`);
+
+    const canonicalShadowRecord = buildCanonicalShadowPersistenceRecord({
+      analysisRunId: runId,
+      analysisVersion: parsed.analysis_version,
+      result: canonicalShadowResult,
+      shadowEnabled: canonicalRelationsEnabled,
+    });
+    await persistCanonicalShadowBestEffort({
+      client: {
+        async insertCanonicalShadow(record) {
+          const { error } = await sb
+            .from("document_intake_canonical_shadow_runs")
+            .insert(record as any);
+          return { error };
+        },
+      },
+      record: canonicalShadowRecord,
+    });
 
     return json({ success: true, run_id: runId, analysis: parsed, metrics });
   } catch (e) {
