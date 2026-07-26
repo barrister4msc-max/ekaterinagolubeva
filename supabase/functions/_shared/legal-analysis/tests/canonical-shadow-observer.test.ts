@@ -5,6 +5,8 @@ import {
   type ObserveCanonicalShadowParityInput,
 } from "../canonical-shadow-observer.ts";
 import type { CanonicalShadowReadClient } from "../canonical-shadow-reader.ts";
+import type { CanonicalConsumerObservationRecord } from "../canonical-consumer-observation-persistence.ts";
+import type { CanonicalConsumerObservationSupabaseClient } from "../canonical-shadow-observer.ts";
 
 const relation = (targetEntityId = "secret-source") => ({
   sourceEntityId: "secret-conclusion",
@@ -25,8 +27,12 @@ const validRow = () => ({
 
 function readClient(result: { data: unknown; error?: unknown }) {
   let reads = 0;
-  const client: CanonicalShadowReadClient = {
-    from: () => ({
+  const inserts: CanonicalConsumerObservationRecord[] = [];
+  let insertError: unknown;
+  const client = {
+    from: (table: string) => table === "document_intake_canonical_consumer_observations" ? ({
+      insert: async (record: CanonicalConsumerObservationRecord) => { inserts.push(record); return { error: insertError }; },
+    }) : ({
       select: () => ({
         eq: () => ({
           maybeSingle: async () => {
@@ -36,8 +42,8 @@ function readClient(result: { data: unknown; error?: unknown }) {
         }),
       }),
     }),
-  };
-  return { client, reads: () => reads };
+  } as unknown as CanonicalShadowReadClient & CanonicalConsumerObservationSupabaseClient;
+  return { client, reads: () => reads, inserts, failInsert: (error: unknown) => { insertError = error; } };
 }
 
 function recordingLogger() {
@@ -51,7 +57,7 @@ function recordingLogger() {
 }
 
 function input(
-  client: CanonicalShadowReadClient,
+  client: CanonicalShadowReadClient & CanonicalConsumerObservationSupabaseClient,
   logger: CanonicalShadowObserverLogger,
   overrides: Partial<ObserveCanonicalShadowParityInput> = {},
 ): ObserveCanonicalShadowParityInput {
@@ -89,6 +95,7 @@ describe("observeCanonicalShadowParity", () => {
       ),
     ).toBeUndefined();
     expect(database.reads()).toBe(0);
+    expect(database.inserts).toHaveLength(0);
     expect(log.info).toHaveLength(0);
     expect(log.warn).toHaveLength(0);
   });
@@ -105,8 +112,10 @@ describe("observeCanonicalShadowParity", () => {
     const database = readClient(result);
     const log = recordingLogger();
     await observeCanonicalShadowParity(input(database.client, log.logger));
-    expect(log.info).toHaveLength(0);
-    expect(log.warn).toEqual([
+    expect(database.inserts).toHaveLength(1);
+    expect(database.inserts[0]).toMatchObject({ outcome: "fallback", fallback_reason: reason });
+    expect(log.info).toHaveLength(1);
+    expect(log.warn).toContainEqual(
       [
         "[canonical-relations-consumer] fallback",
         {
@@ -116,7 +125,7 @@ describe("observeCanonicalShadowParity", () => {
           fallback_reason: reason,
         },
       ],
-    ]);
+    );
   });
 
   test("valid parity emits only approved aggregate fields and returns no canonical data", async () => {
@@ -125,8 +134,10 @@ describe("observeCanonicalShadowParity", () => {
     const result = await observeCanonicalShadowParity(input(database.client, log.logger));
     expect(result).toBeUndefined();
     expect(log.warn).toHaveLength(0);
-    expect(log.info).toHaveLength(1);
-    expect(log.info[0]).toEqual([
+    expect(database.inserts).toHaveLength(1);
+    expect(database.inserts[0]).toMatchObject({ outcome: "match", identity_equality: true, per_conclusion_equality: true });
+    expect(log.info).toHaveLength(2);
+    expect(log.info[1]).toEqual([
       "[canonical-relations-consumer] parity",
       {
         analysis_run_id: "run-1",
@@ -151,8 +162,18 @@ describe("observeCanonicalShadowParity", () => {
     const database = readClient({ data: { ...validRow(), relations: [relation("other-source")] } });
     const log = recordingLogger();
     await observeCanonicalShadowParity(input(database.client, log.logger));
-    expect(log.info).toHaveLength(1);
-    expect(log.info[0][1].outcome).toBe("mismatch");
+    expect(database.inserts[0].outcome).toBe("mismatch");
+    expect(database.inserts[0].mismatch_reasons.length).toBeGreaterThan(0);
+    expect(log.info[1][1].outcome).toBe("mismatch");
+  });
+
+  test("persistence failure is subordinate and preserves parity logging", async () => {
+    const database = readClient({ data: validRow() }); database.failInsert({ message: "secret db" });
+    const log = recordingLogger();
+    expect(await observeCanonicalShadowParity(input(database.client, log.logger))).toBeUndefined();
+    expect(log.warn[0][0]).toBe("[canonical-relations-consumer] observation_persistence_failed");
+    expect(log.info.some(([message]) => message === "[canonical-relations-consumer] parity")).toBeTrue();
+    expect(JSON.stringify(log)).not.toContain("secret db");
   });
 
   test("hostile parity getters and throwing loggers are isolated and never throw", async () => {
@@ -188,5 +209,8 @@ describe("observeCanonicalShadowParity", () => {
     expect(generator).not.toContain("readCanonicalShadow");
     expect(generator).not.toContain("compareCanonicalShadowParity");
     expect(generator).not.toContain("[canonical-relations-consumer]");
+    expect(generator).not.toContain("document_intake_canonical_consumer_observations");
+    expect(generator).not.toContain("buildCanonicalConsumer");
+    expect(generator).not.toContain("persistCanonicalConsumerObservation");
   });
 });
