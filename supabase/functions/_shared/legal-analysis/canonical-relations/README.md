@@ -5,6 +5,15 @@ entities and their directed relations, an opt-in feature flag, and deterministic
 serialization. It deliberately performs no producer, generator, reviewer, database, or
 other runtime integration.
 
+## Usage claims
+
+`extractUsageClaims` projects source-reference strings from each conclusion's
+`provenance.laws_used`, `court_practice_used`, `letters_used`, `ekaterina_used`, and
+`manuals_used` arrays, in that order, into a flat list containing the conclusion index
+and source ID. It preserves conclusion, category, and source order (including repeated
+references) and performs no ID generation, validation, deduplication, sorting,
+persistence, or runtime wiring.
+
 ## Structured analysis result
 
 `createStructuredAnalysisResult` is a pure contract constructor for pairing an exact
