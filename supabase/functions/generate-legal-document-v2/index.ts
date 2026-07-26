@@ -4,6 +4,10 @@ import {
   getGenerationProfile,
   renderTemplateProfileBlock,
 } from "./template-profiles.ts";
+import {
+  canonicalConsumerObservationEnabled,
+  observeCanonicalShadowParity,
+} from "../_shared/legal-analysis/canonical-shadow-observer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,6 +102,19 @@ const legalAnalysisForGeneration = legalAnalysisObject
     if (!geminiKey) throw new Error("GEMINI_API_KEY is missing");
 
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    await observeCanonicalShadowParity({
+      enabled: canonicalConsumerObservationEnabled((name) => Deno.env.get(name)),
+      client: supabase,
+      analysisRunId: legal_analysis_run_id,
+      expectedAnalysisVersion: legalAnalysisObject?.analysis_version,
+      conclusions: Array.isArray(legalAnalysisObject?.conclusions)
+        ? legalAnalysisObject.conclusions
+        : [],
+      trustedSources: Array.isArray(legalAnalysisObject?.trusted_sources)
+        ? legalAnalysisObject.trusted_sources
+        : [],
+    });
 
     const requiresLocalLawyerReview = ["CY", "Cyprus", "IL", "Israel", "GE", "Georgia"].includes(
       String(jurisdiction),
