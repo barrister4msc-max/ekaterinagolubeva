@@ -4,6 +4,12 @@ import {
   type CanonicalShadowReadClient,
 } from "./canonical-shadow-reader.ts";
 import { compareCanonicalShadowParity } from "./canonical-shadow-parity.ts";
+import {
+  buildCanonicalConsumerFallbackObservation,
+  buildCanonicalConsumerParityObservation,
+  persistCanonicalConsumerObservationBestEffort,
+  type CanonicalConsumerObservationRecord,
+} from "./canonical-consumer-observation-persistence.ts";
 
 export { canonicalConsumerObservationEnabled };
 
@@ -14,12 +20,18 @@ export interface CanonicalShadowObserverLogger {
 
 export interface ObserveCanonicalShadowParityInput {
   readonly enabled: boolean;
-  readonly client: CanonicalShadowReadClient;
+  readonly client: CanonicalShadowReadClient & CanonicalConsumerObservationSupabaseClient;
   readonly analysisRunId: unknown;
   readonly expectedAnalysisVersion: unknown;
   readonly conclusions: readonly unknown[];
   readonly trustedSources: readonly unknown[];
   readonly logger?: CanonicalShadowObserverLogger;
+}
+
+export interface CanonicalConsumerObservationSupabaseClient {
+  from(table: "document_intake_canonical_consumer_observations"): {
+    insert(record: CanonicalConsumerObservationRecord): Promise<{ readonly error?: unknown }>;
+  };
 }
 
 const defaultLogger: CanonicalShadowObserverLogger = {
@@ -42,6 +54,18 @@ export async function observeCanonicalShadowParity(
     });
 
     if (!shadow.usable) {
+      await persistCanonicalConsumerObservationBestEffort({
+        client: {
+          insertCanonicalConsumerObservation: (record) =>
+            input.client.from("document_intake_canonical_consumer_observations").insert(record),
+        },
+        record: buildCanonicalConsumerFallbackObservation({
+          analysisRunId: input.analysisRunId,
+          analysisVersion: input.expectedAnalysisVersion,
+          fallbackReason: shadow.reason,
+        }),
+        logger,
+      });
       logger.warn("[canonical-relations-consumer] fallback", {
         analysis_run_id: input.analysisRunId,
         analysis_version: input.expectedAnalysisVersion,
@@ -55,6 +79,22 @@ export async function observeCanonicalShadowParity(
       conclusions: input.conclusions,
       trustedSources: input.trustedSources,
       canonicalRelations: shadow.row.relations,
+    });
+    await persistCanonicalConsumerObservationBestEffort({
+      client: {
+        insertCanonicalConsumerObservation: (record) =>
+          input.client.from("document_intake_canonical_consumer_observations").insert(record),
+      },
+      record: buildCanonicalConsumerParityObservation({
+        analysisRunId: shadow.row.analysis_run_id,
+        analysisVersion: shadow.row.analysis_version,
+        schemaVersion: shadow.row.schema_version,
+        claimCount: shadow.row.claim_count,
+        relationCount: shadow.row.relation_count,
+        uniqueRelationCount: shadow.row.unique_relation_count,
+        parity,
+      }),
+      logger,
     });
     logger.info("[canonical-relations-consumer] parity", {
       analysis_run_id: shadow.row.analysis_run_id,
