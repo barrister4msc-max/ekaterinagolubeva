@@ -32,6 +32,8 @@ import {
   decideGeneration,
 } from "./enrich.ts";
 import { runChallenge } from "./challenge.ts";
+import { readCanonicalRelationsFeatureFlags } from "../_shared/legal-analysis/canonical-relations/index.ts";
+import { computeCanonicalRelationsShadow } from "./canonical-shadow.ts";
 
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
@@ -96,6 +98,9 @@ Deno.serve(async (req) => {
 
   const sessionId: string | undefined = body?.session_id;
   if (!sessionId) return json({ error: "session_id required" }, 400);
+
+  const canonicalRelationsEnabled =
+    readCanonicalRelationsFeatureFlags().enabled;
 
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
@@ -500,6 +505,12 @@ Deno.serve(async (req) => {
       metrics.needs_lawyer_review ||
       challengeResult.status !== "passed" ||
       sufficiency.status !== "sufficient";
+
+    computeCanonicalRelationsShadow({
+      enabled: canonicalRelationsEnabled,
+      conclusions: parsed.conclusions,
+      trustedSources: trusted,
+    });
 
     const { error: updErr } = await sb
       .from("document_intake_ai_runs")
