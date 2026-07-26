@@ -31,6 +31,17 @@ and duplicate `source_ref` values resolve to the first entry in input array orde
 The helper is infrastructure only and is not wired into Producer, Generator, Reviewer,
 database, frontend, or other runtime behavior.
 
+## Usage-claim projection
+
+`projectUsageClaims` consumes already-extracted `UsageClaim` records and projects each
+valid, resolved claim from `conclusion_id` to the resolved `source_ref`, using the fixed
+relation kind `"uses-source"`. It preserves resolved claim order and duplicates. Invalid
+conclusion references and unresolved source identities are skipped, and `supportLevel`
+is ignored.
+
+The helper performs no normalization, ID generation, diagnostics, mutation, sorting,
+deduplication, persistence, or runtime wiring.
+
 ## Structured analysis result
 
 `createStructuredAnalysisResult` is a pure contract constructor for pairing an exact
