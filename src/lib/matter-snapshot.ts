@@ -38,6 +38,8 @@ export type MatterSnapshot = {
   source_sufficiency: LegalAnalysisSourceSufficiency | null;
   challenge_result: LegalAnalysisChallengeResult | null;
   conclusions: LegalAnalysisConclusion[];
+  generation_conclusions: LegalAnalysisConclusion[];
+  blocked_conclusions: LegalAnalysisConclusion[];
   provenance_index: LegalAnalysisProvenanceIndex | null;
   evidence_matrix: LegalAnalysisEvidenceMatrix;
   risks: LegalAnalysisResult["risks"];
@@ -50,7 +52,7 @@ export type MatterSnapshot = {
   source_warnings: LegalAnalysisSourceWarning[];
   external_search_required: boolean;
   external_search_reason: string | null;
-    generation_allowed: LegalAnalysisGenerationDecision;
+  generation_allowed: LegalAnalysisGenerationDecision;
   quality_gate_preview: QualityGatePreview;
 
   case_intelligence_version?: number;
@@ -93,9 +95,9 @@ export function buildMatterSnapshotFromRun(
 ): MatterSnapshot {
   const a: LegalAnalysisResult | null = run.analysis;
   const matrix =
-  (run as any)?.metadata?.case_intelligence_matrix ??
-  (a as any)?.case_intelligence_matrix ??
-  null;
+    (run as any)?.metadata?.case_intelligence_matrix ??
+    (a as any)?.case_intelligence_matrix ??
+    null;
   const audit = a?.documents_audit;
   const docs: Array<{ id: string; title: string; used: boolean }> = [];
   for (const d of audit?.used ?? []) docs.push({ id: d.id, title: d.title, used: true });
@@ -113,6 +115,20 @@ export function buildMatterSnapshotFromRun(
     source_sufficiency: a?.source_sufficiency ?? null,
     challenge_result: a?.challenge_result ?? null,
     conclusions: a?.conclusions ?? [],
+    generation_conclusions:
+      a?.generation_conclusions ??
+      (a?.conclusions ?? []).filter(
+        (conclusion) =>
+          conclusion.provenance?.use_in_generation !== false &&
+          conclusion.provenance?.needs_source !== true,
+      ),
+    blocked_conclusions:
+      a?.blocked_conclusions ??
+      (a?.conclusions ?? []).filter(
+        (conclusion) =>
+          conclusion.provenance?.use_in_generation === false ||
+          conclusion.provenance?.needs_source === true,
+      ),
     provenance_index: a?.provenance_index ?? null,
     evidence_matrix: a?.evidence_matrix ?? [],
     risks: a?.risks ?? [],
@@ -124,7 +140,7 @@ export function buildMatterSnapshotFromRun(
     source_warnings: a?.source_warnings ?? [],
     external_search_required: Boolean(a?.external_search_required),
     external_search_reason: a?.external_search_reason ?? null,
-        generation_allowed: a?.generation_allowed ?? defaultGenerationDecision(),
+    generation_allowed: a?.generation_allowed ?? defaultGenerationDecision(),
     quality_gate_preview: previewQualityGate(run),
 
     case_intelligence_version: matrix?.version ?? 1,
@@ -142,15 +158,11 @@ export function buildMatterSnapshotFromRun(
         : 0,
     strongest_arguments: matrix?.generation_context?.strongest_arguments ?? [],
     weakest_arguments: matrix?.generation_context?.weakest_arguments ?? [],
-    missing_before_generation:
-      matrix?.generation_context?.missing_before_generation ?? [],
+    missing_before_generation: matrix?.generation_context?.missing_before_generation ?? [],
   };
 }
 
-
-export async function buildMatterSnapshot(
-  sessionId: string,
-): Promise<MatterSnapshot | null> {
+export async function buildMatterSnapshot(sessionId: string): Promise<MatterSnapshot | null> {
   const run = await fetchLatestLegalAnalysis(sessionId);
   if (!run) return null;
   return buildMatterSnapshotFromRun(sessionId, run);
@@ -161,9 +173,7 @@ export async function buildMatterSnapshot(
 async function sha256(input: string): Promise<string> {
   const buf = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", buf);
-  return [...new Uint8Array(digest)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export type SessionSignals = {
@@ -204,9 +214,17 @@ export async function computeSessionSignals(sessionId: string): Promise<SessionS
   });
   const redactionSig = docsSorted.map((d: any) => {
     const meta = (d.metadata ?? {}) as Record<string, unknown>;
-    return [d.id, meta.redaction_status ?? null, typeof meta.redacted_text === "string" ? (meta.redacted_text as string).length : 0];
+    return [
+      d.id,
+      meta.redaction_status ?? null,
+      typeof meta.redacted_text === "string" ? (meta.redacted_text as string).length : 0,
+    ];
   });
-  const ocrSig = docsSorted.map((d: any) => [d.id, (d.ocr_status as string | null) ?? null, ((d.ocr_text as string | null) ?? "").length]);
+  const ocrSig = docsSorted.map((d: any) => [
+    d.id,
+    (d.ocr_status as string | null) ?? null,
+    ((d.ocr_text as string | null) ?? "").length,
+  ]);
 
   const [answers_hash, documents_hash, redaction_hash, ocr_hash] = await Promise.all([
     sha256(JSON.stringify(sortedAnswers)),

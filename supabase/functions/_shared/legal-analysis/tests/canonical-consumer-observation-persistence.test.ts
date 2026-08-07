@@ -21,7 +21,7 @@ const parityRecord = (value: unknown = parity()) => buildCanonicalConsumerParity
 describe("canonical consumer observation builders", () => {
   test("fallback maps identifiers, reason, and the required empty shape", () => {
     const record = buildCanonicalConsumerFallbackObservation({ analysisRunId: "run-1", analysisVersion: 3, fallbackReason: "missing" });
-    expect(record).toMatchObject({ analysis_run_id: "run-1", analysis_version: 3, schema_version: null, observer_version: 1, outcome: "fallback", fallback_reason: "missing", mismatch_reasons: [] });
+    expect(record).toMatchObject({ analysis_run_id: "run-1", analysis_version: 3, schema_version: null, observer_version: 2, outcome: "fallback", fallback_reason: "missing", mismatch_reasons: [] });
     for (const [key, value] of Object.entries(record))
       if (key.endsWith("_count") || key.endsWith("_equality")) expect(value).toBeNull();
   });
@@ -57,13 +57,13 @@ describe("best-effort observation persistence", () => {
     const record = Object.freeze(parityRecord()); let calls = 0; const logs: unknown[] = [];
     const result = await persistCanonicalConsumerObservationBestEffort({ client: { insertCanonicalConsumerObservation: async (received) => { calls++; expect(received).toBe(record); return {}; } }, record, logger: { info: (...args) => logs.push(args), warn: () => {} } });
     expect(result).toBe("persisted"); expect(calls).toBe(1);
-    expect(logs).toEqual([["[canonical-relations-consumer] observation_persisted", { analysis_run_id: "run-1", outcome: "match", observer_version: 1 }]]);
+    expect(logs).toEqual([["[canonical-relations-consumer] observation_persisted", { analysis_run_id: "run-1", outcome: "match", observer_version: 2 }]]);
   });
   test.each(["returned", "thrown"])("%s insert failure is swallowed without retry or raw error text", async (kind) => {
     let calls = 0; const logs: unknown[] = [];
     const result = await persistCanonicalConsumerObservationBestEffort({ client: { insertCanonicalConsumerObservation: async () => { calls++; if (kind === "thrown") throw new Error("raw secret"); return { error: "raw database secret" }; } }, record: parityRecord(), logger: { info: () => {}, warn: (...args) => logs.push(args) } });
     expect(result).toBe("failed"); expect(calls).toBe(1);
-    expect(logs).toEqual([["[canonical-relations-consumer] observation_persistence_failed", { analysis_run_id: "run-1", outcome: "match", observer_version: 1, error_code: "insert_failed" }]]);
+    expect(logs).toEqual([["[canonical-relations-consumer] observation_persistence_failed", { analysis_run_id: "run-1", outcome: "match", observer_version: 2, error_code: "insert_failed" }]]);
     expect(JSON.stringify(logs)).not.toContain("secret");
   });
   test("throwing success and failure loggers are swallowed", async () => {

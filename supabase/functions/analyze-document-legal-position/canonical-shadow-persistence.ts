@@ -1,11 +1,12 @@
 import {
-  isCanonicalRelation,
-  type CanonicalRelation,
+  CANONICAL_SHADOW_SCHEMA_VERSION,
+  canonicalUsageRelationKey,
+  isCanonicalUsageRelation,
   type CanonicalRelationSet,
 } from "../_shared/legal-analysis/canonical-relations/index.ts";
 import type { CanonicalShadowResult } from "./canonical-shadow.ts";
 
-export const CANONICAL_SHADOW_PERSISTENCE_SCHEMA_VERSION = 1;
+export const CANONICAL_SHADOW_PERSISTENCE_SCHEMA_VERSION = CANONICAL_SHADOW_SCHEMA_VERSION;
 
 export type CanonicalShadowPersistenceStatus = "succeeded" | "projection_failed";
 export type CanonicalShadowPersistenceErrorCode = "projection_failed";
@@ -56,10 +57,6 @@ function isNonNegativeInteger(value: unknown): value is number {
   );
 }
 
-function exactTupleKey(relation: CanonicalRelation): string {
-  return JSON.stringify([relation.sourceEntityId, relation.targetEntityId, relation.kind]);
-}
-
 export function buildCanonicalShadowPersistenceRecord(
   input: BuildCanonicalShadowPersistenceRecordInput,
 ): CanonicalShadowPersistenceRecord | undefined {
@@ -88,12 +85,12 @@ export function buildCanonicalShadowPersistenceRecord(
       !Array.isArray(relations) ||
       relationCount !== relations.length ||
       relationCount > claimCount ||
-      !relations.every(isCanonicalRelation)
+      !relations.every(isCanonicalUsageRelation)
     ) {
       return failed();
     }
 
-    const uniqueRelationCount = new Set(relations.map(exactTupleKey)).size;
+    const uniqueRelationCount = new Set(relations.map(canonicalUsageRelationKey)).size;
     return {
       analysis_run_id: input.analysisRunId,
       analysis_version: input.analysisVersion,

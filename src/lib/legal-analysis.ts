@@ -61,12 +61,7 @@ export type LegalAnalysisDocAudit = {
   used: boolean;
   used_for?: string[];
   reason?:
-    | "no_ocr"
-    | "text_too_short"
-    | "archive_zip"
-    | "technical_file"
-    | "duplicate"
-    | "irrelevant";
+    "no_ocr" | "text_too_short" | "archive_zip" | "technical_file" | "duplicate" | "irrelevant";
 };
 
 export type LegalResearchQuery = {
@@ -82,14 +77,20 @@ export type LegalResearchQuery = {
   keywords: string[];
 };
 
-
 export type LegalAnalysisResult = {
   facts: string[];
   legal_qualification: string;
   main_legal_position: string;
   tax_authority_position: string;
   taxpayer_position: string;
-  applicable_laws: Array<LegalAnalysisLaw & { source_id?: string; why_selected?: string; used_for?: string; official_url?: string | null }>;
+  applicable_laws: Array<
+    LegalAnalysisLaw & {
+      source_id?: string;
+      why_selected?: string;
+      used_for?: string;
+      official_url?: string | null;
+    }
+  >;
   fact_to_law_mapping: LegalAnalysisMapping[];
   alternative_positions: string[];
   rejected_laws: Array<{ law: string; reason: string }>;
@@ -98,16 +99,47 @@ export type LegalAnalysisResult = {
   weak_points: string[];
   missing_evidence: string[];
   risks: LegalAnalysisRisk[];
-  court_practice: Array<{ case?: string; court?: string; date?: string; conclusion?: string; url?: string; source_id?: string; why_selected?: string; used_for?: string }>;
+  court_practice: Array<{
+    case?: string;
+    court?: string;
+    date?: string;
+    conclusion?: string;
+    url?: string;
+    source_id?: string;
+    why_selected?: string;
+    used_for?: string;
+  }>;
   rejected_court_practice?: Array<{ case: string; reason: string }>;
-  fns_letters: Array<{ number?: string; date?: string; topic?: string; url?: string; source_id?: string; used_for?: string }>;
-  minfin_letters: Array<{ number?: string; date?: string; topic?: string; url?: string; source_id?: string; used_for?: string }>;
-  ekaterina_practice: Array<{ case?: string; year?: string; outcome?: string; title?: string; source_id?: string; used_for?: string }>;
+  fns_letters: Array<{
+    number?: string;
+    date?: string;
+    topic?: string;
+    url?: string;
+    source_id?: string;
+    used_for?: string;
+  }>;
+  minfin_letters: Array<{
+    number?: string;
+    date?: string;
+    topic?: string;
+    url?: string;
+    source_id?: string;
+    used_for?: string;
+  }>;
+  ekaterina_practice: Array<{
+    case?: string;
+    year?: string;
+    outcome?: string;
+    title?: string;
+    source_id?: string;
+    used_for?: string;
+  }>;
   manuals?: Array<{ source_id?: string; title?: string; used_for?: string }>;
   sources: LegalAnalysisSource[];
   source_actuality: LegalAnalysisActuality[];
   recommendations?: string[];
   generation_instructions: string[];
+  conclusion_source_links?: Array<{ conclusion_key: string; source_ids: string[] }>;
   documents_audit?: { used: LegalAnalysisDocAudit[]; rejected: LegalAnalysisDocAudit[] };
   research_summary?: Record<string, number>;
   research_query?: LegalResearchQuery;
@@ -116,6 +148,8 @@ export type LegalAnalysisResult = {
   facts_index?: LegalAnalysisFactRecord[];
   trusted_sources?: LegalAnalysisTrustedSource[];
   conclusions?: LegalAnalysisConclusion[];
+  generation_conclusions?: LegalAnalysisConclusion[];
+  blocked_conclusions?: LegalAnalysisConclusion[];
   provenance_index?: LegalAnalysisProvenanceIndex;
   evidence_matrix?: LegalAnalysisEvidenceMatrix;
   source_sufficiency?: LegalAnalysisSourceSufficiency;
@@ -165,7 +199,8 @@ export async function saveLawyerStrategyOverride(
     .maybeSingle();
   if (error) throw error;
   const current = (data?.ai_result as Record<string, unknown> | null) ?? {};
-  const prevOverride = (current.lawyer_strategy_override as LegalAnalysisLawyerStrategyOverride | null) ?? null;
+  const prevOverride =
+    (current.lawyer_strategy_override as LegalAnalysisLawyerStrategyOverride | null) ?? null;
   const prevHistory = Array.isArray(current.lawyer_strategy_history)
     ? (current.lawyer_strategy_history as LegalAnalysisLawyerStrategyHistoryEntry[])
     : [];
@@ -188,9 +223,6 @@ export async function saveLawyerStrategyOverride(
     .eq("id", runId);
   if (upErr) throw upErr;
 }
-
-
-
 
 export type LegalAnalysisFactRecord = {
   fact_id: string;
@@ -241,7 +273,6 @@ export type LegalAnalysisGenerationDecision = {
   reasons: string[];
 };
 
-
 export type LegalAnalysisConclusionProvenance = {
   facts_used: string[];
   documents_used: string[];
@@ -261,6 +292,12 @@ export type LegalAnalysisConclusionProvenance = {
   reviewed_by_challenge: boolean;
   hallucinated_source: boolean;
   provenance_missing: boolean;
+  // Optional for backward compatibility with analysis runs created before
+  // the deterministic conclusion quality gate.
+  support_level?: "strong" | "partial" | "unsupported";
+  needs_source?: boolean;
+  use_in_generation?: boolean;
+  unsupported_reason?: string | null;
 };
 
 export type LegalAnalysisConclusion = {
@@ -312,7 +349,6 @@ export type LegalAnalysisHashes = {
   ocr_hash?: string;
 };
 
-
 export type LegalAnalysisRun = {
   id: string;
   session_id: string;
@@ -328,11 +364,163 @@ export type LegalAnalysisRun = {
   analysis: LegalAnalysisResult | null;
 };
 const STOPWORDS = new Set([
-  "и","в","во","не","что","он","на","я","с","со","как","а","то","все","она","так","его","но","да","ты","к","у","же","вы","за","бы","по","только","ее","мне","было","вот","от","меня","еще","нет","о","из","ему","теперь","когда","даже","ну","вдруг","ли","если","уже","или","ни","быть","был","него","до","вас","нибудь","опять","уж","вам","ведь","там","потом","себя","ничего","ей","может","они","тут","где","есть","надо","ней","для","мы","тебя","их","чем","была","сам","чтоб","без","будто","чего","раз","тоже","себе","под","будет","ж","тогда","кто","этот","того","потому","этого","какой","совсем","ним","здесь","этом","один","почти","мой","тем","чтобы","нее","сейчас","были","куда","зачем","всех","никогда","можно","при","наконец","два","об","другой","хоть","после","над","больше","тот","через","эти","нас","про","всего","них","какая","много","разве","три","эту","моя","впрочем","хорошо","свою","этой","перед","иногда","лучше","чуть","том","нельзя","такой","им","более","всегда","конечно","всю","между"
+  "и",
+  "в",
+  "во",
+  "не",
+  "что",
+  "он",
+  "на",
+  "я",
+  "с",
+  "со",
+  "как",
+  "а",
+  "то",
+  "все",
+  "она",
+  "так",
+  "его",
+  "но",
+  "да",
+  "ты",
+  "к",
+  "у",
+  "же",
+  "вы",
+  "за",
+  "бы",
+  "по",
+  "только",
+  "ее",
+  "мне",
+  "было",
+  "вот",
+  "от",
+  "меня",
+  "еще",
+  "нет",
+  "о",
+  "из",
+  "ему",
+  "теперь",
+  "когда",
+  "даже",
+  "ну",
+  "вдруг",
+  "ли",
+  "если",
+  "уже",
+  "или",
+  "ни",
+  "быть",
+  "был",
+  "него",
+  "до",
+  "вас",
+  "нибудь",
+  "опять",
+  "уж",
+  "вам",
+  "ведь",
+  "там",
+  "потом",
+  "себя",
+  "ничего",
+  "ей",
+  "может",
+  "они",
+  "тут",
+  "где",
+  "есть",
+  "надо",
+  "ней",
+  "для",
+  "мы",
+  "тебя",
+  "их",
+  "чем",
+  "была",
+  "сам",
+  "чтоб",
+  "без",
+  "будто",
+  "чего",
+  "раз",
+  "тоже",
+  "себе",
+  "под",
+  "будет",
+  "ж",
+  "тогда",
+  "кто",
+  "этот",
+  "того",
+  "потому",
+  "этого",
+  "какой",
+  "совсем",
+  "ним",
+  "здесь",
+  "этом",
+  "один",
+  "почти",
+  "мой",
+  "тем",
+  "чтобы",
+  "нее",
+  "сейчас",
+  "были",
+  "куда",
+  "зачем",
+  "всех",
+  "никогда",
+  "можно",
+  "при",
+  "наконец",
+  "два",
+  "об",
+  "другой",
+  "хоть",
+  "после",
+  "над",
+  "больше",
+  "тот",
+  "через",
+  "эти",
+  "нас",
+  "про",
+  "всего",
+  "них",
+  "какая",
+  "много",
+  "разве",
+  "три",
+  "эту",
+  "моя",
+  "впрочем",
+  "хорошо",
+  "свою",
+  "этой",
+  "перед",
+  "иногда",
+  "лучше",
+  "чуть",
+  "том",
+  "нельзя",
+  "такой",
+  "им",
+  "более",
+  "всегда",
+  "конечно",
+  "всю",
+  "между",
 ]);
 function tokenize(s: string): Set<string> {
   const out = new Set<string>();
-  for (const raw of String(s ?? "").toLowerCase().split(/[^\p{L}\p{N}]+/u)) {
+  for (const raw of String(s ?? "")
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)) {
     if (raw.length < 4) continue;
     if (STOPWORDS.has(raw)) continue;
     out.add(raw);
@@ -380,7 +568,11 @@ function normalizeArgumentMap(a: any): void {
   for (const e of evidenceMatrix) {
     if (!e?.fact_id || seenIds.has(e.fact_id)) continue;
     seenIds.add(e.fact_id);
-    factCatalog.push({ id: e.fact_id, text: String(e.fact_text ?? ""), tokens: tokenize(e.fact_text ?? "") });
+    factCatalog.push({
+      id: e.fact_id,
+      text: String(e.fact_text ?? ""),
+      tokens: tokenize(e.fact_text ?? ""),
+    });
   }
   // Fallback synthetic entries from raw facts / mapping if we still have no catalog.
   if (factCatalog.length === 0) {
@@ -497,7 +689,6 @@ function mapLegalAnalysisRunRow(data: any): LegalAnalysisRun {
   };
 }
 
-
 export async function fetchLegalAnalysisRunById(
   runId: string,
   sessionId?: string,
@@ -589,7 +780,7 @@ export async function fetchLatestLegalAnalysis(
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-    return mapLegalAnalysisRunRow(data);
+  return mapLegalAnalysisRunRow(data);
 }
 
 export async function hasSessionDocumentsWithText(sessionId: string): Promise<boolean> {

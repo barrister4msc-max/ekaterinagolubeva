@@ -9,12 +9,7 @@ export type DocAuditEntry = {
   used: boolean;
   used_for?: string[];
   reason?:
-    | "no_ocr"
-    | "text_too_short"
-    | "archive_zip"
-    | "technical_file"
-    | "duplicate"
-    | "irrelevant";
+    "no_ocr" | "text_too_short" | "archive_zip" | "technical_file" | "duplicate" | "irrelevant";
 };
 
 const ALLOWED_USED_FOR = new Set([
@@ -51,7 +46,10 @@ export function safeParseGeminiJson(raw: string): unknown {
   // Remove ```json ... ``` or ``` ... ``` fences
   const fence = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence?.[1]) cleaned = fence[1].trim();
-  cleaned = cleaned.replace(/^```(?:json)?/i, "").replace(/```$/g, "").trim();
+  cleaned = cleaned
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/g, "")
+    .trim();
 
   if (!(cleaned.startsWith("{") || cleaned.startsWith("["))) {
     const firstObj = cleaned.indexOf("{");
@@ -98,22 +96,36 @@ export function mergeWithRegistry(
         official_url: reg.official_url,
         url: reg.official_url ?? item.url,
         verification_status: reg.official_url ? "needs_check" : "missing_url",
-        actuality_status: reg.official_url ? "requires_actuality_check" : "requires_manual_verification",
+        actuality_status: reg.official_url
+          ? "requires_actuality_check"
+          : "requires_manual_verification",
       };
     });
 
-  parsed.applicable_laws    = enrich(parsed.applicable_laws);
-  parsed.court_practice     = enrich(parsed.court_practice);
-  parsed.fns_letters        = enrich(parsed.fns_letters);
-  parsed.minfin_letters     = enrich(parsed.minfin_letters);
+  parsed.applicable_laws = enrich(parsed.applicable_laws);
+  parsed.court_practice = enrich(parsed.court_practice);
+  parsed.fns_letters = enrich(parsed.fns_letters);
+  parsed.minfin_letters = enrich(parsed.minfin_letters);
   parsed.ekaterina_practice = enrich(parsed.ekaterina_practice);
-  parsed.manuals            = enrich(parsed.manuals);
+  parsed.manuals = enrich(parsed.manuals);
 
   const used = new Set<string>();
   for (const arr of [
-    parsed.applicable_laws, parsed.court_practice, parsed.fns_letters,
-    parsed.minfin_letters,  parsed.ekaterina_practice, parsed.manuals,
-  ]) for (const i of arr ?? []) if (i?.source_id) used.add(i.source_id);
+    parsed.applicable_laws,
+    parsed.court_practice,
+    parsed.fns_letters,
+    parsed.minfin_letters,
+    parsed.ekaterina_practice,
+    parsed.manuals,
+  ])
+    for (const i of arr ?? []) if (i?.source_id) used.add(i.source_id);
+  for (const link of Array.isArray(parsed.conclusion_source_links)
+    ? parsed.conclusion_source_links
+    : []) {
+    for (const sourceId of Array.isArray(link?.source_ids) ? link.source_ids : []) {
+      if (typeof sourceId === "string" && sourceId.trim()) used.add(sourceId.trim());
+    }
+  }
 
   const combined: Array<Record<string, unknown>> = [];
   const actuality: Array<{ source: string; status: string; note?: string }> = [];
@@ -132,7 +144,9 @@ export function mergeWithRegistry(
       url: r.official_url,
       citation: r.citation,
       verification_status: r.official_url ? "needs_check" : "missing_url",
-      actuality_status: r.official_url ? "requires_actuality_check" : "requires_manual_verification",
+      actuality_status: r.official_url
+        ? "requires_actuality_check"
+        : "requires_manual_verification",
       scores: r.scores,
       appearances: r.appearances,
       merged_from: r.merged_from,
@@ -155,8 +169,9 @@ export function applyDocumentUsage(
   const map = new Map<string, string[]>();
   for (const u of modelUsage ?? []) {
     if (!u?.doc_id) continue;
-    const labels = (u.used_for ?? [])
-      .filter((x) => typeof x === "string" && ALLOWED_USED_FOR.has(x));
+    const labels = (u.used_for ?? []).filter(
+      (x) => typeof x === "string" && ALLOWED_USED_FOR.has(x),
+    );
     map.set(u.doc_id, labels);
   }
   return {

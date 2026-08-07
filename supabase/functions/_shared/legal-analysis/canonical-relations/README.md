@@ -12,6 +12,11 @@ open strings, and empty strings and additional properties are accepted. It perfo
 normalization, resolution, referential-integrity checks, mutation, sorting,
 deduplication, persistence, or runtime wiring.
 
+The schema-v2 consumer path uses the separate `validateCanonicalUsageRelations`
+validator. It accepts only non-blank `conclusion_id -> source_ref` endpoints with the
+fixed `uses-source` kind and checks both endpoints against the exact generator-facing
+scope. It preserves relation order and duplicates and fails closed on any invalid row.
+
 ## Usage claims
 
 `extractUsageClaims` projects source-reference strings from each conclusion's
@@ -25,8 +30,9 @@ persistence, or runtime wiring.
 
 `UsageClaim.sourceId` semantically contains a trusted source's `source_ref`.
 `resolveSourceIdentity` compares those values using exact, case-sensitive equality only;
-it performs no normalization or fallback matching. Unresolved claims return `undefined`,
-and duplicate `source_ref` values resolve to the first entry in input array order.
+it performs no normalization or fallback matching. Unresolved claims return `undefined`.
+`projectUsageClaims` rejects an invalid, blank, or duplicate `source_ref` before
+projection, so duplicate identity never depends on input array order.
 
 The helper is infrastructure only and is not wired into Producer, Generator, Reviewer,
 database, frontend, or other runtime behavior.

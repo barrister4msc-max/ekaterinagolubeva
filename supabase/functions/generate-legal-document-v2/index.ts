@@ -8,6 +8,7 @@ import {
   canonicalConsumerObservationEnabled,
   observeCanonicalShadowParity,
 } from "../_shared/legal-analysis/canonical-shadow-observer.ts";
+import { selectConclusionSets } from "./conclusion-contract.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -53,29 +54,8 @@ const hasDocumentContext =
     ? (legal_analysis as Record<string, any>)
     : null;
 
-const generationConclusions = Array.isArray(
-  legalAnalysisObject?.generation_conclusions,
-)
-  ? legalAnalysisObject.generation_conclusions
-  : Array.isArray(legalAnalysisObject?.conclusions)
-    ? legalAnalysisObject.conclusions.filter(
-        (c: any) =>
-          c?.provenance?.use_in_generation !== false &&
-          c?.provenance?.needs_source !== true,
-      )
-    : [];
-
-const blockedConclusions = Array.isArray(
-  legalAnalysisObject?.blocked_conclusions,
-)
-  ? legalAnalysisObject.blocked_conclusions
-  : Array.isArray(legalAnalysisObject?.conclusions)
-    ? legalAnalysisObject.conclusions.filter(
-        (c: any) =>
-          c?.provenance?.use_in_generation === false ||
-          c?.provenance?.needs_source === true,
-      )
-    : [];
+const { generationConclusions, blockedConclusions } =
+  selectConclusionSets(legalAnalysisObject);
 
 const legalAnalysisForGeneration = legalAnalysisObject
   ? {
@@ -108,9 +88,7 @@ const legalAnalysisForGeneration = legalAnalysisObject
       client: supabase,
       analysisRunId: legal_analysis_run_id,
       expectedAnalysisVersion: legalAnalysisObject?.analysis_version,
-      conclusions: Array.isArray(legalAnalysisObject?.conclusions)
-        ? legalAnalysisObject.conclusions
-        : [],
+      conclusions: generationConclusions,
       trustedSources: Array.isArray(legalAnalysisObject?.trusted_sources)
         ? legalAnalysisObject.trusted_sources
         : [],

@@ -141,20 +141,14 @@ test.each([
   ).toEqual([]);
 });
 
-test("preserves whitespace-only conclusion IDs without prefixes or normalization", () => {
+test("skips whitespace-only conclusion IDs", () => {
   expect(
     projectUsageClaims({
       claims: [{ conclusionIndex: 0, sourceId: "law:first" }],
       conclusions: [{ conclusion_id: "   " }],
       trustedSources,
     }),
-  ).toEqual([
-    {
-      sourceEntityId: "   ",
-      targetEntityId: "law:first",
-      kind: "uses-source",
-    },
-  ]);
+  ).toEqual([]);
 });
 
 test("never substitutes an array position or generates a missing conclusion ID", () => {
@@ -192,25 +186,24 @@ test("additional source fields do not affect projection", () => {
   ]);
 });
 
-test("duplicate source refs retain first-match resolver behavior", () => {
-  const first = { source_ref: "law:first", marker: "first" };
-  const second = { source_ref: "law:first", marker: "second" };
-  const sources = new Proxy([first, second], {
-    get(target, property, receiver) {
-      if (property === "1") {
-        throw new Error("the resolver should stop at the first match");
-      }
-      return Reflect.get(target, property, receiver);
-    },
-  });
-
-  expect(
+test("duplicate source refs fail closed instead of depending on array order", () => {
+  expect(() =>
     projectUsageClaims({
       claims: [{ conclusionIndex: 0, sourceId: "law:first" }],
       conclusions,
-      trustedSources: sources,
+      trustedSources: [{ source_ref: "law:first" }, { source_ref: "law:first" }],
     }),
-  ).toHaveLength(1);
+  ).toThrow("invalid_or_duplicate_source_ref");
+});
+
+test.each(["", "   "])("invalid source_ref %p fails closed", (sourceRef) => {
+  expect(() =>
+    projectUsageClaims({
+      claims: [],
+      conclusions,
+      trustedSources: [{ source_ref: sourceRef }],
+    }),
+  ).toThrow("invalid_or_duplicate_source_ref");
 });
 
 test("ignores supportLevel and emits only canonical relation fields", () => {
