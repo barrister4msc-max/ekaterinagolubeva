@@ -121,7 +121,7 @@ export function ProvenanceExplorer({ snapshot }: { snapshot: ProvenanceSnapshotI
 
   const factTextById = useMemo(() => {
     const m = new Map<string, string>();
-    for (const f of factsIndex) m.set(f.fact_id, f.text);
+    for (const f of factsIndex) m.set(f.fact_id, f.fact_text);
     for (const e of evidenceMatrix) if (!m.has(e.fact_id)) m.set(e.fact_id, e.fact_text);
     return m;
   }, [factsIndex, evidenceMatrix]);
@@ -510,7 +510,7 @@ function FactsMode({
     if (evidenceMatrix.length > 0) return evidenceMatrix;
     return factsIndex.map((f) => ({
       fact_id: f.fact_id,
-      fact_text: f.text,
+      fact_text: f.fact_text,
       documents: [] as string[],
       conclusions: factToConclusions[f.fact_id] ?? [],
       evidence_status: "missing" as const,

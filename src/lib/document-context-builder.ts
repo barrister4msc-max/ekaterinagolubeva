@@ -231,7 +231,7 @@ function buildFactToEvidenceMapping(
   const factsIndex = Array.isArray(analysis.facts_index) ? analysis.facts_index : [];
   const factIdByNormText = new Map<string, string>();
   for (const f of factsIndex) {
-    const key = normalizeText(f.text);
+    const key = normalizeText(f.fact_text);
     if (key && f.fact_id) factIdByNormText.set(key, f.fact_id);
   }
 

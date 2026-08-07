@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { describe, expect, test } from "bun:test";
 import { normalizeLegalAnalysisResult, type LegalAnalysisResult } from "./legal-analysis";
 
