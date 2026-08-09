@@ -41,6 +41,14 @@ export async function getTemplateByCode(code: string): Promise<DocumentTemplate 
   return (data as DocumentTemplate) ?? null;
 }
 
+export async function resolveTemplateForSession(
+  activeTemplates: DocumentTemplate[],
+  code: string,
+  lookupByCode: (templateCode: string) => Promise<DocumentTemplate | null> = getTemplateByCode,
+): Promise<DocumentTemplate | null> {
+  return activeTemplates.find((template) => template.code === code) ?? lookupByCode(code);
+}
+
 export async function getTemplatesByCategory(category: string): Promise<DocumentTemplate[]> {
   const { data, error } = await supabase
     .from(TABLE)
