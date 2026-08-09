@@ -1,5 +1,5 @@
-/// <reference types="bun" />
-import { describe, expect, test } from "bun:test";
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
 import { normalizeLegalAnalysisResult, type LegalAnalysisResult } from "./legal-analysis";
 
 function analysis(overrides: Record<string, unknown> = {}): LegalAnalysisResult {
@@ -24,10 +24,10 @@ describe("normalizeLegalAnalysisResult", () => {
       argument_map: [argument],
     });
     normalizeLegalAnalysisResult(value);
-    expect((value as any).argument_map[0]).toEqual(argument);
-    expect((value as any).argument_map[0].facts_used).toBeUndefined();
-    expect((value as any).argument_map[0].documents_used).toBeUndefined();
-    expect((value as any).argument_map[0].sources_used).toBeUndefined();
+    assert.deepEqual((value as any).argument_map[0], argument);
+    assert.equal((value as any).argument_map[0].facts_used, undefined);
+    assert.equal((value as any).argument_map[0].documents_used, undefined);
+    assert.equal((value as any).argument_map[0].sources_used, undefined);
   });
 
   test("preserves explicit source_ref and never substitutes source_id", () => {
@@ -36,14 +36,14 @@ describe("normalizeLegalAnalysisResult", () => {
       trusted_sources: [{ source_id: "uuid-1", source_ref: "law:nk:54.1", title: "НК РФ" }],
     });
     normalizeLegalAnalysisResult(value);
-    expect((value as any).argument_map[0].sources_used).toEqual(["law:nk:54.1"]);
-    expect((value as any).argument_map[0].sources_used).not.toContain("uuid-1");
+    assert.deepEqual((value as any).argument_map[0].sources_used, ["law:nk:54.1"]);
+    assert.equal((value as any).argument_map[0].sources_used.includes("uuid-1"), false);
   });
 
   test("normalizes legacy text to canonical fact_text", () => {
     const value = analysis({ facts_index: [{ fact_id: "fact-1", text: "Старый формат" }] });
     normalizeLegalAnalysisResult(value);
-    expect(value.facts_index).toEqual([{ fact_id: "fact-1", fact_text: "Старый формат" }]);
-    expect(value.facts_index?.[0]).not.toHaveProperty("text");
+    assert.deepEqual(value.facts_index, [{ fact_id: "fact-1", fact_text: "Старый формат" }]);
+    assert.equal("text" in value.facts_index![0], false);
   });
 });
