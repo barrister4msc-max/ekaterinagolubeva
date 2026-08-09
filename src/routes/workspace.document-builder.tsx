@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText, AlertCircle, Sparkles, ShieldCheck, HelpCircle } from "lucide-react";
 import {
   getTemplates,
+  resolveTemplateForSession,
   CATEGORY_LABELS,
   PRACTICE_AREA_LABELS,
   JURISDICTION_LABELS,
@@ -52,6 +53,7 @@ function DocumentBuilderPage() {
   const [generated, setGenerated] = useState<GeneratedDocumentResult | null>(null);
   const [restoredSessionId, setRestoredSessionId] = useState<string | null>(null);
   const [sessionRestoring, setSessionRestoring] = useState(false);
+  const [restoredTemplate, setRestoredTemplate] = useState<DocumentTemplate | null>(null);
 
   const { data: templates = [], isLoading, error } = useQuery({
     queryKey: ["document-templates"],
@@ -120,11 +122,13 @@ function DocumentBuilderPage() {
           return;
         }
 
-        const template = templates.find((t) => t.code === session.template_code);
+        const template = await resolveTemplateForSession(templates, session.template_code);
         if (!template) {
           toast.error("Шаблон опросника недоступен");
           return;
         }
+
+        if (!template.is_active) setRestoredTemplate(template);
 
         const answers = await loadIntakeAnswers(session.id);
         if (cancelled) return;
@@ -196,8 +200,10 @@ function DocumentBuilderPage() {
   const navigate = useNavigate();
 
     const selected = useMemo(
-    () => sortedTemplates.find((t) => t.code === selectedCode) ?? null,
-    [sortedTemplates, selectedCode],
+    () =>
+      sortedTemplates.find((t) => t.code === selectedCode) ??
+      (restoredTemplate?.code === selectedCode ? restoredTemplate : null),
+    [sortedTemplates, selectedCode, restoredTemplate],
   );
 
   // initialize / reset intake state when entering step 3
@@ -241,6 +247,7 @@ function DocumentBuilderPage() {
     setCategory("");
     setComplexity("");
     setSelectedCode("");
+    setRestoredTemplate(null);
     setIntake(null);
     setSubmitted(false);
     setSubmitError(null);
