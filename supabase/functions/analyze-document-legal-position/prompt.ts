@@ -74,7 +74,9 @@ function bucketBlock(label: string, src: MergedSource[]): string {
 }
 
 function docBlock(d: DocSummary): string {
-  const facts = d.key_facts.length ? d.key_facts.map((f) => `    - ${shortSnippet(f, 200)}`).join("\n") : "    (нет)";
+  const facts = d.key_facts.length
+    ? d.key_facts.map((f) => `    - ${shortSnippet(f, 200)}`).join("\n")
+    : "    (нет)";
   return (
     `- doc_id=${d.id} | type=${d.doc_type} | status=${d.status} | ocr_length=${d.ocr_length}\n` +
     `  title: ${d.title}\n` +
@@ -107,7 +109,10 @@ export function buildPrompt(input: {
     .map((b) => bucketBlock(LABELS[b], byBucket(b)))
     .join("\n\n");
 
-  const docIds = input.documents.filter((d) => d.status === "used").map((d) => d.id).join(", ");
+  const docIds = input.documents
+    .filter((d) => d.status === "used")
+    .map((d) => d.id)
+    .join(", ");
 
   // Compact query (drop empty fields) to keep prompt small.
   const compactQuery: Record<string, unknown> = {};
@@ -177,7 +182,11 @@ ${kbBlock}
    Один и тот же документ МОЖЕТ иметь разное relation относительно разных fact_key.
 6. document_usage: для КАЖДОГО doc_id из [${docIds}] верни массив used_for из закрытого набора
    ["facts","legal_qualification","taxpayer_position","court_practice","risks","recommendations","generation"]. Это РОЛЬ документа в анализе, а НЕ доказательственная связь с конкретным фактом.
-7. Никаких комментариев, markdown, trailing commas. Только один валидный JSON.
+7. conclusion_source_links — ЕДИНСТВЕННЫЙ авторитетный контракт Вывод→Юридический источник. Верни РОВНО ОДНУ запись для КАЖДОГО непустого юридического вывода. source_ids — ТОЛЬКО source_id из секции ИСТОЧНИКИ; пустой массив предпочтительнее ложной ссылки. Каждый source_id также включи в соответствующий массив applicable_laws/court_practice/fns_letters/minfin_letters/ekaterina_practice/manuals. conclusion_key задаётся строго так:
+   - legal_qualification, main_legal_position, taxpayer_position, tax_authority_position;
+   - fact_to_law:<fact_key>, например fact_to_law:F1;
+   - counter_argument:<индекс>, weak_point:<индекс>, risk:<индекс>, recommendation:<индекс>, generation_instruction:<индекс>, где индекс начинается с 0 и совпадает с позицией элемента в соответствующем массиве.
+8. Никаких комментариев, markdown, trailing commas. Только один валидный JSON.
 
 ФОРМАТ ОТВЕТА — ТОЛЬКО ЭТИ ПОЛЯ, БЕЗ ЛИШНИХ:
 {
@@ -200,6 +209,7 @@ ${kbBlock}
   "risks":[{"risk":string,"severity":"low|medium|high","mitigation":string}],
   "recommendations":[string],
   "generation_instructions":[string],
+  "conclusion_source_links":[{"conclusion_key":string,"source_ids":[string]}],
   "adverse_practice":[{"source_id":string,"why_against":string}],
   "rebuttal_strategy":[string],
   "source_sufficiency":{"status":"sufficient|partial|insufficient_critical","gaps":[string],"rationale":string},

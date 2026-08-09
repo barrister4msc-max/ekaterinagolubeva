@@ -1,6 +1,7 @@
 import type { CanonicalShadowParityResult } from "./canonical-shadow-parity.ts";
+import { CANONICAL_CONSUMER_OBSERVER_VERSION } from "./canonical-relations/index.ts";
 
-export const CANONICAL_CONSUMER_OBSERVER_VERSION = 1;
+export { CANONICAL_CONSUMER_OBSERVER_VERSION };
 
 export type CanonicalConsumerObservationOutcome = "match" | "mismatch" | "fallback";
 

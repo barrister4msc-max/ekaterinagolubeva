@@ -19,6 +19,18 @@ export interface UsageClaimProjectionInput<
 export function projectUsageClaims<T extends TrustedSourceIdentity = TrustedSourceIdentity>(
   input: UsageClaimProjectionInput<T>,
 ): CanonicalRelationSet {
+  const sourceRefs = new Set<string>();
+  for (const source of input.trustedSources) {
+    if (
+      typeof source?.source_ref !== "string" ||
+      source.source_ref.trim().length === 0 ||
+      sourceRefs.has(source.source_ref)
+    ) {
+      throw new Error("invalid_or_duplicate_source_ref");
+    }
+    sourceRefs.add(source.source_ref);
+  }
+
   const relations: CanonicalRelation[] = [];
 
   for (const claim of input.claims) {
@@ -42,7 +54,10 @@ export function projectUsageClaims<T extends TrustedSourceIdentity = TrustedSour
 
     const conclusion = rawConclusion as ConclusionIdentity;
 
-    if (typeof conclusion.conclusion_id !== "string" || conclusion.conclusion_id === "") {
+    if (
+      typeof conclusion.conclusion_id !== "string" ||
+      conclusion.conclusion_id.trim().length === 0
+    ) {
       continue;
     }
 

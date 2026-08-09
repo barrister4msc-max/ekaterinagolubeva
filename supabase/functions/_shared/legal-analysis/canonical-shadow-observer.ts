@@ -34,6 +34,46 @@ export interface CanonicalConsumerObservationSupabaseClient {
   };
 }
 
+function buildRelationScope(
+  conclusions: readonly unknown[],
+  trustedSources: readonly unknown[],
+):
+  | {
+      readonly eligibleConclusionIds: ReadonlySet<string>;
+      readonly trustedSourceRefs: ReadonlySet<string>;
+    }
+  | undefined {
+  const eligibleConclusionIds = new Set<string>();
+  for (const value of conclusions) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+    const conclusionId = (value as Record<string, unknown>).conclusion_id;
+    if (
+      typeof conclusionId !== "string" ||
+      conclusionId.trim().length === 0 ||
+      eligibleConclusionIds.has(conclusionId)
+    ) {
+      return undefined;
+    }
+    eligibleConclusionIds.add(conclusionId);
+  }
+
+  const trustedSourceRefs = new Set<string>();
+  for (const value of trustedSources) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+    const sourceRef = (value as Record<string, unknown>).source_ref;
+    if (
+      typeof sourceRef !== "string" ||
+      sourceRef.trim().length === 0 ||
+      trustedSourceRefs.has(sourceRef)
+    ) {
+      return undefined;
+    }
+    trustedSourceRefs.add(sourceRef);
+  }
+
+  return { eligibleConclusionIds, trustedSourceRefs };
+}
+
 const defaultLogger: CanonicalShadowObserverLogger = {
   info: (message, details) => console.info(message, details),
   warn: (message, details) => console.warn(message, details),
@@ -47,10 +87,33 @@ export async function observeCanonicalShadowParity(
     if (!input.enabled) return;
 
     const logger = input.logger ?? defaultLogger;
+    const relationScope = buildRelationScope(input.conclusions, input.trustedSources);
+    if (relationScope === undefined) {
+      await persistCanonicalConsumerObservationBestEffort({
+        client: {
+          insertCanonicalConsumerObservation: (record) =>
+            input.client.from("document_intake_canonical_consumer_observations").insert(record),
+        },
+        record: buildCanonicalConsumerFallbackObservation({
+          analysisRunId: input.analysisRunId,
+          analysisVersion: input.expectedAnalysisVersion,
+          fallbackReason: "invalid_scope",
+        }),
+        logger,
+      });
+      logger.warn("[canonical-relations-consumer] fallback", {
+        analysis_run_id: input.analysisRunId,
+        analysis_version: input.expectedAnalysisVersion,
+        outcome: "fallback",
+        fallback_reason: "invalid_scope",
+      });
+      return;
+    }
     const shadow = await readCanonicalShadow({
       client: input.client,
       analysisRunId: input.analysisRunId,
       expectedAnalysisVersion: input.expectedAnalysisVersion,
+      ...relationScope,
     });
 
     if (!shadow.usable) {

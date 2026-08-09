@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { isCanonicalRelation } from "../index.ts";
+import {
+  canonicalUsageRelationKey,
+  isCanonicalRelation,
+  isCanonicalUsageRelation,
+  validateCanonicalUsageRelations,
+} from "../index.ts";
 
 test("accepts a minimal valid relation", () => {
   expect(
@@ -43,24 +48,25 @@ test("accepts relation-kind strings without treating them as a closed allowlist"
 });
 
 test("accepts an empty sourceEntityId", () => {
-  expect(isCanonicalRelation({ sourceEntityId: "", targetEntityId: "target", kind: "kind" }))
-    .toBe(true);
+  expect(isCanonicalRelation({ sourceEntityId: "", targetEntityId: "target", kind: "kind" })).toBe(
+    true,
+  );
 });
 
 test("accepts an empty targetEntityId", () => {
-  expect(isCanonicalRelation({ sourceEntityId: "source", targetEntityId: "", kind: "kind" }))
-    .toBe(true);
+  expect(isCanonicalRelation({ sourceEntityId: "source", targetEntityId: "", kind: "kind" })).toBe(
+    true,
+  );
 });
 
 test("accepts an empty kind", () => {
-  expect(isCanonicalRelation({ sourceEntityId: "source", targetEntityId: "target", kind: "" }))
-    .toBe(true);
+  expect(
+    isCanonicalRelation({ sourceEntityId: "source", targetEntityId: "target", kind: "" }),
+  ).toBe(true);
 });
 
 test("accepts whitespace-only string fields", () => {
-  expect(isCanonicalRelation({ sourceEntityId: " ", targetEntityId: "\t", kind: "\n" })).toBe(
-    true,
-  );
+  expect(isCanonicalRelation({ sourceEntityId: " ", targetEntityId: "\t", kind: "\n" })).toBe(true);
 });
 
 test("accepts identical source and target IDs", () => {
@@ -149,9 +155,7 @@ test("rejects symbols", () => {
 });
 
 test("rejects arrays", () => {
-  expect(
-    isCanonicalRelation(["sourceEntityId", "targetEntityId", "kind"]),
-  ).toBe(false);
+  expect(isCanonicalRelation(["sourceEntityId", "targetEntityId", "kind"])).toBe(false);
 });
 
 test("rejects an object missing sourceEntityId", () => {
@@ -167,16 +171,66 @@ test("rejects an object missing kind", () => {
 });
 
 test("rejects a non-string sourceEntityId", () => {
-  expect(isCanonicalRelation({ sourceEntityId: 1, targetEntityId: "target", kind: "kind" }))
-    .toBe(false);
+  expect(isCanonicalRelation({ sourceEntityId: 1, targetEntityId: "target", kind: "kind" })).toBe(
+    false,
+  );
 });
 
 test("rejects a non-string targetEntityId", () => {
-  expect(isCanonicalRelation({ sourceEntityId: "source", targetEntityId: 1, kind: "kind" }))
-    .toBe(false);
+  expect(isCanonicalRelation({ sourceEntityId: "source", targetEntityId: 1, kind: "kind" })).toBe(
+    false,
+  );
 });
 
 test("rejects a non-string kind", () => {
-  expect(isCanonicalRelation({ sourceEntityId: "source", targetEntityId: "target", kind: 1 }))
-    .toBe(false);
+  expect(isCanonicalRelation({ sourceEntityId: "source", targetEntityId: "target", kind: 1 })).toBe(
+    false,
+  );
+});
+
+test("schema-v2 usage validation accepts only the fixed kind and known endpoints", () => {
+  const relation = {
+    sourceEntityId: "conclusion:1",
+    targetEntityId: "source:1",
+    kind: "uses-source",
+  };
+  expect(isCanonicalUsageRelation(relation)).toBe(true);
+  expect(
+    validateCanonicalUsageRelations({
+      relations: [relation],
+      eligibleConclusionIds: new Set(["conclusion:1"]),
+      trustedSourceRefs: new Set(["source:1"]),
+    }),
+  ).toEqual([relation]);
+});
+
+test.each([
+  { sourceEntityId: "", targetEntityId: "source:1", kind: "uses-source" },
+  { sourceEntityId: " ", targetEntityId: "source:1", kind: "uses-source" },
+  { sourceEntityId: "conclusion:1", targetEntityId: "", kind: "uses-source" },
+  { sourceEntityId: "conclusion:1", targetEntityId: "source:1", kind: "SUPPORTS" },
+  { sourceEntityId: "other", targetEntityId: "source:1", kind: "uses-source" },
+  { sourceEntityId: "conclusion:1", targetEntityId: "other", kind: "uses-source" },
+])("schema-v2 usage validation rejects invalid or out-of-scope relation %#", (relation) => {
+  expect(
+    validateCanonicalUsageRelations({
+      relations: [relation],
+      eligibleConclusionIds: new Set(["conclusion:1"]),
+      trustedSourceRefs: new Set(["source:1"]),
+    }),
+  ).toBeUndefined();
+});
+
+test("stable usage keys ignore object insertion order but preserve relation values", () => {
+  const first = {
+    sourceEntityId: "conclusion:1",
+    targetEntityId: "source:1",
+    kind: "uses-source",
+  };
+  const second = {
+    kind: "uses-source",
+    targetEntityId: "source:1",
+    sourceEntityId: "conclusion:1",
+  };
+  expect(canonicalUsageRelationKey(first)).toBe(canonicalUsageRelationKey(second));
 });

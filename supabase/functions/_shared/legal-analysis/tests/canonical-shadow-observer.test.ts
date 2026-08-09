@@ -17,7 +17,7 @@ const validRow = () => ({
   analysis_run_id: "run-1",
   analysis_version: 3,
   status: "succeeded",
-  schema_version: 1,
+  schema_version: 2,
   claim_count: 1,
   relation_count: 1,
   unique_relation_count: 1,
@@ -142,7 +142,7 @@ describe("observeCanonicalShadowParity", () => {
       {
         analysis_run_id: "run-1",
         analysis_version: 3,
-        schema_version: 1,
+        schema_version: 2,
         outcome: "match",
         claim_count: 1,
         relation_count: 1,
@@ -161,10 +161,33 @@ describe("observeCanonicalShadowParity", () => {
   test("a mismatch emits one parity event with mismatch outcome", async () => {
     const database = readClient({ data: { ...validRow(), relations: [relation("other-source")] } });
     const log = recordingLogger();
-    await observeCanonicalShadowParity(input(database.client, log.logger));
+    await observeCanonicalShadowParity(input(database.client, log.logger, {
+      trustedSources: [
+        { source_ref: "secret-source" },
+        { source_ref: "other-source" },
+      ],
+    }));
     expect(database.inserts[0].outcome).toBe("mismatch");
     expect(database.inserts[0].mismatch_reasons.length).toBeGreaterThan(0);
     expect(log.info[1][1].outcome).toBe("mismatch");
+  });
+
+  test.each([
+    ["duplicate conclusion ids", { conclusions: [
+      { conclusion_id: "secret-conclusion", provenance: {} },
+      { conclusion_id: "secret-conclusion", provenance: {} },
+    ] }],
+    ["duplicate source refs", { trustedSources: [
+      { source_ref: "secret-source" },
+      { source_ref: "secret-source" },
+    ] }],
+  ])("%s fails closed before the shadow read", async (_label, overrides) => {
+    const database = readClient({ data: validRow() });
+    const log = recordingLogger();
+    await observeCanonicalShadowParity(input(database.client, log.logger, overrides));
+    expect(database.reads()).toBe(0);
+    expect(database.inserts).toHaveLength(1);
+    expect(database.inserts[0]).toMatchObject({ outcome: "fallback", fallback_reason: "invalid_scope" });
   });
 
   test("persistence failure is subordinate and preserves parity logging", async () => {

@@ -1,4 +1,8 @@
-import type { CanonicalRelation } from "./canonical-relations/index.ts";
+import {
+  canonicalUsageRelationKey,
+  stableJsonStringify,
+  type CanonicalRelation,
+} from "./canonical-relations/index.ts";
 
 export type CanonicalShadowParityReason =
   | "ordered_mismatch"
@@ -29,9 +33,9 @@ const provenanceKeys = [
   "ekaterina_used",
   "manuals_used",
 ] as const;
-const tuple = (relation: CanonicalRelation) =>
-  JSON.stringify([relation.sourceEntityId, relation.targetEntityId, relation.kind]);
-const equal = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
+const tuple = canonicalUsageRelationKey;
+const equal = (left: unknown, right: unknown) =>
+  stableJsonStringify(left) === stableJsonStringify(right);
 
 /** Replays the legacy projection without normalizing, sorting, or deduplicating it. */
 export function projectLegacyCanonicalRelations(

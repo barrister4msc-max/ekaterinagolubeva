@@ -83,10 +83,10 @@ describe("buildCanonicalShadowPersistenceRecord", () => {
 
   test("exact tuple uniqueness keeps case and whitespace significant", () => {
     const relations = [
-      relation("c", "source", "kind"),
-      relation("C", "source", "kind"),
-      relation("c ", "source", "kind"),
-      relation("c", "source", "kind"),
+      relation("c", "source"),
+      relation("C", "source"),
+      relation("c ", "source"),
+      relation("c", "source"),
     ];
     expect(
       build(success({ relations, claimCount: 4, relationCount: 4 }))!.unique_relation_count,
@@ -150,6 +150,8 @@ describe("buildCanonicalShadowPersistenceRecord", () => {
     ["infinite count", { durationMs: Number.POSITIVE_INFINITY }],
     ["negative duration", { durationMs: -1 }],
     ["invalid relation", { relations: [{}] as any }],
+    ["blank relation id", { relations: [relation("", "s1")] as any }],
+    ["unsupported relation kind", { relations: [relation("c1", "s1", "SUPPORTS")] as any }],
   ])("maps malformed success data to projection_failed: %s", (_name, overrides) => {
     expect(build(success(overrides as Partial<CanonicalShadowResult>))!.status).toBe(
       "projection_failed",

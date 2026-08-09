@@ -72,6 +72,7 @@ export async function runChallenge(opts: {
   // surfaced via buildSourceWarnings(), not a blocker.
   const usedRefs = new Set<string>();
   for (const c of opts.conclusions) {
+    if (c.provenance.use_in_generation === false) continue;
     for (const r of [
       ...c.provenance.laws_used,
       ...c.provenance.court_practice_used,
@@ -175,7 +176,6 @@ export async function runChallenge(opts: {
     reasoning: llmReasoning || EMPTY_RESULT.reasoning,
   };
 }
-
 
 function deriveRequiredChanges(issues: ChallengeResult["issues"]): string[] {
   const out: string[] = [];

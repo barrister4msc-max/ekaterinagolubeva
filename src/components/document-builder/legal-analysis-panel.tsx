@@ -4,6 +4,7 @@ import {
   fetchLatestLegalAnalysis,
   runLegalAnalysis,
   saveLawyerStrategyOverride,
+  type LegalAnalysisFactRecord,
   type LegalAnalysisRun,
   type LegalAnalysisLawyerStrategyOverride,
 } from "@/lib/legal-analysis";
@@ -957,8 +958,8 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             const argMap = ((a as any).argument_map ?? []) as Array<Record<string, any>>;
             if (!argMap.length) return null;
 
-            const factsIndex = ((a as any).facts_index ?? []) as Array<{ fact_id: string; text: string }>;
-            const factById = new Map(factsIndex.map((f) => [f.fact_id, f.text]));
+            const factsIndex = ((a as any).facts_index ?? []) as LegalAnalysisFactRecord[];
+            const factById = new Map(factsIndex.map((f) => [f.fact_id, f.fact_text]));
 
             const evidenceMatrix = ((a as any).evidence_matrix ?? []) as Array<{
               fact_id: string;

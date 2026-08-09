@@ -63,7 +63,6 @@ export type GenerationDecision = {
   reasons: string[];
 };
 
-
 export type Conclusion = {
   conclusion_id: string;
   kind:
@@ -97,6 +96,13 @@ export type Conclusion = {
     reviewed_by_challenge: boolean;
     hallucinated_source: boolean;
     provenance_missing: boolean;
+    // Deterministic generation quality gate. These fields live in
+    // provenance because Generator and the frontend Quality Gate consume
+    // them from conclusion.provenance.
+    support_level: "strong" | "partial" | "unsupported";
+    needs_source: boolean;
+    use_in_generation: boolean;
+    unsupported_reason: string | null;
   };
 };
 
@@ -107,11 +113,7 @@ export type ProvenanceIndex = {
 };
 
 export type EvidenceRelation =
-  | "DIRECTLY_RECORDS"
-  | "SUPPORTS"
-  | "PARTIALLY_SUPPORTS"
-  | "MERELY_STATES"
-  | "CONTRADICTS";
+  "DIRECTLY_RECORDS" | "SUPPORTS" | "PARTIALLY_SUPPORTS" | "MERELY_STATES" | "CONTRADICTS";
 
 export type EvidenceMatrixEntry = {
   fact_id: string;
@@ -219,9 +221,10 @@ export function makeFactId(text: string): string {
 // binds the model-emitted fact_key to the canonical fact_id within THIS run.
 // keyToId is used later to transport identity through fact_to_law_mapping
 // into Evidence Matrix without any text-based guessing.
-export function buildFactRecords(
-  facts: unknown,
-): { records: FactRecord[]; keyToId: Map<string, string> } {
+export function buildFactRecords(facts: unknown): {
+  records: FactRecord[];
+  keyToId: Map<string, string>;
+} {
   const records: FactRecord[] = [];
   const keyToId = new Map<string, string>();
   const seenIds = new Set<string>();
@@ -328,7 +331,8 @@ export function computeTrust(s: MergedSource): {
 
   if (s.bucket === "laws") {
     const code = (s.code ?? (meta.code as string) ?? "").toLowerCase();
-    if (/конституц/.test(titleLc)) return { score: 100, reason: "Конституция РФ", use_in_generation: true };
+    if (/конституц/.test(titleLc))
+      return { score: 100, reason: "Конституция РФ", use_in_generation: true };
     if (code || /кодекс|федеральн.*закон/.test(titleLc))
       return { score: 100, reason: "Кодекс/Федеральный закон", use_in_generation: true };
     return { score: 95, reason: "Нормативный акт", use_in_generation: true };
@@ -357,7 +361,8 @@ export function computeTrust(s: MergedSource): {
     if (confirmed && !redacted)
       return {
         score: 0,
-        reason: "Практика Екатерины подтверждена, но НЕ обезличена — нельзя использовать в генерации",
+        reason:
+          "Практика Екатерины подтверждена, но НЕ обезличена — нельзя использовать в генерации",
         use_in_generation: false,
       };
     return {
@@ -495,6 +500,10 @@ export function setActuallyUsedInGeneration(
 ): TrustedSource[] {
   const used = new Set<string>();
   for (const c of conclusions) {
+    // Defence in depth: a blocked conclusion can never make a source look
+    // as if it participated in generation, even if a caller accidentally
+    // passes the full conclusion set.
+    if (c.provenance.use_in_generation === false) continue;
     for (const r of [
       ...c.provenance.laws_used,
       ...c.provenance.court_practice_used,
@@ -554,9 +563,7 @@ export function buildSourceWarnings(
     } else if (!s.use_in_generation) {
       out.push({
         source_ref: s.source_ref,
-        warning_type: s.actually_used_in_generation
-          ? "low_trust_source_used"
-          : "low_trust_source",
+        warning_type: s.actually_used_in_generation ? "low_trust_source_used" : "low_trust_source",
         superseded_by: null,
         message: `Источник ${s.source_ref} помечен use_in_generation=false (${s.trust_reason}).`,
         affected_conclusions: affected,
@@ -574,7 +581,6 @@ export function buildSourceWarnings(
   }
   return out;
 }
-
 
 // ---------- Provenance assembly --------------------------------------------
 
@@ -629,9 +635,7 @@ function provenanceFor(opts: {
   }
   let min = trusts.length ? Math.min(...trusts.map((t) => t.score)) : 0;
   let avg =
-    trusts.length > 0
-      ? Math.round(trusts.reduce((s, t) => s + t.score, 0) / trusts.length)
-      : 0;
+    trusts.length > 0 ? Math.round(trusts.reduce((s, t) => s + t.score, 0) / trusts.length) : 0;
   const lowest = trusts.sort((a, b) => a.score - b.score)[0]?.ref ?? null;
 
   let status: "sufficient" | "partial" | "insufficient";
@@ -658,14 +662,19 @@ function provenanceFor(opts: {
         status === "sufficient"
           ? "Источники достаточно авторитетны и подтверждают вывод"
           : status === "partial"
-          ? "Источники подтверждают вывод, но требуют дополнительной проверки"
-          : "Источники недостаточны или не найдены",
+            ? "Источники подтверждают вывод, но требуют дополнительной проверки"
+            : "Источники недостаточны или не найдены",
     },
     derivation: opts.derivation,
     confidence: status === "sufficient" ? 0.85 : status === "partial" ? 0.6 : 0.35,
     reviewed_by_challenge: false,
     hallucinated_source: opts.hallucinated,
     provenance_missing,
+    support_level:
+      status === "sufficient" ? "strong" : status === "partial" ? "partial" : "unsupported",
+    needs_source: status === "insufficient",
+    use_in_generation: status !== "insufficient" && !opts.hallucinated,
+    unsupported_reason: status === "insufficient" ? "Источники недостаточны или не найдены" : null,
   };
 }
 
@@ -681,7 +690,9 @@ function extractRefs(
   const r = lookupSourceRef(ids, refIndex);
   // also filter to bucket
   const filtered = r.refs.filter((ref) => {
-    const t = refIndex.get([...refIndex.entries()].find(([, s]) => s.source_ref === ref)?.[0] ?? "");
+    const t = refIndex.get(
+      [...refIndex.entries()].find(([, s]) => s.source_ref === ref)?.[0] ?? "",
+    );
     return t?.bucket === bucket;
   });
   // simpler: map directly by source_ref
@@ -729,6 +740,65 @@ export function buildConclusionsAndIndex(
     : [];
 
   const conclusions: Conclusion[] = [];
+
+  // B-FULL: explicit model-emitted conclusion -> source links. The key space
+  // is fixed by prompt.ts and resolved only through registry source_id values.
+  // No text, title, URL, position, or run-wide source fallback is allowed.
+  const sourceIdsByConclusionKey = new Map<string, string[]>();
+  for (const raw of Array.isArray(parsed.conclusion_source_links)
+    ? parsed.conclusion_source_links
+    : []) {
+    if (!raw || typeof raw !== "object") continue;
+    const key = typeof raw.conclusion_key === "string" ? raw.conclusion_key.trim() : "";
+    if (!key) continue;
+    const sourceIds = Array.isArray(raw.source_ids)
+      ? raw.source_ids
+          .map((value: unknown) => (typeof value === "string" ? value.trim() : ""))
+          .filter(Boolean)
+      : [];
+    sourceIdsByConclusionKey.set(key, Array.from(new Set(sourceIds)));
+  }
+
+  const linkedSourcesFor = (
+    conclusionKey: string,
+  ): {
+    laws: string[];
+    court: string[];
+    letters: string[];
+    ekaterina: string[];
+    manuals: string[];
+    hallucinated: boolean;
+  } => {
+    const buckets = {
+      laws: [] as string[],
+      court: [] as string[],
+      letters: [] as string[],
+      ekaterina: [] as string[],
+      manuals: [] as string[],
+    };
+    let hallucinated = false;
+    for (const sourceId of sourceIdsByConclusionKey.get(conclusionKey) ?? []) {
+      const source = refIndex.get(sourceId);
+      if (!source) {
+        hallucinated = true;
+        continue;
+      }
+      if (source.bucket === "laws") buckets.laws.push(source.source_ref);
+      else if (source.bucket === "court_practice") buckets.court.push(source.source_ref);
+      else if (source.bucket === "fns_letters" || source.bucket === "minfin_letters")
+        buckets.letters.push(source.source_ref);
+      else if (source.bucket === "ekaterina") buckets.ekaterina.push(source.source_ref);
+      else if (source.bucket === "manuals") buckets.manuals.push(source.source_ref);
+    }
+    return {
+      laws: Array.from(new Set(buckets.laws)),
+      court: Array.from(new Set(buckets.court)),
+      letters: Array.from(new Set(buckets.letters)),
+      ekaterina: Array.from(new Set(buckets.ekaterina)),
+      manuals: Array.from(new Set(buckets.manuals)),
+      hallucinated,
+    };
+  };
 
   const pushConclusion = (
     kind: Conclusion["kind"],
@@ -787,21 +857,25 @@ export function buildConclusionsAndIndex(
 
   if (parsed.legal_qualification) {
     pushConclusion("qualification", String(parsed.legal_qualification), {
+      ...linkedSourcesFor("legal_qualification"),
       derivation: "fact→law",
     });
   }
   if (parsed.main_legal_position) {
     pushConclusion("main_position", String(parsed.main_legal_position), {
+      ...linkedSourcesFor("main_legal_position"),
       derivation: "fact→law",
     });
   }
   if (parsed.taxpayer_position) {
     pushConclusion("client_position", String(parsed.taxpayer_position), {
+      ...linkedSourcesFor("taxpayer_position"),
       derivation: "fact→law",
     });
   }
   if (parsed.tax_authority_position) {
     pushConclusion("opponent_position", String(parsed.tax_authority_position), {
+      ...linkedSourcesFor("tax_authority_position"),
       derivation: "law→fact",
     });
   }
@@ -813,6 +887,7 @@ export function buildConclusionsAndIndex(
   // free-text m.law with no structural link to a source_ref.
   if (Array.isArray(parsed.fact_to_law_mapping)) {
     for (const m of parsed.fact_to_law_mapping as Array<{
+      fact_key?: string;
       fact?: string;
       law?: string;
       reasoning?: string;
@@ -823,38 +898,43 @@ export function buildConclusionsAndIndex(
         .join(" → ");
       if (!statement) continue;
       pushConclusion("fact_to_law", statement, {
+        ...linkedSourcesFor(`fact_to_law:${String(m.fact_key ?? "").trim()}`),
         facts: matchFactIds(m.fact),
         derivation: "fact→law",
       });
     }
   }
 
-  for (const ca of (parsed.counter_arguments ?? []) as unknown[]) {
+  for (const [index, ca] of ((parsed.counter_arguments ?? []) as unknown[]).entries()) {
     pushConclusion("counter_argument", String(ca ?? ""), {
+      ...linkedSourcesFor(`counter_argument:${index}`),
       derivation: "law→fact",
     });
   }
-  for (const wp of (parsed.weak_points ?? []) as unknown[]) {
+  for (const [index, wp] of ((parsed.weak_points ?? []) as unknown[]).entries()) {
     pushConclusion("weak_point", String(wp ?? ""), {
+      ...linkedSourcesFor(`weak_point:${index}`),
       derivation: "ai_inference",
     });
   }
-  for (const r of (parsed.risks ?? []) as Array<{ risk?: string }>) {
+  for (const [index, r] of ((parsed.risks ?? []) as Array<{ risk?: string }>).entries()) {
     pushConclusion("risk", String(r?.risk ?? ""), {
+      ...linkedSourcesFor(`risk:${index}`),
       derivation: "policy",
     });
   }
-  for (const rec of (parsed.recommendations ?? []) as unknown[]) {
+  for (const [index, rec] of ((parsed.recommendations ?? []) as unknown[]).entries()) {
     pushConclusion("recommendation", String(rec ?? ""), {
+      ...linkedSourcesFor(`recommendation:${index}`),
       derivation: "policy",
     });
   }
-  for (const gi of (parsed.generation_instructions ?? []) as unknown[]) {
+  for (const [index, gi] of ((parsed.generation_instructions ?? []) as unknown[]).entries()) {
     pushConclusion("generation_instruction", String(gi ?? ""), {
+      ...linkedSourcesFor(`generation_instruction:${index}`),
       derivation: "policy",
     });
   }
-
 
   // provenance_index
   const src2c: Record<string, string[]> = {};
@@ -888,6 +968,94 @@ export function buildConclusionsAndIndex(
       document_to_conclusions: doc2c,
     },
   };
+}
+
+// ---------- Conclusion quality gate ---------------------------------------
+
+// Every substantive legal conclusion needs an explicit, structurally linked
+// source. A generation instruction is operational metadata rather than a
+// legal proposition and therefore may remain usable without its own source.
+const SOURCE_REQUIRED_CONCLUSION_KINDS: ReadonlySet<Conclusion["kind"]> = new Set([
+  "qualification",
+  "main_position",
+  "client_position",
+  "opponent_position",
+  "fact_to_law",
+  "counter_argument",
+  "weak_point",
+  "risk",
+  "recommendation",
+]);
+
+function conclusionSourceRefs(conclusion: Conclusion): string[] {
+  return Array.from(
+    new Set([
+      ...conclusion.provenance.laws_used,
+      ...conclusion.provenance.court_practice_used,
+      ...conclusion.provenance.letters_used,
+      ...conclusion.provenance.ekaterina_used,
+      ...conclusion.provenance.manuals_used,
+    ]),
+  );
+}
+
+/**
+ * Deterministic post-LLM gate for Analyzer -> Generator.
+ *
+ * The function never invents or repairs provenance. It only classifies the
+ * provenance already built by buildConclusionsAndIndex and blocks a legal
+ * conclusion when its source link cannot be defended.
+ */
+export function validateConclusions(
+  conclusions: Conclusion[],
+  trusted: TrustedSource[],
+): Conclusion[] {
+  const sourcesByRef = new Map(trusted.map((source) => [source.source_ref, source]));
+
+  return conclusions.map((conclusion) => {
+    const refs = conclusionSourceRefs(conclusion);
+    const unresolvedRefs = refs.filter((ref) => !sourcesByRef.has(ref));
+    const ineligibleRefs = refs.filter((ref) => {
+      const source = sourcesByRef.get(ref);
+      return !!source && (!source.use_in_generation || !!source.superseded_by);
+    });
+    const sourceRequired = SOURCE_REQUIRED_CONCLUSION_KINDS.has(conclusion.kind);
+
+    let supportLevel: Conclusion["provenance"]["support_level"];
+    let unsupportedReason: string | null = null;
+
+    if (conclusion.provenance.hallucinated_source || unresolvedRefs.length > 0) {
+      supportLevel = "unsupported";
+      unsupportedReason = "Вывод содержит ссылку на источник вне доверенного реестра";
+    } else if (ineligibleRefs.length > 0) {
+      supportLevel = "unsupported";
+      unsupportedReason = "Вывод опирается на источник, запрещённый для генерации";
+    } else if (sourceRequired && refs.length === 0) {
+      supportLevel = "unsupported";
+      unsupportedReason = "Для юридического вывода не установлен источник";
+    } else if (conclusion.provenance.sufficiency.status === "sufficient") {
+      supportLevel = "strong";
+    } else {
+      supportLevel = "partial";
+    }
+
+    const useInGeneration = supportLevel !== "unsupported";
+    const confidence = useInGeneration
+      ? conclusion.provenance.confidence
+      : Math.min(conclusion.provenance.confidence, 0.35);
+
+    return {
+      ...conclusion,
+      provenance: {
+        ...conclusion.provenance,
+        confidence,
+        support_level: supportLevel,
+        needs_source: supportLevel === "unsupported",
+        use_in_generation: useInGeneration,
+        unsupported_reason: unsupportedReason,
+      },
+    };
+  });
 }
 
 // ---------- Evidence Matrix -------------------------------------------------
@@ -978,11 +1146,7 @@ export function buildEvidenceMatrix(opts: {
     MERELY_STATES: 1,
   };
   const canonicalByFact = new Map<string, Map<string, EvidenceRelation>>();
-  const addCanonical = (
-    factId: string | null,
-    docId: unknown,
-    relation: EvidenceRelation,
-  ) => {
+  const addCanonical = (factId: string | null, docId: unknown, relation: EvidenceRelation) => {
     if (!factId) return;
     const id = typeof docId === "string" ? docId.trim() : "";
     if (!id || !allowedDocIds.has(id)) return;
@@ -1118,7 +1282,6 @@ export function buildEvidenceMatrix(opts: {
       }
     }
 
-
     out.push({
       fact_id: f.fact_id,
       fact_text: f.fact_text,
@@ -1149,9 +1312,7 @@ export function evaluateSufficiency(opts: {
 } {
   const winners = opts.trusted.filter((s) => s.is_winner && s.use_in_generation);
   const hasLaws = winners.some((s) => s.bucket === "laws" && s.trust_score >= 95);
-  const hasHighCourt = winners.some(
-    (s) => s.bucket === "court_practice" && s.trust_score >= 90,
-  );
+  const hasHighCourt = winners.some((s) => s.bucket === "court_practice" && s.trust_score >= 90);
   const gaps: string[] = [];
   if (!hasLaws) gaps.push("Нет актуальной редакции нормы (Кодекс/ФЗ)");
   if (!hasHighCourt) gaps.push("Нет практики ВС РФ / кассации по вопросу");
@@ -1174,8 +1335,8 @@ export function evaluateSufficiency(opts: {
     status === "sufficient"
       ? "Найдена авторитетная норма и практика; источники не противоречат."
       : status === "partial"
-      ? "Часть выводов опирается на источники второго эшелона или требует дополнительной практики."
-      : "Не найдено авторитетной нормы; правовая позиция не может быть построена.";
+        ? "Часть выводов опирается на источники второго эшелона или требует дополнительной практики."
+        : "Не найдено авторитетной нормы; правовая позиция не может быть построена.";
 
   return { status, gaps, rationale };
 }
@@ -1230,7 +1391,13 @@ export function decideGeneration(opts: {
   );
 
   const hallucinated = opts.conclusions.some((c) => c.provenance.hallucinated_source);
+  const unsupportedCritical = opts.conclusions.filter(
+    (c) =>
+      c.provenance.use_in_generation === false &&
+      ["qualification", "main_position", "recommendation"].includes(c.kind),
+  );
   if (hallucinated) reasons.push("hallucinated_source");
+  if (unsupportedCritical.length > 0) reasons.push("unsupported_critical_conclusions");
   if (opts.sufficiency.status === "insufficient_critical")
     reasons.push("source_sufficiency_insufficient_critical");
   for (const i of criticalIssues) reasons.push(`challenge:${i.kind}`);
@@ -1240,6 +1407,7 @@ export function decideGeneration(opts: {
 
   const blockDraft =
     hallucinated ||
+    unsupportedCritical.length > 0 ||
     opts.sufficiency.status === "insufficient_critical" ||
     criticalIssues.length > 0 ||
     opts.conclusions.some((c) => c.provenance.provenance_missing);
@@ -1248,15 +1416,11 @@ export function decideGeneration(opts: {
   // and on any low-trust/superseded source that actually leaked into generation.
   const finalBlockingWarnings = opts.warnings.filter(
     (w) =>
-      w.warning_type === "low_trust_source_used" ||
-      w.warning_type === "superseded_source_used",
+      w.warning_type === "low_trust_source_used" || w.warning_type === "superseded_source_used",
   );
   const blockFinal =
-    blockDraft ||
-    opts.sufficiency.status !== "sufficient" ||
-    finalBlockingWarnings.length > 0;
-  if (finalBlockingWarnings.length > 0)
-    reasons.push("low_trust_or_superseded_used_in_generation");
+    blockDraft || opts.sufficiency.status !== "sufficient" || finalBlockingWarnings.length > 0;
+  if (finalBlockingWarnings.length > 0) reasons.push("low_trust_or_superseded_used_in_generation");
   if (!blockDraft && opts.sufficiency.status !== "sufficient")
     reasons.push("final_requires_sufficient_sources");
 
@@ -1271,8 +1435,6 @@ export function decideGeneration(opts: {
 function lowTrustActuallyUsed(trusted: TrustedSource[], supersededOnly = false): boolean {
   return trusted.some(
     (s) =>
-      s.actually_used_in_generation &&
-      (supersededOnly ? !!s.superseded_by : !s.use_in_generation),
+      s.actually_used_in_generation && (supersededOnly ? !!s.superseded_by : !s.use_in_generation),
   );
 }
-

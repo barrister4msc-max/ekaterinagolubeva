@@ -23,6 +23,7 @@ import {
   enrichSources,
   buildFactRecords,
   buildConclusionsAndIndex,
+  validateConclusions,
   buildEvidenceMatrix,
   evaluateSufficiency,
   computeHashes,
@@ -68,7 +69,9 @@ function parseFailedResult(message: string, rawResponse: string) {
 }
 
 function isParseFailedMessage(message: string) {
-  return /parse_failed|JSON|Expected|Unexpected|unterminated|empty model output|invalid JSON/i.test(message);
+  return /parse_failed|JSON|Expected|Unexpected|unterminated|empty model output|invalid JSON/i.test(
+    message,
+  );
 }
 
 function classifyDocument(d: {
@@ -98,13 +101,16 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   let body: any;
-  try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
+  try {
+    body = await req.json();
+  } catch {
+    return json({ error: "invalid_json" }, 400);
+  }
 
   const sessionId: string | undefined = body?.session_id;
   if (!sessionId) return json({ error: "session_id required" }, 400);
 
-  const canonicalRelationsEnabled =
-    readCanonicalRelationsFeatureFlags().enabled;
+  const canonicalRelationsEnabled = readCanonicalRelationsFeatureFlags().enabled;
 
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
@@ -259,7 +265,11 @@ Deno.serve(async (req) => {
     const queryEmbedding = await embedQuery(queryToSearchString(researchQuery));
 
     // Layer 2: Repositories
-    const { sources: rawSources, counts } = await runAllRepositories(sb, researchQuery, practiceArea);
+    const { sources: rawSources, counts } = await runAllRepositories(
+      sb,
+      researchQuery,
+      practiceArea,
+    );
 
     // Layer 3: Ranking
     const scored = await rankSources({
@@ -308,7 +318,13 @@ Deno.serve(async (req) => {
       sources: merged,
       intent: documentIntent,
     });
-    const { text, rawResponse, model, attempts: modelAttempts, fallback_used } = await callGeminiPro(prompt);
+    const {
+      text,
+      rawResponse,
+      model,
+      attempts: modelAttempts,
+      fallback_used,
+    } = await callGeminiPro(prompt);
     lastRawResponse = rawResponse ?? "";
     lastModel = model ?? MODEL_NAME;
 
@@ -349,9 +365,10 @@ Deno.serve(async (req) => {
     // parsed.facts_index (fact_id ↔ text) written below.
     parsed.facts = facts.map((f) => f.fact_text);
     let provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
+    let validatedConclusions = validateConclusions(provBuild.conclusions, trusted);
     let sufficiency = evaluateSufficiency({
       trusted,
-      conclusions: provBuild.conclusions,
+      conclusions: validatedConclusions,
     });
 
     // Layer 7b: GAP RETRY — one targeted re-search through legal_knowledge_chunks.
@@ -371,42 +388,49 @@ Deno.serve(async (req) => {
         const mergedLimited = limitSources(mergedExtra);
         trusted = enrichSources(mergedLimited);
         provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
+        validatedConclusions = validateConclusions(provBuild.conclusions, trusted);
         sufficiency = evaluateSufficiency({
           trusted,
-          conclusions: provBuild.conclusions,
+          conclusions: validatedConclusions,
         });
       }
     }
 
+    const generationConclusions = validatedConclusions.filter(
+      (conclusion) => conclusion.provenance.use_in_generation,
+    );
+    const blockedConclusions = validatedConclusions.filter(
+      (conclusion) => !conclusion.provenance.use_in_generation,
+    );
+
     // Phase B correction: mark actually-used sources BEFORE challenge,
     // so blocking decisions reference the correct flag.
-    setActuallyUsedInGeneration(trusted, provBuild.conclusions);
+    setActuallyUsedInGeneration(trusted, generationConclusions);
 
     // Layer 8: AI CHALLENGE / critical review pass (second LLM, cheap flash).
     const challengeResult = await runChallenge({
       parsed,
       trusted,
-      conclusions: provBuild.conclusions,
+      conclusions: validatedConclusions,
     });
-    for (const c of provBuild.conclusions) c.provenance.reviewed_by_challenge = true;
+    for (const c of validatedConclusions) c.provenance.reviewed_by_challenge = true;
 
     // Phase B correction: warnings + external_search + draft/final decision.
-    const sourceWarnings = buildSourceWarnings(trusted, provBuild.conclusions);
+    const sourceWarnings = buildSourceWarnings(trusted, validatedConclusions);
     const externalSearch = evaluateExternalSearch({ sufficiency, trusted });
     const generationAllowed = decideGeneration({
       sufficiency,
       challenge: challengeResult,
       warnings: sourceWarnings,
-      conclusions: provBuild.conclusions,
+      conclusions: validatedConclusions,
       trusted,
     });
-
 
     // Layer 9: Evidence Matrix.
     const evidenceMatrix = buildEvidenceMatrix({
       facts,
       parsed,
-      conclusions: provBuild.conclusions,
+      conclusions: validatedConclusions,
       documents: usedDocs.map((d) => ({ id: d.id, title: d.title, ocr_length: d.ocr_length })),
       factKeyToId,
     });
@@ -474,8 +498,10 @@ Deno.serve(async (req) => {
 
     // Extended ai_result fields (Phase A core):
     parsed.facts_index = facts;
-    parsed.trusted_sources = trusted;
-    parsed.conclusions = provBuild.conclusions;
+    parsed.trusted_sources = trusted.filter((source) => source.actually_used_in_generation);
+    parsed.conclusions = validatedConclusions;
+    parsed.generation_conclusions = generationConclusions;
+    parsed.blocked_conclusions = blockedConclusions;
     parsed.provenance_index = provBuild.provenance_index;
     parsed.evidence_matrix = evidenceMatrix;
     parsed.source_sufficiency = sufficiency;
@@ -496,15 +522,14 @@ Deno.serve(async (req) => {
     parsed.process_stage = documentIntent.process_stage;
     parsed.document_intent = documentIntent.document_intent;
 
-
     const metrics = computeMetrics(combined_sources, parsed);
     // Override hallucination_risk when challenge blocks the run.
     const finalRisk =
       challengeResult.status === "blocked"
         ? "high"
         : challengeResult.status === "needs_revision" && metrics.hallucination_risk === "low"
-        ? "medium"
-        : metrics.hallucination_risk;
+          ? "medium"
+          : metrics.hallucination_risk;
     const finalNeedsLawyer =
       metrics.needs_lawyer_review ||
       challengeResult.status !== "passed" ||
@@ -512,8 +537,8 @@ Deno.serve(async (req) => {
 
     const canonicalShadowResult = computeCanonicalRelationsShadow({
       enabled: canonicalRelationsEnabled,
-      conclusions: parsed.conclusions,
-      trustedSources: trusted,
+      conclusions: generationConclusions,
+      trustedSources: parsed.trusted_sources,
     });
 
     const { error: updErr } = await sb
@@ -523,13 +548,15 @@ Deno.serve(async (req) => {
         completed_at: new Date().toISOString(),
         model_name: model,
         ai_result: parsed as any,
-        used_sources: trusted as any,
+        used_sources: parsed.trusted_sources as any,
         source_verification_status: metrics.source_verification_status,
         hallucination_risk: finalRisk,
         legal_accuracy_score: metrics.legal_accuracy_score,
         needs_lawyer_review: finalNeedsLawyer,
         required_fixes: (parsed.missing_evidence ?? []) as any,
-        recommendations: (parsed.recommendations?.length ? parsed.recommendations : parsed.generation_instructions ?? []) as any,
+        recommendations: (parsed.recommendations?.length
+          ? parsed.recommendations
+          : (parsed.generation_instructions ?? [])) as any,
         problems: (parsed.weak_points ?? []) as any,
         input_snapshot: {
           template_code: session.template_code,
@@ -583,7 +610,16 @@ Deno.serve(async (req) => {
           needs_lawyer_review: true,
         })
         .eq("id", runId);
-      return json({ success: false, error: "all_models_failed", run_id: runId, model_attempts: e.attempts, last_error: e.lastError }, 200);
+      return json(
+        {
+          success: false,
+          error: "all_models_failed",
+          run_id: runId,
+          model_attempts: e.attempts,
+          last_error: e.lastError,
+        },
+        200,
+      );
     }
 
     if (e instanceof FatalGeminiError) {

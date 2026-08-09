@@ -1,6 +1,11 @@
-import { isCanonicalRelation, type CanonicalRelation } from "./canonical-relations/index.ts";
+import {
+  CANONICAL_SHADOW_SCHEMA_VERSION,
+  canonicalUsageRelationKey,
+  validateCanonicalUsageRelations,
+  type CanonicalRelation,
+} from "./canonical-relations/index.ts";
 
-export const CANONICAL_SHADOW_SCHEMA_VERSION = 1;
+export { CANONICAL_SHADOW_SCHEMA_VERSION };
 export const CANONICAL_RELATIONS_CONSUMER_OBSERVATION_ENABLED =
   "CANONICAL_RELATIONS_CONSUMER_OBSERVATION_ENABLED";
 
@@ -27,7 +32,7 @@ export interface ValidCanonicalShadowRow {
   readonly analysis_run_id: string;
   readonly analysis_version: number;
   readonly status: "succeeded";
-  readonly schema_version: 1;
+  readonly schema_version: typeof CANONICAL_SHADOW_SCHEMA_VERSION;
   readonly claim_count: number;
   readonly relation_count: number;
   readonly unique_relation_count: number;
@@ -79,6 +84,8 @@ export async function readCanonicalShadow(input: {
   readonly client: CanonicalShadowReadClient;
   readonly analysisRunId: unknown;
   readonly expectedAnalysisVersion: unknown;
+  readonly eligibleConclusionIds: ReadonlySet<string>;
+  readonly trustedSourceRefs: ReadonlySet<string>;
 }): Promise<CanonicalShadowReadResult> {
   if (typeof input.analysisRunId !== "string" || input.analysisRunId.length === 0) {
     return fallback("run_id_missing");
@@ -119,22 +126,27 @@ export async function readCanonicalShadow(input: {
       (row.unique_relation_count as number) > (row.relation_count as number) ||
       row.unique_relation_count !==
         new Set(
-          row.relations.map((relation) =>
-            isCanonicalRelation(relation)
-              ? JSON.stringify([relation.sourceEntityId, relation.targetEntityId, relation.kind])
-              : Symbol(),
-          ),
+          row.relations.map((relation) => {
+            if (relation === null || typeof relation !== "object" || Array.isArray(relation)) {
+              return Symbol();
+            }
+            try {
+              return canonicalUsageRelationKey(relation as CanonicalRelation);
+            } catch {
+              return Symbol();
+            }
+          }),
         ).size ||
       row.skipped_count !== (row.claim_count as number) - (row.relation_count as number)
     )
       return fallback("invalid_counts");
 
-    if (
-      !row.relations.every(
-        (relation) => isCanonicalRelation(relation) && relation.kind === "uses-source",
-      )
-    )
-      return fallback("invalid_relations");
+    const validatedRelations = validateCanonicalUsageRelations({
+      relations: row.relations,
+      eligibleConclusionIds: input.eligibleConclusionIds,
+      trustedSourceRefs: input.trustedSourceRefs,
+    });
+    if (validatedRelations === undefined) return fallback("invalid_relations");
 
     return {
       usable: true,
