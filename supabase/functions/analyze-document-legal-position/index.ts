@@ -35,6 +35,7 @@ import {
 import { runChallenge } from "./challenge.ts";
 import { readCanonicalRelationsFeatureFlags } from "../_shared/legal-analysis/canonical-relations/index.ts";
 import { computeCanonicalRelationsShadow } from "./canonical-shadow.ts";
+import { getTemplateByCode } from "../_shared/template-registry.ts";
 import {
   buildCanonicalShadowPersistenceRecord,
   persistCanonicalShadowBestEffort,
@@ -171,13 +172,17 @@ Deno.serve(async (req) => {
     let practiceArea: string | null = null;
     let templateTitle: string | null = null;
     if (session.template_code) {
-      const { data: tpl } = await sb
-        .from("document_templates")
-        .select("practice_area, title")
-        .eq("code", session.template_code)
-        .maybeSingle();
-      practiceArea = (tpl?.practice_area as string | null) ?? null;
-      templateTitle = (tpl?.title as string | null) ?? null;
+      const templateLookup = await getTemplateByCode(sb, session.template_code);
+      if (templateLookup.status === "found") {
+        practiceArea = templateLookup.template.practice_area;
+        templateTitle = templateLookup.template.title;
+      } else if (templateLookup.status === "error") {
+        console.warn("template_registry_lookup_failed", {
+          code: "template_registry_lookup_failed",
+          template_code: session.template_code,
+          lookup_status: templateLookup.status,
+        });
+      }
     }
     // P0-A: deterministic Document Intent (safe fallback for unknown template).
     const documentIntent = resolveDocumentIntent(
