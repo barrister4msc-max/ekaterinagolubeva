@@ -8,7 +8,7 @@ import {
   canonicalConsumerObservationEnabled,
   observeCanonicalShadowParity,
 } from "../_shared/legal-analysis/canonical-shadow-observer.ts";
-import { selectConclusionSets } from "./conclusion-contract.ts";
+import { buildGeneratorPromptInputs } from "./conclusion-contract.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,30 +46,34 @@ Deno.serve(async (req) => {
   } = payload;
 
 const effectiveSessionId = intake_session_id || session_id || null;
-const hasDocumentContext =
-  document_context &&
-  Number(document_context_quality ?? 0) >= 60;
   const legalAnalysisObject =
   legal_analysis && typeof legal_analysis === "object"
     ? (legal_analysis as Record<string, any>)
     : null;
 
-const { generationConclusions, blockedConclusions } =
-  selectConclusionSets(legalAnalysisObject);
+const rawWorkingStrategy =
+  payload.working_strategy ??
+  legalAnalysisObject?.working_strategy ??
+  null;
 
-const legalAnalysisForGeneration = legalAnalysisObject
-  ? {
-      ...legalAnalysisObject,
-      conclusions: generationConclusions,
-      generation_conclusions: generationConclusions,
-      blocked_conclusions: blockedConclusions,
-      reasoning_engine: legalAnalysisObject.reasoning_engine ?? null,
-    }
-  : null;
-    const workingStrategy =
-     payload.working_strategy ??
-     legalAnalysisObject?.working_strategy ??
-    null;
+const {
+  legalAnalysisForGeneration,
+  documentContextForGeneration,
+  workingStrategyForGeneration,
+  generationConclusions,
+  blockedConclusions,
+  blockedConclusionCount,
+} = buildGeneratorPromptInputs(
+  legalAnalysisObject,
+  document_context,
+  rawWorkingStrategy,
+);
+
+const hasDocumentContext =
+  documentContextForGeneration &&
+  Number(document_context_quality ?? 0) >= 60;
+const workingStrategy = workingStrategyForGeneration;
+const includeLegacyCaseIntelligence = !legalAnalysisForGeneration;
     if (!template_code) return json({ success: false, error: "template_code is required" }, 400);
     const templateProfile = getGenerationProfile(template_code);
     const templateProfileBlock = templateProfile ? renderTemplateProfileBlock(templateProfile) : "";
@@ -103,19 +107,15 @@ const legalAnalysisForGeneration = legalAnalysisObject
 DOCUMENT CONTEXT
 ==============================
 
-Используй этот контекст как основной источник.
+Используй этот очищенный контекст только как источник фактов и связей с документами.
+Правовые выводы бери исключительно из GENERATION CONCLUSIONS и WORKING STRATEGY.
 
-${JSON.stringify(document_context, null, 2)}
+${JSON.stringify(documentContextForGeneration, null, 2)}
 
-КАЧЕСТВО КОНТЕКСТА:
+КАЧЕСТВО ИСХОДНОГО КОНТЕКСТА:
 ${document_context_quality}
 
-СВОДКА:
-
-${document_context_summary}
-
-Если Document Context присутствует —
-он имеет приоритет над самостоятельным анализом.
+Document Context не может расширять или заменять набор допустимых правовых выводов.
 `
   : "";
     const prompt = `
@@ -167,67 +167,63 @@ ${special_instructions}
 
 LEGAL ANALYSIS:
 ${legalAnalysisForGeneration ? JSON.stringify(legalAnalysisForGeneration, null, 2) : "LEGAL_ANALYSIS_NOT_PROVIDED"}
-REASONING ENGINE:
+BLOCKED CONCLUSIONS OMITTED FROM PROMPT:
+${blockedConclusionCount}
 
-${legalAnalysisForGeneration?.reasoning_engine
-  ? JSON.stringify(legalAnalysisForGeneration.reasoning_engine, null, 2)
-  : "REASONING_ENGINE_NOT_PROVIDED"}
-  WORKING STRATEGY:
+WORKING STRATEGY:
 
 ${workingStrategy
   ? JSON.stringify(workingStrategy, null, 2)
   : "WORKING_STRATEGY_NOT_PROVIDED"}
 CASE INTELLIGENCE:
+${includeLegacyCaseIntelligence
+  ? "LEGACY_CASE_INTELLIGENCE_ENABLED"
+  : "OMITTED_WHEN_VALIDATED_LEGAL_ANALYSIS_IS_PRESENT"}
 
 Generation Context:
-${case_intelligence_generation_context
+${includeLegacyCaseIntelligence && case_intelligence_generation_context
   ? JSON.stringify(case_intelligence_generation_context, null, 2)
   : "NOT_PROVIDED"}
 
 Facts:
-${case_intelligence_facts
+${includeLegacyCaseIntelligence && case_intelligence_facts
   ? JSON.stringify(case_intelligence_facts, null, 2)
   : "NOT_PROVIDED"}
 
 Issues:
-${case_intelligence_issues
+${includeLegacyCaseIntelligence && case_intelligence_issues
   ? JSON.stringify(case_intelligence_issues, null, 2)
   : "NOT_PROVIDED"}
 
 Evidence:
-${case_intelligence_evidence
+${includeLegacyCaseIntelligence && case_intelligence_evidence
   ? JSON.stringify(case_intelligence_evidence, null, 2)
   : "NOT_PROVIDED"}
 
 Missing Evidence:
-${case_intelligence_missing_evidence
+${includeLegacyCaseIntelligence && case_intelligence_missing_evidence
   ? JSON.stringify(case_intelligence_missing_evidence, null, 2)
   : "NOT_PROVIDED"}
 ${documentContextBlock}
 ПРАВИЛА ИСПОЛЬЗОВАНИЯ LEGAL ANALYSIS:
 
-1. Если LEGAL ANALYSIS передан, документ должен строиться на его основе.
-2. Не меняй правовую квалификацию, основную позицию, применимые нормы, контраргументы и выводы, если они уже указаны в LEGAL ANALYSIS.
-3. Если LEGAL ANALYSIS содержит fact_to_law_mapping, используй эту связку ФАКТ → НОРМА → ВЫВОД в content документа.
+1. Если LEGAL ANALYSIS передан, документ должен строиться только на его очищенных полях.
+2. Правовые выводы бери исключительно из generation_conclusions и WORKING STRATEGY.
+3. Для каждого вывода используй только его provenance и переданные trusted_sources.
 4. Если LEGAL ANALYSIS содержит missing_evidence, обязательно включи раздел о недостающих доказательствах.
-5. Если LEGAL ANALYSIS содержит generation_instructions, следуй им при структуре и содержании документа.
-6. Если LEGAL ANALYSIS содержит sources/source_actuality, используй их как источники и не придумывай новые ссылки.
+5. Не восстанавливай удалённые верхнеуровневые поля анализа по смыслу или догадке.
+6. Используй только trusted_sources из очищенного LEGAL ANALYSIS и не придумывай новые ссылки.
 7. Если LEGAL ANALYSIS отсутствует, проведи анализ самостоятельно по intake, attachments, schema и special_instructions.
 7.1. Если LEGAL ANALYSIS содержит generation_conclusions, используй ТОЛЬКО их.
-7.2. Запрещено использовать blocked_conclusions.
-7.3. Запрещено использовать conclusions, где provenance.use_in_generation=false.
-7.4. Запрещено использовать conclusions, где provenance.needs_source=true.
-7.5. Если важный вывод находится только в blocked_conclusions — не включай его в документ, а добавь предупреждение в warnings.
-7.6. Если REASONING ENGINE содержит selected_position — именно она является основной правовой позицией документа.
+7.2. blocked_conclusions намеренно не передаются в prompt.
+7.3. Запрещено использовать выводы, где provenance.use_in_generation=false.
+7.4. Запрещено использовать выводы, где provenance.needs_source=true.
+7.5. Если BLOCKED CONCLUSIONS OMITTED FROM PROMPT больше нуля, добавь общее предупреждение в warnings без реконструкции исключённых выводов.
+7.6. Если WORKING STRATEGY не передана, основную позицию формируй только из generation_conclusions.
+7.7. Не реконструируй supporting_arguments, recommendations или blocked_arguments, которых нет в очищенном контексте.
+7.8. Если WORKING STRATEGY передана:
 
-7.7. Используй supporting_arguments как основу мотивировочной части.
-
-7.8. Используй recommendations при формировании просительной части и рекомендаций клиенту.
-
-7.9. Никогда не используй blocked_arguments.
-7.10. Если WORKING STRATEGY передана:
-
-- она имеет приоритет над reasoning_engine.selected_position;
+- она имеет приоритет над любой первоначальной стратегией AI;
 
 - если strategy_source == "lawyer_override",
 используй исключительно стратегию, выбранную юристом;
@@ -240,9 +236,8 @@ ${documentContextBlock}
 
 - вся структура документа должна строиться вокруг WORKING STRATEGY.
 
-7.11. Если WORKING STRATEGY отсутствует,
-используй выбранную REASONING ENGINE стратегию.
-7.12. Если LEGAL ANALYSIS содержит явные поля target_document / process_stage / template_code — они имеют строгий приоритет над любой противоречащей free-text инструкцией в recommendations или generation_instructions. Запрещено менять процессуальный тип целевого документа (например, превращать жалобу в возражения) на основании upstream free-text. Материалы предыдущих стадий (акт проверки, требование, решение, возражения) используются только как история/контекст.
+7.9. Если WORKING STRATEGY отсутствует, используй только generation_conclusions.
+7.10. Если LEGAL ANALYSIS содержит явные поля target_document / process_stage / template_code — они имеют строгий приоритет над любой противоречащей free-text инструкцией. Запрещено менять процессуальный тип целевого документа (например, превращать жалобу в возражения). Материалы предыдущих стадий (акт проверки, требование, решение, возражения) используются только как история/контекст.
 8. Если находишь противоречие между LEGAL ANALYSIS и исходными документами, не меняй позицию молча — добавь предупреждение в warnings.
 ПРАВИЛА ИСПОЛЬЗОВАНИЯ CASE INTELLIGENCE
 
@@ -442,14 +437,11 @@ PARAGRAPH PROVENANCE RULES
 
    Use ONLY identifiers that already exist in:
 
-   - argument_map
    - generation_conclusions
    - facts_index
-   - fact_to_law_mapping
    - evidence_matrix
    - trusted_sources
    - working_strategy
-   - reasoning_engine
 
     Never invent ids.
 
@@ -482,15 +474,14 @@ Expand the legal reasoning into a complete legal document.
 Use:
 
 - generation_conclusions
-- reasoning_engine
-- argument_map
+- facts_index
 - evidence_matrix
 - trusted_sources
 - working_strategy
 
 Every supported conclusion should become a substantive section of the document.
 
-Every argument from argument_map that supports the selected strategy should be reflected in the legal reasoning.
+Use only provenance attached to generation_conclusions and the selected working strategy.
 
 For every argument:
 
@@ -739,8 +730,7 @@ metadata: {
 
           selected_strategy_id:
           workingStrategy?.selected_strategy_id ??
-  legalAnalysisForGeneration?.reasoning_engine?.selected_position ??
-  null,
+          null,
 
 ai_selected_strategy_id:
   workingStrategy?.ai_selected_strategy_id ??
@@ -756,6 +746,7 @@ lawyer_override_reason:
           document_context_quality,
           document_context_summary,
           generation_used_document_context: Boolean(hasDocumentContext),
+          blocked_conclusions_omitted_from_prompt: blockedConclusionCount,
           jurisdiction,
           language,
           intake,

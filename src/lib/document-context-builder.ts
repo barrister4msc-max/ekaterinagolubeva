@@ -231,8 +231,20 @@ function buildFactToEvidenceMapping(
   const factsIndex = Array.isArray(analysis.facts_index) ? analysis.facts_index : [];
   const factIdByNormText = new Map<string, string>();
   for (const f of factsIndex) {
-    const key = normalizeText(f.fact_text);
-    if (key && f.fact_id) factIdByNormText.set(key, f.fact_id);
+    if (!f || typeof f !== "object") continue;
+    const legacyFact = f as unknown as {
+      fact_id?: unknown;
+      fact_text?: unknown;
+      text?: unknown;
+    };
+    const factId = typeof legacyFact.fact_id === "string" ? legacyFact.fact_id : "";
+    const factText = typeof legacyFact.fact_text === "string"
+      ? legacyFact.fact_text
+      : typeof legacyFact.text === "string"
+        ? legacyFact.text
+        : "";
+    const key = normalizeText(factText);
+    if (key && factId) factIdByNormText.set(key, factId);
   }
 
   // Structured Evidence Matrix: fact_id → allowed document UUIDs.

@@ -366,12 +366,20 @@ export type LegalAnalysisRun = {
 export function normalizeLegalAnalysisResult(analysis: LegalAnalysisResult): void {
   if (!Array.isArray(analysis.facts_index)) return;
 
-  analysis.facts_index = analysis.facts_index.map((fact) => {
-    const legacyFact = fact as unknown as { fact_id?: unknown; fact_text?: unknown; text?: unknown };
-    return {
-      fact_id: String(legacyFact.fact_id ?? ""),
-      fact_text: String(legacyFact.fact_text ?? legacyFact.text ?? ""),
+  analysis.facts_index = analysis.facts_index.flatMap((fact) => {
+    if (!fact || typeof fact !== "object") return [];
+    const legacyFact = fact as unknown as {
+      fact_id?: unknown;
+      fact_text?: unknown;
+      text?: unknown;
     };
+    const factId = typeof legacyFact.fact_id === "string" ? legacyFact.fact_id : "";
+    const factText = typeof legacyFact.fact_text === "string"
+      ? legacyFact.fact_text
+      : typeof legacyFact.text === "string"
+        ? legacyFact.text
+        : "";
+    return factId || factText ? [{ fact_id: factId, fact_text: factText }] : [];
   });
 }
 

@@ -46,4 +46,22 @@ describe("normalizeLegalAnalysisResult", () => {
     assert.deepEqual(value.facts_index, [{ fact_id: "fact-1", fact_text: "Старый формат" }]);
     assert.equal("text" in value.facts_index![0], false);
   });
+
+  test("skips null and malformed legacy facts_index entries", () => {
+    const value = analysis({
+      facts_index: [
+        null,
+        "broken",
+        42,
+        {},
+        { fact_id: "fact-1", text: "Старый формат" },
+        { fact_id: "fact-2", fact_text: "Канонический формат" },
+      ],
+    });
+    normalizeLegalAnalysisResult(value);
+    assert.deepEqual(value.facts_index, [
+      { fact_id: "fact-1", fact_text: "Старый формат" },
+      { fact_id: "fact-2", fact_text: "Канонический формат" },
+    ]);
+  });
 });
