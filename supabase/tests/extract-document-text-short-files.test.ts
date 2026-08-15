@@ -20,5 +20,7 @@ describe("extract-document-text short text files", () => {
     expect(source).toContain('.replace(/\\u0000/g, "")');
     expect(source).toContain('detected.kind === "image" || detected.kind === "pdf" || text.length === 0');
     expect(source).toContain("const fallbackText = sanitizeExtractedText(fallback.text)");
+    expect(source).toContain("isUsablePdfTextLayer");
+    expect(source).toContain("readable / value.length >= 0.82 && words >= 10");
   });
 });
