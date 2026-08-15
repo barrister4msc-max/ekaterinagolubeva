@@ -4,7 +4,7 @@ project_id = "wiylzbdbjokignwvizxt"
 # production function settings; Deploy to production remains controlled by
 # the Supabase GitHub integration toggle.
 [functions.extract-document-text]
-verify_jwt = false
+verify_jwt = true
 
 # Authorization is enforced in the function with auth.getUser() followed by
 # is_admin_or_superadmin(). Gateway JWT verification rejects the project's
