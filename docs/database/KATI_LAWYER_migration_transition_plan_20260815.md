@@ -22,13 +22,31 @@ Therefore this package stores the snapshot under `supabase/baselines/quarantine/
 
 ## Required gates before migration activation
 
-1. Create a disposable Supabase branch from a dedicated migration-repair branch.
-2. Replace the broken chain only in that repair branch with one reviewed baseline migration plus audited non-personal reference seeds.
-3. Run a clean-database replay and compare the same object-count checklist.
-4. Verify T0-B/T0-C registry rows and intake schemas in the disposable branch.
-5. Review grants separately. Do not import the quarantined catalog grants wholesale.
-6. Review the five RLS-without-policy tables and the five broadly executable `SECURITY DEFINER` functions before approval.
-7. Only after all checks pass, prepare a production migration-history reconciliation procedure. Do not run it without explicit production approval and a rollback plan.
+1. Completed: create disposable branch `schema-baseline-replay-20260815`.
+2. Completed: replay the `public` baseline and verify object counts.
+3. Completed: identify and replay the missing `auth.users` trigger, three storage buckets, and twelve storage policies.
+4. Completed: restore repository-owned reference seeds and verify 197 registry rows / 194 active rows after T0-B.
+5. Completed: verify five flagship intake schemas and T0-C ordering.
+6. Pending: build a replacement Git migration directory with the verified order and archive the old chain outside `supabase/migrations`.
+7. Pending: create a new Git-driven Preview from that branch and require platform status `MIGRATIONS_APPLIED`.
+8. Pending: review grants separately. Do not import the quarantined catalog grants wholesale.
+9. Pending: review the five RLS-without-policy tables and the five broadly executable `SECURITY DEFINER` functions before approval.
+10. Only after all checks pass, prepare a production migration-history reconciliation procedure. Do not run it without explicit production approval and a rollback plan.
+
+## Verified replacement order
+
+1. Production-derived `public` schema baseline.
+2. Repository-owned non-personal reference seeds.
+3. Five approved flagship intake schemas.
+4. `auth.users` trigger and production-equivalent storage configuration.
+5. Canonical shadow-runs migration.
+6. Canonical consumer-observations migration.
+7. T0-B registry synchronization.
+8. Deprecated-template session restore.
+9. T0-C flagship metadata.
+
+This order was verified through tracked migration-runs on the disposable branch.
+It is not yet activated in the Git migration directory.
 
 ## Explicit exclusions
 
@@ -37,4 +55,3 @@ Therefore this package stores the snapshot under `supabase/baselines/quarantine/
 - No broad grant replication.
 - No client, document, answer, or session data.
 - No UI changes.
-

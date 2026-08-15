@@ -89,3 +89,40 @@ Security Advisors дополнительно выявили:
 - Полный merge в GitHub: не выполнялся.
 - Production grants: требуют отдельного security-review до включения в воспроизводимую миграционную цепочку.
 
+## Disposable replay №2
+
+Создана отдельная платная тестовая ветка `schema-baseline-replay-20260815`
+(`zdeuhlgtcnjyaqkicgne`). Стоимость ветки на момент создания: `$0.01344/hour`.
+
+Исходная Git-цепочка воспроизвела дефект: статус `MIGRATIONS_FAILED`, применились
+только первые пять исторических миграций, в `public` было 4 таблицы.
+
+После очистки только disposable `public` и применения baseline одним tracked
+migration-run подтверждены исходные 95 таблиц и остальные контрольные значения.
+
+Затем отдельно восстановлены и проверены:
+
+- 1 trigger `on_auth_user_created` на `auth.users`;
+- 3 storage buckets: `communication-attachments`, `hero`, `lead-documents`;
+- 12 production-equivalent RLS-политик `storage.objects`;
+- 23 строки legacy `document_templates`;
+- 197 строк `legal_document_templates`, из них 194 активные после повторного T0-B;
+- 5 активных flagship intake schemas;
+- две миграции Canonical Relations: shadow runs и consumer observations;
+- T0-B, deprecated-session restore и T0-C.
+
+Итоговая схема candidate-state после добавления двух Canonical Relations таблиц:
+
+| Объекты | Candidate |
+|---|---:|
+| Таблицы | 97 |
+| Constraints | 287 |
+| Индексы | 355 |
+| Пользовательские функции | 10 |
+| Триггеры public | 33 |
+| Views | 8 |
+| RLS-политики public | 134 |
+
+Platform status disposable-ветки остаётся `MIGRATIONS_FAILED`, потому что она была
+создана из старой Git-цепочки. Прямые tracked migration-runs подтверждают SQL, но не
+заменяют обязательную проверку новой Git-цепочки с нуля.
