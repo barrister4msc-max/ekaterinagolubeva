@@ -681,6 +681,14 @@ function DocumentBuilderPage() {
                 availableModes={["standalone"]}
                 submitting={submitting}
                 initialSessionId={restoredSessionId}
+                templateOptions={templates.filter((candidate) => hasSchema(candidate.code))}
+                onSuggestedTemplateSelect={(templateCode, sessionId) => {
+                  setSelectedCode(templateCode);
+                  setRestoredSessionId(sessionId);
+                  setIntake(null);
+                  setStep(2);
+                  toast.info("Открыта карточка предложенного шаблона. Комплект документов сохранён.");
+                }}
               />
               {submitError && (
                 <div className="db-warning mt-4">Ошибка генерации: {submitError}</div>
