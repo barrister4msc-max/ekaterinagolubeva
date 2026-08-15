@@ -22,5 +22,6 @@ describe("extract-document-text short text files", () => {
     expect(source).toContain("const fallbackText = sanitizeExtractedText(fallback.text)");
     expect(source).toContain("isUsablePdfTextLayer");
     expect(source).toContain("readable / value.length >= 0.82 && words >= 10");
+    expect(source).toContain('status = "ocr_required";\n      text = "";');
   });
 });
