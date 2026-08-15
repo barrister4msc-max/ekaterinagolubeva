@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import {
   PERMANENT_PRIVATE_ACCESS_SHA256,
   isAuthorizedPrivateAccessSecret,
-} from "./private-access.functions";
+} from "./private-access-verify";
 
 // Derived locally for the test only; never stored in source.
 const CANDIDATE = randomBytes(24).toString("hex");
@@ -27,7 +27,7 @@ describe("private access secret matching", () => {
   });
 
   test("does not contain the plaintext token in source", () => {
-    const src = readFileSync("src/lib/private-access.functions.ts", "utf8");
+    const src = readFileSync("src/lib/private-access-verify.ts", "utf8");
     const hits = src.match(/[A-Za-z0-9_-]{20,}/g) ?? [];
     for (const hit of hits) {
       assert.notEqual(createHash("sha256").update(hit, "utf8").digest("hex"), PERMANENT_PRIVATE_ACCESS_SHA256);
