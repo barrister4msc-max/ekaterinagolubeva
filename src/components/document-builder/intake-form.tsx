@@ -339,21 +339,109 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
   const waitBeforeRetry = (attempt: number) =>
     new Promise((resolve) => window.setTimeout(resolve, attempt * 900));
 
+  const waitForPersistedExtraction = async (
+    documentId: string,
+    timeoutMs = 150_000,
+  ) => {
+    const deadline = Date.now() + timeoutMs;
+    let lastError: string | null = null;
+
+    while (Date.now() < deadline) {
+      const { data, error } = await supabase
+        .from("documents")
+        .select("ocr_text, metadata")
+        .eq("id", documentId)
+        .single();
+
+      if (!error && data) {
+        const metadata = (data.metadata ?? {}) as Record<string, unknown>;
+        const extractionStatus =
+          typeof metadata.extraction_status === "string"
+            ? metadata.extraction_status
+            : null;
+        const extractionError =
+          typeof metadata.extraction_error === "string"
+            ? metadata.extraction_error
+            : null;
+        const textLength = typeof data.ocr_text === "string" ? data.ocr_text.trim().length : 0;
+
+        if (extractionStatus === "completed" && textLength > 0) {
+          return { extractionStatus: "completed", textLength };
+        }
+        if (extractionStatus === "failed") {
+          return {
+            extractionStatus: "failed",
+            textLength: 0,
+            error: extractionError || "Извлечение текста завершилось с ошибкой",
+          };
+        }
+        lastError = extractionError;
+      } else if (error) {
+        lastError = error.message;
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 2_500));
+    }
+
+    return {
+      extractionStatus: "pending",
+      textLength: 0,
+      error: lastError || "Обработка продолжается дольше обычного",
+    };
+  };
+
   const runExtractionWithRetry = async (documentId: string, maxAttempts = 3) => {
     let lastError = "Не удалось извлечь текст";
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      const { data, error } = await supabase.functions.invoke("extract-document-text", {
+      const invocation = supabase.functions.invoke("extract-document-text", {
         body: { document_id: documentId },
       });
-      if (!error && data?.extraction_status === "completed" && Number(data?.text_length) > 0) {
+
+      const response = await Promise.race([
+        invocation.then((result) => ({ kind: "response" as const, result })),
+        new Promise<{ kind: "timeout" }>((resolve) =>
+          window.setTimeout(() => resolve({ kind: "timeout" }), 20_000),
+        ),
+      ]);
+
+      if (response.kind === "response") {
+        const { data, error } = response.result;
+        if (!error && data?.extraction_status === "completed" && Number(data?.text_length) > 0) {
+          return {
+            extractionStatus: "completed",
+            textLength: Number(data.text_length),
+            attempts: attempt,
+          };
+        }
+        lastError = error?.message || data?.error ||
+          `Извлечение завершилось со статусом ${data?.extraction_status ?? "failed"}`;
+      } else {
+        // Do not start a duplicate Gemini request while the first invocation is
+        // still running. The function persists its result before responding,
+        // so polling the row recovers from browser/proxy response timeouts.
+        void invocation.catch((error) => {
+          console.warn("[extract-document-text] late invocation error", error);
+        });
+        const persisted = await waitForPersistedExtraction(documentId);
+        if (persisted.extractionStatus === "completed" && persisted.textLength > 0) {
+          return {
+            extractionStatus: "completed",
+            textLength: persisted.textLength,
+            attempts: attempt,
+          };
+        }
+        lastError = persisted.error || lastError;
+      }
+
+      const persisted = await waitForPersistedExtraction(documentId, 5_000);
+      if (persisted.extractionStatus === "completed" && persisted.textLength > 0) {
         return {
           extractionStatus: "completed",
-          textLength: Number(data.text_length),
+          textLength: persisted.textLength,
           attempts: attempt,
         };
       }
-      lastError = error?.message || data?.error ||
-        `Извлечение завершилось со статусом ${data?.extraction_status ?? "failed"}`;
+      lastError = persisted.error || lastError;
       if (attempt < maxAttempts) await waitBeforeRetry(attempt);
     }
     return { extractionStatus: "failed", textLength: 0, attempts: maxAttempts, error: lastError };
