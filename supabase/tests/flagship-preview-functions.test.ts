@@ -6,7 +6,7 @@ const testsDirectory = dirname(fileURLToPath(import.meta.url));
 const configPath = join(testsDirectory, "../config.toml");
 
 const expectedFunctions = new Map([
-  ["extract-document-text", true],
+  ["extract-document-text", false],
   ["document-intake-ai-fill", false],
   ["analyze-document-legal-position", false],
   ["generate-legal-document-v2", false],
