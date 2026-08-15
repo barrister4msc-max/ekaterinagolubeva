@@ -32,6 +32,10 @@ import {
   type PreflightResult,
 } from "@/lib/document-generation-preflight";
 import { buildCaseIntelligenceForSession } from "@/lib/case-intelligence";
+import {
+  hasExtractedDocumentText,
+  suggestTemplatesForPackage,
+} from "@/lib/document-template-suggestions";
 type IntakeContext = {
   matterId?: string | null;
   clientId?: string | null;
@@ -50,9 +54,11 @@ type Props = {
   submitting?: boolean;
   intakeContext?: IntakeContext;
   initialSessionId?: string | null;
+  templateOptions?: DocumentTemplate[];
+  onSuggestedTemplateSelect?: (templateCode: string, sessionId: string) => void;
 };
 
-export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack, availableModes, submitting, intakeContext, initialSessionId }: Props) {
+export function IntakeForm({ schema, state, template, onChange, onSubmit, onBack, availableModes, submitting, intakeContext, initialSessionId, templateOptions = [], onSuggestedTemplateSelect }: Props) {
   const steps = schema.schema_json?.steps ?? [];
   const [stepIdx, setStepIdx] = useState(0);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -72,6 +78,8 @@ type SessionDocument = {
   file_name: string | null;
   ocr_text_length: number;
   ocr_text: string | null;
+  extraction_status: string | null;
+  extraction_error: string | null;
   redaction_status: import("@/lib/document-redaction").RedactionStatus | null;
   contains_personal_data: boolean;
   contains_passport_data: boolean;
@@ -89,9 +97,29 @@ const [redactionDocId, setRedactionDocId] = useState<string | null>(null);
 const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
 const [isAiFilling, setIsAiFilling] = useState(false);
+const [aiFillAttempt, setAiFillAttempt] = useState(0);
+const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
+const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null);
   const [isBuildingCaseIntelligence, setIsBuildingCaseIntelligence] = useState(false);
 const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
   const totalSteps = steps.length + 1; // +1 for review
+
+  const readyDocuments = useMemo(
+    () => sessionDocuments.filter((document) => hasExtractedDocumentText(document.ocr_text)),
+    [sessionDocuments],
+  );
+  const templateSuggestions = useMemo(
+    () => suggestTemplatesForPackage(
+      readyDocuments.map((document) => ({
+        id: document.id,
+        file_name: document.file_name ?? document.title,
+        text: document.ocr_text,
+      })),
+      templateOptions,
+      template,
+    ),
+    [readyDocuments, template, templateOptions],
+  );
 
   const requiredSet = useMemo(
     () => new Set(schema.required_fields ?? []),
@@ -185,7 +213,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
   const refreshSessionDocuments = useCallback(async (sid: string | null) => {
     if (!sid) {
       setSessionDocuments([]);
-      return;
+      return [] as SessionDocument[];
     }
     const { data, error } = await supabase
       .from("documents")
@@ -194,10 +222,9 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
       .order("created_at", { ascending: true });
     if (error) {
       console.error("Failed to load session documents", error);
-      return;
+      return [] as SessionDocument[];
     }
-    setSessionDocuments(
-      (data ?? []).map((d: any) => {
+    const mappedDocuments = (data ?? []).map((d: any) => {
         const meta = (d.metadata ?? {}) as Record<string, unknown>;
         const notes = Array.isArray(meta.redaction_notes)
           ? (meta.redaction_notes as string[])
@@ -208,6 +235,10 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
           file_name: d.file_name,
           ocr_text: typeof d.ocr_text === "string" ? (d.ocr_text as string) : null,
           ocr_text_length: typeof d.ocr_text === "string" ? d.ocr_text.length : 0,
+          extraction_status:
+            typeof meta.extraction_status === "string" ? meta.extraction_status : null,
+          extraction_error:
+            typeof meta.extraction_error === "string" ? meta.extraction_error : null,
           redaction_status:
             (meta.redaction_status as import("@/lib/document-redaction").RedactionStatus | null) ??
             null,
@@ -227,8 +258,9 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
             ? (meta.redaction_remaining_entities as import("@/lib/legal-redaction").RemainingEntity[])
             : [],
         };
-      }),
-    );
+      });
+    setSessionDocuments(mappedDocuments);
+    return mappedDocuments;
   }, []);
 
   useEffect(() => {
@@ -304,6 +336,29 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
     setIsSavingDraft(false);
   }
 };
+  const waitBeforeRetry = (attempt: number) =>
+    new Promise((resolve) => window.setTimeout(resolve, attempt * 900));
+
+  const runExtractionWithRetry = async (documentId: string, maxAttempts = 3) => {
+    let lastError = "Не удалось извлечь текст";
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const { data, error } = await supabase.functions.invoke("extract-document-text", {
+        body: { document_id: documentId },
+      });
+      if (!error && data?.extraction_status === "completed" && Number(data?.text_length) > 0) {
+        return {
+          extractionStatus: "completed",
+          textLength: Number(data.text_length),
+          attempts: attempt,
+        };
+      }
+      lastError = error?.message || data?.error ||
+        `Извлечение завершилось со статусом ${data?.extraction_status ?? "failed"}`;
+      if (attempt < maxAttempts) await waitBeforeRetry(attempt);
+    }
+    return { extractionStatus: "failed", textLength: 0, attempts: maxAttempts, error: lastError };
+  };
+
   const uploadSingleFile = async (file: File, sessionIdParam: string) => {
     const rawExtension = file.name.includes(".") ? file.name.split(".").pop() : "bin";
     const extension =
@@ -346,15 +401,16 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
     await supabase
       .from("document_intake_sessions")
       .update({ document_id: documentRow.id, updated_at: new Date().toISOString() })
-      .eq("id", sessionIdParam);
+      .eq("id", sessionIdParam)
+      .is("document_id", null);
 
-    const { error: extractError } = await supabase.functions.invoke(
-      "extract-document-text",
-      { body: { document_id: documentRow.id } },
-    );
-    if (extractError) throw extractError;
+    const extractResult = await runExtractionWithRetry(documentRow.id);
 
-    return documentRow.id as string;
+    return {
+      id: documentRow.id as string,
+      extractionStatus: extractResult.extractionStatus,
+      textLength: extractResult.textLength,
+    };
   };
 
   const handleUploadDocument = async (
@@ -378,14 +434,30 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
       });
       setIntakeSessionId(session.id);
 
+      const failedFiles: string[] = [];
+      const processingIssues: string[] = [];
       for (const file of files) {
         try {
-          await uploadSingleFile(file, session.id);
+          const result = await uploadSingleFile(file, session.id);
+          if (result.extractionStatus !== "completed" || result.textLength === 0) {
+            processingIssues.push(file.name);
+          }
         } catch (err) {
           console.error("Failed to upload file", file.name, err);
-          alert(`Не удалось загрузить файл: ${file.name}`);
+          failedFiles.push(file.name);
         }
         await refreshSessionDocuments(session.id);
+      }
+
+      if (failedFiles.length > 0) {
+        alert(
+          `Загружено ${files.length - failedFiles.length} из ${files.length}. Не удалось: ${failedFiles.join(", ")}`,
+        );
+      }
+      if (processingIssues.length > 0) {
+        alert(
+          `Файлы загружены, но текст пока не извлечён: ${processingIssues.join(", ")}. Они отмечены для проверки.`,
+        );
       }
 
       try {
@@ -414,10 +486,27 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
       alert("Не удалось удалить документ");
     }
   };
-    const buildCaseIntelligenceIfReady = async (reason: string) => {
+
+  const handleRetryExtraction = async (documentId: string) => {
+    try {
+      setRetryingDocumentId(documentId);
+      const result = await runExtractionWithRetry(documentId);
+      await refreshSessionDocuments(intakeSessionId);
+      if (result.extractionStatus !== "completed") {
+        alert(`Текст не извлечён после ${result.attempts} попыток: ${result.error}`);
+      }
+    } finally {
+      setRetryingDocumentId(null);
+    }
+  };
+
+    const buildCaseIntelligenceIfReady = async (
+      reason: string,
+      documentsOverride: SessionDocument[] = readyDocuments,
+    ) => {
     if (!intakeSessionId) return null;
 
-    const readyDocs = sessionDocuments.filter((d) => d.ocr_text_length > 50);
+    const readyDocs = documentsOverride;
     if (readyDocs.length === 0) return null;
 
     const key = `${intakeSessionId}:${readyDocs.map((d) => `${d.id}:${d.ocr_text_length}`).sort().join("|")}`;
@@ -441,26 +530,59 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
       alert("Сначала загрузите документы");
       return;
     }
-    const readyDocs = sessionDocuments.filter((d) => d.ocr_text_length > 50);
-    if (readyDocs.length === 0) {
-      alert("Нет документов с извлечённым текстом");
-      return;
-    }
-
-        try {
+    try {
       setIsAiFilling(true);
+      setAiFillFailure(null);
+      setAiFillAttempt(0);
 
-      await buildCaseIntelligenceIfReady("before_ai_fill");
+      let currentDocuments = await refreshSessionDocuments(intakeSessionId);
+      const documentsWithoutText = currentDocuments.filter(
+        (document) => !hasExtractedDocumentText(document.ocr_text),
+      );
 
-      for (const doc of readyDocs) {
-        const { error } = await supabase.functions.invoke(
-          "document-intake-ai-fill",
-          { body: { session_id: intakeSessionId, document_id: doc.id } },
-        );
-        if (error) {
-          console.error("AI fill failed for document", doc.id, error);
-        }
+      for (const document of documentsWithoutText) {
+        setRetryingDocumentId(document.id);
+        await runExtractionWithRetry(document.id);
       }
+      setRetryingDocumentId(null);
+
+      currentDocuments = await refreshSessionDocuments(intakeSessionId);
+      const readyDocs = currentDocuments.filter((document) =>
+        hasExtractedDocumentText(document.ocr_text),
+      );
+
+      if (readyDocs.length === 0) {
+        throw new Error(
+          "Ни из одного файла не удалось извлечь текст. Используйте «Повторить извлечение» у файла.",
+        );
+      }
+
+      await buildCaseIntelligenceIfReady("before_ai_fill", readyDocs);
+
+      let fillResult: any = null;
+      let lastFillError = "AI не вернул подтверждённые поля";
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        setAiFillAttempt(attempt);
+        const { data, error } = await supabase.functions.invoke("document-intake-ai-fill", {
+          body: {
+            session_id: intakeSessionId,
+            document_ids: readyDocs.map((document) => document.id),
+          },
+        });
+
+        const filledFields = Number(data?.filled_fields ?? 0);
+        if (!error && data?.success === true && filledFields > 0) {
+          fillResult = data;
+          break;
+        }
+
+        lastFillError = error?.message || data?.error ||
+          (data?.success === true
+            ? "AI не нашёл полей с достаточной уверенностью и цитатами"
+            : "AI-заполнение завершилось без результата");
+        if (attempt < 3) await waitBeforeRetry(attempt);
+      }
+      if (!fillResult) throw new Error(`${lastFillError}. Выполнено попыток: 3.`);
 
       const { data: answers, error: answersError } = await supabase
         .from("document_intake_answers")
@@ -474,12 +596,32 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
       }
       onChange({ ...state, answers: nextAnswers });
 
-      alert("AI заполнил поля из документов. Проверьте значения.");
+      setAiFillFailure(null);
+      alert(
+        `AI заполнил ${fillResult.filled_fields} полей из комплекта. Проверьте значения и цитаты.`,
+      );
     } catch (e) {
       console.error("AI fill failed", e);
-      alert("Не удалось заполнить поля из документов");
+      const message = e instanceof Error ? e.message : String(e);
+      setAiFillFailure(message);
     } finally {
       setIsAiFilling(false);
+      setRetryingDocumentId(null);
+    }
+  };
+
+  const handleSuggestedTemplate = async (templateCode: string) => {
+    if (!intakeSessionId || !onSuggestedTemplateSelect) return;
+    try {
+      const { error } = await supabase
+        .from("document_intake_sessions")
+        .update({ template_code: templateCode, updated_at: new Date().toISOString() })
+        .eq("id", intakeSessionId);
+      if (error) throw error;
+      onSuggestedTemplateSelect(templateCode, intakeSessionId);
+    } catch (error) {
+      console.error("Failed to switch the suggested template", error);
+      alert("Не удалось открыть предложенный шаблон");
     }
   };
 
@@ -551,11 +693,19 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                 onClick={handleAiFillFromDocument}
                 disabled={
                   isAiFilling ||
-                  sessionDocuments.filter((d) => d.ocr_text_length > 50).length === 0
+                  sessionDocuments.length === 0
                 }
               >
                 <Sparkles size={14} />
-                {isBuildingCaseIntelligence ? "Строю матрицу дела…" : isAiFilling ? "AI заполняет…" : "AI заполнить поля"}
+                {isBuildingCaseIntelligence
+                  ? "Строю матрицу дела…"
+                  : isAiFilling
+                    ? `AI заполняет… попытка ${Math.max(aiFillAttempt, 1)} из 3`
+                    : aiFillFailure
+                      ? "Повторить AI-заполнение"
+                      : readyDocuments.length === 0
+                        ? "Извлечь текст и заполнить"
+                        : "AI заполнить поля"}
               </button>
 
               {sessionDocuments.length > 0 && (
@@ -565,10 +715,20 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
               )}
             </div>
 
+            {aiFillFailure && (
+              <div className="rounded-lg border border-rose-300/30 bg-rose-300/[0.08] p-3 text-xs text-rose-100">
+                <div className="font-semibold">AI-заполнение не завершено</div>
+                <div className="mt-1">{aiFillFailure}</div>
+                <div className="mt-1 text-white/55">
+                  Можно нажать «Повторить AI-заполнение»: комплект и уже сохранённые ответы не потеряются.
+                </div>
+              </div>
+            )}
+
             {sessionDocuments.length > 0 && (
               <ul className="space-y-2">
                 {sessionDocuments.map((doc) => {
-                  const ready = doc.ocr_text_length > 50;
+                  const ready = hasExtractedDocumentText(doc.ocr_text);
                   const tone = redactionStatusTone(doc.redaction_status);
                   const showRedactButton =
                     ready &&
@@ -610,6 +770,17 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
+                        {!ready && (
+                          <button
+                            type="button"
+                            className="db-ghost"
+                            onClick={() => handleRetryExtraction(doc.id)}
+                            disabled={retryingDocumentId === doc.id || isAiFilling}
+                            title="Повторить извлечение текста без повторной загрузки файла"
+                          >
+                            {retryingDocumentId === doc.id ? "Извлекаю…" : "Повторить извлечение"}
+                          </button>
+                        )}
                         {showRedactButton && (
                           <button
                             type="button"
@@ -643,6 +814,47 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                   );
                 })}
               </ul>
+            )}
+
+            {templateSuggestions.length > 0 && (
+              <div className="rounded-xl border border-amber-300/30 bg-amber-200/[0.07] p-4 space-y-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={16} className="mt-0.5 text-amber-200 shrink-0" />
+                  <div>
+                    <div className="text-sm font-semibold text-white">
+                      Комплект похож на другой тип документа
+                    </div>
+                    <p className="mt-1 text-xs text-white/65">
+                      Текущий выбор сохранён. Проверьте варианты и откройте карточку подходящего шаблона.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {templateSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.template.code}
+                      type="button"
+                      className="rounded-lg border border-white/10 bg-black/10 p-3 text-left hover:border-amber-200/40"
+                      onClick={() => handleSuggestedTemplate(suggestion.template.code)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm text-white">{suggestion.template.title}</span>
+                        {suggestion.conflictsWithSelection && (
+                          <span className="text-[10px] uppercase tracking-wide text-amber-200">
+                            другая область
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 text-[11px] text-white/55">
+                        {suggestion.reasons.join(" · ")}
+                      </div>
+                      <div className="mt-2 inline-flex items-center gap-1 text-xs text-amber-100">
+                        Открыть карточку <ArrowRight size={12} />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
