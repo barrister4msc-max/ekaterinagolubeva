@@ -29,9 +29,10 @@ Therefore this package stores the snapshot under `supabase/baselines/quarantine/
 5. Completed: verify five flagship intake schemas and T0-C ordering.
 6. Pending: build a replacement Git migration directory with the verified order and archive the old chain outside `supabase/migrations`.
 7. Pending: create a new Git-driven Preview from that branch and require platform status `MIGRATIONS_APPLIED`.
-8. Pending: review grants separately. Do not import the quarantined catalog grants wholesale.
-9. Pending: review the five RLS-without-policy tables and the five broadly executable `SECURITY DEFINER` functions before approval.
-10. Only after all checks pass, prepare a production migration-history reconciliation procedure. Do not run it without explicit production approval and a rollback plan.
+8. Completed in isolation: a least-privilege grants candidate was derived from production RLS policies and verified code usage, then replayed on disposable branch `stfvcjjvtbllligfayut`. It remains quarantined; do not import the catalog grants wholesale.
+9. Completed in isolation: seven RLS-without-policy tables remain fail-closed after Canonical Relations. Browser execution is limited to four authenticated RPCs; vector-match and trigger helper functions are service-role-only.
+10. Pending: authenticated end-to-end admin smoke tests with a real Preview user session.
+11. Only after all checks pass, prepare a production migration-history reconciliation procedure. Do not run it without explicit production approval and a rollback plan.
 
 ## Verified replacement order
 
