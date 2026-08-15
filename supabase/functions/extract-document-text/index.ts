@@ -169,6 +169,18 @@ function extractPdfTextLayer(buf: ArrayBuffer): string {
   }
   return out.join(" ").replace(/\s+/g, " ").trim();
 }
+
+function sanitizeExtractedText(value: string): string {
+  // PostgreSQL text/JSON cannot store NUL. Minimal PDF probes can surface
+  // binary control bytes from compressed streams, so strip those before an
+  // update and before deciding whether the text layer is usable.
+  return value
+    .replace(/\u0000/g, "")
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 function arrayBufferToBase64(buf: ArrayBuffer): string {
   let binary = "";
   const bytes = new Uint8Array(buf);
@@ -464,10 +476,11 @@ Deno.serve(async (req) => {
     text = "";
   }
 
+  text = sanitizeExtractedText(text);
+
   const shouldUseGeminiFallback =
     downloaded?.buf &&
-    (text.trim().length === 0 ||
-      ((detected.kind === "image" || detected.kind === "pdf") && text.trim().length < 50));
+    (detected.kind === "image" || detected.kind === "pdf" || text.length === 0);
 
   if (shouldUseGeminiFallback) {
     const fallback = await extractWithGeminiFallback({
@@ -476,8 +489,10 @@ Deno.serve(async (req) => {
       fileName: doc.file_name || "document",
     });
 
-    if (fallback.text.trim().length > 0) {
-      text = fallback.text.trim();
+    const fallbackText = sanitizeExtractedText(fallback.text);
+
+    if (fallbackText.length > 0) {
+      text = fallbackText;
       method = "gemini_fallback";
       status = "completed";
     } else if (text.trim().length > 0) {
