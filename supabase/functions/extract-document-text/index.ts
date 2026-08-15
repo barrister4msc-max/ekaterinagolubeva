@@ -324,9 +324,46 @@ async function downloadFile(
   return null;
 }
 
+async function authorizeRequest(
+  req: Request,
+  supabase: ReturnType<typeof createClient>,
+): Promise<{ ok: true } | { ok: false; status: 401 | 403 }> {
+  const authorization = req.headers.get("Authorization");
+  const accessToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!accessToken) return { ok: false, status: 401 };
+
+  // Trusted server-side callers use the exact service-role secret. Browser
+  // callers must resolve to a real admin user below.
+  if (accessToken === SERVICE_ROLE) return { ok: true };
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser(accessToken);
+  if (authError || !user) return { ok: false, status: 401 };
+
+  const { data: isAdmin, error: roleError } = await supabase.rpc(
+    "is_admin_or_superadmin",
+    { _user_id: user.id },
+  );
+  if (roleError || isAdmin !== true) return { ok: false, status: 403 };
+  return { ok: true };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
+    auth: { persistSession: false },
+  });
+  const authorization = await authorizeRequest(req, supabase);
+  if (!authorization.ok) {
+    return json(
+      { error: authorization.status === 401 ? "Unauthorized" : "Forbidden" },
+      authorization.status,
+    );
+  }
 
   let body: { document_id?: string; archive_item_id?: string; storage_path?: string; bucket?: string; mime_type?: string; file_name?: string };
   try {
@@ -337,7 +374,6 @@ Deno.serve(async (req) => {
 
   // ---- Archive item mode (lawyer_archive_items) ----
   if (body.archive_item_id) {
-    const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
     const { data: item, error: loadErr } = await supabase
       .from("lawyer_archive_items")
       .select("id, title, storage_path, metadata")
@@ -408,10 +444,6 @@ Deno.serve(async (req) => {
 
   const documentId = body.document_id;
   if (!documentId) return json({ error: "document_id_required" }, 400);
-
-  const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
-    auth: { persistSession: false },
-  });
 
   const { data: doc, error: loadErr } = await supabase
     .from("documents")
