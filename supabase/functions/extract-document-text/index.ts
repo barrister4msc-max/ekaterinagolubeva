@@ -181,6 +181,13 @@ function sanitizeExtractedText(value: string): string {
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
+
+function isUsablePdfTextLayer(value: string): boolean {
+  if (value.length < 50) return false;
+  const readable = value.match(/[A-Za-zА-Яа-яЁё0-9\s.,:;!?()'"№%+–—/\-]/g)?.length ?? 0;
+  const words = value.match(/[A-Za-zА-Яа-яЁё]{2,}/g)?.length ?? 0;
+  return readable / value.length >= 0.82 && words >= 10;
+}
 function arrayBufferToBase64(buf: ArrayBuffer): string {
   let binary = "";
   const bytes = new Uint8Array(buf);
@@ -495,9 +502,9 @@ Deno.serve(async (req) => {
       text = fallbackText;
       method = "gemini_fallback";
       status = "completed";
-    } else if (text.trim().length > 0) {
+    } else if (detected.kind === "pdf" && isUsablePdfTextLayer(text)) {
       // A short text-layer result is still usable. Do not discard valid
-      // one-line documents merely because they contain fewer than 50 chars.
+      // embedded text merely because the OCR provider is temporarily unavailable.
       status = "completed";
     } else if (detected.kind === "image" || detected.kind === "pdf") {
       status = "ocr_required";
