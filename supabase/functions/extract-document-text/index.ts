@@ -508,6 +508,7 @@ Deno.serve(async (req) => {
       status = "completed";
     } else if (detected.kind === "image" || detected.kind === "pdf") {
       status = "ocr_required";
+      text = "";
       method =
         detected.kind === "image"
           ? "image_ocr_required"
