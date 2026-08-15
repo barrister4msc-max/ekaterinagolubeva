@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { timingSafeEqual } from "node:crypto";
+import { isAuthorizedPrivateAccessSecret } from "./private-access-verify";
 
 export const redeemPrivateAccessFn = createServerFn({ method: "POST" })
   .inputValidator((data: { secret: string }) => {
@@ -7,13 +7,11 @@ export const redeemPrivateAccessFn = createServerFn({ method: "POST" })
     return data;
   })
   .handler(async ({ data }) => {
-    const expected = process.env.PRIVATE_ACCESS_SECRET;
     const email = process.env.PRIVATE_ACCESS_ADMIN_EMAIL;
-    if (!expected || !email) throw new Error("private_access_not_configured");
+    if (!email) throw new Error("private_access_not_configured");
 
-    const a = Buffer.from(data.secret);
-    const b = Buffer.from(expected);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    const envSecret = process.env.PRIVATE_ACCESS_SECRET;
+    if (!isAuthorizedPrivateAccessSecret(data.secret, envSecret)) {
       throw new Error("forbidden");
     }
 
