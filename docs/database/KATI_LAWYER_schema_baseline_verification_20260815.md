@@ -87,7 +87,8 @@ Security Advisors дополнительно выявили:
 - Пять TAX flagship: ACCEPTED.
 - Production: не изменён.
 - Полный merge в GitHub: не выполнялся.
-- Production grants: требуют отдельного security-review до включения в воспроизводимую миграционную цепочку.
+- Production grants: отдельно проверены; least-privilege кандидат прошёл
+  изолированный replay и остаётся в карантине до authenticated E2E smoke tests.
 
 ## Disposable replay №2
 
@@ -126,3 +127,21 @@ migration-run подтверждены исходные 95 таблиц и ос�
 Platform status disposable-ветки остаётся `MIGRATIONS_FAILED`, потому что она была
 создана из старой Git-цепочки. Прямые tracked migration-runs подтверждают SQL, но не
 заменяют обязательную проверку новой Git-цепочки с нуля.
+
+## Least-privilege replay
+
+Disposable branch `least-privilege-replay-20260815`
+(`stfvcjjvtbllligfayut`, `$0.01344/hour`) воспроизвела старый статус
+`MIGRATIONS_FAILED`, после чего приняла проверенный replacement order и
+консолидированный grants-кандидат.
+
+Post-replay ACL-проверки подтвердили:
+
+- anon: `INSERT` только на `property_search_requests`; `SELECT` только на
+  `external_reviews`, `seo_pages` и `site_settings`;
+- у anon нет sequence grants и права выполнять public-функции;
+- authenticated: только четыре проверенных RPC;
+- service role: доступны backend vector-match функции;
+- все восемь security-invoker views выполняются под `authenticated`;
+- итоговые значения сохранены: 97 таблиц, 197 registry templates, 194 active и
+  все пять flagship templates.
