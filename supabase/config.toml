@@ -1,1 +1,22 @@
 project_id = "wiylzbdbjokignwvizxt"
+
+# Flagship tax-document Preview flow. These values mirror the current
+# production function settings; Deploy to production remains controlled by
+# the Supabase GitHub integration toggle.
+[functions.extract-document-text]
+verify_jwt = false
+
+# Authorization is enforced in the function with auth.getUser() followed by
+# is_admin_or_superadmin(). Gateway JWT verification rejects the project's
+# asymmetric ES256 access tokens before those checks can run.
+[functions.document-intake-ai-fill]
+verify_jwt = false
+
+[functions.analyze-document-legal-position]
+verify_jwt = false
+
+[functions.generate-legal-document-v2]
+verify_jwt = false
+
+[functions.review-generated-legal-document]
+verify_jwt = false

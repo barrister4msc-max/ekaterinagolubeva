@@ -19,6 +19,45 @@ export type DocumentTemplate = {
   metadata: Record<string, unknown>;
 };
 
+export const FLAGSHIP_TAX_TEMPLATE_CODES = [
+  "response_to_tax_request",
+  "tax_explanations",
+  "tax_vat_explanations",
+  "tax_strategy_memo",
+  "tax_court_position",
+] as const;
+
+export type FlagshipTaxTemplateCode = (typeof FLAGSHIP_TAX_TEMPLATE_CODES)[number];
+
+export type FlagshipTaxTemplate = DocumentTemplate & {
+  code: FlagshipTaxTemplateCode;
+  flagship_rank: number;
+};
+
+/**
+ * Typed UI adapter for the five approved T0-C tax flagships.
+ * A template is promoted only when both its exact code and registry metadata
+ * agree with the approved rank. The catalog itself remains unchanged.
+ */
+export function selectFlagshipTaxTemplates(templates: DocumentTemplate[]): FlagshipTaxTemplate[] {
+  const byCode = new Map(templates.map((template) => [template.code, template]));
+
+  return FLAGSHIP_TAX_TEMPLATE_CODES.flatMap((code, index) => {
+    const template = byCode.get(code);
+    const expectedRank = index + 1;
+
+    if (
+      !template ||
+      template.metadata?.flagship !== true ||
+      template.metadata?.flagship_rank !== expectedRank
+    ) {
+      return [];
+    }
+
+    return [{ ...template, code, flagship_rank: expectedRank }];
+  });
+}
+
 const TABLE = "legal_document_templates";
 
 export async function getTemplates(): Promise<DocumentTemplate[]> {
