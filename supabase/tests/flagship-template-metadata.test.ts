@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { buildTemplateMigrationFixture } from "./migration-state.ts";
 
 const testsDirectory = dirname(fileURLToPath(import.meta.url));
-const migrationsDirectory = join(testsDirectory, "../migrations");
+const migrationsDirectory = join(testsDirectory, "../migrations_legacy");
 const migrationFile = "20260809200000_t0c_flagship_template_metadata.sql";
 const migrationPath = join(migrationsDirectory, migrationFile);
 

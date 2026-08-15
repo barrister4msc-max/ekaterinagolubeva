@@ -10,6 +10,7 @@ import {
   JURISDICTION_LABELS,
   LANGUAGE_LABELS,
   COMPLEXITY_LABELS,
+  selectFlagshipTaxTemplates,
   type DocumentTemplate,
   type TemplateComplexity,
 } from "@/lib/document-templates";
@@ -72,6 +73,13 @@ function DocumentBuilderPage() {
   }, [intakeSchemas]);
 
   const hasSchema = (code: string) => schemaCodes.has(code);
+
+  const intakeSchemaByCode = useMemo(
+    () => new Map(intakeSchemas.map((schema) => [schema.template_code, schema])),
+    [intakeSchemas],
+  );
+
+  const flagshipTemplates = useMemo(() => selectFlagshipTaxTemplates(templates), [templates]);
 
   const readinessStats = useMemo(() => {
     const total = templates.length;
@@ -323,6 +331,79 @@ function DocumentBuilderPage() {
       {/* STEP 1 */}
       {step === 1 && (
         <section className="db-card p-6 space-y-6">
+          <div className="db-flagship-panel">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <div className="db-section-label flex items-center gap-2">
+                  <Sparkles size={13} /> Приоритетные налоговые документы
+                </div>
+                <h2 className="mt-2 font-display text-xl text-white">
+                  Пять готовых сценариев для налоговой практики
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm text-white/65">
+                  Шаблон, пошаговый опросник и AI-автозаполнение из загруженных документов уже
+                  связаны в одном процессе.
+                </p>
+              </div>
+              <span className="db-flagship-count">5 приоритетных</span>
+            </div>
+
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {flagshipTemplates.map((template) => {
+                const schema = intakeSchemaByCode.get(template.code);
+                const stepsCount = schema?.schema_json.steps.length ?? 0;
+
+                return (
+                  <button
+                    key={template.code}
+                    type="button"
+                    className="db-flagship-card text-left"
+                    onClick={() => {
+                      setSelectedCode(template.code);
+                      setStep(2);
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="db-flagship-rank">{template.flagship_rank}</span>
+                      <span className="db-status db-status-ready">
+                        <Check size={11} /> Шаблон готов
+                      </span>
+                    </div>
+                    <h3 className="mt-4 text-sm font-semibold leading-snug text-white">
+                      {template.title}
+                    </h3>
+                    {template.description && (
+                      <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-white/60">
+                        {template.description}
+                      </p>
+                    )}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="db-feature-badge">
+                        <FileText size={11} /> {stepsCount || "—"} шагов
+                      </span>
+                      <span className="db-feature-badge">
+                        <Sparkles size={11} /> AI-автозаполнение
+                      </span>
+                      <span className="db-feature-badge">
+                        <ShieldCheck size={11} /> AI-проверка
+                      </span>
+                    </div>
+                    <div className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-[#f0dca0]">
+                      Открыть шаблон <ArrowRight size={13} />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {!isLoading && flagshipTemplates.length !== 5 && (
+              <div className="db-warning mt-4">
+                Верхний набор временно неполный: реестр вернул {flagshipTemplates.length} из 5
+                приоритетных шаблонов.
+              </div>
+            )}
+          </div>
+
           <div>
             <div className="db-section-label">Шаг 1 · Юрисдикция</div>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -642,6 +723,13 @@ function DocumentBuilderPage() {
         .db-card { background: rgba(8,20,30,0.48); backdrop-filter: blur(24px) saturate(140%); border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; box-shadow: 0 18px 50px rgba(0,0,0,0.28); color: rgba(255,255,255,0.92); }
         .db-icon { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: rgba(200,168,107,0.16); color: #d6bc78; border: 1px solid rgba(214,188,120,0.30); }
         .db-section-label { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(214,188,120,0.85); }
+        .db-flagship-panel { border: 1px solid rgba(214,188,120,0.30); border-radius: 16px; padding: 20px; background: linear-gradient(135deg, rgba(56,42,17,0.46), rgba(8,20,30,0.46)); box-shadow: 0 14px 36px rgba(0,0,0,0.18); }
+        .db-flagship-count { align-self: flex-start; border: 1px solid rgba(214,188,120,0.38); border-radius: 999px; padding: 6px 10px; background: rgba(214,188,120,0.12); color: #f0dca0; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+        .db-flagship-card { border: 1px solid rgba(214,188,120,0.22); border-radius: 14px; padding: 16px; background: rgba(7,17,24,0.62); transition: transform 160ms ease, border-color 160ms ease, background 160ms ease; }
+        .db-flagship-card:hover { transform: translateY(-2px); border-color: rgba(214,188,120,0.55); background: rgba(15,27,34,0.80); }
+        .db-flagship-card:focus-visible { outline: 2px solid rgba(226,200,137,0.85); outline-offset: 3px; }
+        .db-flagship-rank { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: linear-gradient(135deg, #e2c889, #c8a86b); color: #0d1a22; font-size: 12px; font-weight: 700; box-shadow: 0 8px 20px rgba(200,168,107,0.20); }
+        .db-feature-badge { display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 4px 8px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.72); font-size: 10.5px; }
         .db-search, .db-select { height: 38px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); color: rgba(255,255,255,0.92); padding: 0 12px; font-size: 13px; outline: none; }
         .db-search::placeholder { color: rgba(255,255,255,0.45); }
         .db-search:focus, .db-select:focus { border-color: rgba(214,188,120,0.55); }

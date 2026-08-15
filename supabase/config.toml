@@ -1,1 +1,19 @@
 project_id = "wiylzbdbjokignwvizxt"
+
+# Flagship tax-document Preview flow. These values mirror the current
+# production function settings; Deploy to production remains controlled by
+# the Supabase GitHub integration toggle.
+[functions.extract-document-text]
+verify_jwt = false
+
+[functions.document-intake-ai-fill]
+verify_jwt = true
+
+[functions.analyze-document-legal-position]
+verify_jwt = false
+
+[functions.generate-legal-document-v2]
+verify_jwt = false
+
+[functions.review-generated-legal-document]
+verify_jwt = false

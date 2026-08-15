@@ -4,7 +4,7 @@ import { describe, test } from "node:test";
 
 const migration = readFileSync(
   new URL(
-    "../migrations/20260809170000_t0b_allow_deprecated_template_session_restore.sql",
+    "../migrations_legacy/20260809170000_t0b_allow_deprecated_template_session_restore.sql",
     import.meta.url,
   ),
   "utf8",
@@ -12,7 +12,10 @@ const migration = readFileSync(
 
 describe("deprecated template session access policy", () => {
   test("grants only authenticated SELECT access", () => {
-    assert.match(migration, /ON\s+public\.legal_document_templates\s+FOR\s+SELECT\s+TO\s+authenticated/i);
+    assert.match(
+      migration,
+      /ON\s+public\.legal_document_templates\s+FOR\s+SELECT\s+TO\s+authenticated/i,
+    );
     assert.doesNotMatch(migration, /TO\s+(?:anon|public)\b/i);
   });
 
