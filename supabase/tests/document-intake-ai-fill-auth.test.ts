@@ -24,4 +24,22 @@ describe("document-intake-ai-fill authorization boundary", () => {
 
     expect(source).not.toMatch(/user_metadata|raw_user_meta_data/);
   });
+
+  test("fills a package in one request and validates document ownership", async () => {
+    const source = await Bun.file(functionPath).text();
+
+    expect(source).toContain("document_ids");
+    expect(source).toContain("Document does not belong to the intake session");
+    expect(source).toContain("allowedDocumentIds");
+    expect(source).not.toContain("documentTextForAiFill.length < 50");
+  });
+
+  test("rejects malformed Russian tax identifiers", async () => {
+    const source = await Bun.file(functionPath).text();
+
+    expect(source).toContain('["taxpayer_inn", "counterparty_inn"]');
+    expect(source).toContain("digits.length !== 10 && digits.length !== 12");
+    expect(source).toContain("digits.length !== 13");
+    expect(source).toContain("digits.length !== 15");
+  });
 });
