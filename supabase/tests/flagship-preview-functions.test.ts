@@ -7,7 +7,7 @@ const configPath = join(testsDirectory, "../config.toml");
 
 const expectedFunctions = new Map([
   ["extract-document-text", false],
-  ["document-intake-ai-fill", true],
+  ["document-intake-ai-fill", false],
   ["analyze-document-legal-position", false],
   ["generate-legal-document-v2", false],
   ["review-generated-legal-document", false],
