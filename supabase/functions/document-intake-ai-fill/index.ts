@@ -46,13 +46,19 @@ serve(async (req) => {
       return json({ success: false, error: "Forbidden" }, 403);
     }
 
-    const { session_id, document_id } = await req.json();
+    const { session_id, document_id, document_ids } = await req.json();
+    const requestedDocumentIds = Array.from(
+      new Set(
+        (Array.isArray(document_ids) ? document_ids : [document_id])
+          .filter((value): value is string => typeof value === "string" && value.length > 0),
+      ),
+    );
 
-    if (!session_id || !document_id) {
+    if (!session_id || requestedDocumentIds.length === 0) {
       return json(
         {
           success: false,
-          error: "session_id and document_id are required",
+          error: "session_id and document_id or document_ids are required",
         },
         400,
       );
@@ -68,28 +74,34 @@ serve(async (req) => {
       throw new Error("Intake session not found");
     }
 
-    const { data: document, error: documentError } = await supabase
+    const { data: documents, error: documentError } = await supabase
       .from("documents")
       .select("*")
-      .eq("id", document_id)
-      .single();
+      .in("id", requestedDocumentIds);
 
-    if (documentError || !document) {
-      throw new Error("Document not found");
+    if (documentError || !documents || documents.length !== requestedDocumentIds.length) {
+      throw new Error("One or more documents were not found");
     }
 
-    const documentMetadata = (document.metadata ?? {}) as Record<string, unknown>;
+    const packageDocuments = documents.map((document) => {
+      const metadata = (document.metadata ?? {}) as Record<string, unknown>;
+      if (metadata.intake_session_id !== session_id) {
+        throw new Error("Document does not belong to the intake session");
+      }
+      const originalText =
+        typeof metadata.original_ocr_text === "string" ? metadata.original_ocr_text.trim() : "";
+      const currentText = typeof document.ocr_text === "string" ? document.ocr_text.trim() : "";
+      const text = originalText || currentText;
+      const isRedactedOnly =
+        !originalText &&
+        /\[(COMPANY|PERSON|BANK_DETAILS|PASSPORT|ADDRESS|DATE|DOCUMENT_NUMBER)_\d+\]/i.test(
+          currentText,
+        );
+      return { document, text, isRedactedOnly };
+    });
 
-    const originalOcrText =
-      typeof documentMetadata.original_ocr_text === "string"
-        ? documentMetadata.original_ocr_text.trim()
-        : "";
-
-    const currentOcrText = typeof document.ocr_text === "string" ? document.ocr_text.trim() : "";
-
-    const documentTextForAiFill = originalOcrText || currentOcrText;
-
-    if (!documentTextForAiFill || documentTextForAiFill.length < 50) {
+    const readyDocuments = packageDocuments.filter((item) => item.text.length > 0);
+    if (readyDocuments.length === 0) {
       return json(
         {
           success: false,
@@ -99,13 +111,7 @@ serve(async (req) => {
       );
     }
 
-    const isRedactedInput =
-      !originalOcrText &&
-      /\[(COMPANY|PERSON|BANK_DETAILS|PASSPORT|ADDRESS|DATE|DOCUMENT_NUMBER)_\d+\]/i.test(
-        currentOcrText,
-      );
-
-    if (isRedactedInput) {
+    if (readyDocuments.some((item) => item.isRedactedOnly)) {
       return json(
         {
           success: false,
@@ -115,6 +121,21 @@ serve(async (req) => {
         400,
       );
     }
+
+    const documentTextForAiFill = readyDocuments
+      .map(({ document, text }, index) =>
+        [
+          `=== DOCUMENT ${index + 1} ===`,
+          `document_id: ${document.id}`,
+          `file_name: ${document.file_name ?? document.title ?? "unknown"}`,
+          text.slice(0, 45_000),
+        ].join("\n"),
+      )
+      .join("\n\n")
+      .slice(0, 120_000);
+
+    const primaryDocument = readyDocuments[0].document;
+    const allowedDocumentIds = new Set(readyDocuments.map((item) => item.document.id));
 
     const { data: schema, error: schemaError } = await supabase
       .from("document_intake_schemas")
@@ -185,6 +206,8 @@ serve(async (req) => {
       const fieldName = String(answer.field_name ?? "");
 
       const quote = typeof answer.source_quote === "string" ? answer.source_quote.trim() : "";
+      const sourceDocumentId =
+        typeof answer.source_document_id === "string" ? answer.source_document_id : "";
 
       const hasSourceQuote = quote.length > 0;
 
@@ -206,6 +229,7 @@ serve(async (req) => {
       if (isEmptyLike) return false;
       if (confidence < 0.75) return false;
       if (!hasSourceQuote) return false;
+      if (readyDocuments.length > 1 && !allowedDocumentIds.has(sourceDocumentId)) return false;
       if (templateDerived) return false;
 
       if (policy === "identity" && role.can_fill_identity !== true) return false;
@@ -231,7 +255,11 @@ serve(async (req) => {
           field_value: answer.value,
           value_source: "ai_document",
           confidence: answer.confidence ?? 0.7,
-          source_document_id: document_id,
+          source_document_id:
+            typeof answer.source_document_id === "string" &&
+            allowedDocumentIds.has(answer.source_document_id)
+              ? answer.source_document_id
+              : primaryDocument.id,
           source_quote: answer.source_quote ?? null,
           source_page: answer.source_page ?? null,
           needs_review: true,
@@ -249,18 +277,18 @@ serve(async (req) => {
     await supabase
       .from("documents")
       .update({
-        ai_summary: aiResult.summary ?? document.ai_summary,
-        ai_detected_entities: aiResult.detected_entities ?? document.ai_detected_entities,
-        ai_detected_risks: aiResult.detected_risks ?? document.ai_detected_risks,
+        ai_summary: aiResult.summary ?? null,
+        ai_detected_entities: aiResult.detected_entities ?? null,
+        ai_detected_risks: aiResult.detected_risks ?? null,
         analysis_status: "intake_filled",
         updated_at: new Date().toISOString(),
       })
-      .eq("id", document_id);
+      .in("id", readyDocuments.map((item) => item.document.id));
 
     await supabase
       .from("document_intake_sessions")
       .update({
-        document_id,
+        document_id: primaryDocument.id,
         ai_summary: aiResult.summary ?? null,
         ai_risk_level: aiResult.risk_level ?? null,
         ai_recommended_action: aiResult.recommended_action ?? null,
@@ -271,7 +299,8 @@ serve(async (req) => {
     return json({
       success: true,
       session_id,
-      document_id,
+      document_id: primaryDocument.id,
+      document_ids: readyDocuments.map((item) => item.document.id),
       filled_fields: inserted,
       total_candidate_fields: fields.length,
       summary: aiResult.summary ?? null,
@@ -342,6 +371,8 @@ async function extractAnswersWithGemini({
 13. company_type возвращай только если тип прямо указан: LTD, LLC, ООО, АО, Inc, GmbH и т.п. Не возвращай company_type = "other".
 14. Если Non-compete не найден — не возвращай поле non_compete.
 15. Не путай total_shares и voting_shares.
+16. Если передан комплект документов, анализируй его как единое целое, устраняй противоречия и не выбирай значение произвольно.
+17. Для каждого ответа верни source_document_id из заголовка того документа, где находится source_quote.
 
 Правило для корпоративной структуры:
 Если документ содержит:
@@ -375,7 +406,7 @@ ${JSON.stringify(caseIntelligenceMatrix ?? null, null, 2).slice(0, 20000)}
 ${JSON.stringify(fields, null, 2)}
 
 Текст документа:
-${documentText.slice(0, 60000)}
+${documentText.slice(0, 120000)}
 
 Верни строго JSON:
 {
@@ -402,6 +433,7 @@ ${documentText.slice(0, 60000)}
       "field_label": "string",
       "value": "любое JSON-значение",
       "confidence": 0.0,
+      "source_document_id": "uuid из заголовка документа",
       "source_quote": "цитата",
       "source_page": null
     }
@@ -509,6 +541,21 @@ function sanitizeAnswers(rawAnswers: any[]) {
 
       if (answer.field_name === "non_compete" && answer.value === false) {
         return false;
+      }
+
+      if (["taxpayer_inn", "counterparty_inn"].includes(answer.field_name)) {
+        const digits = String(answer.value ?? "").replace(/\D/g, "");
+        if (digits.length !== 10 && digits.length !== 12) return false;
+      }
+
+      if (answer.field_name === "ogrn") {
+        const digits = String(answer.value ?? "").replace(/\D/g, "");
+        if (digits.length !== 13) return false;
+      }
+
+      if (answer.field_name === "ogrnip") {
+        const digits = String(answer.value ?? "").replace(/\D/g, "");
+        if (digits.length !== 15) return false;
       }
 
       if (!answer.source_quote || String(answer.source_quote).trim().length < 3) {

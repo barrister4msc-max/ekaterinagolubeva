@@ -169,6 +169,25 @@ function extractPdfTextLayer(buf: ArrayBuffer): string {
   }
   return out.join(" ").replace(/\s+/g, " ").trim();
 }
+
+function sanitizeExtractedText(value: string): string {
+  // PostgreSQL text/JSON cannot store NUL. Minimal PDF probes can surface
+  // binary control bytes from compressed streams, so strip those before an
+  // update and before deciding whether the text layer is usable.
+  return value
+    .replace(/\u0000/g, "")
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function isUsablePdfTextLayer(value: string): boolean {
+  if (value.length < 50) return false;
+  const readable = value.match(/[A-Za-zА-Яа-яЁё0-9\s.,:;!?()'"№%+–—/\-]/g)?.length ?? 0;
+  const words = value.match(/[A-Za-zА-Яа-яЁё]{2,}/g)?.length ?? 0;
+  return readable / value.length >= 0.82 && words >= 10;
+}
 function arrayBufferToBase64(buf: ArrayBuffer): string {
   let binary = "";
   const bytes = new Uint8Array(buf);
@@ -464,19 +483,32 @@ Deno.serve(async (req) => {
     text = "";
   }
 
-  if (text.trim().length < 50 && downloaded?.buf) {
+  text = sanitizeExtractedText(text);
+
+  const shouldUseGeminiFallback =
+    downloaded?.buf &&
+    (detected.kind === "image" || detected.kind === "pdf" || text.length === 0);
+
+  if (shouldUseGeminiFallback) {
     const fallback = await extractWithGeminiFallback({
       buf: downloaded.buf,
       mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
       fileName: doc.file_name || "document",
     });
 
-    if (fallback.text.trim().length >= 50) {
-      text = fallback.text.trim();
+    const fallbackText = sanitizeExtractedText(fallback.text);
+
+    if (fallbackText.length > 0) {
+      text = fallbackText;
       method = "gemini_fallback";
+      status = "completed";
+    } else if (detected.kind === "pdf" && isUsablePdfTextLayer(text)) {
+      // A short text-layer result is still usable. Do not discard valid
+      // embedded text merely because the OCR provider is temporarily unavailable.
       status = "completed";
     } else if (detected.kind === "image" || detected.kind === "pdf") {
       status = "ocr_required";
+      text = "";
       method =
         detected.kind === "image"
           ? "image_ocr_required"
@@ -497,7 +529,7 @@ Deno.serve(async (req) => {
   } else if (status === "failed") {
     analysisStatus = "needs_review";
     reviewStatus = "needs_review";
-  } else if (textLength >= 50) {
+  } else if (textLength > 0) {
     analysisStatus = "pending";
     reviewStatus = "not_started";
   } else {
