@@ -464,16 +464,25 @@ Deno.serve(async (req) => {
     text = "";
   }
 
-  if (text.trim().length < 50 && downloaded?.buf) {
+  const shouldUseGeminiFallback =
+    downloaded?.buf &&
+    (text.trim().length === 0 ||
+      ((detected.kind === "image" || detected.kind === "pdf") && text.trim().length < 50));
+
+  if (shouldUseGeminiFallback) {
     const fallback = await extractWithGeminiFallback({
       buf: downloaded.buf,
       mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
       fileName: doc.file_name || "document",
     });
 
-    if (fallback.text.trim().length >= 50) {
+    if (fallback.text.trim().length > 0) {
       text = fallback.text.trim();
       method = "gemini_fallback";
+      status = "completed";
+    } else if (text.trim().length > 0) {
+      // A short text-layer result is still usable. Do not discard valid
+      // one-line documents merely because they contain fewer than 50 chars.
       status = "completed";
     } else if (detected.kind === "image" || detected.kind === "pdf") {
       status = "ocr_required";
@@ -497,7 +506,7 @@ Deno.serve(async (req) => {
   } else if (status === "failed") {
     analysisStatus = "needs_review";
     reviewStatus = "needs_review";
-  } else if (textLength >= 50) {
+  } else if (textLength > 0) {
     analysisStatus = "pending";
     reviewStatus = "not_started";
   } else {
