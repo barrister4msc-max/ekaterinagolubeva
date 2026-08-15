@@ -9,6 +9,9 @@ describe("document intake retry flow", () => {
   test("retries extraction without creating another document row", async () => {
     const source = await Bun.file(intakePath).text();
     expect(source).toContain("runExtractionWithRetry");
+    expect(source).toContain("waitForPersistedExtraction");
+    expect(source).toContain('kind: "timeout"');
+    expect(source).toContain("Do not start a duplicate Gemini request");
     expect(source).toContain('"Повторить извлечение"');
     expect(source).toContain("await runExtractionWithRetry(document.id)");
   });
