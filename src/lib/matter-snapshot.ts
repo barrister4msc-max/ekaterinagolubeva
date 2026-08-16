@@ -55,6 +55,12 @@ export type MatterSnapshot = {
   generation_allowed: LegalAnalysisGenerationDecision;
   quality_gate_preview: QualityGatePreview;
 
+  // PR27 — verified company profile (additive, never replaces analysis data).
+  company_profile?: CompanyRegistryProfile | null;
+  document_company_profile?: DocumentCompanyProfile | null;
+  company_registry_verification?: CompanyRegistryVerification | null;
+  company_registry_conflicts?: CompanyRegistryConflict[];
+
   case_intelligence_version?: number;
   facts_total?: number;
   issues_total?: number;
