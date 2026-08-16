@@ -145,6 +145,21 @@ const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
 const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null);
   const [isBuildingCaseIntelligence, setIsBuildingCaseIntelligence] = useState(false);
 const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
+// PR27 — one automatic registry verification per newly discovered INN.
+const [registryAutoToken, setRegistryAutoToken] = useState(0);
+
+const reloadAnswersFromSession = useCallback(async () => {
+  if (!intakeSessionId) return;
+  const { data } = await supabase
+    .from("document_intake_answers")
+    .select("field_name, field_value")
+    .eq("session_id", intakeSessionId);
+  if (!data || !isMountedRef.current) return;
+  const nextAnswers = { ...stateRef.current.answers };
+  for (const row of data) nextAnswers[row.field_name as string] = row.field_value;
+  onChangeRef.current({ ...stateRef.current, answers: nextAnswers });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [intakeSessionId]);
   const totalSteps = steps.length + 1; // +1 for review
 
   const readyDocuments = useMemo(
