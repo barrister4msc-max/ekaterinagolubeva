@@ -495,7 +495,10 @@ function DocumentBuilderPage() {
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => setSelectedCode(t.code)}
+                        onClick={() => {
+                          setSelectedCode(t.code);
+                          setStep(2);
+                        }}
                         className={`db-tcard text-left ${isSel ? "db-tcard-active" : ""}`}
                       >
                         <div className="flex items-start justify-between gap-3">
