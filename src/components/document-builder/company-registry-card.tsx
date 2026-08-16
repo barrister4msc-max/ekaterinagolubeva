@@ -1,13 +1,32 @@
 // PR27 — compact verified company profile card for the intake form.
 import { useEffect, useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, BadgeCheck, Loader2, Search } from "lucide-react";
 
-import { isValidInn, normalizeInn } from "@/lib/company-registry";
+import { supabase } from "@/integrations/supabase/client";
 import {
-  lookupCompanyRegistry,
-  type CompanyRegistryLookupResult,
-} from "@/lib/company-registry.functions";
+  isValidInn,
+  normalizeInn,
+  type CompanyRegistryConflict,
+  type CompanyRegistryProfile,
+  type DocumentCompanyProfile,
+  type RegistryLookupStatus,
+} from "@/lib/company-registry";
+
+type CompanyRegistryLookupResult = {
+  success: boolean;
+  status: RegistryLookupStatus | "invalid_inn" | "matter_creation_blocked";
+  inn: string;
+  checked_at: string;
+  provider: "dadata";
+  profile: CompanyRegistryProfile | null;
+  document_profile: DocumentCompanyProfile | null;
+  conflicts: CompanyRegistryConflict[];
+  candidates: CompanyRegistryProfile[];
+  autofilled_fields: string[];
+  matter_id: string | null;
+  matter_blocked_reason: string | null;
+  error?: string;
+};
 
 type Props = {
   sessionId: string | null;
@@ -34,7 +53,6 @@ export function CompanyRegistryCard({
   onAnswersUpdated,
   autoVerifyToken,
 }: Props) {
-  const lookup = useServerFn(lookupCompanyRegistry);
   const [isChecking, setIsChecking] = useState(false);
   const [result, setResult] = useState<CompanyRegistryLookupResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +66,12 @@ export function CompanyRegistryCard({
     setIsChecking(true);
     setError(null);
     try {
-      const data = await lookup({ data: { session_id: sessionId, inn: value } });
+      const { data, error: invokeError } = await supabase.functions.invoke<CompanyRegistryLookupResult>(
+        "company-registry-lookup",
+        { body: { session_id: sessionId, inn: value } },
+      );
+      if (invokeError) throw invokeError;
+      if (!data) throw new Error("Реестр не вернул результат");
       setResult(data);
       lastVerifiedInnRef.current = value;
       if (data.autofilled_fields.length > 0) onAnswersUpdated?.(data.autofilled_fields);
@@ -81,7 +104,7 @@ export function CompanyRegistryCard({
             Проверка контрагента по реестру
           </div>
           <div className="text-xs text-muted-foreground">
-            Официальные данные подставляются только в пустые поля — введённые вами
+            Реестровые данные подставляются только в пустые поля — введённые вами
             значения не перезаписываются.
           </div>
         </div>
@@ -138,7 +161,7 @@ export function CompanyRegistryCard({
               label="Проверено"
               value={new Date(profile.checked_at).toLocaleString("ru-RU")}
             />
-            <Row label="Источник" value={`${profile.provider} · ${profile.upstream_source}`} />
+            <Row label="Провайдер" value={profile.provider} />
           </dl>
 
           {conflicts.length > 0 && (
