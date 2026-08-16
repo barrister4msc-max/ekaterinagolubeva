@@ -36,6 +36,9 @@ jobs:
         run: bun run typecheck
       - name: Build
         run: bun run build
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - name: Deno check registry Edge Function
         run: deno check supabase/functions/company-registry-lookup/index.ts
       - name: Commit validated merge
