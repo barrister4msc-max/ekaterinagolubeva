@@ -105,6 +105,7 @@ const [redactionDocId, setRedactionDocId] = useState<string | null>(null);
 
 // Staging state only: file expansion + storage upload + `documents` row creation.
 const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+const [lastUploadBatch, setLastUploadBatch] = useState<{ selected:number; prepared:number; staged:number; failed:string[] } | null>(null);
 // Background OCR/extraction state, tracked separately from staging.
 const [processingDocumentIds, setProcessingDocumentIds] = useState<string[]>([]);
 const processingDocumentIdsRef = useRef<Set<string>>(new Set());
@@ -488,10 +489,21 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
     return { extractionStatus: "failed", textLength: 0, attempts: maxAttempts, error: lastError };
   };
 
+  // Resume staged documents after reload/navigation; no saved file may remain silently unprocessed.
+  useEffect(() => {
+    if (!intakeSessionId) return;
+    const pending = sessionDocuments.filter((d) => !hasExtractedDocumentText(d.ocr_text) && (d.extraction_status === null || d.extraction_status === "pending") && !processingDocumentIdsRef.current.has(d.id)).map((d) => ({ id:d.id, fileName:d.file_name ?? d.title ?? d.id }));
+    if (!pending.length) return;
+    void runBackgroundExtraction(pending, async (doc) => { const r=await runExtractionWithRetry(doc.id); return { ok:r.extractionStatus === "completed" && r.textLength > 0 }; }, {
+      isProcessing:(id)=>processingDocumentIdsRef.current.has(id), onStart:(ids)=>addProcessingDocuments(ids),
+      onSettled:async(doc)=>{ removeProcessingDocument(doc.id); if(isMountedRef.current){ await refreshSessionDocuments(intakeSessionId); notifyDocumentsUpdated(); } },
+    });
+  }, [intakeSessionId, sessionDocuments, refreshSessionDocuments]);
+
   // Staging only: uploads to storage and creates the `documents` row.
   // Extraction is deliberately NOT awaited here so that every selected file
   // is staged before any OCR work begins.
-  const stageSingleFile = async (file: File, sessionIdParam: string) => {
+  const stageSingleFile = async (file: File, sessionIdParam: string, uploadBatchId: string) => {
     const rawExtension = file.name.includes(".") ? file.name.split(".").pop() : "bin";
     const extension =
       String(rawExtension || "bin").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
@@ -524,11 +536,18 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
           template_code: state.templateCode,
           jurisdiction: state.jurisdiction,
           language: state.language,
+          upload_batch_id: uploadBatchId,
+          extraction_status: "pending",
+          extraction_method: "none",
+          text_length: 0,
         },
       })
       .select("id")
       .single();
-    if (documentError) throw documentError;
+    if (documentError) {
+      await supabase.storage.from("lead-documents").remove([storagePath]).catch(() => undefined);
+      throw documentError;
+    }
 
     await supabase
       .from("document_intake_sessions")
@@ -549,6 +568,9 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
     const input = event.target;
     const selectedFiles = Array.from(input.files ?? []);
     if (selectedFiles.length === 0) return;
+    const selectedCount = selectedFiles.length;
+    const uploadBatchId = crypto.randomUUID();
+    setLastUploadBatch({ selected:selectedCount, prepared:selectedCount, staged:0, failed:[] });
 
     try {
       setIsUploadingDocument(true);
@@ -559,6 +581,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
         const expanded = await expandSelectedDocumentFiles(selectedFiles);
         files = expanded.files;
         skippedEntries = expanded.skippedEntries;
+        setLastUploadBatch((prev) => prev ? { ...prev, prepared: files.length } : prev);
       } catch (err) {
         if (err instanceof DocumentPackageError) {
           alert(err.message);
@@ -587,7 +610,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
       // Phase 1 — stage every selected file (storage + documents row) first.
       const { staged, failed: failedFiles } = await stageDocuments(
         files,
-        (file) => stageSingleFile(file, session.id),
+        (file) => stageSingleFile(file, session.id, uploadBatchId),
         {
           getName: (file) => file.name,
           onStaged: async () => {
@@ -596,9 +619,10 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
         },
       );
 
-      if (isMountedRef.current) {
-        await refreshSessionDocuments(session.id);
-      }
+      const accounted = staged.length + failedFiles.length;
+      if (accounted !== files.length) throw new Error(`Upload accounting mismatch: ${accounted}/${files.length}`);
+      setLastUploadBatch({ selected:selectedCount, prepared:files.length, staged:staged.length, failed:failedFiles });
+      if (isMountedRef.current) { await refreshSessionDocuments(session.id); }
       notifyDocumentsUpdated();
 
       if (failedFiles.length > 0) {
@@ -847,7 +871,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                 Документы для автозаполнения
               </div>
               <div className="text-xs text-muted-foreground">
-                Загрузите PDF/DOCX/TXT/RTF/HTML — AI извлечёт текст и заполнит поля конструктора.
+                Загрузите весь комплект: PDF/DOC/DOCX/TXT/RTF/HTML/XLS/XLSX/изображения. Каждый выбранный файл сохраняется.
               </div>
             </div>
 
@@ -859,7 +883,6 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                   type="file"
                   multiple
                   className="hidden"
-                  accept=".pdf,.doc,.docx,.txt,.rtf,.html,.htm,.jpg,.jpeg,.png,.webp,.zip"
                   onChange={handleUploadDocument}
                   disabled={isUploadingDocument || isAiFilling || isBuildingCaseIntelligence}
                 />
@@ -886,9 +909,14 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                         : "AI заполнить поля"}
               </button>
 
+              {lastUploadBatch && (
+                <span className="text-xs text-muted-foreground">
+                  Выбрано: {lastUploadBatch.selected} · К загрузке: {lastUploadBatch.prepared} · Загружено: {lastUploadBatch.staged}{lastUploadBatch.failed.length ? ` · Ошибок: ${lastUploadBatch.failed.length}` : ""}
+                </span>
+              )}
               {sessionDocuments.length > 0 && (
                 <span className="text-xs text-muted-foreground">
-                  Прикреплено: {sessionDocuments.length}
+                  В комплекте: {sessionDocuments.length}
                 </span>
               )}
               {isProcessingDocuments && (

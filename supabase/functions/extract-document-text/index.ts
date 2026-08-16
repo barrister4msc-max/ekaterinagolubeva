@@ -4,7 +4,9 @@
 // then writes ocr_text + metadata.extraction_* fields back to the row.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+// @ts-ignore esm.sh JSZip runtime exposes default; declaration omits it
 import JSZip from "https://esm.sh/jszip@3.10.1";
+import { extractXlsxText } from "../_shared/xlsx-text.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +29,7 @@ type ExtractionMethod =
   | "rtf_plain"
   | "txt_utf8"
   | "html_text"
+  | "xlsx_xml"
   | "pdf_text"
   | "pdf_ocr_required"
   | "image_ocr_required"
@@ -77,7 +80,7 @@ async function extractDocx(buf: ArrayBuffer): Promise<string> {
   const collect: string[] = [];
   const files = ["word/document.xml"];
   // include headers/footers/footnotes too if present
-  zip.forEach((path) => {
+  zip.forEach((path: string) => {
     if (
       /^word\/(header\d+|footer\d+|footnotes|endnotes)\.xml$/.test(path) &&
       !files.includes(path)
@@ -90,7 +93,7 @@ async function extractDocx(buf: ArrayBuffer): Promise<string> {
     const xml = await entry.async("string");
     // Insert paragraph breaks
     const withBreaks = xml
-      .replace(/<w:p[ >][^]*?<\/w:p>/g, (p) => p + "\n")
+      .replace(/<w:p[ >][^]*?<\/w:p>/g, (p: string) => p + "\n")
       .replace(/<w:br[^>]*\/>/g, "\n")
       .replace(/<w:tab[^>]*\/>/g, "\t");
     // Pull text from <w:t ...>...</w:t>
@@ -102,6 +105,11 @@ async function extractDocx(buf: ArrayBuffer): Promise<string> {
     collect.push("\n");
   }
   return collect.join("").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+async function extractXlsx(buf: ArrayBuffer): Promise<string> {
+  const zip = await JSZip.loadAsync(buf);
+  return extractXlsxText(zip as unknown as Parameters<typeof extractXlsxText>[0]);
 }
 
 function extractRtf(buf: ArrayBuffer): string {
@@ -296,10 +304,11 @@ function detect(mime: string, name: string): Detected {
   if (m.startsWith("image/") || ["png", "jpg", "jpeg", "tif", "tiff", "webp"].includes(e))
     return { method: "image_ocr_required", kind: "image" };
   if (
-    m === "application/vnd.ms-excel" ||
     m === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
-    ["xls", "xlsx"].includes(e)
+    e === "xlsx"
   )
+    return { method: "xlsx_xml", kind: "spreadsheet" };
+  if (m === "application/vnd.ms-excel" || e === "xls")
     return { method: "none", kind: "spreadsheet" };
   if (
     m === "application/vnd.ms-powerpoint" ||
@@ -311,7 +320,7 @@ function detect(mime: string, name: string): Detected {
 }
 
 async function downloadFile(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   storagePath: string,
 ): Promise<{ buf: ArrayBuffer; bucket: string } | null> {
   // Try known buckets in order; first hit wins.
@@ -326,7 +335,7 @@ async function downloadFile(
 
 async function authorizeRequest(
   req: Request,
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
 ): Promise<{ ok: true } | { ok: false; status: 401 | 403 }> {
   const authorization = req.headers.get("Authorization");
   const accessToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -483,6 +492,7 @@ Deno.serve(async (req) => {
   let text = "";
   let method: ExtractionMethod = detected.method;
   let status: ExtractionStatus = "completed";
+  let extractionError: string | null = null;
 
   try {
     switch (detected.kind) {
@@ -505,13 +515,23 @@ Deno.serve(async (req) => {
       case "image":
         text = "";
         break;
+      case "spreadsheet":
+        if (method === "xlsx_xml") {
+          text = await extractXlsx(downloaded.buf);
+          if (!text.trim()) { status = "failed"; extractionError = "spreadsheet_empty"; }
+        } else {
+          status = "failed"; method = "none"; extractionError = "legacy_xls_extraction_not_supported";
+        }
+        break;
       default:
         status = "failed";
         method = "none";
+        extractionError = "unsupported_format";
     }
     } catch (e) {
     console.error("[extract-document-text] extraction error", e);
     status = "failed";
+    extractionError = e instanceof Error ? e.message : "extraction_failed";
     text = "";
   }
 
@@ -519,7 +539,8 @@ Deno.serve(async (req) => {
 
   const shouldUseGeminiFallback =
     downloaded?.buf &&
-    (detected.kind === "image" || detected.kind === "pdf" || text.length === 0);
+    (detected.kind === "image" || detected.kind === "pdf" ||
+      (text.length === 0 && !["spreadsheet", "presentation", "unknown"].includes(detected.kind)));
 
   if (shouldUseGeminiFallback) {
     const fallback = await extractWithGeminiFallback({
@@ -575,6 +596,7 @@ Deno.serve(async (req) => {
     extraction_method: method,
     extracted_at: new Date().toISOString(),
     text_length: textLength,
+    extraction_error: extractionError,
   };
 
   const update: Record<string, any> = {
