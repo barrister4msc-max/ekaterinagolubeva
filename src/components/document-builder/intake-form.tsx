@@ -841,6 +841,13 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
 
             {!isReview && (
         <div className="space-y-5">
+          <CompanyRegistryCard
+            sessionId={intakeSessionId}
+            inn={state.answers.taxpayer_inn}
+            autoVerifyToken={registryAutoToken}
+            onAnswersUpdated={reloadAnswersFromSession}
+          />
+
           <div className="rounded-xl border border-border bg-card/60 p-4 space-y-3">
             <div>
               <div className="text-sm font-semibold text-foreground">
