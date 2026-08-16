@@ -15,30 +15,61 @@ export type StageResult<T> = {
  *
  * A failure on one file never prevents later files from being staged.
  */
+export const STAGING_CONCURRENCY = 3;
+export const STAGING_MAX_ATTEMPTS = 3;
+
+const stageRetryDelay = (attempt: number) =>
+  new Promise((resolve) => setTimeout(resolve, attempt * 250));
+
 export async function stageDocuments<T>(
   items: T[],
   stage: (item: T) => Promise<StagedDocument>,
   options: {
     getName: (item: T) => string;
     onStaged?: (staged: StagedDocument | null, item: T) => Promise<void> | void;
+    concurrency?: number;
+    maxAttempts?: number;
   },
 ): Promise<StageResult<T>> {
-  const staged: StagedDocument[] = [];
-  const failed: string[] = [];
+  if (items.length === 0) return { staged: [], failed: [], items };
+  const results: Array<StagedDocument | null> = new Array(items.length).fill(null);
+  const failures: Array<string | null> = new Array(items.length).fill(null);
+  const concurrency = Math.max(1, Math.min(options.concurrency ?? STAGING_CONCURRENCY, STAGING_CONCURRENCY));
+  const maxAttempts = Math.max(1, options.maxAttempts ?? STAGING_MAX_ATTEMPTS);
+  let cursor = 0;
 
-  for (const item of items) {
-    let result: StagedDocument | null = null;
-    try {
-      result = await stage(item);
-      staged.push(result);
-    } catch (error) {
-      console.error("[upload-lifecycle] staging failed", options.getName(item), error);
-      failed.push(options.getName(item));
+  const worker = async () => {
+    while (true) {
+      const index = cursor++;
+      if (index >= items.length) return;
+      const item = items[index];
+      const name = options.getName(item);
+      let result: StagedDocument | null = null;
+      let lastError: unknown = null;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          result = await stage(item);
+          results[index] = result;
+          break;
+        } catch (error) {
+          lastError = error;
+          console.error('[upload-lifecycle] staging attempt failed', name, attempt, error);
+          if (attempt < maxAttempts) await stageRetryDelay(attempt);
+        }
+      }
+      if (!result) {
+        failures[index] = name;
+        console.error('[upload-lifecycle] staging permanently failed', name, lastError);
+      }
+      if (options.onStaged) await options.onStaged(result, item);
     }
-    if (options.onStaged) await options.onStaged(result, item);
-  }
-
-  return { staged, failed, items };
+  };
+  await Promise.all(Array.from({length: Math.min(concurrency, items.length)}, () => worker()));
+  return {
+    staged: results.filter((x): x is StagedDocument => x !== null),
+    failed: failures.filter((x): x is string => x !== null),
+    items,
+  };
 }
 
 /**

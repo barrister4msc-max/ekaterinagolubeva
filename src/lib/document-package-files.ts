@@ -19,6 +19,8 @@ export const SUPPORTED_PACKAGE_EXTENSIONS = [
   "jpeg",
   "png",
   "webp",
+  "xls",
+  "xlsx",
 ] as const;
 
 export const PACKAGE_LIMITS = {
@@ -100,6 +102,10 @@ function mimeForExtension(ext: string): string {
       return "image/png";
     case "webp":
       return "image/webp";
+    case "xls":
+      return "application/vnd.ms-excel";
+    case "xlsx":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     default:
       return "application/octet-stream";
   }
@@ -142,7 +148,7 @@ export async function expandZipPackage(
 
   if (candidates.length === 0) {
     throw new DocumentPackageError(
-      `В архиве «${archiveName}» нет поддерживаемых документов (PDF, DOC, DOCX, TXT, RTF, HTML, JPG, PNG, WEBP).`,
+      `В архиве «${archiveName}» нет поддерживаемых документов (PDF, DOC, DOCX, TXT, RTF, HTML, JPG, PNG, WEBP, XLS, XLSX).`,
     );
   }
 
@@ -182,7 +188,7 @@ export async function expandZipPackage(
 
   if (files.length === 0) {
     throw new DocumentPackageError(
-      `В архиве «${archiveName}» нет поддерживаемых документов (PDF, DOC, DOCX, TXT, RTF, HTML, JPG, PNG, WEBP).`,
+      `В архиве «${archiveName}» нет поддерживаемых документов (PDF, DOC, DOCX, TXT, RTF, HTML, JPG, PNG, WEBP, XLS, XLSX).`,
     );
   }
 
