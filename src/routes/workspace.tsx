@@ -65,6 +65,7 @@ function WorkspaceLayout() {
   const location = useLocation();
 
   const isLoginRoute = location.pathname === "/workspace/login";
+  const isFocusedBuilderRoute = location.pathname.startsWith("/workspace/document-builder");
 
   useEffect(() => {
     if (loading) return;
@@ -114,7 +115,7 @@ function WorkspaceLayout() {
     <WorkspaceBackground>
       <div className="container-wide flex min-h-screen flex-col gap-8 py-8 md:flex-row md:gap-10 md:py-10">
         {/* Side rail */}
-        <aside className="md:w-60 md:shrink-0">
+        <aside className={`${isFocusedBuilderRoute ? "hidden" : ""} md:w-60 md:shrink-0`}>
           <div className="workspace-sidebar rounded-lg p-5 md:sticky md:top-8">
             <Link to="/" className="block">
               <div className="text-[10px] uppercase tracking-[0.28em] text-white/70">Workspace</div>
@@ -147,7 +148,7 @@ function WorkspaceLayout() {
         </aside>
 
 
-        <main className="flex-1 min-w-0">
+        <main className={`flex-1 min-w-0 ${isFocusedBuilderRoute ? "w-full" : ""}`}>
           <Outlet />
         </main>
       </div>
