@@ -99,8 +99,6 @@ serve(async (req) => {
     if (sessionError) throw sessionError;
     if (!session) return json({ ...base, error: "Intake session not found" }, 404);
 
-    // Defense in depth: an admin may only operate through an authenticated workspace request;
-    // service-role remains server-side and is never exposed to the client/provider.
     const { data: answerRows, error: answerError } = await supabase
       .from("document_intake_answers")
       .select("field_name, field_value, value_source, is_verified")
@@ -195,7 +193,6 @@ serve(async (req) => {
     });
 
     if (decision.action === "create") {
-      // Re-check immediately before insert to reduce duplicate creation on retries.
       const { data: existingNow } = await supabase
         .from("legal_matters")
         .select("id, metadata")
@@ -284,7 +281,11 @@ serve(async (req) => {
   }
 });
 
-async function loadSchemaFieldKeys(client: ReturnType<typeof createClient>, templateCode: string | null) {
+type SchemaReader = {
+  from(table: string): any;
+};
+
+async function loadSchemaFieldKeys(client: SchemaReader, templateCode: string | null) {
   if (!templateCode) return [] as string[];
   const { data, error } = await client
     .from("document_intake_schemas")
