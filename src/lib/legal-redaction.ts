@@ -172,8 +172,8 @@ const PATTERNS: Pattern[] = [
   { type: "BANK_DETAILS", re: /ИНН\s*\d{10,12}/gi, reason: "ИНН" },
   { type: "BANK_DETAILS", re: /КПП\s*\d{9}/gi, reason: "КПП" },
   { type: "BANK_DETAILS", re: /ОГРН(?:ИП)?\s*\d{13,15}/gi, reason: "ОГРН" },
-  { type: "BANK_DETAILS", re: /\bБИК[:\s]*\d{9}\b/gi, reason: "БИК" },
-  { type: "BANK_DETAILS", re: /\b(?:р\/?с|к\/?с|расч[её]тн\w*\s+сч[её]т|корр?\.?\s*сч[её]т)[:\s№]*\d{20}\b/gi, reason: "счёт" },
+  { type: "BANK_DETAILS", re: /(?<!\d)БИК[:\s]*\d{9}(?!\d)/gi, reason: "БИК" },
+  { type: "BANK_DETAILS", re: /(?<![А-ЯЁа-яёA-Za-z0-9])(?:р\/?с|к\/?с|расч[её]тн\w*\s+сч[её]т|корр?\.?\s*сч[её]т)[:\s№]*\d{20}(?!\d)/gi, reason: "счёт" },
   { type: "BANK_DETAILS", re: /\bIBAN[:\s]*[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b/gi, reason: "IBAN" },
   { type: "BANK_DETAILS", re: /\bSWIFT[:\s]*[A-Z]{4}[A-Z]{2}[A-Z0-9]{2,5}\b/gi, reason: "SWIFT" },
   { type: "BANK_DETAILS", re: /\bСНИЛС[:\s]*\d{3}-\d{3}-\d{3}\s?\d{2}\b/gi, reason: "СНИЛС" },
@@ -211,6 +211,11 @@ const PATTERNS: Pattern[] = [
     type: "PERSON",
     re: /(?:директор\w*|ген\.?\s*директор\w*|управляющ\w+|учредител\w+|участник\w*|представител\w+|нотариус\w*|эксперт\w*|свидетел\w+|подписант\w*|поверенн\w+|адвокат\w*)\s+[А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+/g,
     reason: "role+ФИО full",
+  },
+  {
+    type: "PERSON",
+    re: /(?<![А-ЯЁа-яё])[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ][а-яё]+(?:ович|евич|ич|овна|евна|ична|инична)(?![А-ЯЁа-яё])/g,
+    reason: "Фамилия Имя Отчество tabular",
   },
   {
     type: "PERSON",
