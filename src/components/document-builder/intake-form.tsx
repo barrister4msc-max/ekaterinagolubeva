@@ -139,7 +139,6 @@ const isProcessingDocuments = processingDocumentIds.length > 0;
 
 
 const [isAiFilling, setIsAiFilling] = useState(false);
-const [aiFillAttempt, setAiFillAttempt] = useState(0);
 const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
 const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null);
   const [isBuildingCaseIntelligence, setIsBuildingCaseIntelligence] = useState(false);
@@ -735,23 +734,36 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
     try {
       setIsAiFilling(true);
       setAiFillFailure(null);
-      setAiFillAttempt(0);
 
       let currentDocuments = await refreshSessionDocuments(intakeSessionId);
+      let readyDocs = currentDocuments.filter((document) =>
+        hasExtractedDocumentText(document.ocr_text),
+      );
       const documentsWithoutText = currentDocuments.filter(
         (document) => !hasExtractedDocumentText(document.ocr_text),
       );
 
-      for (const document of documentsWithoutText) {
-        setRetryingDocumentId(document.id);
-        await runExtractionWithRetry(document.id);
+      // If at least one document is ready, start AI-fill immediately. Remaining OCR jobs
+      // keep using the normal background queue. Only an all-pending package waits once.
+      if (readyDocs.length === 0 && documentsWithoutText.length > 0) {
+        await runBackgroundExtraction(
+          documentsWithoutText.map((document) => ({
+            id: document.id,
+            fileName: document.file_name ?? document.title ?? document.id,
+          })),
+          async (document) => {
+            const result = await runExtractionWithRetry(document.id);
+            return { ok: result.extractionStatus === "completed" && result.textLength > 0 };
+          },
+          {
+            isProcessing: (id) => processingDocumentIdsRef.current.has(id),
+            onStart: (ids) => addProcessingDocuments(ids),
+            onSettled: (document) => removeProcessingDocument(document.id),
+          },
+        );
+        currentDocuments = await refreshSessionDocuments(intakeSessionId);
+        readyDocs = currentDocuments.filter((document) => hasExtractedDocumentText(document.ocr_text));
       }
-      setRetryingDocumentId(null);
-
-      currentDocuments = await refreshSessionDocuments(intakeSessionId);
-      const readyDocs = currentDocuments.filter((document) =>
-        hasExtractedDocumentText(document.ocr_text),
-      );
 
       if (readyDocs.length === 0) {
         throw new Error(
@@ -763,8 +775,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
 
       let fillResult: any = null;
       let lastFillError = "AI не вернул подтверждённые поля";
-      for (let attempt = 1; attempt <= 3; attempt += 1) {
-        setAiFillAttempt(attempt);
+      for (let technicalAttempt = 0; technicalAttempt < 2; technicalAttempt += 1) {
         const { data, error } = await supabase.functions.invoke("document-intake-ai-fill", {
           body: {
             session_id: intakeSessionId,
@@ -782,9 +793,17 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
           (data?.success === true
             ? "AI не нашёл полей с достаточной уверенностью и цитатами"
             : "AI-заполнение завершилось без результата");
-        if (attempt < 3) await waitBeforeRetry(attempt);
+
+        const status = Number((error as any)?.context?.status ?? 0);
+        const transient = Boolean(error) && (
+          status === 429 ||
+          status >= 500 ||
+          /network|fetch|timeout|temporar/i.test(error?.message ?? "")
+        );
+        if (!transient || technicalAttempt === 1) break;
+        await waitBeforeRetry(1);
       }
-      if (!fillResult) throw new Error(`${lastFillError}. Выполнено попыток: 3.`);
+      if (!fillResult) throw new Error(lastFillError);
 
       const { data: answers, error: answersError } = await supabase
         .from("document_intake_answers")
@@ -833,9 +852,9 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/60">
+        <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
           <span>Шаг {Math.min(stepIdx + 1, totalSteps)} из {totalSteps}</span>
-          <span className="text-white/85 normal-case tracking-normal text-xs">{currentTitle}</span>
+          <span className="text-foreground normal-case tracking-normal text-xs">{currentTitle}</span>
           <span>{progressPct}%</span>
         </div>
         <div className="db-progress"><div className="db-progress-bar" style={{ width: `${progressPct}%` }} /></div>
@@ -901,7 +920,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                 {isBuildingCaseIntelligence
                   ? "Строю матрицу дела…"
                   : isAiFilling
-                    ? `AI заполняет… попытка ${Math.max(aiFillAttempt, 1)} из 3`
+                    ? "AI заполняет…"
                     : aiFillFailure
                       ? "Повторить AI-заполнение"
                       : readyDocuments.length === 0
@@ -1090,14 +1109,14 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
 
 
 
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <div className="rounded-xl border border-border bg-card/60 p-4">
             <LegalAnalysisPanel sessionId={intakeSessionId} onEnsureSession={ensureSession} />
           </div>
 
           <div>
             <div className="db-section-label">{currentStep.title}</div>
             {currentStep.description && (
-              <p className="mt-2 text-sm text-white/70">{currentStep.description}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{currentStep.description}</p>
             )}
           </div>
 
@@ -1402,7 +1421,7 @@ function ShareStructureInput({ value, onChange }: { value: unknown; onChange: (v
       ))}
       <div className="flex items-center justify-between">
         <button type="button" className="db-ghost" onClick={add}><Plus size={14} /> Добавить участника</button>
-        <div className="text-xs text-white/60">Итого: <span className={total === 100 ? "text-emerald-300" : "text-amber-300"}>{total}%</span></div>
+        <div className="text-xs text-muted-foreground">Итого: <span className={total === 100 ? "text-emerald-300" : "text-amber-300"}>{total}%</span></div>
       </div>
     </div>
   );
@@ -1454,7 +1473,7 @@ function FileUploadInput({ value, onChange }: { value: unknown; onChange: (v: un
         <input type="file" multiple className="hidden" onChange={onPick} />
       </label>
       {files.length > 0 && (
-        <ul className="space-y-1 text-xs text-white/75">
+        <ul className="space-y-1 text-xs text-foreground/75">
           {files.map((f, i) => (
             <li key={i} className="flex items-center justify-between gap-2 db-subcard py-2">
               <span className="truncate">{f.name}</span>
@@ -1610,8 +1629,8 @@ function ReviewStep({
                 onClick={() => onSetMode(m.id)}
                 className={`db-tcard text-left ${active ? "db-tcard-active" : ""}`}
               >
-                <div className="text-sm font-medium text-white">{m.title}</div>
-                <div className="mt-1 text-xs text-white/60">{m.desc}</div>
+                <div className="text-sm font-medium text-foreground">{m.title}</div>
+                <div className="mt-1 text-xs text-muted-foreground">{m.desc}</div>
               </button>
             );
           })}
@@ -1645,8 +1664,8 @@ function ReviewStep({
             const v = answers[f.key];
             return (
               <div key={f.key} className="flex items-start justify-between gap-3 border-b border-white/5 py-2 last:border-0">
-                <div className="text-xs uppercase tracking-wider text-white/55">{f.label}</div>
-                <div className="text-xs text-white/85 max-w-[60%] text-right break-words">{formatValue(v)}</div>
+                <div className="text-xs uppercase tracking-wider text-foreground/55">{f.label}</div>
+                <div className="text-xs text-foreground max-w-[60%] text-right break-words">{formatValue(v)}</div>
               </div>
             );
           })}
@@ -1670,7 +1689,7 @@ function ReviewStep({
             <input type="file" multiple className="hidden" onChange={onPickAttachments} />
           </label>
           {state.attachments.length > 0 && (
-            <ul className="space-y-1 text-xs text-white/75">
+            <ul className="space-y-1 text-xs text-foreground/75">
               {state.attachments.map((a) => (
                 <li key={a.id} className="flex items-center justify-between gap-2 db-subcard py-2">
                   <span className="truncate">{a.fileName}</span>
@@ -1710,7 +1729,7 @@ function ReviewStep({
         {showJson && (
           <div className="mt-3 db-json-block">
             <div className="flex items-center justify-between db-json-header">
-              <span className="text-[11px] uppercase tracking-[0.18em] text-white/55">generate-legal-document payload</span>
+              <span className="text-[11px] uppercase tracking-[0.18em] text-foreground/55">generate-legal-document payload</span>
               <button
                 type="button"
                 onClick={handleCopy}
@@ -1742,7 +1761,7 @@ function PreviewRow({ label, value, hint }: { label: string; value: string; hint
     <div className="db-info">
       <div className="db-info-label">{label}</div>
       <div className="db-info-value">{value || "—"}</div>
-      {hint && <div className="mt-1 text-[11px] text-white/50">{hint}</div>}
+      {hint && <div className="mt-1 text-[11px] text-foreground/50">{hint}</div>}
     </div>
   );
 }
@@ -1825,7 +1844,7 @@ function PreflightPanel({
         </div>
         <div className="flex items-center gap-2">
           {loading && (
-            <span className="flex items-center gap-1 text-[11px] text-white/60">
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <Loader2 size={12} className="animate-spin" /> проверка…
             </span>
           )}
@@ -1905,7 +1924,7 @@ function PreflightCheckRow({ check }: { check: PreflightCheck }) {
       <div className="min-w-0">
         <div style={{ color }}>{check.label}</div>
         {check.message && (
-          <div className="text-[11px] text-white/55">{check.message}</div>
+          <div className="text-[11px] text-foreground/55">{check.message}</div>
         )}
       </div>
     </li>
@@ -2123,18 +2142,18 @@ function RedactionDialog({
         className="relative max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-2xl border border-white/15 bg-[#0c1a24] shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-foreground/55">
               Обезличивание документа
             </div>
-            <div className="truncate text-sm text-white">
+            <div className="truncate text-sm text-foreground">
               {doc.title || doc.file_name || doc.id}
             </div>
           </div>
           <button
             type="button"
-            className="text-white/55 hover:text-white"
+            className="text-foreground/55 hover:text-foreground"
             onClick={onClose}
             aria-label="Закрыть"
           >
@@ -2143,32 +2162,32 @@ function RedactionDialog({
         </div>
 
         {doc.redaction_notes.length > 0 && (
-          <div className="border-b border-white/10 px-5 py-2 text-[11px] text-amber-200/85">
+          <div className="border-b border-border px-5 py-2 text-[11px] text-amber-200/85">
             Обнаружено: {doc.redaction_notes.join(", ")}
           </div>
         )}
 
         {/* Stats panel */}
         {stats && (
-          <div className="border-b border-white/10 px-5 py-3 space-y-2">
+          <div className="border-b border-border px-5 py-3 space-y-2">
             <div className="flex flex-wrap items-center gap-3 text-xs">
-              <span className="text-white/55 uppercase tracking-[0.16em] text-[10px]">
+              <span className="text-foreground/55 uppercase tracking-[0.16em] text-[10px]">
                 Статистика обезличивания
               </span>
-              <span className="text-white">Coverage: <b>{stats.coverage_percent}%</b></span>
-              <span className="text-white/75">Найдено: {stats.detected_total}</span>
-              <span className="text-white/75">Заменено: {stats.replaced_total}</span>
+              <span className="text-foreground">Coverage: <b>{stats.coverage_percent}%</b></span>
+              <span className="text-foreground/75">Найдено: {stats.detected_total}</span>
+              <span className="text-foreground/75">Заменено: {stats.replaced_total}</span>
               <span className={stats.remaining_total > 0 ? "text-rose-200" : "text-emerald-300"}>
                 Осталось: {stats.remaining_total}
               </span>
               {quality && (
-                <span className="ml-auto text-white">{qualityLabel(quality)}</span>
+                <span className="ml-auto text-foreground">{qualityLabel(quality)}</span>
               )}
             </div>
             {typeRows.length > 0 && (
-              <div className="max-h-32 overflow-auto rounded-md border border-white/10">
+              <div className="max-h-32 overflow-auto rounded-md border border-border">
                 <table className="w-full text-[11px]">
-                  <thead className="bg-white/[0.04] text-white/55">
+                  <thead className="bg-white/[0.04] text-foreground/55">
                     <tr>
                       <th className="text-left px-2 py-1">Тип</th>
                       <th className="text-right px-2 py-1">Найдено</th>
@@ -2178,7 +2197,7 @@ function RedactionDialog({
                   </thead>
                   <tbody>
                     {typeRows.map((t) => (
-                      <tr key={t} className="border-t border-white/5 text-white/80">
+                      <tr key={t} className="border-t border-white/5 text-foreground/80">
                         <td className="px-2 py-1">{t}</td>
                         <td className="px-2 py-1 text-right">{stats.by_type[t].detected}</td>
                         <td className="px-2 py-1 text-right">{stats.by_type[t].replaced}</td>
@@ -2221,17 +2240,17 @@ function RedactionDialog({
         )}
 
         <div className="grid flex-1 min-h-0 grid-cols-1 gap-0 overflow-hidden md:grid-cols-2">
-          <div className="overflow-auto border-white/10 p-4 md:border-r">
-            <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-white/55">
+          <div className="overflow-auto border-border p-4 md:border-r">
+            <div className="mb-2 text-[11px] uppercase tracking-[0.18em] text-foreground/55">
               Оригинал OCR
             </div>
-            <pre className="whitespace-pre-wrap break-words text-xs text-white/80">
+            <pre className="whitespace-pre-wrap break-words text-xs text-foreground/80">
               {doc.ocr_text ?? "—"}
             </pre>
           </div>
           <div className="overflow-auto p-4">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
+              <div className="text-[11px] uppercase tracking-[0.18em] text-foreground/55">
                 Обезличенный текст
               </div>
               <div className="flex items-center gap-2">
@@ -2257,7 +2276,7 @@ function RedactionDialog({
               </div>
             </div>
             {!hasDraft ? (
-              <div className="text-xs text-white/55">
+              <div className="text-xs text-foreground/55">
                 Черновик обезличивания ещё не создан. Нажмите «Обезличить», чтобы сгенерировать.
               </div>
             ) : editing ? (
@@ -2267,7 +2286,7 @@ function RedactionDialog({
                 onChange={(e) => setEditedText(e.target.value)}
               />
             ) : (
-              <pre className="whitespace-pre-wrap break-words text-xs text-white/85">
+              <pre className="whitespace-pre-wrap break-words text-xs text-foreground">
                 {doc.redacted_text}
               </pre>
             )}
@@ -2286,7 +2305,7 @@ function RedactionDialog({
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 px-5 py-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-3">
           <button
             type="button"
             className="db-ghost"

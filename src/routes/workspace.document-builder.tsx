@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { FileSignature, Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText, AlertCircle, Sparkles, ShieldCheck, HelpCircle } from "lucide-react";
+import { Search, Loader2, Check, ArrowRight, ArrowLeft, Globe2, Scale, Layers, FileText, AlertCircle, HelpCircle } from "lucide-react";
 import {
   getTemplates,
   resolveTemplateForSession,
@@ -10,7 +10,6 @@ import {
   JURISDICTION_LABELS,
   LANGUAGE_LABELS,
   COMPLEXITY_LABELS,
-  selectFlagshipTaxTemplates,
   type DocumentTemplate,
   type TemplateComplexity,
 } from "@/lib/document-templates";
@@ -74,24 +73,7 @@ function DocumentBuilderPage() {
 
   const hasSchema = (code: string) => schemaCodes.has(code);
 
-  const intakeSchemaByCode = useMemo(
-    () => new Map(intakeSchemas.map((schema) => [schema.template_code, schema])),
-    [intakeSchemas],
-  );
-
-  const flagshipTemplates = useMemo(() => selectFlagshipTaxTemplates(templates), [templates]);
-
-  const readinessStats = useMemo(() => {
-    const total = templates.length;
-    let ready = 0;
-    let noIntake = 0;
-    for (const t of templates) {
-      if (hasSchema(t.code)) ready += 1;
-      else noIntake += 1;
-    }
-    return { total, ready, noIntake, inProgress: noIntake };
-  }, [templates, schemaCodes]);
-        const sortedTemplates = useMemo(() => {
+  const sortedTemplates = useMemo(() => {
     return [...templates].sort((a, b) => {
       if (a.category === "TAX" && b.category !== "TAX") return -1;
       if (a.category !== "TAX" && b.category === "TAX") return 1;
@@ -305,105 +287,18 @@ function DocumentBuilderPage() {
 
   return (
     <div className="space-y-7">
-      <header className="db-card p-7">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="db-icon"><FileSignature size={20} /></div>
-            <div>
-              <h1 className="font-display text-2xl text-white">Конструктор юридических документов</h1>
-              <p className="mt-2 max-w-2xl text-sm text-white/70">
-                Единый реестр: {templates.length} шаблонов в {availableCategories.length} категориях.
-                Подготовка идёт в 3 шага — выбор шаблона, проверка карточки и запуск подготовки.
-              </p>
-            </div>
-          </div>
-          <Stepper step={step} />
+      <header className="space-y-4">
+        <div>
+          <h1 className="font-display text-2xl text-foreground">Конструктор документов</h1>
+          <p className="mt-1 text-sm text-muted-foreground">1 Шаблон → 2 Карточка → 3 Опросник</p>
         </div>
-        <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <StatBlock label="Всего шаблонов" value={readinessStats.total} tone="neutral" />
-          <StatBlock label="Полностью готовы" value={readinessStats.ready} tone="green" />
-          <StatBlock label="Без опросника" value={readinessStats.noIntake} tone="amber" />
-          <StatBlock label="В разработке" value={readinessStats.inProgress} tone="muted" />
-        </div>
+        <Stepper step={step} />
       </header>
 
 
       {/* STEP 1 */}
       {step === 1 && (
         <section className="db-card p-6 space-y-6">
-          <div className="db-flagship-panel">
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <div>
-                <div className="db-section-label flex items-center gap-2">
-                  <Sparkles size={13} /> Приоритетные налоговые документы
-                </div>
-                <h2 className="mt-2 font-display text-xl text-white">
-                  Пять готовых сценариев для налоговой практики
-                </h2>
-                <p className="mt-2 max-w-3xl text-sm text-white/65">
-                  Шаблон, пошаговый опросник и AI-автозаполнение из загруженных документов уже
-                  связаны в одном процессе.
-                </p>
-              </div>
-              <span className="db-flagship-count">5 приоритетных</span>
-            </div>
-
-            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {flagshipTemplates.map((template) => {
-                const schema = intakeSchemaByCode.get(template.code);
-                const stepsCount = schema?.schema_json.steps.length ?? 0;
-
-                return (
-                  <button
-                    key={template.code}
-                    type="button"
-                    className="db-flagship-card text-left"
-                    onClick={() => {
-                      setSelectedCode(template.code);
-                      setStep(2);
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="db-flagship-rank">{template.flagship_rank}</span>
-                      <span className="db-status db-status-ready">
-                        <Check size={11} /> Шаблон готов
-                      </span>
-                    </div>
-                    <h3 className="mt-4 text-sm font-semibold leading-snug text-white">
-                      {template.title}
-                    </h3>
-                    {template.description && (
-                      <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-white/60">
-                        {template.description}
-                      </p>
-                    )}
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <span className="db-feature-badge">
-                        <FileText size={11} /> {stepsCount || "—"} шагов
-                      </span>
-                      <span className="db-feature-badge">
-                        <Sparkles size={11} /> AI-автозаполнение
-                      </span>
-                      <span className="db-feature-badge">
-                        <ShieldCheck size={11} /> AI-проверка
-                      </span>
-                    </div>
-                    <div className="mt-4 inline-flex items-center gap-2 text-xs font-medium text-[#f0dca0]">
-                      Открыть шаблон <ArrowRight size={13} />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {!isLoading && flagshipTemplates.length !== 5 && (
-              <div className="db-warning mt-4">
-                Верхний набор временно неполный: реестр вернул {flagshipTemplates.length} из 5
-                приоритетных шаблонов.
-              </div>
-            )}
-          </div>
-
           <div>
             <div className="db-section-label">Шаг 1 · Юрисдикция</div>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -448,7 +343,7 @@ function DocumentBuilderPage() {
 
           <div className="grid gap-3 md:grid-cols-[1fr_auto]">
             <div className="relative">
-              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/50" />
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -471,21 +366,21 @@ function DocumentBuilderPage() {
 
           <div className="space-y-5">
             {isLoading && (
-              <div className="flex items-center gap-2 text-sm text-white/70">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 size={14} className="animate-spin" /> Загрузка реестра шаблонов…
               </div>
             )}
             {error && (
-              <div className="text-sm text-rose-300">Не удалось загрузить шаблоны.</div>
+              <div className="text-sm text-destructive">Не удалось загрузить шаблоны.</div>
             )}
             {!isLoading && !error && filtered.length === 0 && (
-              <div className="text-sm text-white/60">Ничего не найдено по выбранным фильтрам.</div>
+              <div className="text-sm text-muted-foreground">Ничего не найдено по выбранным фильтрам.</div>
             )}
 
             {grouped.map(([cat, items]) => (
               <div key={cat}>
-                <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
-                  {CATEGORY_LABELS[cat] ?? cat} · {items.length}
+                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  {CATEGORY_LABELS[cat] ?? cat}
                 </div>
                 <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {items.map((t) => {
@@ -502,13 +397,13 @@ function DocumentBuilderPage() {
                         className={`db-tcard text-left ${isSel ? "db-tcard-active" : ""}`}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="text-sm font-medium text-white">{t.title}</div>
+                          <div className="text-sm font-medium text-foreground">{t.title}</div>
                           <span className={`db-pill db-pill-${t.complexity}`}>
                             {COMPLEXITY_LABELS[t.complexity]}
                           </span>
                         </div>
                         {t.description && (
-                          <p className="mt-2 text-xs text-white/65 line-clamp-2">{t.description}</p>
+                          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{t.description}</p>
                         )}
 
                         <div className="mt-3">
@@ -526,7 +421,7 @@ function DocumentBuilderPage() {
                         <ReadinessChecklist ready={ready} />
 
                         {!ready && (
-                          <div className="mt-2 text-[11px] leading-snug text-amber-200/80">
+                          <div className="mt-2 text-[11px] leading-snug text-amber-700">
                             Опросник в разработке. Документ можно подготовить в свободной форме — AI-генерация, экспорт и проверка доступны.
                           </div>
                         )}
@@ -550,9 +445,7 @@ function DocumentBuilderPage() {
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <div className="text-xs text-white/55">
-              Найдено: <span className="text-white">{filtered.length}</span>{selected ? " · выбран шаблон" : ""}
-            </div>
+            <div />
             <button
               type="button"
               disabled={!selected}
@@ -578,8 +471,8 @@ function DocumentBuilderPage() {
             <div className="flex items-start gap-4">
               <div className="db-icon"><FileText size={20}/></div>
               <div>
-                <h2 className="font-display text-xl text-white">{selected.title}</h2>
-                <div className="mt-1 text-xs text-white/55">{selected.code}</div>
+                <h2 className="font-display text-xl text-foreground">{selected.title}</h2>
+                <div className="mt-1 text-xs text-muted-foreground">{selected.code}</div>
               </div>
             </div>
             <span className={`db-pill db-pill-${selected.complexity} self-start`}>
@@ -588,7 +481,7 @@ function DocumentBuilderPage() {
           </div>
 
           {selected.description && (
-            <p className="text-sm leading-relaxed text-white/80">{selected.description}</p>
+            <p className="text-sm leading-relaxed text-foreground/90">{selected.description}</p>
           )}
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -632,8 +525,8 @@ function DocumentBuilderPage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="db-section-label">Шаг 3 · Опросник</div>
-              <h2 className="mt-2 font-display text-xl text-white">{selected.title}</h2>
-              <p className="mt-1 text-xs text-white/55">{selected.code}</p>
+              <h2 className="mt-2 font-display text-xl text-foreground">{selected.title}</h2>
+              <p className="mt-1 text-xs text-muted-foreground">{selected.code}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <SmallSelect
@@ -652,7 +545,7 @@ function DocumentBuilderPage() {
           </div>
 
           {intakeSchemaQuery.isLoading && (
-            <div className="flex items-center gap-2 text-sm text-white/70">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 size={14} className="animate-spin" /> Загрузка опросника…
             </div>
           )}
@@ -664,9 +557,9 @@ function DocumentBuilderPage() {
             <div className="db-empty">
               <div className="db-icon"><AlertCircle size={18} /></div>
               <div>
-                <div className="text-sm font-medium text-white">Для данного шаблона опросник пока не настроен</div>
-                <p className="mt-1 text-xs text-white/65">
-                  Схема опроса для шаблона <span className="text-white/85">{selected.code}</span> ({JURISDICTION_LABELS[intake.jurisdiction] ?? intake.jurisdiction} / {LANGUAGE_LABELS[intake.language] ?? intake.language}) будет добавлена в реестр <span className="text-white/85">document_intake_schemas</span>.
+                <div className="text-sm font-medium text-foreground">Для данного шаблона опросник пока не настроен</div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Схема опроса для шаблона <span className="text-foreground">{selected.code}</span> ({JURISDICTION_LABELS[intake.jurisdiction] ?? intake.jurisdiction} / {LANGUAGE_LABELS[intake.language] ?? intake.language}) будет добавлена в реестр <span className="text-foreground">document_intake_schemas</span>.
                 </p>
               </div>
             </div>
@@ -703,7 +596,7 @@ function DocumentBuilderPage() {
             <div className="db-ready space-y-3">
               <div className="db-info-label">Черновик документа создан</div>
               <div className="db-info-value">{generated.document.title}</div>
-              <div className="text-xs text-white/55">ID: {generated.generated_document_id}</div>
+              <div className="text-xs text-muted-foreground">ID: {generated.generated_document_id}</div>
               {generated.generated.warnings && generated.generated.warnings.length > 0 && (
                 <ul className="mt-2 list-disc pl-5 text-xs text-amber-200/85 space-y-1">
                   {generated.generated.warnings.map((w, i) => <li key={i}>{w}</li>)}
@@ -899,13 +792,13 @@ function ReadinessChecklist({ ready }: { ready: boolean }) {
   return (
     <ul className="mt-2 space-y-1">
       {items.map((it) => (
-        <li key={it.label} className="flex items-center gap-2 text-[11px] text-white/70">
+        <li key={it.label} className="flex items-center gap-2 text-[11px] text-muted-foreground">
           {it.ok ? (
             <Check size={11} className="text-emerald-300" />
           ) : (
             <HelpCircle size={11} className="text-amber-300" />
           )}
-          <span className={it.ok ? "text-white/80" : "text-amber-200/80"}>{it.label}</span>
+          <span className={it.ok ? "text-foreground/90" : "text-amber-700"}>{it.label}</span>
         </li>
       ))}
     </ul>
