@@ -74,14 +74,28 @@ export type LegalRedactionResult = {
 // Public-body whitelist — these MUST NOT be redacted as companies.
 // ---------------------------------------------------------------------------
 
+// PR24: the whitelist must protect ONLY the government-body name (plus a safe
+// government-style qualifier such as "России", "№ 5", "по г. Москве"). It must
+// never swallow arbitrary trailing text — doing so temporarily masked adjacent
+// PII (phone, ИНН/КПП/ОГРН, ФИО, адрес, email) during the replacement pass and
+// re-exposed it on unmask, producing residual entities after self-review.
+const GOV_SUFFIX =
+  "(?:\\s+(?:России|РФ|Российской\\s+Федерации))?" +
+  "(?:\\s*№\\s*\\d{1,3})?" +
+  "(?:\\s+по\\s+(?:[А-ЯЁа-яё][А-ЯЁа-яё-]*\\.?)(?:\\s+[А-ЯЁа-яё][А-ЯЁа-яё-]*\\.?){0,4})?";
+
+function gov(body: string): RegExp {
+  return new RegExp(body + GOV_SUFFIX, "gi");
+}
+
 const GOV_WHITELIST_PATTERNS: RegExp[] = [
-  /\b(?:ФНС|УФНС|ИФНС|МИФНС|МРИ\s*ФНС)\b[^,.;\n]{0,80}/gi,
-  /\bРосреестр\b[^,.;\n]{0,80}/gi,
-  /\bФССП\b[^,.;\n]{0,80}/gi,
-  /\b(?:МВД|УМВД|ГУВД|ОВД|ГИБДД)\b[^,.;\n]{0,80}/gi,
-  /\bПрокуратур\w+\b[^,.;\n]{0,80}/gi,
-  /\b(?:СК\s*РФ|Следственн\w+\s+комитет\w*)\b[^,.;\n]{0,80}/gi,
-  /\bМинюст\w*\b[^,.;\n]{0,80}/gi,
+  gov("\\b(?:ФНС|УФНС|ИФНС|МИФНС|МРИ\\s*ФНС)\\b"),
+  gov("\\bРосреестр\\w*\\b"),
+  gov("\\bФССП\\b"),
+  gov("\\b(?:МВД|УМВД|ГУВД|ОВД|ГИБДД)\\b"),
+  gov("\\bПрокуратур\\w+\\b"),
+  gov("\\b(?:СК\\s*РФ|Следственн\\w+\\s+комитет\\w*)\\b"),
+  gov("\\bМинюст\\w*\\b"),
   /\b(?:Верховн\w+|Конституционн\w+|Арбитражн\w+|Апелляционн\w+|Кассационн\w+|Городск\w+|Районн\w+|Мировой|Областн\w+|Краев\w+)\s+суд\w*\b/gi,
   /\bсуд\s+(?:г\.?\s*[А-ЯЁ][а-яё-]+|[А-ЯЁ][а-яё]+(?:ого|ской|кого)\s+района)\b/gi,
   /\bЦБ\s*РФ\b|\bБанк\s+России\b/gi,
@@ -91,6 +105,7 @@ const GOV_WHITELIST_PATTERNS: RegExp[] = [
   /\bРоспотребнадзор\b/gi,
   /\bРоструд\b/gi,
 ];
+
 
 function buildGovMask(text: string): { masked: string; placeholders: Map<string, string> } {
   const placeholders = new Map<string, string>();
@@ -118,7 +133,22 @@ function unmaskGov(text: string, placeholders: Map<string, string>): string {
 
 type Pattern = { type: LegalEntityType; re: RegExp; reason: string };
 
-const PHONE_RE = /(?:(?:\+?7|8)[\s\u00A0\u200B\u200C\u200D\u2060()\-‐‑‒–—−./]*\d{3}[\s\u00A0\u200B\u200C\u200D\u2060()\-‐‑‒–—−./]*\d{3}[\s\u00A0\u200B\u200C\u200D\u2060()\-‐‑‒–—−./]*\d{2}[\s\u00A0\u200B\u200C\u200D\u2060()\-‐‑‒–—−./]*\d{2}|\([\s\u00A0\u200B\u200C\u200D\u2060]*\d{3}[\s\u00A0\u200B\u200C\u200D\u2060]*\)[\s\u00A0\u200B\u200C\u200D\u2060\-‐‑‒–—−./]*\d{3}[\s\u00A0\u200B\u200C\u200D\u2060\-‐‑‒–—−./]*\d{2}[\s\u00A0\u200B\u200C\u200D\u2060\-‐‑‒–—−./]*\d{2})/g;
+// PR24: separator class covers OCR/Unicode artifacts (NBSP, zero-width joiners,
+// Unicode dashes, dots, slashes, parentheses).
+const PHONE_SEP = "[\\s\\u00A0\\u200B\\u200C\\u200D\\u2060()\\-‐‑‒–—−./]";
+// 1) Russian 11-digit number: leading +7 / 7 / 8 followed by exactly 10 further
+//    digits in ANY OCR grouping (covers residuals like "725105906 45").
+//    Digit-count is fixed, so it cannot swallow ИНН (10/12), ОГРН (13/15) or КПП (9).
+// 2) Local 10-digit number written with an area code in parentheses.
+const PHONE_RE = new RegExp(
+  `(?<!\\d)(?:\\+?7|8)(?:${PHONE_SEP}*\\d){10}(?!${PHONE_SEP}*\\d)` +
+    `|\\([\\s\\u00A0\\u200B\\u200C\\u200D\\u2060]*\\d{3}[\\s\\u00A0\\u200B\\u200C\\u200D\\u2060]*\\)${PHONE_SEP}*\\d{3}${PHONE_SEP}*\\d{2}${PHONE_SEP}*\\d{2}`,
+  "g",
+);
+// PR24: stamp markers — М.П. / М П / м П / MP with NBSP, zero-width and Unicode
+// dot artifacts. Word boundaries on both sides prevent matching prose letters.
+const STAMP_MARKER_RE =
+  /(?<![А-ЯЁа-яёA-Za-z0-9])[МMмm][.·•∙‧\u00B7]?[\s\u00A0\u200B\u200C\u200D\u2060]*[ПPпp][.·•∙‧\u00B7]?(?![А-ЯЁа-яёA-Za-z0-9])/g;
 const COMPANY_FULL_RE = /(?:ООО|Общество\s+с\s+ограниченной\s+ответственностью)\s*["«„][^"»“\n]{1,120}["»“]/giu;
 
 const PATTERNS: Pattern[] = [
@@ -128,7 +158,8 @@ const PATTERNS: Pattern[] = [
     re: /(?:\/подпись\/|\(подпись\)|подписан(?:о|а|и)?\s+[А-ЯЁ][а-яё]+|собственноручн\w+\s+подпись)/gi,
     reason: "signature marker",
   },
-  { type: "STAMP", re: /(?:М\.?\s*П\.?|\(печать\)|оттиск\s+печати|гербов\w+\s+печать)/gi, reason: "stamp marker" },
+  { type: "STAMP", re: STAMP_MARKER_RE, reason: "stamp marker" },
+  { type: "STAMP", re: /(?:\(печать\)|оттиск\s+печати|гербов\w+\s+печать)/gi, reason: "stamp marker" },
   { type: "EMAIL", re: /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g, reason: "email" },
   { type: "PHONE", re: PHONE_RE, reason: "phone" },
   {
@@ -300,6 +331,22 @@ function findRiskMarkers(text: string): RemainingEntity[] {
   return found;
 }
 
+/**
+ * PR24: coverage must reflect residual risk, not just the replacement pass.
+ * Previously `replaced_total / detected_total` always yielded 100% because every
+ * detected entity is replaced by construction — even when self-review still found
+ * residual identifiers. Coverage is now derived from replaced vs. residual
+ * entities and can never reach 100% while residuals remain.
+ */
+function computeCoverage(stats: RedactionStats): number {
+  const replaced = stats.replaced_total;
+  const remaining = stats.remaining_total;
+  if (replaced === 0) return remaining > 0 ? 0 : 100;
+  if (remaining === 0) return 100;
+  const raw = Math.round((replaced / (replaced + remaining)) * 100);
+  return Math.max(0, Math.min(99, raw));
+}
+
 function emptyByType(): RedactionStats["by_type"] {
   const all: LegalEntityType[] = [
     "PERSON",
@@ -417,16 +464,7 @@ export function redactLegalDocument(input: string): LegalRedactionResult {
     stats.remaining_total += 1;
   }
 
-  if (stats.detected_total === 0 && riskMarkers.length > 0) {
-    stats.coverage_percent = 0;
-  } else if (stats.detected_total === 0) {
-    stats.coverage_percent = 100;
-  } else {
-    stats.coverage_percent = Math.max(
-      0,
-      Math.min(100, Math.round((stats.replaced_total / stats.detected_total) * 100)),
-    );
-  }
+  stats.coverage_percent = computeCoverage(stats);
 
   const quality: RedactionQuality =
     allRemaining.length === 0
@@ -507,16 +545,7 @@ export function reviewRedactedText(
     stats.remaining_total += 1;
   }
 
-  if (stats.detected_total === 0 && riskMarkers.length > 0) {
-    stats.coverage_percent = 0;
-  } else if (stats.detected_total === 0) {
-    stats.coverage_percent = 100;
-  } else {
-    stats.coverage_percent = Math.max(
-      0,
-      Math.min(100, Math.round((stats.replaced_total / stats.detected_total) * 100)),
-    );
-  }
+  stats.coverage_percent = computeCoverage(stats);
 
   const quality: RedactionQuality =
     allRemaining.length === 0
