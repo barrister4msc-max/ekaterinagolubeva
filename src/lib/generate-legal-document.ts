@@ -298,6 +298,15 @@ export async function prepareAndGenerate(
     }
   }
 
+  // 1b. PR27 — additively attach the verified company profile / registry
+  // conflicts. Never mutates analysis, run id or working strategy fields.
+  if (sessionId && snapshot) {
+    const { withCompanyContext } = await import("./matter-snapshot");
+    snapshot = await withCompanyContext(sessionId, snapshot);
+  }
+
+
+
   // 2. Gate (only enforced for complex templates inside assertMatterGate).
   assertMatterGate({
     template,

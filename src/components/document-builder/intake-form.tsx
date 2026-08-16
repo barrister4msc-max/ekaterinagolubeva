@@ -40,6 +40,8 @@ import {
   runBackgroundExtraction,
   stageDocuments,
 } from "@/lib/upload-lifecycle";
+import { CompanyRegistryCard } from "@/components/document-builder/company-registry-card";
+import { isValidInn } from "@/lib/company-registry";
 
 import {
   hasExtractedDocumentText,
@@ -143,6 +145,25 @@ const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
 const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null);
   const [isBuildingCaseIntelligence, setIsBuildingCaseIntelligence] = useState(false);
 const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
+// PR27 — one automatic registry verification per newly discovered INN.
+const [registryAutoToken, setRegistryAutoToken] = useState(0);
+const stateRef = useRef(state);
+stateRef.current = state;
+const onChangeRef = useRef(onChange);
+onChangeRef.current = onChange;
+
+const reloadAnswersFromSession = useCallback(async () => {
+  if (!intakeSessionId) return;
+  const { data } = await supabase
+    .from("document_intake_answers")
+    .select("field_name, field_value")
+    .eq("session_id", intakeSessionId);
+  if (!data || !isMountedRef.current) return;
+  const nextAnswers = { ...stateRef.current.answers };
+  for (const row of data) nextAnswers[row.field_name as string] = row.field_value;
+  onChangeRef.current({ ...stateRef.current, answers: nextAnswers });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [intakeSessionId]);
   const totalSteps = steps.length + 1; // +1 for review
 
   const readyDocuments = useMemo(
@@ -817,6 +838,11 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
       }
       onChange({ ...state, answers: nextAnswers });
 
+      // PR27 — AI-fill produced a usable INN: run one registry verification.
+      if (isValidInn(nextAnswers.taxpayer_inn)) {
+        setRegistryAutoToken((token) => token + 1);
+      }
+
       setAiFillFailure(null);
       alert(
         `AI заполнил ${fillResult.filled_fields} полей из комплекта. Проверьте значения и цитаты.`,
@@ -884,6 +910,13 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
 
             {!isReview && (
         <div className="space-y-5">
+          <CompanyRegistryCard
+            sessionId={intakeSessionId}
+            inn={state.answers.taxpayer_inn}
+            autoVerifyToken={registryAutoToken}
+            onAnswersUpdated={reloadAnswersFromSession}
+          />
+
           <div className="rounded-xl border border-border bg-card/60 p-4 space-y-3">
             <div>
               <div className="text-sm font-semibold text-foreground">
