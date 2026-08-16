@@ -1,0 +1,691 @@
+name: Direct reliable intake implementation
+
+on:
+  push:
+    branches:
+      - fix/reliable-intake-excel
+
+permissions:
+  contents: write
+
+jobs:
+  implement-test-commit:
+    if: ${{ !contains(github.event.head_commit.message, '[direct-intake-done]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: fix/reliable-intake-excel
+          fetch-depth: 0
+
+      - name: Apply deterministic patch
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def read(path):
+              return Path(path).read_text(encoding='utf-8')
+
+          def write(path, text):
+              Path(path).parent.mkdir(parents=True, exist_ok=True)
+              Path(path).write_text(text, encoding='utf-8')
+
+          def replace_once(path, old, new):
+              s = read(path)
+              if old not in s:
+                  raise SystemExit(f'Expected patch anchor not found in {path}: {old[:120]!r}')
+              write(path, s.replace(old, new, 1))
+
+          # -----------------------------------------------------------------
+          # 1. Package intake: include Excel inside ZIP packages.
+          # -----------------------------------------------------------------
+          p = 'src/lib/document-package-files.ts'
+          replace_once(p,
+          '  "webp",\n] as const;',
+          '  "webp",\n  "xls",\n  "xlsx",\n] as const;')
+          replace_once(p,
+          '    case "webp":\n      return "image/webp";\n    default:',
+          '    case "webp":\n      return "image/webp";\n    case "xls":\n      return "application/vnd.ms-excel";\n    case "xlsx":\n      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";\n    default:')
+          s = read(p).replace(
+              'PDF, DOC, DOCX, TXT, RTF, HTML, JPG, PNG, WEBP',
+              'PDF, DOC, DOCX, TXT, RTF, HTML, JPG, PNG, WEBP, XLS, XLSX',
+          )
+          write(p, s)
+
+          # -----------------------------------------------------------------
+          # 2. Bounded/retried staging: N inputs are all accounted for.
+          # -----------------------------------------------------------------
+          p = 'src/lib/upload-lifecycle.ts'
+          old = '''export async function stageDocuments<T>(
+            items: T[],
+            stage: (item: T) => Promise<StagedDocument>,
+            options: {
+              getName: (item: T) => string;
+              onStaged?: (staged: StagedDocument | null, item: T) => Promise<void> | void;
+            },
+          ): Promise<StageResult<T>> {
+            const staged: StagedDocument[] = [];
+            const failed: string[] = [];
+
+            for (const item of items) {
+              let result: StagedDocument | null = null;
+              try {
+                result = await stage(item);
+                staged.push(result);
+              } catch (error) {
+                console.error("[upload-lifecycle] staging failed", options.getName(item), error);
+                failed.push(options.getName(item));
+              }
+              if (options.onStaged) await options.onStaged(result, item);
+            }
+
+            return { staged, failed, items };
+          }
+          '''
+          new = '''export const STAGING_CONCURRENCY = 3;
+          export const STAGING_MAX_ATTEMPTS = 3;
+
+          const stageRetryDelay = (attempt: number) =>
+            new Promise((resolve) => setTimeout(resolve, attempt * 250));
+
+          export async function stageDocuments<T>(
+            items: T[],
+            stage: (item: T) => Promise<StagedDocument>,
+            options: {
+              getName: (item: T) => string;
+              onStaged?: (staged: StagedDocument | null, item: T) => Promise<void> | void;
+              concurrency?: number;
+              maxAttempts?: number;
+            },
+          ): Promise<StageResult<T>> {
+            if (items.length === 0) return { staged: [], failed: [], items };
+
+            const results: Array<StagedDocument | null> = new Array(items.length).fill(null);
+            const failures: Array<string | null> = new Array(items.length).fill(null);
+            const concurrency = Math.max(1, Math.min(options.concurrency ?? STAGING_CONCURRENCY, STAGING_CONCURRENCY));
+            const maxAttempts = Math.max(1, options.maxAttempts ?? STAGING_MAX_ATTEMPTS);
+            let cursor = 0;
+
+            const worker = async () => {
+              while (true) {
+                const index = cursor++;
+                if (index >= items.length) return;
+                const item = items[index];
+                const name = options.getName(item);
+                let result: StagedDocument | null = null;
+                let lastError: unknown = null;
+
+                for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                  try {
+                    result = await stage(item);
+                    results[index] = result;
+                    break;
+                  } catch (error) {
+                    lastError = error;
+                    console.error("[upload-lifecycle] staging attempt failed", name, attempt, error);
+                    if (attempt < maxAttempts) await stageRetryDelay(attempt);
+                  }
+                }
+
+                if (!result) {
+                  failures[index] = name;
+                  console.error("[upload-lifecycle] staging permanently failed", name, lastError);
+                }
+                if (options.onStaged) await options.onStaged(result, item);
+              }
+            };
+
+            await Promise.all(
+              Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+            );
+
+            const staged = results.filter((item): item is StagedDocument => item !== null);
+            const failed = failures.filter((name): name is string => name !== null);
+            return { staged, failed, items };
+          }
+          '''
+          replace_once(p, old, new)
+
+          # -----------------------------------------------------------------
+          # 3. Pure XLSX text helper, testable without an Edge runtime.
+          # -----------------------------------------------------------------
+          write('supabase/functions/_shared/xlsx-text.ts', r'''type ZipEntryLike = {
+            dir?: boolean;
+            async: (type: "string") => Promise<string>;
+          };
+
+          export type XlsxZipLike = {
+            files: Record<string, ZipEntryLike>;
+          };
+
+          function decodeXml(value: string): string {
+            return value
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&quot;/g, '"')
+              .replace(/&apos;/g, "'")
+              .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+              .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+              .replace(/&amp;/g, "&");
+          }
+
+          function textNodes(xml: string): string {
+            const values: string[] = [];
+            const re = /<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g;
+            let match: RegExpExecArray | null;
+            while ((match = re.exec(xml)) !== null) values.push(decodeXml(match[1]));
+            return values.join("");
+          }
+
+          export async function extractXlsxText(zip: XlsxZipLike): Promise<string> {
+            const shared: string[] = [];
+            const sharedEntry = zip.files["xl/sharedStrings.xml"];
+            if (sharedEntry && !sharedEntry.dir) {
+              const xml = await sharedEntry.async("string");
+              const blocks = xml.match(/<si\b[\s\S]*?<\/si>/g) ?? [];
+              for (const block of blocks) shared.push(textNodes(block));
+            }
+
+            const sheets = Object.keys(zip.files)
+              .filter((path) => /^xl\/worksheets\/sheet\d+\.xml$/i.test(path) && !zip.files[path].dir)
+              .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+            const output: string[] = [];
+            for (const path of sheets) {
+              const xml = await zip.files[path].async("string");
+              output.push(`[Лист: ${path.split('/').pop()}]`);
+              const rows = xml.match(/<row\b[\s\S]*?<\/row>/g) ?? [];
+              for (const row of rows) {
+                const cells: string[] = [];
+                const cellRe = /<c\b([^>]*)>([\s\S]*?)<\/c>/g;
+                let cell: RegExpExecArray | null;
+                while ((cell = cellRe.exec(row)) !== null) {
+                  const attrs = cell[1];
+                  const body = cell[2];
+                  const ref = /\br="([^"]+)"/.exec(attrs)?.[1] ?? "";
+                  const type = /\bt="([^"]+)"/.exec(attrs)?.[1] ?? "";
+                  let value = "";
+                  if (type === "inlineStr") {
+                    value = textNodes(body);
+                  } else {
+                    const raw = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1] ?? "";
+                    value = type === "s" ? (shared[Number(raw)] ?? "") : decodeXml(raw);
+                  }
+                  if (value.trim()) cells.push(ref ? `${ref}: ${value.trim()}` : value.trim());
+                }
+                if (cells.length > 0) output.push(cells.join(" | "));
+              }
+            }
+
+            return output.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+          }
+          ''')
+
+          # -----------------------------------------------------------------
+          # 4. Edge extractor: real XLSX XML extraction; old XLS stays stored
+          #    but is explicitly marked unsupported rather than disappearing.
+          # -----------------------------------------------------------------
+          p = 'supabase/functions/extract-document-text/index.ts'
+          replace_once(p,
+          'import JSZip from "https://esm.sh/jszip@3.10.1";\n',
+          'import JSZip from "https://esm.sh/jszip@3.10.1";\nimport { extractXlsxText } from "../_shared/xlsx-text.ts";\n')
+          replace_once(p,
+          '  | "html_text"\n  | "pdf_text"',
+          '  | "html_text"\n  | "xlsx_xml"\n  | "pdf_text"')
+          anchor = '''async function extractDocx(buf: ArrayBuffer): Promise<string> {
+          '''
+          s = read(p)
+          if anchor not in s:
+              raise SystemExit('extractDocx anchor missing')
+          # Add helper after extractDocx function by targeting the next extractRtf declaration.
+          marker = '''function extractRtf(buf: ArrayBuffer): string {
+          '''
+          if marker not in s:
+              raise SystemExit('extractRtf anchor missing')
+          helper = '''async function extractXlsx(buf: ArrayBuffer): Promise<string> {
+            const zip = await JSZip.loadAsync(buf);
+            return extractXlsxText(zip as unknown as Parameters<typeof extractXlsxText>[0]);
+          }
+
+          '''
+          s = s.replace(marker, helper + marker, 1)
+          write(p, s)
+
+          old_detect = '''  if (
+            m === "application/vnd.ms-excel" ||
+            m === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+            ["xls", "xlsx"].includes(e)
+          )
+            return { method: "none", kind: "spreadsheet" };
+          '''
+          new_detect = '''  if (
+            m === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+            e === "xlsx"
+          )
+            return { method: "xlsx_xml", kind: "spreadsheet" };
+          if (m === "application/vnd.ms-excel" || e === "xls")
+            return { method: "none", kind: "spreadsheet" };
+          '''
+          replace_once(p, old_detect, new_detect)
+
+          replace_once(p,
+          '  let method: ExtractionMethod = detected.method;\n  let status: ExtractionStatus = "completed";\n',
+          '  let method: ExtractionMethod = detected.method;\n  let status: ExtractionStatus = "completed";\n  let extractionError: string | null = null;\n')
+
+          old_switch = '''      case "image":
+                text = "";
+                break;
+              default:
+                status = "failed";
+                method = "none";
+            }
+              } catch (e) {
+              console.error("[extract-document-text] extraction error", e);
+              status = "failed";
+              text = "";
+            }
+          '''
+          new_switch = '''      case "image":
+                text = "";
+                break;
+              case "spreadsheet":
+                if (method === "xlsx_xml") {
+                  text = await extractXlsx(downloaded.buf);
+                  if (!text.trim()) {
+                    status = "failed";
+                    extractionError = "spreadsheet_empty";
+                  }
+                } else {
+                  status = "failed";
+                  method = "none";
+                  extractionError = "legacy_xls_extraction_not_supported";
+                }
+                break;
+              default:
+                status = "failed";
+                method = "none";
+                extractionError = "unsupported_format";
+            }
+              } catch (e) {
+              console.error("[extract-document-text] extraction error", e);
+              status = "failed";
+              extractionError = e instanceof Error ? e.message : "extraction_failed";
+              text = "";
+            }
+          '''
+          replace_once(p, old_switch, new_switch)
+
+          replace_once(p,
+          '''  const shouldUseGeminiFallback =
+              downloaded?.buf &&
+              (detected.kind === "image" || detected.kind === "pdf" || text.length === 0);
+          ''',
+          '''  const shouldUseGeminiFallback =
+              downloaded?.buf &&
+              (detected.kind === "image" ||
+                detected.kind === "pdf" ||
+                (text.length === 0 && !["spreadsheet", "presentation", "unknown"].includes(detected.kind)));
+          ''')
+
+          replace_once(p,
+          '''    text_length: textLength,
+            };
+          ''',
+          '''    text_length: textLength,
+              extraction_error: extractionError,
+            };
+          ''')
+
+          # -----------------------------------------------------------------
+          # 5. Builder: remove browser type filtering; persist pending state;
+          #    exact selected/staged counts; resume pending extraction on reload.
+          # -----------------------------------------------------------------
+          p = 'src/components/document-builder/intake-form.tsx'
+          replace_once(p,
+          'const [isUploadingDocument, setIsUploadingDocument] = useState(false);\n',
+          '''const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+          const [lastUploadBatch, setLastUploadBatch] = useState<{
+            selected: number;
+            prepared: number;
+            staged: number;
+            failed: string[];
+          } | null>(null);
+          ''')
+
+          replace_once(p,
+          '  const stageSingleFile = async (file: File, sessionIdParam: string) => {\n',
+          '  const stageSingleFile = async (file: File, sessionIdParam: string, uploadBatchId: string) => {\n')
+
+          replace_once(p,
+          '''        metadata: {
+                  intake_session_id: sessionIdParam,
+                  template_code: state.templateCode,
+                  jurisdiction: state.jurisdiction,
+                  language: state.language,
+                },
+          ''',
+          '''        metadata: {
+                  intake_session_id: sessionIdParam,
+                  template_code: state.templateCode,
+                  jurisdiction: state.jurisdiction,
+                  language: state.language,
+                  upload_batch_id: uploadBatchId,
+                  extraction_status: "pending",
+                  extraction_method: "none",
+                  text_length: 0,
+                },
+          ''')
+
+          replace_once(p,
+          '''    if (documentError) throw documentError;
+
+              await supabase
+          ''',
+          '''    if (documentError) {
+                await supabase.storage.from("lead-documents").remove([storagePath]).catch(() => undefined);
+                throw documentError;
+              }
+
+              await supabase
+          ''')
+
+          replace_once(p,
+          '''    const selectedFiles = Array.from(input.files ?? []);
+              if (selectedFiles.length === 0) return;
+
+              try {
+          ''',
+          '''    const selectedFiles = Array.from(input.files ?? []);
+              if (selectedFiles.length === 0) return;
+              const selectedCount = selectedFiles.length;
+              const uploadBatchId = crypto.randomUUID();
+              setLastUploadBatch({ selected: selectedCount, prepared: selectedCount, staged: 0, failed: [] });
+
+              try {
+          ''')
+
+          replace_once(p,
+          '''        files = expanded.files;
+                skippedEntries = expanded.skippedEntries;
+          ''',
+          '''        files = expanded.files;
+                skippedEntries = expanded.skippedEntries;
+                setLastUploadBatch((prev) => prev ? { ...prev, prepared: files.length } : prev);
+          ''')
+
+          replace_once(p,
+          '        (file) => stageSingleFile(file, session.id),\n',
+          '        (file) => stageSingleFile(file, session.id, uploadBatchId),\n')
+
+          replace_once(p,
+          '''      if (isMountedRef.current) {
+                await refreshSessionDocuments(session.id);
+              }
+              notifyDocumentsUpdated();
+          ''',
+          '''      const accounted = staged.length + failedFiles.length;
+              if (accounted !== files.length) {
+                throw new Error(`Upload accounting mismatch: prepared=${files.length}, staged=${staged.length}, failed=${failedFiles.length}`);
+              }
+              setLastUploadBatch({
+                selected: selectedCount,
+                prepared: files.length,
+                staged: staged.length,
+                failed: failedFiles,
+              });
+
+              if (isMountedRef.current) {
+                await refreshSessionDocuments(session.id);
+              }
+              notifyDocumentsUpdated();
+          ''')
+
+          replace_once(p,
+          '''        const { data, error } = response.result;
+                if (!error && data?.extraction_status === "completed" && Number(data?.text_length) > 0) {
+          ''',
+          '''        const { data, error } = response.result;
+                if (!error && data?.extraction_status === "failed" && data?.extraction_method === "none") {
+                  return {
+                    extractionStatus: "failed",
+                    textLength: 0,
+                    attempts: attempt,
+                    error: data?.error || "Формат сохранён, но извлечение текста для него пока не поддерживается",
+                  };
+                }
+                if (!error && data?.extraction_status === "ocr_required") {
+                  return {
+                    extractionStatus: "ocr_required",
+                    textLength: 0,
+                    attempts: attempt,
+                    error: data?.error || "Требуется дополнительное OCR",
+                  };
+                }
+                if (!error && data?.extraction_status === "completed" && Number(data?.text_length) > 0) {
+          ''')
+
+          # Add persisted resume effect immediately before staging code.
+          marker = '''  // Staging only: uploads to storage and creates the `documents` row.
+          '''
+          s = read(p)
+          if marker not in s:
+              raise SystemExit('staging marker missing in intake-form')
+          resume = '''  // Persisted recovery: if the browser was closed/reloaded after staging,
+            // resume every document that was saved but never reached extraction.
+            useEffect(() => {
+              if (!intakeSessionId) return;
+              const pending = sessionDocuments
+                .filter((doc) =>
+                  !hasExtractedDocumentText(doc.ocr_text) &&
+                  (doc.extraction_status === null || doc.extraction_status === "pending") &&
+                  !processingDocumentIdsRef.current.has(doc.id),
+                )
+                .map((doc) => ({ id: doc.id, fileName: doc.file_name ?? doc.title ?? doc.id }));
+              if (pending.length === 0) return;
+
+              void runBackgroundExtraction(
+                pending,
+                async (doc) => {
+                  const result = await runExtractionWithRetry(doc.id);
+                  return { ok: result.extractionStatus === "completed" && result.textLength > 0 };
+                },
+                {
+                  isProcessing: (id) => processingDocumentIdsRef.current.has(id),
+                  onStart: (ids) => addProcessingDocuments(ids),
+                  onSettled: async (doc) => {
+                    removeProcessingDocument(doc.id);
+                    if (!isMountedRef.current) return;
+                    await refreshSessionDocuments(intakeSessionId);
+                    notifyDocumentsUpdated();
+                  },
+                },
+              );
+            }, [intakeSessionId, sessionDocuments, refreshSessionDocuments]);
+
+          '''
+          write(p, s.replace(marker, resume + marker, 1))
+
+          replace_once(p,
+          '                Загрузите PDF/DOCX/TXT/RTF/HTML — AI извлечёт текст и заполнит поля конструктора.\n',
+          '                Загрузите весь комплект: PDF/DOC/DOCX/TXT/RTF/HTML/XLS/XLSX/изображения. Каждый выбранный файл сохраняется; неподдерживаемый формат не исчезает.\n')
+
+          replace_once(p,
+          '                  accept=".pdf,.doc,.docx,.txt,.rtf,.html,.htm,.jpg,.jpeg,.png,.webp,.zip"\n',
+          '')
+
+          counter_anchor = '''              {sessionDocuments.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      Прикреплено: {sessionDocuments.length}
+                    </span>
+                  )}
+          '''
+          counter_new = '''              {lastUploadBatch && (
+                    <span className="text-xs text-muted-foreground">
+                      Выбрано: {lastUploadBatch.selected} · К загрузке: {lastUploadBatch.prepared} · Загружено: {lastUploadBatch.staged}
+                      {lastUploadBatch.failed.length > 0 ? ` · Ошибок: ${lastUploadBatch.failed.length}` : ""}
+                    </span>
+                  )}
+                  {sessionDocuments.length > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      В комплекте: {sessionDocuments.length}
+                    </span>
+                  )}
+          '''
+          replace_once(p, counter_anchor, counter_new)
+
+          # -----------------------------------------------------------------
+          # 6. Regression tests: 10/10, transient retries, Excel in direct/ZIP,
+          #    and real shared-string XLSX extraction.
+          # -----------------------------------------------------------------
+          write('supabase/tests/reliable-intake-excel.test.ts', r'''import { describe, expect, test } from "bun:test";
+          import JSZip from "jszip";
+          import {
+            expandSelectedDocumentFiles,
+            expandZipPackage,
+            isSupportedDocumentName,
+          } from "../../src/lib/document-package-files";
+          import {
+            stageDocuments,
+            STAGING_CONCURRENCY,
+            STAGING_MAX_ATTEMPTS,
+          } from "../../src/lib/upload-lifecycle";
+          import { extractXlsxText } from "../functions/_shared/xlsx-text";
+
+          const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+          describe("reliable intake accounting", () => {
+            test("10 selected ordinary files remain 10 prepared files including XLSX", async () => {
+              const files = [
+                ...Array.from({ length: 9 }, (_, i) => new File([`doc-${i}`], `doc-${i + 1}.docx`)),
+                new File(["xlsx"], "свод по контрагентам.xlsx", {
+                  type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                }),
+              ];
+              const result = await expandSelectedDocumentFiles(files);
+              expect(result.files).toHaveLength(10);
+              expect(result.files.at(-1)?.name).toBe("свод по контрагентам.xlsx");
+            });
+
+            test("staging retries transient failures and accounts for all 10", async () => {
+              const names = Array.from({ length: 10 }, (_, i) => `file-${i + 1}`);
+              const attempts = new Map<string, number>();
+              let inFlight = 0;
+              let peak = 0;
+              const result = await stageDocuments(
+                names,
+                async (name) => {
+                  inFlight += 1;
+                  peak = Math.max(peak, inFlight);
+                  try {
+                    await sleep(3);
+                    const attempt = (attempts.get(name) ?? 0) + 1;
+                    attempts.set(name, attempt);
+                    if ((name === "file-4" || name === "file-10") && attempt < 2) {
+                      throw new Error("transient");
+                    }
+                    return { id: `id-${name}`, fileName: name };
+                  } finally {
+                    inFlight -= 1;
+                  }
+                },
+                { getName: (name) => name },
+              );
+              expect(result.staged).toHaveLength(10);
+              expect(result.failed).toEqual([]);
+              expect(result.staged.length + result.failed.length).toBe(names.length);
+              expect(attempts.get("file-4")).toBe(2);
+              expect(attempts.get("file-10")).toBe(2);
+              expect(peak).toBeLessThanOrEqual(STAGING_CONCURRENCY);
+              expect(STAGING_MAX_ATTEMPTS).toBe(3);
+            });
+
+            test("permanent failure is explicit and later files still stage", async () => {
+              const names = ["a", "broken", "c", "d"];
+              const result = await stageDocuments(
+                names,
+                async (name) => {
+                  if (name === "broken") throw new Error("permanent");
+                  return { id: `id-${name}`, fileName: name };
+                },
+                { getName: (name) => name, maxAttempts: 2 },
+              );
+              expect(result.staged.map((x) => x.fileName).sort()).toEqual(["a", "c", "d"]);
+              expect(result.failed).toEqual(["broken"]);
+              expect(result.staged.length + result.failed.length).toBe(names.length);
+            });
+          });
+
+          describe("Excel package support", () => {
+            test("XLS and XLSX are recognized package documents", () => {
+              expect(isSupportedDocumentName("table.xls")).toBe(true);
+              expect(isSupportedDocumentName("table.xlsx")).toBe(true);
+            });
+
+            test("XLSX inside ZIP is expanded instead of silently skipped", async () => {
+              const zip = new JSZip();
+              zip.file("docs/свод по контрагентам.xlsx", "fake-xlsx");
+              zip.file("docs/акт.docx", "fake-docx");
+              const blob = await zip.generateAsync({ type: "blob" });
+              const result = await expandZipPackage(blob, "test.zip");
+              expect(result.files.map((f) => f.name).sort()).toEqual([
+                "акт.docx",
+                "свод по контрагентам.xlsx",
+              ].sort());
+              expect(result.skippedEntries).toEqual([]);
+            });
+
+            test("extracts shared-string and numeric cells from XLSX XML", async () => {
+              const zip = new JSZip();
+              zip.file(
+                "xl/sharedStrings.xml",
+                '<?xml version="1.0"?><sst><si><t>ООО Ромашка</t></si><si><t>7701234567</t></si></sst>',
+              );
+              zip.file(
+                "xl/worksheets/sheet1.xml",
+                '<?xml version="1.0"?><worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c><c r="C1"><v>125000</v></c></row></sheetData></worksheet>',
+              );
+              const text = await extractXlsxText(zip as any);
+              expect(text).toContain("ООО Ромашка");
+              expect(text).toContain("7701234567");
+              expect(text).toContain("125000");
+            });
+          });
+          ''')
+          PY
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Reliable intake tests
+        run: bun test supabase/tests/reliable-intake-excel.test.ts supabase/tests/pr23-upload-orchestration.test.ts supabase/tests/pr23-document-package-files.test.ts
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
+
+      - name: Deno check extractor
+        run: deno check supabase/functions/extract-document-text/index.ts
+
+      - name: Commit only after validation
+        shell: bash
+        run: |
+          git rm .github/workflows/direct-reliable-intake.yml
+          git config user.name "barrister4msc-max"
+          git config user.email "barrister.4.msc@gmail.com"
+          git add src/lib/document-package-files.ts src/lib/upload-lifecycle.ts src/components/document-builder/intake-form.tsx supabase/functions/extract-document-text/index.ts supabase/functions/_shared/xlsx-text.ts supabase/tests/reliable-intake-excel.test.ts
+          git commit -m "fix(document-intake): guarantee selected files and extract XLSX [direct-intake-done]"
+          git push origin HEAD:fix/reliable-intake-excel
