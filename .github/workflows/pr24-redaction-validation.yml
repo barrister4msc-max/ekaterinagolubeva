@@ -1,0 +1,36 @@
+name: PR24 redaction validation
+
+on:
+  push:
+    branches:
+      - fix/pr24-residual-redaction-safety
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: PR24 and PR22 redaction tests
+        run: bun test supabase/tests/pr24-residual-redaction.test.ts supabase/tests/pr22-redaction-ai-fill-safety.test.ts
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
