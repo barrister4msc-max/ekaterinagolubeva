@@ -795,6 +795,11 @@ const reloadAnswersFromSession = useCallback(async () => {
       }
       onChange({ ...state, answers: nextAnswers });
 
+      // PR27 — AI-fill produced a usable INN: run one registry verification.
+      if (isValidInn(nextAnswers.taxpayer_inn)) {
+        setRegistryAutoToken((token) => token + 1);
+      }
+
       setAiFillFailure(null);
       alert(
         `AI заполнил ${fillResult.filled_fields} полей из комплекта. Проверьте значения и цитаты.`,
