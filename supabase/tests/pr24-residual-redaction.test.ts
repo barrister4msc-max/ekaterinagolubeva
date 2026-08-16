@@ -101,3 +101,52 @@ describe("PR24 — coverage coherence", () => {
     expect(redactLegalDocument("").stats.coverage_percent).toBe(100);
   });
 });
+
+describe("PR24 — spreadsheet/archive extracted text stays fail-closed", () => {
+  test("redacts PII from XLSX-like rows after archive extraction", () => {
+    const source = [
+      "[Лист: sheet1.xml]",
+      'A1: ООО "РОМАШКА" | B1: ИНН 7701234567 | C1: КПП 770101001',
+      "A2: Иванов Иван Иванович | B2: +7 999 123-45-67 | C2: ivanov@example.ru",
+      "A3: г. Москва, ул. Тверская, д. 10, кв. 15 | B3: ОГРН 1027700123456",
+      "A4: паспорт серия 45 12 № 123456 код подразделения 770-001",
+    ].join("\n");
+
+    const result = redactLegalDocument(source);
+    const review = reviewRedactedText(result.redacted_text, result.stats);
+
+    for (const raw of [
+      "РОМАШКА",
+      "7701234567",
+      "770101001",
+      "Иванов Иван Иванович",
+      "+7 999 123-45-67",
+      "ivanov@example.ru",
+      "Тверская",
+      "1027700123456",
+      "45 12 № 123456",
+      "770-001",
+    ]) {
+      expect(result.redacted_text).not.toContain(raw);
+    }
+    expect(review.remaining_entities).toHaveLength(0);
+    expect(review.quality).not.toBe("unsafe");
+    expect(review.stats.coverage_percent).toBe(100);
+  });
+
+  test("mixed ZIP-style concatenated documents leave no email/phone/company/bank residuals", () => {
+    const source = [
+      'Документ 1: ООО "АЛЬФА", ИНН 7812345678, телефон 8 921 555 44 33.',
+      "Документ 2: представитель Петров Петр Петрович, mail petrov.p@example.com.",
+      "Документ 3: БИК 044525225, р/с 40702810900000000001.",
+    ].join("\n---\n");
+    const result = redactLegalDocument(source);
+    const review = reviewRedactedText(result.redacted_text, result.stats);
+
+    expect(review.remaining_entities).toHaveLength(0);
+    expect(result.redacted_text).not.toContain("АЛЬФА");
+    expect(result.redacted_text).not.toContain("petrov.p@example.com");
+    expect(result.redacted_text).not.toContain("8 921 555 44 33");
+    expect(result.redacted_text).not.toContain("40702810900000000001");
+  });
+});
