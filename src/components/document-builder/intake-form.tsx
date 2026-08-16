@@ -37,9 +37,10 @@ import {
   expandSelectedDocumentFiles,
 } from "@/lib/document-package-files";
 import {
-  EXTRACTION_CONCURRENCY,
-  runWithBoundedConcurrency,
-} from "@/lib/bounded-concurrency";
+  runBackgroundExtraction,
+  stageDocuments,
+} from "@/lib/upload-lifecycle";
+
 import {
   hasExtractedDocumentText,
   suggestTemplatesForPackage,
@@ -102,7 +103,39 @@ type SessionDocument = {
 const [sessionDocuments, setSessionDocuments] = useState<SessionDocument[]>([]);
 const [redactionDocId, setRedactionDocId] = useState<string | null>(null);
 
+// Staging state only: file expansion + storage upload + `documents` row creation.
 const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+// Background OCR/extraction state, tracked separately from staging.
+const [processingDocumentIds, setProcessingDocumentIds] = useState<string[]>([]);
+const processingDocumentIdsRef = useRef<Set<string>>(new Set());
+const isMountedRef = useRef(true);
+useEffect(() => {
+  isMountedRef.current = true;
+  return () => {
+    isMountedRef.current = false;
+  };
+}, []);
+
+const syncProcessingState = () => {
+  if (!isMountedRef.current) return;
+  setProcessingDocumentIds(Array.from(processingDocumentIdsRef.current));
+};
+const addProcessingDocuments = (ids: string[]) => {
+  for (const id of ids) processingDocumentIdsRef.current.add(id);
+  syncProcessingState();
+};
+const removeProcessingDocument = (id: string) => {
+  processingDocumentIdsRef.current.delete(id);
+  syncProcessingState();
+};
+const notifyDocumentsUpdated = () => {
+  try {
+    window.dispatchEvent(new CustomEvent("intake-documents-updated"));
+  } catch {}
+};
+const isProcessingDocuments = processingDocumentIds.length > 0;
+
+
 
 const [isAiFilling, setIsAiFilling] = useState(false);
 const [aiFillAttempt, setAiFillAttempt] = useState(0);
@@ -513,7 +546,8 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
   const handleUploadDocument = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    const selectedFiles = Array.from(event.target.files ?? []);
+    const input = event.target;
+    const selectedFiles = Array.from(input.files ?? []);
     if (selectedFiles.length === 0) return;
 
     try {
@@ -548,37 +582,24 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
         jurisdiction: state.jurisdiction,
         language: state.language,
       });
-      setIntakeSessionId(session.id);
-
-      const failedFiles: string[] = [];
-      const processingIssues: string[] = [];
-      const staged: Array<{ id: string; fileName: string }> = [];
+      if (isMountedRef.current) setIntakeSessionId(session.id);
 
       // Phase 1 — stage every selected file (storage + documents row) first.
-      for (const file of files) {
-        try {
-          staged.push(await stageSingleFile(file, session.id));
-        } catch (err) {
-          console.error("Failed to upload file", file.name, err);
-          failedFiles.push(file.name);
-        }
+      const { staged, failed: failedFiles } = await stageDocuments(
+        files,
+        (file) => stageSingleFile(file, session.id),
+        {
+          getName: (file) => file.name,
+          onStaged: async () => {
+            await refreshSessionDocuments(session.id);
+          },
+        },
+      );
+
+      if (isMountedRef.current) {
         await refreshSessionDocuments(session.id);
       }
-
-      // Phase 2 — extract text with bounded concurrency (never more than 3).
-      await runWithBoundedConcurrency(staged, EXTRACTION_CONCURRENCY, async (doc) => {
-        try {
-          const result = await runExtractionWithRetry(doc.id);
-          if (result.extractionStatus !== "completed" || result.textLength === 0) {
-            processingIssues.push(doc.fileName);
-          }
-        } catch (err) {
-          console.error("Failed to extract document", doc.fileName, err);
-          processingIssues.push(doc.fileName);
-        }
-        await refreshSessionDocuments(session.id);
-      });
-
+      notifyDocumentsUpdated();
 
       if (failedFiles.length > 0) {
         alert(
@@ -590,23 +611,44 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
           `Пропущены неподдерживаемые файлы из архива: ${skippedEntries.join(", ")}.`,
         );
       }
-      if (processingIssues.length > 0) {
-        alert(
-          `Файлы загружены, но текст пока не извлечён: ${processingIssues.join(", ")}. Они отмечены для проверки.`,
-        );
-      }
 
-      try {
-        window.dispatchEvent(new CustomEvent("intake-documents-updated"));
-      } catch {}
+      // Phase 2 — background extraction (bounded concurrency, max 3).
+      // Deliberately NOT awaited: the upload UI must be usable again already.
+      void runBackgroundExtraction(
+        staged,
+        async (doc) => {
+          const result = await runExtractionWithRetry(doc.id);
+          return {
+            ok: result.extractionStatus === "completed" && result.textLength > 0,
+          };
+        },
+        {
+          isProcessing: (id) => processingDocumentIdsRef.current.has(id),
+          onStart: (ids) => addProcessingDocuments(ids),
+          onSettled: async (doc) => {
+            removeProcessingDocument(doc.id);
+            if (!isMountedRef.current) return;
+            await refreshSessionDocuments(session.id);
+            notifyDocumentsUpdated();
+          },
+          onFinish: (issues) => {
+            if (issues.length > 0) {
+              alert(
+                `Файлы загружены, но текст пока не извлечён: ${issues.join(", ")}. Они отмечены для проверки.`,
+              );
+            }
+          },
+        },
+      );
     } catch (e) {
       console.error("Failed to upload documents", e);
       alert("Не удалось загрузить документы");
     } finally {
-      setIsUploadingDocument(false);
-      event.target.value = "";
+      if (isMountedRef.current) setIsUploadingDocument(false);
+      input.value = "";
     }
   };
+
 
   const handleDeleteDocument = async (documentId: string) => {
     if (!confirm("Удалить этот документ из комплекта?")) return;
@@ -799,12 +841,12 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
 
             {!isReview && (
         <div className="space-y-5">
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+          <div className="rounded-xl border border-border bg-card/60 p-4 space-y-3">
             <div>
-              <div className="text-sm font-semibold text-white">
+              <div className="text-sm font-semibold text-foreground">
                 Документы для автозаполнения
               </div>
-              <div className="text-xs text-white/60">
+              <div className="text-xs text-muted-foreground">
                 Загрузите PDF/DOCX/TXT/RTF/HTML — AI извлечёт текст и заполнит поля конструктора.
               </div>
             </div>
@@ -845,17 +887,24 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
               </button>
 
               {sessionDocuments.length > 0 && (
-                <span className="text-xs text-white/60">
+                <span className="text-xs text-muted-foreground">
                   Прикреплено: {sessionDocuments.length}
+                </span>
+              )}
+              {isProcessingDocuments && (
+                <span className="inline-flex items-center gap-1 text-xs text-amber-700">
+                  <Loader2 size={12} className="animate-spin" />
+                  Обрабатывается: {processingDocumentIds.length}
                 </span>
               )}
             </div>
 
+
             {aiFillFailure && (
-              <div className="rounded-lg border border-rose-300/30 bg-rose-300/[0.08] p-3 text-xs text-rose-100">
+              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-800">
                 <div className="font-semibold">AI-заполнение не завершено</div>
                 <div className="mt-1">{aiFillFailure}</div>
-                <div className="mt-1 text-white/55">
+                <div className="mt-1 text-muted-foreground">
                   Можно нажать «Повторить AI-заполнение»: комплект и уже сохранённые ответы не потеряются.
                 </div>
               </div>
@@ -865,6 +914,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
               <ul className="space-y-2">
                 {sessionDocuments.map((doc) => {
                   const ready = hasExtractedDocumentText(doc.ocr_text);
+                  const processing = processingDocumentIds.includes(doc.id) || retryingDocumentId === doc.id;
                   const tone = redactionStatusTone(doc.redaction_status);
                   const showRedactButton =
                     ready &&
@@ -874,21 +924,26 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                   return (
                     <li
                       key={doc.id}
-                      className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 md:flex-row md:items-center"
+                      className="flex flex-col gap-2 rounded-lg border border-border bg-card/70 px-3 py-2 md:flex-row md:items-center"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <FileText size={14} className="text-white/60 shrink-0" />
+                        <FileText size={14} className="text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm text-white truncate">
+                          <div className="text-sm text-foreground truncate">
                             {doc.title || doc.file_name || doc.id}
                           </div>
-                          <div className="text-[11px] text-white/60 flex flex-wrap items-center gap-2">
+                          <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-2">
                             <span>
                               OCR: {doc.ocr_text_length} симв.{" "}
-                              {ready ? (
-                                <span className="text-emerald-300">— готов</span>
+                              {processing && !ready ? (
+                                <span className="inline-flex items-center gap-1 text-amber-700">
+                                  <Loader2 size={10} className="animate-spin" />
+                                  Извлекаю текст…
+                                </span>
+                              ) : ready ? (
+                                <span className="text-emerald-700">— Готов</span>
                               ) : (
-                                <span className="text-amber-300">— нет текста</span>
+                                <span className="text-amber-700">— Требует проверки</span>
                               )}
                             </span>
                             <RedactionBadge
@@ -898,7 +953,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                               coverage={doc.redaction_stats?.coverage_percent ?? null}
                             />
                             {doc.redaction_notes.length > 0 && (
-                              <span className="text-white/45 truncate">
+                              <span className="text-muted-foreground/80 truncate">
                                 · {doc.redaction_notes.join(", ")}
                               </span>
                             )}
@@ -911,10 +966,10 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                             type="button"
                             className="db-ghost"
                             onClick={() => handleRetryExtraction(doc.id)}
-                            disabled={retryingDocumentId === doc.id || isAiFilling}
+                            disabled={processing || isAiFilling}
                             title="Повторить извлечение текста без повторной загрузки файла"
                           >
-                            {retryingDocumentId === doc.id ? "Извлекаю…" : "Повторить извлечение"}
+                            {processing ? "Извлекаю…" : "Повторить извлечение"}
                           </button>
                         )}
                         {showRedactButton && (
@@ -939,7 +994,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                         )}
                         <button
                           type="button"
-                          className="text-white/50 hover:text-red-400 p-1"
+                          className="text-muted-foreground hover:text-red-600 p-1"
                           onClick={() => handleDeleteDocument(doc.id)}
                           title="Удалить"
                         >
@@ -953,14 +1008,14 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
             )}
 
             {templateSuggestions.length > 0 && (
-              <div className="rounded-xl border border-amber-300/30 bg-amber-200/[0.07] p-4 space-y-3">
+              <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-3">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle size={16} className="mt-0.5 text-amber-200 shrink-0" />
+                  <AlertTriangle size={16} className="mt-0.5 text-amber-700 shrink-0" />
                   <div>
-                    <div className="text-sm font-semibold text-white">
+                    <div className="text-sm font-semibold text-foreground">
                       Комплект похож на другой тип документа
                     </div>
-                    <p className="mt-1 text-xs text-white/65">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Текущий выбор сохранён. Проверьте варианты и откройте карточку подходящего шаблона.
                     </p>
                   </div>
@@ -970,25 +1025,26 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                     <button
                       key={suggestion.template.code}
                       type="button"
-                      className="rounded-lg border border-white/10 bg-black/10 p-3 text-left hover:border-amber-200/40"
+                      className="rounded-lg border border-border bg-card/70 p-3 text-left hover:border-amber-500/50"
                       onClick={() => handleSuggestedTemplate(suggestion.template.code)}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="text-sm text-white">{suggestion.template.title}</span>
+                        <span className="text-sm text-foreground">{suggestion.template.title}</span>
                         {suggestion.conflictsWithSelection && (
-                          <span className="text-[10px] uppercase tracking-wide text-amber-200">
+                          <span className="text-[10px] uppercase tracking-wide text-amber-700">
                             другая область
                           </span>
                         )}
                       </div>
-                      <div className="mt-1 text-[11px] text-white/55">
+                      <div className="mt-1 text-[11px] text-muted-foreground">
                         {suggestion.reasons.join(" · ")}
                       </div>
-                      <div className="mt-2 inline-flex items-center gap-1 text-xs text-amber-100">
+                      <div className="mt-2 inline-flex items-center gap-1 text-xs text-amber-800">
                         Открыть карточку <ArrowRight size={12} />
                       </div>
                     </button>
                   ))}
+
                 </div>
               </div>
             )}
