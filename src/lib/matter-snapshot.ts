@@ -18,6 +18,13 @@ import {
   type LegalAnalysisSourceWarning,
   type LegalAnalysisGenerationDecision,
 } from "./legal-analysis";
+import {
+  extractCompanyContextFromMetadata,
+  type CompanyRegistryConflict,
+  type CompanyRegistryProfile,
+  type CompanyRegistryVerification,
+  type DocumentCompanyProfile,
+} from "./company-registry";
 
 export type QualityGatePreview = {
   ok: boolean;
