@@ -12,6 +12,11 @@ verify_jwt = false
 [functions.document-intake-ai-fill]
 verify_jwt = false
 
+# Same internal authorization boundary as document-intake-ai-fill:
+# Bearer token -> auth.getUser() -> is_admin_or_superadmin().
+[functions.company-registry-lookup]
+verify_jwt = false
+
 [functions.analyze-document-legal-position]
 verify_jwt = false
 
