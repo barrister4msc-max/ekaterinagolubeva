@@ -33,6 +33,14 @@ import {
 } from "@/lib/document-generation-preflight";
 import { buildCaseIntelligenceForSession } from "@/lib/case-intelligence";
 import {
+  DocumentPackageError,
+  expandSelectedDocumentFiles,
+} from "@/lib/document-package-files";
+import {
+  EXTRACTION_CONCURRENCY,
+  runWithBoundedConcurrency,
+} from "@/lib/bounded-concurrency";
+import {
   hasExtractedDocumentText,
   suggestTemplatesForPackage,
 } from "@/lib/document-template-suggestions";
@@ -447,7 +455,10 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
     return { extractionStatus: "failed", textLength: 0, attempts: maxAttempts, error: lastError };
   };
 
-  const uploadSingleFile = async (file: File, sessionIdParam: string) => {
+  // Staging only: uploads to storage and creates the `documents` row.
+  // Extraction is deliberately NOT awaited here so that every selected file
+  // is staged before any OCR work begins.
+  const stageSingleFile = async (file: File, sessionIdParam: string) => {
     const rawExtension = file.name.includes(".") ? file.name.split(".").pop() : "bin";
     const extension =
       String(rawExtension || "bin").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
@@ -492,23 +503,40 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
       .eq("id", sessionIdParam)
       .is("document_id", null);
 
-    const extractResult = await runExtractionWithRetry(documentRow.id);
-
     return {
       id: documentRow.id as string,
-      extractionStatus: extractResult.extractionStatus,
-      textLength: extractResult.textLength,
+      fileName: file.name,
     };
   };
+
 
   const handleUploadDocument = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    const files = Array.from(event.target.files ?? []);
-    if (files.length === 0) return;
+    const selectedFiles = Array.from(event.target.files ?? []);
+    if (selectedFiles.length === 0) return;
 
     try {
       setIsUploadingDocument(true);
+
+      let files: File[] = selectedFiles;
+      let skippedEntries: string[] = [];
+      try {
+        const expanded = await expandSelectedDocumentFiles(selectedFiles);
+        files = expanded.files;
+        skippedEntries = expanded.skippedEntries;
+      } catch (err) {
+        if (err instanceof DocumentPackageError) {
+          alert(err.message);
+          return;
+        }
+        throw err;
+      }
+
+      if (files.length === 0) {
+        alert("Не найдено файлов для загрузки.");
+        return;
+      }
 
       const session = await createOrLoadIntakeSession({
         matterId: intakeContext?.matterId ?? null,
@@ -524,12 +552,12 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
 
       const failedFiles: string[] = [];
       const processingIssues: string[] = [];
+      const staged: Array<{ id: string; fileName: string }> = [];
+
+      // Phase 1 — stage every selected file (storage + documents row) first.
       for (const file of files) {
         try {
-          const result = await uploadSingleFile(file, session.id);
-          if (result.extractionStatus !== "completed" || result.textLength === 0) {
-            processingIssues.push(file.name);
-          }
+          staged.push(await stageSingleFile(file, session.id));
         } catch (err) {
           console.error("Failed to upload file", file.name, err);
           failedFiles.push(file.name);
@@ -537,9 +565,29 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
         await refreshSessionDocuments(session.id);
       }
 
+      // Phase 2 — extract text with bounded concurrency (never more than 3).
+      await runWithBoundedConcurrency(staged, EXTRACTION_CONCURRENCY, async (doc) => {
+        try {
+          const result = await runExtractionWithRetry(doc.id);
+          if (result.extractionStatus !== "completed" || result.textLength === 0) {
+            processingIssues.push(doc.fileName);
+          }
+        } catch (err) {
+          console.error("Failed to extract document", doc.fileName, err);
+          processingIssues.push(doc.fileName);
+        }
+        await refreshSessionDocuments(session.id);
+      });
+
+
       if (failedFiles.length > 0) {
         alert(
-          `Загружено ${files.length - failedFiles.length} из ${files.length}. Не удалось: ${failedFiles.join(", ")}`,
+          `Загружено документов: ${staged.length} из ${files.length}. Не удалось: ${failedFiles.join(", ")}`,
+        );
+      }
+      if (skippedEntries.length > 0) {
+        alert(
+          `Пропущены неподдерживаемые файлы из архива: ${skippedEntries.join(", ")}.`,
         );
       }
       if (processingIssues.length > 0) {
@@ -769,7 +817,7 @@ const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
                   type="file"
                   multiple
                   className="hidden"
-                  accept=".pdf,.doc,.docx,.txt,.rtf,.html,.htm,.jpg,.jpeg,.png,.webp"
+                  accept=".pdf,.doc,.docx,.txt,.rtf,.html,.htm,.jpg,.jpeg,.png,.webp,.zip"
                   onChange={handleUploadDocument}
                   disabled={isUploadingDocument || isAiFilling || isBuildingCaseIntelligence}
                 />

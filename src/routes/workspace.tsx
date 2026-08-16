@@ -3,19 +3,17 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, MessageSquareQuote, KanbanSquare, Building2, BookOpen, Briefcase, Library, FileSignature, FileText, ClipboardList, Archive } from "lucide-react";
-import workspaceBg from "@/assets/workspace-bg-wave-wide-light.jpg";
 
+// Workspace shares the warm premium palette of the public site — no imagery.
 const bgStyle: React.CSSProperties = {
-  backgroundImage: `url(${workspaceBg})`,
-  backgroundSize: "cover",
-  backgroundPosition: "center center",
-  backgroundRepeat: "no-repeat",
-  backgroundAttachment: "fixed",
-  backgroundColor: "#0d3a3f",
+  background:
+    "linear-gradient(135deg, #F5F1EB 0%, #E8DED1 55%, #D8C8B6 100%)",
+  backgroundColor: "var(--color-background)",
 };
 
-const bgOverlayStyle: React.CSSProperties = {
-  background: "rgba(0,0,0,0.24)",
+const bgGlowStyle: React.CSSProperties = {
+  background:
+    "radial-gradient(900px 500px at 75% 20%, rgba(255,250,242,0.55), transparent 60%)",
 };
 
 function WorkspaceBackground({ children }: { children: React.ReactNode }) {
@@ -26,11 +24,12 @@ function WorkspaceBackground({ children }: { children: React.ReactNode }) {
   return (
     <div className="workspace-glass relative min-h-screen overflow-x-hidden bg-transparent">
       <div aria-hidden="true" className="fixed inset-0 z-0" style={bgStyle} />
-      <div aria-hidden="true" className="fixed inset-0 z-0" style={bgOverlayStyle} />
+      <div aria-hidden="true" className="fixed inset-0 z-0" style={bgGlowStyle} />
       <div className="relative z-10 min-h-screen">{children}</div>
     </div>
   );
 }
+
 
 
 export const Route = createFileRoute("/workspace")({
