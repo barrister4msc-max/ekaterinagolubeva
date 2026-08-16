@@ -59,21 +59,16 @@ export type RedactionMetadata = RedactionFlags & {
   redaction_version?: number | null;
 };
 
-// ----------------------------------------------------------------------------
-// Detection — light regex sweep, reuses anonymization patterns.
-// ----------------------------------------------------------------------------
-
 const SIGNATURE_RE = /(?:\/подпись\/|\(подпись\)|подписан(?:о|а)?|м\.?\s*п\.?)/i;
 const BANK_RE =
   /(?:БИК|корр?\.?\s*сч|р\/?с|расч[её]тн\w*\s+сч[её]т|ИБАН|IBAN|SWIFT)[:\s№]*[A-Z0-9\-]{6,}/i;
 const PASSPORT_RE =
   /(?:паспорт|серия\s+\d{2}\s?\d{2}|\bпасп\.?\s*\d{2}\s?\d{2})|(?:\b\d{2}\s?\d{2}\s?\d{6}\b)/i;
 const ADDRESS_RE = /(?:г\.?\s?[А-ЯЁ][а-яё-]+).{0,80}?(?:ул\.?|улица|пр-?т|проспект|шоссе|д\.?|дом|кв\.?|квартира)/i;
-const PHONE_RE = /(?:\+7|8)[\s\-(]*\d{3}[\s\-)]*\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/;
 const EMAIL_RE = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/;
 const FIO_RE =
   /\b[А-ЯЁ][а-яё]+(?:ов|ев|ин|ын|ский|цкий|ова|ева|ина|ына|ская|цкая)\s+[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)?\b/;
-const INN_RE = /\b\d{12}\b/; // 12 цифр — физлицо
+const INN_RE = /\b\d{12}\b/;
 const SNILS_RE = /\b\d{3}-\d{3}-\d{3}\s?\d{2}\b/;
 
 export function detectPersonalData(text: string | null | undefined): RedactionFlags {
@@ -87,15 +82,23 @@ export function detectPersonalData(text: string | null | undefined): RedactionFl
       reasons,
     };
   }
-  const fio = FIO_RE.test(text);
-  const passport = PASSPORT_RE.test(text);
+
+  // Reuse the authoritative redaction detector for privacy-sensitive classes
+  // so initial status and residual redaction behavior cannot drift apart.
+  const legalScan = redactLegalDocument(text);
+  const detectedTypes = new Set(legalScan.entities.map((entity) => entity.type));
+
+  const fio = FIO_RE.test(text) || detectedTypes.has("PERSON");
+  const passport = PASSPORT_RE.test(text) || detectedTypes.has("PASSPORT");
   const inn = INN_RE.test(text);
   const snils = SNILS_RE.test(text);
-  const address = ADDRESS_RE.test(text);
-  const phone = PHONE_RE.test(text);
-  const email = EMAIL_RE.test(text);
-  const bank = BANK_RE.test(text);
-  const signature = SIGNATURE_RE.test(text);
+  const address = ADDRESS_RE.test(text) || detectedTypes.has("ADDRESS");
+  const phone = detectedTypes.has("PHONE");
+  const email = EMAIL_RE.test(text) || detectedTypes.has("EMAIL");
+  const company = detectedTypes.has("COMPANY");
+  const identifiers = detectedTypes.has("BANK_DETAILS");
+  const bank = BANK_RE.test(text) || identifiers;
+  const signature = SIGNATURE_RE.test(text) || detectedTypes.has("SIGNATURE");
 
   if (fio) reasons.push("ФИО");
   if (passport) reasons.push("паспортные данные");
@@ -104,17 +107,19 @@ export function detectPersonalData(text: string | null | undefined): RedactionFl
   if (address) reasons.push("адрес");
   if (phone) reasons.push("телефон");
   if (email) reasons.push("email");
+  if (company) reasons.push("организация");
+  if (identifiers) reasons.push("регистрационные/налоговые идентификаторы");
   if (bank) reasons.push("банковские реквизиты");
   if (signature) reasons.push("подпись");
 
   const contains_personal_data =
-    fio || passport || inn || snils || address || phone || email;
+    fio || passport || inn || snils || address || phone || email || company || identifiers;
   return {
     contains_personal_data,
     contains_passport_data: passport,
     contains_bank_data: bank,
     contains_signature: signature,
-    reasons,
+    reasons: Array.from(new Set(reasons)),
   };
 }
 
@@ -125,10 +130,6 @@ export function initialRedactionStatus(flags: RedactionFlags): RedactionStatus {
   return "not_required";
 }
 
-// ----------------------------------------------------------------------------
-// Masking — reuses the project's anonymize() (strict mode).
-// ----------------------------------------------------------------------------
-
 export type RedactionDraft = {
   redacted_text: string;
   entities: FoundEntity[];
@@ -138,9 +139,6 @@ export type RedactionDraft = {
 
 export function buildRedactionDraft(ocrText: string): RedactionDraft {
   const legal = redactLegalDocument(ocrText);
-  // Backwards-compatible FoundEntity[] (anonymization.ts shape) so legacy
-  // callers (practice/anonymize-dialog) keep working — we map LegalEntity
-  // to the closest FoundEntity kind label.
   const entities: FoundEntity[] = legal.entities.map((e) => ({
     kind: legalTypeToFoundKind(e.type),
     original: e.original,
@@ -180,12 +178,7 @@ function legalTypeToFoundKind(t: LegalEntity["type"]): FoundEntity["kind"] {
   }
 }
 
-// Keep the legacy `anonymize()` import live so existing callers compile.
 void anonymize;
-
-// ----------------------------------------------------------------------------
-// DB ops — all writes are merge-into-metadata patches.
-// ----------------------------------------------------------------------------
 
 async function readDocMetadata(documentId: string): Promise<{
   metadata: Record<string, unknown>;
@@ -223,12 +216,6 @@ async function patchMetadata(
   if (error) throw error;
 }
 
-/**
- * Run detection over current ocr_text and persist redaction flags into
- * documents.metadata. Sets redaction_status to "required" or "not_required"
- * unless a human-set status (suggested/accepted/rejected/pending) is already
- * present — we never overwrite a manual decision automatically.
- */
 export async function detectAndPersistRedaction(documentId: string): Promise<RedactionMetadata> {
   const { metadata, ocr_text } = await readDocMetadata(documentId);
   const flags = detectPersonalData(ocr_text);
@@ -258,11 +245,6 @@ export async function detectAndPersistRedaction(documentId: string): Promise<Red
   return { ...(metadata as any), ...patch } as RedactionMetadata;
 }
 
-/**
- * Build a redaction draft from the current ocr_text and store it as
- * `metadata.redacted_text` with status "suggested". Does NOT touch ocr_text;
- * the user must accept first.
- */
 export async function suggestRedaction(documentId: string): Promise<RedactionDraft> {
   const { ocr_text, metadata } = await readDocMetadata(documentId);
   const sourceText =
@@ -289,7 +271,6 @@ export async function suggestRedaction(documentId: string): Promise<RedactionDra
   return draft;
 }
 
-/** Re-run self-review on hand-edited text and persist updated stats. */
 export async function reviewManualEdit(
   documentId: string,
   editedText: string,
@@ -307,14 +288,6 @@ export async function reviewManualEdit(
   return review;
 }
 
-/**
- * Accept the suggested (or manually edited) redacted text. Copies redacted
- * text into documents.ocr_text so the existing analyze-document-legal-position
- * edge function reads only the safe version even via legacy code paths.
- *
- * Enforces enterprise safety gate: refuses to accept if self-review reports
- * the document as unsafe / coverage < 95% / remaining entities present.
- */
 export async function acceptRedaction(
   documentId: string,
   opts: { editedText?: string; userId?: string | null },
@@ -327,8 +300,6 @@ export async function acceptRedaction(
   if (!redacted) {
     throw new Error("Нет предложенного обезличивания — нажмите «Обезличить» сначала.");
   }
-  // Re-run self-review on the final text so the persisted stats reflect what
-  // is actually being accepted (covers the manual-edit-then-accept path).
   const baseStats = (metadata.redaction_stats as RedactionStats | null) ?? undefined;
   const review = reviewRedactedText(redacted, baseStats);
   if (review.quality === "unsafe" || review.remaining_entities.length > 0 || review.stats.coverage_percent < 95) {
@@ -361,10 +332,6 @@ export async function rejectRedaction(documentId: string): Promise<void> {
     redaction_status: "rejected" as RedactionStatus,
   });
 }
-
-// ----------------------------------------------------------------------------
-// UI helpers
-// ----------------------------------------------------------------------------
 
 export function statusBadgeLabel(
   status: RedactionStatus | null | undefined,

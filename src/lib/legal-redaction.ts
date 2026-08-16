@@ -118,37 +118,26 @@ function unmaskGov(text: string, placeholders: Map<string, string>): string {
 
 type Pattern = { type: LegalEntityType; re: RegExp; reason: string };
 
-const PATTERNS: Pattern[] = [
-  // QR / штрихкоды — упоминания
-  { type: "QR", re: /\b(?:QR[-\s]?код|штрих[-\s]?код|штрихкод)[^\n]{0,40}/gi, reason: "qr/barcode" },
+const PHONE_RE = /(?:(?:\+?7|8)[\s\u00A0\u200B\u200C\u200D\u2060()\-‐‑‒–—−./]*\d{3}[\s\u00A0\u200B\u200C\u200D\u2060()\-‐‑‒–—−./]*\d{3}[\s\u00A0\u200B\u200C\u200D\u2060()\-‐‑‒–—−./]*\d{2}[\s\u00A0\u200B\u200C\u200D\u2060()\-‐‑‒–—−./]*\d{2}|\([\s\u00A0\u200B\u200C\u200D\u2060]*\d{3}[\s\u00A0\u200B\u200C\u200D\u2060]*\)[\s\u00A0\u200B\u200C\u200D\u2060\-‐‑‒–—−./]*\d{3}[\s\u00A0\u200B\u200C\u200D\u2060\-‐‑‒–—−./]*\d{2}[\s\u00A0\u200B\u200C\u200D\u2060\-‐‑‒–—−./]*\d{2})/g;
+const COMPANY_FULL_RE = /(?:ООО|Общество\s+с\s+ограниченной\s+ответственностью)\s*["«„][^"»“\n]{1,120}["»“]/giu;
 
-  // Подписи / печати — текстовые маркеры
+const PATTERNS: Pattern[] = [
+  { type: "QR", re: /\b(?:QR[-\s]?код|штрих[-\s]?код|штрихкод)[^\n]{0,40}/gi, reason: "qr/barcode" },
   {
     type: "SIGNATURE",
     re: /(?:\/подпись\/|\(подпись\)|подписан(?:о|а|и)?\s+[А-ЯЁ][а-яё]+|собственноручн\w+\s+подпись)/gi,
     reason: "signature marker",
   },
   { type: "STAMP", re: /(?:М\.?\s*П\.?|\(печать\)|оттиск\s+печати|гербов\w+\s+печать)/gi, reason: "stamp marker" },
-
-  // Email / телефон
   { type: "EMAIL", re: /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g, reason: "email" },
-  {
-    type: "PHONE",
-    re: /(?:\+7|\b8)[\s\-(]*\d{3}[\s\-)]*\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/g,
-    reason: "phone",
-  },
-
-  // Паспорт — расширенный блок (серия+номер, кем выдан, код подразделения)
+  { type: "PHONE", re: PHONE_RE, reason: "phone" },
   {
     type: "PASSPORT",
     re: /паспорт\w*\s*(?:гражданина\s+РФ\s*)?(?:серия\s*)?\d{2}\s?\d{2}\s*(?:№\s*)?\d{6}(?:[^\n]{0,200}?код\s+подразделения\s*\d{3}-\d{3})?/gi,
     reason: "passport block",
   },
   { type: "PASSPORT", re: /\bсерия\s+\d{2}\s?\d{2}\s+(?:№\s*)?\d{6}\b/gi, reason: "passport" },
-  
   { type: "PASSPORT", re: /\bкод\s+подразделения[:\s]*\d{3}-\d{3}\b/gi, reason: "issuer code" },
-
-  // Банковские реквизиты
   { type: "BANK_DETAILS", re: /ИНН\s*\d{10,12}/gi, reason: "ИНН" },
   { type: "BANK_DETAILS", re: /КПП\s*\d{9}/gi, reason: "КПП" },
   { type: "BANK_DETAILS", re: /ОГРН(?:ИП)?\s*\d{13,15}/gi, reason: "ОГРН" },
@@ -158,8 +147,6 @@ const PATTERNS: Pattern[] = [
   { type: "BANK_DETAILS", re: /\bSWIFT[:\s]*[A-Z]{4}[A-Z]{2}[A-Z0-9]{2,5}\b/gi, reason: "SWIFT" },
   { type: "BANK_DETAILS", re: /\bСНИЛС[:\s]*\d{3}-\d{3}-\d{3}\s?\d{2}\b/gi, reason: "СНИЛС" },
   { type: "BANK_DETAILS", re: /\b\d{3}-\d{3}-\d{3}\s?\d{2}\b/g, reason: "СНИЛС-like" },
-
-  // Кадастр / VIN / госномер
   { type: "CADASTRAL", re: /\b\d{2}:\d{2}:\d{6,7}:\d{1,5}\b/g, reason: "cadastral" },
   { type: "VIN", re: /\bVIN[:\s]*[A-HJ-NPR-Z0-9]{17}\b/gi, reason: "VIN" },
   { type: "VIN", re: /\b[A-HJ-NPR-Z0-9]{17}\b/g, reason: "VIN-like" },
@@ -168,30 +155,22 @@ const PATTERNS: Pattern[] = [
     re: /\b[АВЕКМНОРСТУХABEKMHOPCTYX]\s?\d{3}\s?[АВЕКМНОРСТУХABEKMHOPCTYX]{2}\s?\d{2,3}\b/g,
     reason: "license plate",
   },
-
-  // Номера дел
   {
     type: "CASE_NUMBER",
     re: /\b(?:дело|№\s*дела)\s*№?\s*[A-ZА-Я]?\d{1,3}[-/]\d{1,7}\/\d{2,4}\b/gi,
     reason: "case number",
   },
   { type: "CASE_NUMBER", re: /\bА\d{2}[-/]\d{1,7}\/\d{4}\b/g, reason: "арбитражное дело" },
-
-  // Номера документов
   {
     type: "DOCUMENT_NUMBER",
     re: /(?:договор\w*|контракт\w*|соглашен\w+|акт\w*|счет(?:-фактур\w+)?|счёт(?:-фактур\w+)?|УПД|доверенност\w+|приказ\w*|постановлен\w+|определен\w+|решен\w+|заявлен\w+|претензи\w+|уведомлен\w+)\s*(?:№|N|#)\s*[A-ZА-Я0-9][A-ZА-Я0-9\-\/.]*/gi,
     reason: "doc number",
   },
-
-  // Адреса (расширено — улица, дом, корпус, офис, квартира, район, область, кадастровая привязка адреса)
   {
     type: "ADDRESS",
     re: /(?:\d{6}\s*,?\s*)?(?:Российская\s+Федерация\s*,?\s*)?(?:г\.?\s?[А-ЯЁ][а-яё-]+|[А-ЯЁ][а-яё]+\s+(?:область|край|республика|АО)|обл\.?\s?[А-ЯЁ][а-яё-]+)(?:[,;]\s*(?:р-?н|район|г\.?|город|пос\.?|посёлок|с\.?|село|д\.?|деревня|мкр\.?|микрорайон|ул\.?|улица|пр-?т\.?|проспект|пер\.?|переулок|шоссе|ш\.?|наб\.?|набережная|пл\.?|площадь|б-?р\.?|бульвар|дом|корп\.?|корпус|стр\.?|строение|кв\.?|квартира|оф\.?|офис|пом\.?|помещение|склад|объект)\s?[А-ЯЁа-яё0-9.\-/ ]+)+/g,
     reason: "address",
   },
-
-  // ФИО — роль + ФИО
   {
     type: "PERSON",
     re: /(?:директор\w*|ген\.?\s*директор\w*|управляющ\w+|учредител\w+|участник\w*|представител\w+|нотариус\w*|эксперт\w*|свидетел\w+|истец|ответчик\w*|подписант\w*|поверенн\w+|адвокат\w*)\s+[А-ЯЁ][а-яё]+\s+[А-ЯЁ]\.\s?[А-ЯЁ]\./gi,
@@ -202,7 +181,6 @@ const PATTERNS: Pattern[] = [
     re: /(?:директор\w*|ген\.?\s*директор\w*|управляющ\w+|учредител\w+|участник\w*|представител\w+|нотариус\w*|эксперт\w*|свидетел\w+|подписант\w*|поверенн\w+|адвокат\w*)\s+[А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+/g,
     reason: "role+ФИО full",
   },
-  // ФИО полное
   {
     type: "PERSON",
     re: /\b[А-ЯЁ][а-яё]+(?:ов|ев|ин|ын|ский|цкий|ова|ева|ина|ына|ская|цкая)\s+[А-ЯЁ][а-яё]+(?:ович|евич|ич|овна|евна|ична|инична)\s+[А-ЯЁ][а-яё]+(?:ов|ев|ин|ын|ский|цкий|ова|ева|ина|ына|ская|цкая)?\b/g,
@@ -213,8 +191,7 @@ const PATTERNS: Pattern[] = [
     re: /\b[А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+(?:ович|евич|ич|овна|евна|ична|инична)\s+[А-ЯЁ][а-яё]+(?:ов|ев|ин|ын|ский|цкий|ова|ева|ина|ына|ская|цкая)\b/g,
     reason: "Имя Отчество Фамилия",
   },
-  // ФИО + инициалы
-    {
+  {
     type: "PERSON",
     re: /\b[А-ЯЁ][а-яё]+(?:ов|ев|ин|ын|ский|цкий|ова|ева|ина|ына|ская|цкая)\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.(?=\s|$|[.,;:)\]])/g,
     reason: "Фамилия И.О.",
@@ -224,18 +201,17 @@ const PATTERNS: Pattern[] = [
     re: /\b[А-ЯЁ]\.\s?[А-ЯЁ]\.\s?[А-ЯЁ][а-яё]+(?:ов|ев|ин|ын|ский|цкий|ова|ева|ина|ына|ская|цкая)\b/g,
     reason: "И.О. Фамилия",
   },
-    // ФИО — обычный формат Фамилия Имя Отчество без морфологических ограничений
   {
     type: "PERSON",
     re: /\b[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ][а-яё]{2,40}\b/g,
     reason: "Фамилия Имя Отчество simple",
   },
-    {
+  {
     type: "PERSON",
     re: /[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.(?=\s|$|[.,;:)\]])/g,
     reason: "Фамилия И.О. simple",
-  }, 
-  // Юридические лица: ООО/АО/...
+  },
+  { type: "COMPANY", re: COMPANY_FULL_RE, reason: "company full form" },
   {
     type: "COMPANY",
     re: /(?:ООО|ОАО|АО|ПАО|ЗАО|НПАО|ИП|НКО|ФГУП|МУП|ГУП|ТСЖ|ЖСК|СНТ|АНО|Фонд|Союз|Ассоциация|Компания|Корпорация)\s+["«][^"»\n]{1,120}["»]/g,
@@ -246,13 +222,12 @@ const PATTERNS: Pattern[] = [
     re: /["«][^"»\n]{1,120}["»]\s*(?:ООО|ОАО|АО|ПАО|ЗАО)/g,
     reason: "company suffix",
   },
-  // ИП ФИО
   {
     type: "COMPANY",
     re: /\bИП\s+[А-ЯЁ][а-яё]+\s+[А-ЯЁ]\.\s?[А-ЯЁ]\./g,
     reason: "ИП",
   },
-     {
+  {
     type: "COMPANY",
     re: /\b(?:ООО|ОАО|АО|ПАО|ЗАО|НПАО|НКО|ФГУП|МУП|ГУП|ТСЖ|ЖСК|СНТ|АНО)\s+[А-ЯЁA-Z][А-ЯЁA-Zа-яёa-z0-9\s\-]{2,100}/g,
     reason: "company unquoted",
@@ -261,22 +236,20 @@ const PATTERNS: Pattern[] = [
     type: "COMPANY",
     re: /\bИП\s+[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ][а-яё]{2,40}\b/g,
     reason: "ИП ФИО full",
-  }, 
-  // Даты
+  },
   { type: "DATE", re: /\b\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\b/g, reason: "date" },
   {
     type: "DATE",
     re: /\b\d{1,2}\s+(?:январ[яь]|феврал[яь]|март[а]?|апрел[яь]|ма[йя]|июн[яь]|июл[яь]|август[а]?|сентябр[яь]|октябр[яь]|ноябр[яь]|декабр[яь])\s+\d{4}\s*(?:г\.?|года)?/gi,
     reason: "date long",
   },
-    {
+  {
     type: "DATE",
     re: /\b(?:за\s+|в\s+|по\s+|период\s+проверки:\s*)?\d{4}\s+год(?:а|у|ом)?\b/gi,
     reason: "year period",
   },
 ];
 
-// Types treated as critical when leftover in self-review.
 const CRITICAL_TYPES = new Set<LegalEntityType>([
   "PERSON",
   "PASSPORT",
@@ -287,25 +260,33 @@ const CRITICAL_TYPES = new Set<LegalEntityType>([
   "LICENSE_PLATE",
   "CADASTRAL",
 ]);
+
 function findRiskMarkers(text: string): RemainingEntity[] {
   const markers: Array<{ type: LegalEntityType; re: RegExp; reason: string }> = [
-    { type: "COMPANY", re: /\b(?:ООО|ОАО|АО|ПАО|ЗАО|НПАО|ИП)\b/iu, reason: "company marker" },
-        { type: "BANK_DETAILS", re: /\b(?:ИНН|КПП|ОГРН|ОГРНИП|БИК|р\/с|к\/с)\s*\d{5,}/iu, reason: "bank/details marker" },
-        { type: "DOCUMENT_NUMBER", re: /\b(?:договор|акт|счет|счёт|доверенность|решение|требование|приказ|упд|счет-фактура|счёт-фактура)\s*(?:№|N|#)\s*[А-ЯЁA-Z0-9\-\/.]+/iu, reason: "document marker" },
+    {
+      type: "COMPANY",
+      re: /\b(?:ООО|ОАО|АО|ПАО|ЗАО|НПАО|ИП|Общество\s+с\s+ограниченной\s+ответственностью)\b/iu,
+      reason: "company marker",
+    },
+    { type: "BANK_DETAILS", re: /\b(?:ИНН|КПП|ОГРН|ОГРНИП|БИК|р\/с|к\/с)\s*\d{5,}/iu, reason: "bank/details marker" },
+    { type: "DOCUMENT_NUMBER", re: /\b(?:договор|акт|счет|счёт|доверенность|решение|требование|приказ|упд|счет-фактура|счёт-фактура)\s*(?:№|N|#)\s*[А-ЯЁA-Z0-9\-\/.]+/iu, reason: "document marker" },
     { type: "DATE", re: /\b(?:\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}|\d{4}\s+год)\b/iu, reason: "date marker" },
     { type: "PERSON", re: /\b(?:ФИО|представитель|директор|подписант|в лице|действующ\w+\s+на\s+основании)\b/iu, reason: "person marker" },
-        {
+    {
       type: "PERSON",
       re: /[А-ЯЁ][а-яё]{2,40}\s+[А-ЯЁ]\.\s*[А-ЯЁ]\.(?=\s|$|[.,;:)\]])/u,
       reason: "surname initials remain",
     },
     { type: "ADDRESS", re: /\b(?:г\.|ул\.|улица|дом|д\.|офис|кв\.|помещение|склад)\b/iu, reason: "address marker" },
     { type: "EMAIL", re: /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu, reason: "email marker" },
-    { type: "PHONE", re: /(?:\+7|\b8)[\s\-(]*\d{3}/u, reason: "phone marker" },
+    {
+      type: "PHONE",
+      re: /(?:(?:\+?7|8)[\s\u00A0\u200B\u200C\u200D\u2060()\-‐‑‒–—−./]*\d{3}|\([\s\u00A0\u200B\u200C\u200D\u2060]*\d{3}[\s\u00A0\u200B\u200C\u200D\u2060]*\))/u,
+      reason: "phone marker",
+    },
   ];
 
   const found: RemainingEntity[] = [];
-
   for (const marker of markers) {
     if (marker.re.test(text)) {
       found.push({
@@ -316,12 +297,8 @@ function findRiskMarkers(text: string): RemainingEntity[] {
       });
     }
   }
-
   return found;
 }
-// ---------------------------------------------------------------------------
-// Redaction core.
-// ---------------------------------------------------------------------------
 
 function emptyByType(): RedactionStats["by_type"] {
   const all: LegalEntityType[] = [
@@ -347,6 +324,7 @@ function emptyByType(): RedactionStats["by_type"] {
   for (const t of all) r[t] = { detected: 0, replaced: 0, remaining: 0 };
   return r;
 }
+
 function forceCompanyRedaction(
   text: string,
   counters: Map<LegalEntityType, number>,
@@ -354,37 +332,27 @@ function forceCompanyRedaction(
   stats: RedactionStats,
   entities: LegalEntity[],
 ): string {
-  const companyRe =
-    /\b(?:ООО|ОАО|АО|ПАО|ЗАО|НПАО|ИП|НКО|ФГУП|МУП|ГУП|ТСЖ|ЖСК|СНТ|АНО)\s+[«"][^»"\n]{1,120}[»"]/g;
+  const companyRe = /\b(?:ООО|ОАО|АО|ПАО|ЗАО|НПАО|ИП|НКО|ФГУП|МУП|ГУП|ТСЖ|ЖСК|СНТ|АНО|Общество\s+с\s+ограниченной\s+ответственностью)\s*[«"„][^»"“\n]{1,120}[»"“]/giu;
 
   return text.replace(companyRe, (match) => {
     if (match.includes("\u0001GOV")) return match;
-
     const key = `COMPANY::${match}`;
     const known = mapping.get(key);
-
     if (known) return known;
 
     const n = (counters.get("COMPANY") ?? 0) + 1;
     counters.set("COMPANY", n);
-
     const placeholder = `[COMPANY_${n}]`;
     mapping.set(key, placeholder);
-
     stats.by_type.COMPANY.detected += 1;
     stats.by_type.COMPANY.replaced += 1;
     stats.detected_total += 1;
     stats.replaced_total += 1;
-
-    entities.push({
-      type: "COMPANY",
-      original: match,
-      placeholder,
-    });
-
+    entities.push({ type: "COMPANY", original: match, placeholder });
     return placeholder;
   });
 }
+
 export function redactLegalDocument(input: string): LegalRedactionResult {
   const stats: RedactionStats = {
     detected_total: 0,
@@ -406,19 +374,15 @@ export function redactLegalDocument(input: string): LegalRedactionResult {
     };
   }
 
-  // 1) Mask public bodies so they survive verbatim.
   const { masked, placeholders: govPh } = buildGovMask(input);
-
-  // 2) Apply patterns in order, sharing a single placeholder map per type so
-  // identical surface forms always collapse to the same token (consistency).
   const counters = new Map<LegalEntityType, number>();
-  const mapping = new Map<string, string>(); // key = `${type}::${match}` → placeholder
+  const mapping = new Map<string, string>();
 
   let text = masked;
   text = forceCompanyRedaction(text, counters, mapping, stats, entities);
   for (const { type, re } of PATTERNS) {
+    re.lastIndex = 0;
     text = text.replace(re, (match) => {
-      // Guard: never touch our own gov placeholders.
       if (match.includes("\u0001GOV")) return match;
       const key = `${type}::${match}`;
       const known = mapping.get(key);
@@ -443,10 +407,7 @@ export function redactLegalDocument(input: string): LegalRedactionResult {
     });
   }
 
-  // 3) Unmask public bodies.
   const redacted = unmaskGov(text, govPh);
-
-    // 4) Self-review + fallback risk markers.
   const review = selfReview(redacted);
   const riskMarkers = stats.detected_total === 0 ? findRiskMarkers(input) : [];
   const allRemaining = [...review, ...riskMarkers];
@@ -463,7 +424,7 @@ export function redactLegalDocument(input: string): LegalRedactionResult {
   } else {
     stats.coverage_percent = Math.max(
       0,
-      Math.min(100, Math.round((stats.replaced_total / stats.detected_total) * 100))
+      Math.min(100, Math.round((stats.replaced_total / stats.detected_total) * 100)),
     );
   }
 
@@ -484,13 +445,10 @@ export function redactLegalDocument(input: string): LegalRedactionResult {
   };
 }
 
-// Re-scan redacted text for any leftover identifiers. Skips strings that are
-// already placeholders (`[TYPE_n]`).
 export function selfReview(text: string): RemainingEntity[] {
   if (!text) return [];
   const placeholderRe = /\[[A-Z_]+_\d+\]/g;
   const masked = text.replace(placeholderRe, (m) => " ".repeat(m.length));
-  // Also mask public bodies so they don't show up as remaining COMPANY hits.
   const { masked: maskedGov } = buildGovMask(masked);
 
   const found: RemainingEntity[] = [];
@@ -518,12 +476,11 @@ export function selfReview(text: string): RemainingEntity[] {
   return found;
 }
 
-// Re-run review on (possibly hand-edited) text and recompute stats.
 export function reviewRedactedText(
   redacted: string,
   baseStats?: RedactionStats,
 ): { remaining_entities: RemainingEntity[]; stats: RedactionStats; quality: RedactionQuality } {
-    const remaining = selfReview(redacted);
+  const remaining = selfReview(redacted);
   const riskMarkers = findRiskMarkers(redacted);
   const allRemaining = [...remaining, ...riskMarkers];
 
@@ -541,7 +498,6 @@ export function reviewRedactedText(
         by_type: emptyByType(),
       };
 
-  // reset per-type remaining
   for (const k of Object.keys(stats.by_type) as LegalEntityType[]) {
     stats.by_type[k].remaining = 0;
   }
@@ -558,7 +514,7 @@ export function reviewRedactedText(
   } else {
     stats.coverage_percent = Math.max(
       0,
-      Math.min(100, Math.round((stats.replaced_total / stats.detected_total) * 100))
+      Math.min(100, Math.round((stats.replaced_total / stats.detected_total) * 100)),
     );
   }
 
@@ -570,7 +526,7 @@ export function reviewRedactedText(
         : "warning";
 
   return { remaining_entities: allRemaining, stats, quality };
-  }
+}
 
 export function qualityLabel(q: RedactionQuality): string {
   switch (q) {
