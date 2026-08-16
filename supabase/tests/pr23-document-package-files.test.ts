@@ -126,14 +126,16 @@ describe("PR23 wiring regression", () => {
     expect(cardClick).not.toBeNull();
   });
 
-  test("intake upload accepts .zip and expands packages before upload", async () => {
+  test("intake upload keeps the picker unfiltered and expands packages before upload", async () => {
     const source = await Bun.file(
       join(testsDirectory, "../../src/components/document-builder/intake-form.tsx"),
     ).text();
-    expect(source).toContain(".png,.webp,.zip");
+    expect(source).toContain('type="file"');
+    expect(source).toContain("multiple");
+    expect(source).not.toContain('accept=".pdf');
     expect(source).toContain("expandSelectedDocumentFiles(selectedFiles)");
     const expandAt = source.indexOf("expandSelectedDocumentFiles(selectedFiles)");
-    const uploadAt = source.indexOf("stageSingleFile(file, session.id)");
+    const uploadAt = source.indexOf("stageSingleFile(file, session.id, uploadBatchId)");
     expect(expandAt).toBeGreaterThan(-1);
     expect(uploadAt).toBeGreaterThan(expandAt);
   });
