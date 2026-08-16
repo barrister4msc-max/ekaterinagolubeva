@@ -181,6 +181,64 @@ export async function buildMatterSnapshot(sessionId: string): Promise<MatterSnap
   return buildMatterSnapshotFromRun(sessionId, run);
 }
 
+// ---------------- PR27: verified company profile propagation ----------------
+
+/**
+ * Additively attaches the verified company profile to an existing snapshot.
+ * Matter metadata wins over session metadata when both carry a profile.
+ * All existing snapshot fields (legal_analysis_run_id, working strategy,
+ * conclusions, provenance) are preserved untouched.
+ */
+export function attachCompanyContextToSnapshot<T extends MatterSnapshot>(
+  snapshot: T,
+  sources: { sessionMetadata?: unknown; matterMetadata?: unknown },
+): T {
+  const fromSession = extractCompanyContextFromMetadata(sources.sessionMetadata);
+  const fromMatter = extractCompanyContextFromMetadata(sources.matterMetadata);
+  const preferred = fromMatter.company_profile ? fromMatter : fromSession;
+
+  return {
+    ...snapshot,
+    company_profile: preferred.company_profile,
+    document_company_profile: preferred.document_company_profile,
+    company_registry_verification: preferred.company_registry_verification,
+    company_registry_conflicts: preferred.company_registry_conflicts,
+  };
+}
+
+/** Loads session/matter metadata and returns a company-enriched snapshot. */
+export async function withCompanyContext(
+  sessionId: string,
+  snapshot: MatterSnapshot,
+): Promise<MatterSnapshot> {
+  try {
+    const { data: session } = await supabase
+      .from("document_intake_sessions")
+      .select("metadata, matter_id")
+      .eq("id", sessionId)
+      .maybeSingle();
+    if (!session) return snapshot;
+
+    let matterMetadata: unknown = null;
+    if ((session as any).matter_id) {
+      const { data: matter } = await supabase
+        .from("legal_matters")
+        .select("metadata")
+        .eq("id", (session as any).matter_id)
+        .maybeSingle();
+      matterMetadata = (matter as any)?.metadata ?? null;
+    }
+
+    return attachCompanyContextToSnapshot(snapshot, {
+      sessionMetadata: (session as any).metadata,
+      matterMetadata,
+    });
+  } catch {
+    return snapshot;
+  }
+}
+
+
 // ---------------- session signal hashing for staleness check ----------------
 
 async function sha256(input: string): Promise<string> {
