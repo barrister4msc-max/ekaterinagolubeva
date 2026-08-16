@@ -17,7 +17,7 @@ jobs:
           ref: fix/pr24-residual-redaction-safety
           fetch-depth: 0
 
-      - name: Add explicit spreadsheet-style FIO pattern
+      - name: Add Unicode-safe spreadsheet-style FIO pattern
         shell: bash
         run: |
           python <<'PY'
@@ -25,7 +25,7 @@ jobs:
           p=Path('src/lib/legal-redaction.ts')
           s=p.read_text(encoding='utf-8')
           marker='''    reason: "role+ФИО full",\n  },\n'''
-          addition='''    reason: "role+ФИО full",\n  },\n  {\n    type: "PERSON",\n    re: /\\b[А-ЯЁ][а-яё]{2,40}\\s+[А-ЯЁ][а-яё]{2,40}\\s+[А-ЯЁ][а-яё]+(?:ович|евич|ич|овна|евна|ична|инична)\\b/g,\n    reason: "Фамилия Имя Отчество tabular",\n  },\n'''
+          addition='''    reason: "role+ФИО full",\n  },\n  {\n    type: "PERSON",\n    re: /(?<![А-ЯЁа-яё])[А-ЯЁ][а-яё]{2,40}\\s+[А-ЯЁ][а-яё]{2,40}\\s+[А-ЯЁ][а-яё]+(?:ович|евич|ич|овна|евна|ична|инична)(?![А-ЯЁа-яё])/g,\n    reason: "Фамилия Имя Отчество tabular",\n  },\n'''
           if marker not in s:
               raise SystemExit('PERSON insertion anchor not found')
           s=s.replace(marker,addition,1)
