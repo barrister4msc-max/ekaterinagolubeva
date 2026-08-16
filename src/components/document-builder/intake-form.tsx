@@ -40,6 +40,8 @@ import {
   runBackgroundExtraction,
   stageDocuments,
 } from "@/lib/upload-lifecycle";
+import { CompanyRegistryCard } from "@/components/document-builder/company-registry-card";
+import { isValidInn } from "@/lib/company-registry";
 
 import {
   hasExtractedDocumentText,
