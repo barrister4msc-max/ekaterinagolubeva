@@ -147,6 +147,10 @@ const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null
 const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
 // PR27 — one automatic registry verification per newly discovered INN.
 const [registryAutoToken, setRegistryAutoToken] = useState(0);
+const stateRef = useRef(state);
+stateRef.current = state;
+const onChangeRef = useRef(onChange);
+onChangeRef.current = onChange;
 
 const reloadAnswersFromSession = useCallback(async () => {
   if (!intakeSessionId) return;
