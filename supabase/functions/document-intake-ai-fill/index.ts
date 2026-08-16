@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
+import {
+  AiFillRedactionError,
+  buildModelFacingDocumentText,
+  prepareSafeAiFillDocuments,
+} from "./redaction-safety.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -83,24 +88,23 @@ serve(async (req) => {
       throw new Error("One or more documents were not found");
     }
 
-    const packageDocuments = documents.map((document) => {
+    for (const document of documents) {
       const metadata = (document.metadata ?? {}) as Record<string, unknown>;
       if (metadata.intake_session_id !== session_id) {
         throw new Error("Document does not belong to the intake session");
       }
-      const originalText =
-        typeof metadata.original_ocr_text === "string" ? metadata.original_ocr_text.trim() : "";
-      const currentText = typeof document.ocr_text === "string" ? document.ocr_text.trim() : "";
-      const text = originalText || currentText;
-      const isRedactedOnly =
-        !originalText &&
-        /\[(COMPANY|PERSON|BANK_DETAILS|PASSPORT|ADDRESS|DATE|DOCUMENT_NUMBER)_\d+\]/i.test(
-          currentText,
-        );
-      return { document, text, isRedactedOnly };
-    });
+    }
 
-    const readyDocuments = packageDocuments.filter((item) => item.text.length > 0);
+    let readyDocuments;
+    try {
+      readyDocuments = prepareSafeAiFillDocuments(documents);
+    } catch (error) {
+      if (error instanceof AiFillRedactionError) {
+        return json({ success: false, error: error.message }, 409);
+      }
+      throw error;
+    }
+
     if (readyDocuments.length === 0) {
       return json(
         {
@@ -111,28 +115,7 @@ serve(async (req) => {
       );
     }
 
-    if (readyDocuments.some((item) => item.isRedactedOnly)) {
-      return json(
-        {
-          success: false,
-          error:
-            "AI fill blocked: only redacted text is available. original_ocr_text is required for filling the card.",
-        },
-        400,
-      );
-    }
-
-    const documentTextForAiFill = readyDocuments
-      .map(({ document, text }, index) =>
-        [
-          `=== DOCUMENT ${index + 1} ===`,
-          `document_id: ${document.id}`,
-          `file_name: ${document.file_name ?? document.title ?? "unknown"}`,
-          text.slice(0, 45_000),
-        ].join("\n"),
-      )
-      .join("\n\n")
-      .slice(0, 120_000);
+    const documentTextForAiFill = buildModelFacingDocumentText(readyDocuments);
 
     const primaryDocument = readyDocuments[0].document;
     const allowedDocumentIds = new Set(readyDocuments.map((item) => item.document.id));
@@ -394,7 +377,7 @@ CASE INTELLIGENCE MATRIX:
 ${JSON.stringify(caseIntelligenceMatrix ?? null, null, 2).slice(0, 20000)}
 
 Правила заполнения карточки:
-1. Карточку заполняй только фактическими значениями из оригинального OCR или Case Intelligence.
+1. Карточку заполняй только фактическими значениями из разрешённого безопасного текста документа или Case Intelligence.
 2. Никогда не записывай в поля значения вида [COMPANY_1], [PERSON_1], [BANK_DETAILS_1], [ADDRESS_1].
 3. Если в тексте есть только placeholder — поле не возвращай.
 4. Если Case Intelligence показывает противоречие по полю, заполняй только при высокой уверенности и ставь confidence не выше 0.75.
