@@ -100,10 +100,19 @@ function mergeMetadata(
   const aCanonical = hasCanonicalRegistryMatch(a);
   const bCanonical = hasCanonicalRegistryMatch(b);
 
-  if (aCanonical !== bCanonical) {
-    return aCanonical ? { ...b, ...a } : { ...a, ...b };
-  }
-  return incomingWins ? { ...a, ...b } : { ...b, ...a };
+  const merged = aCanonical !== bCanonical
+    ? (aCanonical ? { ...b, ...a } : { ...a, ...b })
+    : (incomingWins ? { ...a, ...b } : { ...b, ...a });
+
+  const mergeStringArray = (key: string) => {
+    const left = Array.isArray(a[key]) ? a[key].filter((value): value is string => typeof value === "string") : [];
+    const right = Array.isArray(b[key]) ? b[key].filter((value): value is string => typeof value === "string") : [];
+    if (left.length || right.length) merged[key] = Array.from(new Set([...left, ...right]));
+  };
+  mergeStringArray("research_issue_ids");
+  mergeStringArray("research_issue_texts");
+  mergeStringArray("research_modes");
+  return merged;
 }
 
 export function dedupe(sources: ScoredSource[]): MergedSource[] {

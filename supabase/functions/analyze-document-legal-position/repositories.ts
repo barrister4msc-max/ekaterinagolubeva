@@ -1,7 +1,7 @@
 // Layer 2: Repository Layer — unified search interface per source domain.
 
 import type { ResearchQuery } from "./fact-extraction.ts";
-import { buildResearchPlan, queryForBucket } from "./research-routing.ts";
+import { buildResearchPlan, queryForBucket, queryForQuestion, type ResearchQuestion } from "./research-routing.ts";
 import {
   buildCanonicalDocumentKey,
   searchOfficialLegalSources,
@@ -396,24 +396,70 @@ export async function runAllRepositories(
     manuals: new ManualRepository(sb),
   };
   const researchPlan = buildResearchPlan(query);
-  const routed = {
-    laws: queryForBucket(query, researchPlan, "laws"),
-    court_practice: queryForBucket(query, researchPlan, "court_practice"),
-    fns_letters: queryForBucket(query, researchPlan, "fns_letters"),
-    minfin_letters: queryForBucket(query, researchPlan, "minfin_letters"),
-    ekaterina: queryForBucket(query, researchPlan, "ekaterina"),
-    manuals: queryForBucket(query, researchPlan, "manuals"),
-  };
-  const routedBuckets = new Set(researchPlan.buckets);
 
+  const annotateQuestion = (source: RawSource, question: ResearchQuestion): RawSource => ({
+    ...source,
+    metadata: {
+      ...(source.metadata ?? {}),
+      research_issue_ids: [question.id],
+      research_issue_texts: [question.issue],
+      research_modes: question.modes,
+    },
+  });
+
+  const mergeQuestionAnnotations = (sources: RawSource[]): RawSource[] => {
+    const byIdentity = new Map<string, RawSource>();
+    for (const source of sources) {
+      const key = `${source.source_table}|${source.source_id}`;
+      const existing = byIdentity.get(key);
+      if (!existing) {
+        byIdentity.set(key, source);
+        continue;
+      }
+      const strings = (value: unknown): string[] =>
+        Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+      existing.metadata = {
+        ...(existing.metadata ?? {}),
+        ...(source.metadata ?? {}),
+        research_issue_ids: Array.from(new Set([
+          ...strings(existing.metadata?.research_issue_ids),
+          ...strings(source.metadata?.research_issue_ids),
+        ])),
+        research_issue_texts: Array.from(new Set([
+          ...strings(existing.metadata?.research_issue_texts),
+          ...strings(source.metadata?.research_issue_texts),
+        ])),
+        research_modes: Array.from(new Set([
+          ...strings(existing.metadata?.research_modes),
+          ...strings(source.metadata?.research_modes),
+        ])),
+      };
+    }
+    return [...byIdentity.values()];
+  };
+
+  const searchPerIssue = async (bucket: Bucket): Promise<RawSource[]> => {
+    const repository = repos[bucket];
+    const questions = researchPlan.questions.filter((question) => question.buckets.includes(bucket));
+    if (!repository || questions.length === 0) return [];
+    const batches = await Promise.all(
+      questions.map(async (question) => {
+        const found = await repository.search(queryForQuestion(query, question), area);
+        return found.map((source) => annotateQuestion(source, question));
+      }),
+    );
+    return mergeQuestionAnnotations(batches.flat());
+  };
+
+  const officialQuery = queryForBucket(query, researchPlan, "laws");
   const [laws, court, fns, minfin, ek, manuals, official] = await Promise.all([
-    routedBuckets.has("laws") ? repos.laws.search(routed.laws, area) : Promise.resolve([]),
-    routedBuckets.has("court_practice") ? repos.court_practice.search(routed.court_practice, area) : Promise.resolve([]),
-    routedBuckets.has("fns_letters") ? repos.fns_letters.search(routed.fns_letters, area) : Promise.resolve([]),
-    routedBuckets.has("minfin_letters") ? repos.minfin_letters.search(routed.minfin_letters, area) : Promise.resolve([]),
-    routedBuckets.has("ekaterina") ? repos.ekaterina.search(routed.ekaterina, area) : Promise.resolve([]),
-    routedBuckets.has("manuals") ? repos.manuals.search(routed.manuals, area) : Promise.resolve([]),
-    searchOfficialLegalSources(routed.laws),
+    searchPerIssue("laws"),
+    searchPerIssue("court_practice"),
+    searchPerIssue("fns_letters"),
+    searchPerIssue("minfin_letters"),
+    searchPerIssue("ekaterina"),
+    searchPerIssue("manuals"),
+    searchOfficialLegalSources(officialQuery),
   ]);
 
   const localSources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals];
@@ -442,6 +488,7 @@ export async function runAllRepositories(
     research_questions_count: researchPlan.questions.length,
     research_modes_count: researchPlan.all_modes.length,
     research_routed_buckets_count: researchPlan.buckets.length,
+    research_execution_units_count: researchPlan.questions.reduce((sum, question) => sum + question.buckets.length, 0),
   };
   return { sources, counts };
 }
