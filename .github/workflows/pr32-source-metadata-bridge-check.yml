@@ -21,7 +21,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Source contract tests
-        run: bun test supabase/functions/analyze-document-legal-position/official-sources.test.ts supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts supabase/functions/analyze-document-legal-position/source-metadata-merge.test.ts
+        run: bun test supabase/functions/analyze-document-legal-position/official-sources.test.ts supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts supabase/functions/analyze-document-legal-position/source-metadata-merge.test.ts supabase/functions/analyze-document-legal-position/dedupe-canonical.test.ts
 
       - name: Typecheck
         run: bun run typecheck
