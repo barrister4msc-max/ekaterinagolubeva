@@ -143,6 +143,26 @@ function officialSourcesEnabled(): boolean {
   return officialSourcesEnabledFromValue(env("OFFICIAL_LEGAL_SOURCES_ENABLED"));
 }
 
+export function resolvePravoApiBase(raw?: string | null): string {
+  const value = raw?.trim();
+  if (!value) return PRAVO_API;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return PRAVO_API;
+    return value.replace(/\/+$/, "");
+  } catch {
+    return PRAVO_API;
+  }
+}
+
+function pravoApiBase(): string {
+  return resolvePravoApiBase(env("PRAVO_API_BASE_URL"));
+}
+
+function usingPravoRelay(): boolean {
+  return pravoApiBase() !== PRAVO_API;
+}
+
 export function isOfficialLegalUrl(raw: string): boolean {
   try {
     const url = new URL(raw);
@@ -283,9 +303,14 @@ async function fetchJson(url: string, timeoutMs = 12000): Promise<any> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
+    const headers: Record<string, string> = { "Accept": "application/json" };
+    if (usingPravoRelay()) {
+      const token = env("PRAVO_RELAY_TOKEN")?.trim();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    }
     const res = await fetch(url, {
       method: "GET",
-      headers: { "Accept": "application/json" },
+      headers,
       signal: controller.signal,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -297,7 +322,7 @@ async function fetchJson(url: string, timeoutMs = 12000): Promise<any> {
 
 async function getPravoDetails(eoNumber: string): Promise<any | null> {
   try {
-    return await fetchJson(`${PRAVO_API}/Document?eoNumber=${encodeURIComponent(eoNumber)}`);
+    return await fetchJson(`${pravoApiBase()}/Document?eoNumber=${encodeURIComponent(eoNumber)}`);
   } catch {
     return null;
   }
@@ -356,8 +381,10 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
       official_source: true,
       provider: "publication.pravo.gov.ru",
       provider_id: "pravo",
-      retrieval_method: "documented_read_only_api",
-      search_mode: searchMode,
+      retrieval_method: usingPravoRelay()
+        ? "documented_read_only_api_via_transport_relay"
+        : "documented_read_only_api",
+      transport: usingPravoRelay() ? "relay" : "direct",
       retrieved_at: new Date().toISOString(),
       eo_number: eoNumber,
       document_number: documentNumber,
@@ -379,7 +406,7 @@ async function searchPravoByRef(ref: FederalLawRef): Promise<{ sources: Official
     Number: ref.number,
     PageSize: "30",
   });
-  const data = await fetchJson(`${PRAVO_API}/Documents?${params.toString()}`);
+  const data = await fetchJson(`${pravoApiBase()}/Documents?${params.toString()}`);
   const items = (Array.isArray(data?.items) ? data.items : []).filter((item: any) => exactRefMatches(item, ref));
   const identityVerified = items.length === 1;
   const ambiguous = items.length > 1 && !ref.date;
@@ -406,7 +433,7 @@ async function searchPravoByContext(text: string): Promise<OfficialSourceResult[
     SortedBy: "0",
     SortDestination: "2",
   });
-  const data = await fetchJson(`${PRAVO_API}/Documents?${params.toString()}`);
+  const data = await fetchJson(`${pravoApiBase()}/Documents?${params.toString()}`);
   const items = Array.isArray(data?.items) ? data.items : [];
   const mapped = await Promise.all(items.slice(0, 5).map((item: any) => mapPravoItem(item, false, "context")));
   return mapped.filter(Boolean) as OfficialSourceResult[];
