@@ -22,7 +22,17 @@ jobs:
       - name: Intake and privacy regressions
         run: bun test supabase/tests/pr23-document-package-files.test.ts supabase/tests/pr23-upload-orchestration.test.ts supabase/tests/pr24-residual-redaction.test.ts supabase/tests/pr25-upload-lifecycle.test.ts supabase/tests/reliable-intake-excel.test.ts supabase/tests/pr22-redaction-ai-fill-safety.test.ts
       - name: Typecheck
-        run: bun run typecheck
+        shell: bash
+        run: |
+          set +e
+          bun run typecheck > typecheck.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            message=$(head -c 12000 typecheck.log | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=Typecheck diagnostics::$message"
+            cat typecheck.log
+            exit "$status"
+          fi
       - name: Build
         run: bun run build
       - uses: denoland/setup-deno@v2
