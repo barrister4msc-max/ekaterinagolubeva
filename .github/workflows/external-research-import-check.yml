@@ -1,6 +1,9 @@
 name: External Research Import Check
 
 on:
+  pull_request:
+    branches:
+      - feat/official-legal-sources-layer
   push:
     branches:
       - feat/external-legal-research-import
