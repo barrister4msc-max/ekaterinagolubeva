@@ -51,6 +51,10 @@ const ALL_MODES: ResearchMode[] = [
   "temporal",
 ];
 
+// Keep issue fan-out bounded. Research topics enrich a legal question; they do
+// not become independent legal questions while explicit legal_issues exist.
+const MAX_RESEARCH_QUESTIONS = 6;
+
 function uniq(values: Array<string | null | undefined>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -104,10 +108,10 @@ function fallbackIssue(query: ResearchQuery): string {
 }
 
 export function buildResearchPlan(query: ResearchQuery): ResearchPlan {
-  const issues = uniq([
-    ...(query.legal_issues ?? []),
-    ...(query.research_topics ?? []),
-  ]).slice(0, 12);
+  let issues = uniq(query.legal_issues ?? []).slice(0, MAX_RESEARCH_QUESTIONS);
+  if (issues.length === 0) {
+    issues = uniq(query.research_topics ?? []).slice(0, MAX_RESEARCH_QUESTIONS);
+  }
   if (issues.length === 0) issues.push(fallbackIssue(query));
 
   const exactBase = uniq([
@@ -162,10 +166,8 @@ export function buildResearchPlan(query: ResearchQuery): ResearchPlan {
   };
 }
 
-export function queryForBucket(query: ResearchQuery, plan: ResearchPlan, bucket: Bucket): ResearchQuery {
-  const relevant = plan.questions.filter((question) => question.buckets.includes(bucket));
+function queryFromQuestions(query: ResearchQuery, relevant: ResearchQuestion[]): ResearchQuery {
   if (relevant.length === 0) return query;
-
   return {
     ...query,
     legal_issues: uniq(relevant.map((q) => q.issue)),
@@ -184,10 +186,21 @@ export function queryForBucket(query: ResearchQuery, plan: ResearchPlan, bucket:
       ...relevant.flatMap((q) => q.metadata_terms),
       ...relevant.flatMap((q) => q.temporal_terms),
     ]),
-    // Search hypotheses remain retrieval-only. They are not copied into facts.
+    // Search hypotheses remain retrieval-only. They are never copied into facts.
     search_hypotheses: uniq([
       ...(query.search_hypotheses ?? []),
       ...relevant.flatMap((q) => q.adverse_terms),
     ]),
   };
+}
+
+export function queryForQuestion(query: ResearchQuery, question: ResearchQuestion): ResearchQuery {
+  return queryFromQuestions(query, [question]);
+}
+
+export function queryForBucket(query: ResearchQuery, plan: ResearchPlan, bucket: Bucket): ResearchQuery {
+  return queryFromQuestions(
+    query,
+    plan.questions.filter((question) => question.buckets.includes(bucket)),
+  );
 }
