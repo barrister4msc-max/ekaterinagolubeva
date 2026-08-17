@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ResearchQuery } from "./fact-extraction.ts";
-import { buildResearchPlan, queryForBucket } from "./research-routing.ts";
+import { buildResearchPlan, queryForBucket, queryForQuestion } from "./research-routing.ts";
 
 const EMPTY_QUERY: ResearchQuery = {
   practice_area: null,
@@ -24,10 +24,7 @@ const EMPTY_QUERY: ResearchQuery = {
 };
 
 function query(overrides: Partial<ResearchQuery> = {}): ResearchQuery {
-  return {
-    ...EMPTY_QUERY,
-    ...overrides,
-  };
+  return { ...EMPTY_QUERY, ...overrides };
 }
 
 describe("issue-based legal research routing", () => {
@@ -44,6 +41,7 @@ describe("issue-based legal research routing", () => {
     const plan = buildResearchPlan(q);
     const issue = plan.questions[0];
 
+    expect(plan.questions).toHaveLength(1);
     expect(plan.all_modes).toEqual([
       "exact",
       "metadata",
@@ -61,6 +59,29 @@ describe("issue-based legal research routing", () => {
     expect(issue.source_roles).toContain("factual_data");
     expect(issue.source_roles).toContain("adverse");
     expect(issue.source_roles).toContain("temporal");
+  });
+
+  test("research topics enrich explicit issues instead of becoming duplicate questions", () => {
+    const plan = buildResearchPlan(query({
+      legal_issues: ["Реальность хозяйственной операции", "Бремя доказывания"],
+      research_topics: ["налоговая реконструкция", "должная осмотрительность"],
+    }));
+    expect(plan.questions.map((q) => q.issue)).toEqual([
+      "Реальность хозяйственной операции",
+      "Бремя доказывания",
+    ]);
+    expect(plan.questions[0].argument_terms).toContain("налоговая реконструкция");
+  });
+
+  test("a question-scoped query carries only that legal issue", () => {
+    const q = query({
+      legal_issues: ["Реальность поставки", "Процессуальные нарушения проверки"],
+      research_topics: ["бремя доказывания"],
+    });
+    const plan = buildResearchPlan(q);
+    const scoped = queryForQuestion(q, plan.questions[1]);
+    expect(scoped.legal_issues).toEqual(["Процессуальные нарушения проверки"]);
+    expect(scoped.facts).toEqual(q.facts);
   });
 
   test("routing does not promote search inference into case facts", () => {
