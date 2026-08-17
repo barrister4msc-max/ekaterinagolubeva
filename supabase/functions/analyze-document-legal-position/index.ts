@@ -8,6 +8,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { extractFacts, embedQuery, queryToSearchString } from "./fact-extraction.ts";
 import { runAllRepositories, gapSearch } from "./repositories.ts";
+import {
+  attachCanonicalRegistryMetadata,
+  carryCanonicalMetadataToTrusted,
+} from "./source-metadata-bridge.ts";
 import { rankSources } from "./ranking.ts";
 import { dedupe } from "./dedupe.ts";
 import { buildPrompt, callGeminiPro, limitSources, summarizeDocument } from "./prompt.ts";
@@ -270,11 +274,12 @@ Deno.serve(async (req) => {
     const queryEmbedding = await embedQuery(queryToSearchString(researchQuery));
 
     // Layer 2: Repositories
-    const { sources: rawSources, counts } = await runAllRepositories(
+    const { sources: repositorySources, counts } = await runAllRepositories(
       sb,
       researchQuery,
       practiceArea,
     );
+    const rawSources = await attachCanonicalRegistryMetadata(sb, repositorySources);
 
     // Layer 3: Ranking
     const scored = await rankSources({
@@ -361,6 +366,7 @@ Deno.serve(async (req) => {
 
     // Layer 7: ENRICH — stable IDs, trust score, priority/supersede.
     let trusted = enrichSources(merged);
+    carryCanonicalMetadataToTrusted(trusted, merged);
     // P0-E4: canonical fact identity built once from parsed.facts, and the
     // model-emitted fact_key → fact_id map is carried into Evidence Matrix.
     const { records: factsRecords, keyToId: factKeyToId } = buildFactRecords(parsed.facts);
@@ -392,6 +398,7 @@ Deno.serve(async (req) => {
         const mergedExtra = dedupe([...scored, ...extraScored]);
         const mergedLimited = limitSources(mergedExtra);
         trusted = enrichSources(mergedLimited);
+        carryCanonicalMetadataToTrusted(trusted, mergedLimited);
         provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
         validatedConclusions = validateConclusions(provBuild.conclusions, trusted);
         sufficiency = evaluateSufficiency({
