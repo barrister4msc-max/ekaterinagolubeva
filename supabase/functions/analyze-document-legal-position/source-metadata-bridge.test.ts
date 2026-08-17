@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  attachCanonicalRegistryMetadata,
   carryCanonicalMetadataToTrusted,
   chooseCanonicalRegistryMatch,
   projectRegistryMetadata,
@@ -72,6 +73,7 @@ describe("Canonical Source Metadata Bridge", () => {
     expect(projected.metadata.current_status).toBe("current");
     expect(projected.metadata.verification_status).toBe("verified");
     expect(projected.metadata.legal_source_registry_id).toBe(row.id);
+    expect(projected.metadata.registry_match_attempted).toBe(true);
     expect(projected.official_url).toBe(row.official_url);
   });
 
@@ -90,5 +92,23 @@ describe("Canonical Source Metadata Bridge", () => {
     expect(trusted[0].effective_from).toBe("2026-01-01");
     expect(trusted[0].verification_status).toBe("verified");
     expect(trusted[0].canonical_document_key).toBe("ru:laws:document:425-фз:2025-11-28");
+  });
+
+  test("does not query legal_source_registry again after projection was attempted", async () => {
+    let fromCalls = 0;
+    const sb = {
+      from() {
+        fromCalls++;
+        throw new Error("registry lookup should not run for attempted sources");
+      },
+    };
+    const attempted: RawSource = {
+      ...source,
+      metadata: { ...source.metadata, registry_match_attempted: true },
+    };
+
+    const result = await attachCanonicalRegistryMetadata(sb, [attempted]);
+    expect(result).toEqual([attempted]);
+    expect(fromCalls).toBe(0);
   });
 });
