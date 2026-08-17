@@ -1,6 +1,27 @@
 import { describe, expect, test } from "bun:test";
-import { EMPTY_QUERY, type ResearchQuery } from "./fact-extraction.ts";
+import type { ResearchQuery } from "./fact-extraction.ts";
 import { buildResearchPlan, queryForBucket } from "./research-routing.ts";
+
+const EMPTY_QUERY: ResearchQuery = {
+  practice_area: null,
+  subcategory: null,
+  document_type: null,
+  facts: [],
+  parties: [],
+  amounts: [],
+  dates: [],
+  legal_issues: [],
+  research_topics: [],
+  keywords: [],
+  articles: [],
+  organizations: [],
+  inn: [],
+  ogrn: [],
+  semantic_intents: [],
+  legal_concepts: [],
+  metadata_terms: [],
+  search_hypotheses: [],
+};
 
 function query(overrides: Partial<ResearchQuery> = {}): ResearchQuery {
   return {
