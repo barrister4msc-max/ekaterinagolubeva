@@ -288,9 +288,19 @@ function DocumentBuilderPage() {
   return (
     <div className="space-y-7">
       <header className="space-y-4">
-        <div>
-          <h1 className="font-display text-2xl text-foreground">Конструктор документов</h1>
-          <p className="mt-1 text-sm text-muted-foreground">1 Шаблон → 2 Карточка → 3 Опросник</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl text-foreground">Конструктор документов</h1>
+            <p className="mt-1 text-sm text-muted-foreground">1 Шаблон → 2 Карточка → 3 Опросник</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/workspace/dashboard" })}
+            className="db-ghost shrink-0"
+            aria-label="Вернуться в меню Workspace"
+          >
+            <ArrowLeft size={14} /> Вернуться в меню
+          </button>
         </div>
         <Stepper step={step} />
       </header>
@@ -343,12 +353,12 @@ function DocumentBuilderPage() {
 
           <div className="grid gap-3 md:grid-cols-[1fr_auto]">
             <div className="relative">
-              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-foreground opacity-90 stroke-[2.25]" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Поиск по названию, коду или категории…"
-                className="db-search w-full pl-9"
+                className="db-search w-full pl-9 text-foreground placeholder:text-foreground/60"
               />
             </div>
             <select

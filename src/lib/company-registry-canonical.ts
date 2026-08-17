@@ -1,6 +1,7 @@
 import {
   normalizeCompanyName,
   normalizeDigits,
+  normalizeOkvedCode,
   REGISTRY_VALUE_SOURCE,
   type AnswerRow,
   type AutofillEntry,
@@ -23,6 +24,7 @@ const FIELD_LABELS: Record<string, string> = {
   taxpayer_ogrn: "ОГРН / ОГРНИП",
   taxpayer_kpp: "КПП",
   taxpayer_legal_address: "Юридический адрес",
+  main_okved: "Основной ОКВЭД",
   business_activity: "Сфера деятельности",
 };
 
@@ -71,18 +73,33 @@ export function getPreservedDocumentBusinessActivity(params: {
   documentProfile: DocumentCompanyProfile;
   answers: AnswerRow[];
 }): string | null {
+  // Registry text wins when it exists. Document fallback is allowed only when
+  // both layers independently point to the same main OKVED code.
   if (params.profile.business_activity_name) return null;
   const preserved = params.documentProfile.business_activity?.trim();
-  if (!preserved) return null;
+  const registryCode = params.profile.okved_main?.trim();
+  if (!preserved || !registryCode) return null;
+
   const current = params.answers.find((row) => row.field_name === "business_activity");
-  if (!current || current.value_source !== REGISTRY_VALUE_SOURCE) return null;
-  const currentValue = answerToString(current.field_value);
-  const code = params.profile.okved_main?.trim();
-  if (!currentValue || !code) return null;
-  // Repair the precise regression seen in production: the former descriptive
-  // document value was replaced by a verified registry code without a name.
-  if (normalizeCompanyName(currentValue) !== normalizeCompanyName(code)) return null;
-  return preserved;
+  if (isHumanProtectedAnswer(current)) return null;
+
+  const registryNormalized = normalizeOkvedCode(registryCode);
+  if (!registryNormalized) return null;
+
+  const documentCode = params.documentProfile.okved_main?.trim();
+  if (documentCode) {
+    if (normalizeOkvedCode(documentCode) !== registryNormalized) return null;
+    return preserved;
+  }
+
+  // Backward compatibility for older document snapshots where code and text
+  // were stored in one field (e.g. "68.20 Аренда ...").
+  const codeCandidates = preserved.match(/\d{2}(?:\.\d{1,3}){1,2}/g) ?? [];
+  if (codeCandidates.some((candidate) => normalizeOkvedCode(candidate) === registryNormalized)) {
+    return preserved;
+  }
+
+  return null;
 }
 
 export function buildCanonicalRegistryOverrides(params: {
@@ -108,6 +125,7 @@ export function buildCanonicalRegistryOverrides(params: {
     ["taxpayer_ogrn", params.profile.ogrn ?? params.profile.ogrnip],
     ["taxpayer_kpp", params.profile.kpp],
     ["taxpayer_legal_address", params.profile.legal_address],
+    ["main_okved", params.profile.okved_main],
     ["business_activity", formatRegistryBusinessActivity(params.profile)],
   ];
 
