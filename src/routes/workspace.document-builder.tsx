@@ -286,11 +286,20 @@ function DocumentBuilderPage() {
   };
 
   return (
-    <div className="space-y-7">
-      <header className="space-y-4">
-        <div>
-          <h1 className="font-display text-2xl text-foreground">Конструктор документов</h1>
-          <p className="mt-1 text-sm text-muted-foreground">1 Шаблон → 2 Карточка → 3 Опросник</p>
+    <div className="mx-auto w-full max-w-[1180px] space-y-6">
+      <header className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl text-foreground">Конструктор документов</h1>
+            <p className="mt-1 text-sm text-muted-foreground">1 Шаблон → 2 Карточка → 3 Опросник</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate({ to: "/workspace/dashboard" })}
+            className="inline-flex items-center gap-2 rounded-full border border-foreground/15 bg-background/55 px-3.5 py-2 text-xs font-medium text-foreground/75 backdrop-blur-sm transition hover:border-foreground/25 hover:bg-background/80 hover:text-foreground"
+          >
+            <ArrowLeft size={14} /> В дашборд
+          </button>
         </div>
         <Stepper step={step} />
       </header>
@@ -298,7 +307,7 @@ function DocumentBuilderPage() {
 
       {/* STEP 1 */}
       {step === 1 && (
-        <section className="db-card p-6 space-y-6">
+        <section className="db-card p-5 space-y-5">
           <div>
             <div className="db-section-label">Шаг 1 · Юрисдикция</div>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -343,12 +352,12 @@ function DocumentBuilderPage() {
 
           <div className="grid gap-3 md:grid-cols-[1fr_auto]">
             <div className="relative">
-              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Search size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Поиск по названию, коду или категории…"
-                className="db-search w-full pl-9"
+                className="db-search w-full pr-9"
               />
             </div>
             <select
@@ -464,7 +473,7 @@ function DocumentBuilderPage() {
 
       {/* STEP 2 */}
       {step === 2 && selected && (
-        <section className="db-card p-7 space-y-6">
+        <section className="db-card p-6 space-y-5">
           <div className="db-section-label">Шаг 2 · Карточка шаблона</div>
 
           <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
@@ -521,7 +530,7 @@ function DocumentBuilderPage() {
 
       {/* STEP 3 */}
       {step === 3 && selected && intake && (
-        <section className="db-card p-7 space-y-6">
+        <section className="db-card p-6 space-y-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="db-section-label">Шаг 3 · Опросник</div>
@@ -634,12 +643,12 @@ function DocumentBuilderPage() {
         .db-flagship-card:focus-visible { outline: 2px solid rgba(226,200,137,0.85); outline-offset: 3px; }
         .db-flagship-rank { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: linear-gradient(135deg, #e2c889, #c8a86b); color: #0d1a22; font-size: 12px; font-weight: 700; box-shadow: 0 8px 20px rgba(200,168,107,0.20); }
         .db-feature-badge { display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(255,255,255,0.12); border-radius: 999px; padding: 4px 8px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.72); font-size: 10.5px; }
-        .db-search, .db-select { height: 38px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); color: rgba(255,255,255,0.92); padding: 0 12px; font-size: 13px; outline: none; }
+        .db-search, .db-select { height: 36px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); color: rgba(255,255,255,0.92); padding: 0 12px; font-size: 13px; outline: none; }
         .db-search::placeholder { color: rgba(255,255,255,0.45); }
         .db-search:focus, .db-select:focus { border-color: rgba(214,188,120,0.55); }
         .db-select { appearance: none; padding-right: 28px; background-image: linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.5) 50%), linear-gradient(135deg, rgba(255,255,255,0.5) 50%, transparent 50%); background-position: calc(100% - 14px) 17px, calc(100% - 9px) 17px; background-size: 5px 5px; background-repeat: no-repeat; }
         .db-select option { background: #0c1a24; color: #fff; }
-        .db-tcard { background: rgba(8,18,26,0.55); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 14px 14px 12px; transition: all 160ms ease; cursor: pointer; }
+        .db-tcard { background: rgba(8,18,26,0.55); border: 1px solid rgba(255,255,255,0.12); border-radius: 14px; padding: 12px 12px 10px; transition: all 160ms ease; cursor: pointer; }
         .db-tcard:hover { background: rgba(12,26,36,0.72); border-color: rgba(214,188,120,0.35); transform: translateY(-1px); }
         .db-tcard-active { border-color: rgba(214,188,120,0.65); background: rgba(40,32,14,0.55); box-shadow: 0 0 0 1px rgba(214,188,120,0.25) inset; }
         .db-tag { font-size: 10.5px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.75); border: 1px solid rgba(255,255,255,0.10); text-transform: uppercase; letter-spacing: 0.08em; display: inline-flex; align-items: center; gap: 4px; }
@@ -654,7 +663,7 @@ function DocumentBuilderPage() {
         .db-cta:disabled { opacity: 0.45; cursor: not-allowed; }
         .db-ghost { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; font-size: 13px; color: rgba(255,255,255,0.80); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; transition: all 160ms ease; }
         .db-ghost:hover { background: rgba(255,255,255,0.08); color: #fff; }
-        .db-chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 12px; color: rgba(255,255,255,0.80); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; transition: all 140ms ease; }
+        .db-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 999px; font-size: 12px; color: rgba(255,255,255,0.80); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; transition: all 140ms ease; }
         .db-chip:hover { background: rgba(255,255,255,0.10); color: #fff; }
         .db-chip-active { background: rgba(214,188,120,0.20); border-color: rgba(214,188,120,0.55); color: #f5e2a5; }
         .db-info { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 14px 16px; background: rgba(8,18,26,0.45); }
