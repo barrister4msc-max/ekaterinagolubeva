@@ -23,6 +23,24 @@
   color: #655a50 !important;
 }
 
+/* Builder/form headings and field labels need stronger contrast on the medium-gray panels. */
+.workspace-glass .db-section-label {
+  color: #211d1a !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+}
+.workspace-glass label,
+.workspace-glass .db-card label {
+  color: #2a2521 !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+.workspace-glass .db-card,
+.workspace-glass .db-card p,
+.workspace-glass .db-card span:not(.db-pill):not(.db-status):not(.db-tag) {
+  text-shadow: none;
+}
+
 /* Legacy dark-workspace utility classes still occur in several screens. */
 .workspace-glass .text-white,
 .workspace-glass .text-white\/95,
@@ -155,12 +173,13 @@
 .workspace-glass textarea,
 .workspace-glass select,
 .workspace-glass [data-slot="select-trigger"] {
-  color: #2f2925 !important;
-  caret-color: #2f2925;
+  color: #211d1a !important;
+  caret-color: #211d1a;
+  font-weight: 500;
 }
 .workspace-glass input::placeholder,
 .workspace-glass textarea::placeholder {
-  color: #75695d !important;
+  color: #675c52 !important;
   opacity: 1;
 }
 
@@ -170,26 +189,26 @@
 .workspace-glass textarea:disabled,
 .workspace-glass select:disabled,
 .workspace-glass [aria-disabled="true"] {
-  opacity: 0.72 !important;
+  opacity: 0.78 !important;
 }
 .workspace-glass button:disabled,
 .workspace-glass [aria-disabled="true"] {
-  color: #5f554c !important;
+  color: #514840 !important;
 }
 
 /* Registry card and warning rows use semantic utility colors; keep them crisp. */
 .workspace-glass .registry-card {
-  background: rgba(255, 252, 247, 0.92) !important;
-  border-color: rgba(120, 92, 62, 0.24) !important;
-  color: #2f2925 !important;
+  background: rgba(255, 252, 247, 0.96) !important;
+  border-color: rgba(120, 92, 62, 0.30) !important;
+  color: #211d1a !important;
 }
 .workspace-glass .registry-card .registry-secondary {
-  color: #5f554c !important;
+  color: #514840 !important;
 }
 .workspace-glass .registry-card .registry-warning {
   background: #fff4d6 !important;
-  border-color: rgba(160, 112, 20, 0.30) !important;
-  color: #614609 !important;
+  border-color: rgba(160, 112, 20, 0.35) !important;
+  color: #533b08 !important;
 }
 
 /* Dark template cards are intentionally dark. The workspace-wide light-surface
@@ -205,7 +224,7 @@
 .workspace-glass .db-tcard [class*="text-foreground"],
 .workspace-glass .db-tcard .text-white,
 .workspace-glass .db-tcard [class*="text-white"] {
-  color: #fffaf3 !important;
+  color: #fffdf9 !important;
 }
 
 .workspace-glass .db-tcard .text-muted-foreground,
@@ -220,14 +239,14 @@
 .workspace-glass .db-tcard .text-zinc-500,
 .workspace-glass .db-tcard .text-stone-600,
 .workspace-glass .db-tcard .text-stone-500 {
-  color: #d8d0c7 !important;
+  color: #e7dfd5 !important;
 }
 
 .workspace-glass .db-tcard .text-amber-700,
 .workspace-glass .db-tcard .text-amber-800,
 .workspace-glass .db-tcard .text-yellow-700,
 .workspace-glass .db-tcard .text-yellow-800 {
-  color: #f4d27c !important;
+  color: #ffe09a !important;
 }
 
 .workspace-glass .db-tcard .text-green-700,
@@ -235,24 +254,24 @@
 .workspace-glass .db-tcard .text-emerald-700,
 .workspace-glass .db-tcard .text-emerald-800,
 .workspace-glass .db-tcard .text-emerald-600 {
-  color: #7ee2b8 !important;
+  color: #91f0c7 !important;
 }
 
 .workspace-glass .db-tcard button:disabled,
 .workspace-glass .db-tcard [aria-disabled="true"] {
-  color: #d8d0c7 !important;
+  color: #e7dfd5 !important;
 }
 
 /* Portaled overlays belong to workspace but live outside .workspace-glass. */
 body.workspace-active [role="dialog"][data-state],
 body.workspace-active [data-vaul-drawer],
 body.workspace-active [data-radix-popper-content-wrapper] > * {
-  color: #2f2925 !important;
+  color: #211d1a !important;
 }
 body.workspace-active [role="dialog"][data-state] .text-muted-foreground,
 body.workspace-active [data-vaul-drawer] .text-muted-foreground,
 body.workspace-active [data-radix-popper-content-wrapper] .text-muted-foreground {
-  color: #655a50 !important;
+  color: #5b5148 !important;
 }
 body.workspace-active [role="dialog"][data-state] input,
 body.workspace-active [role="dialog"][data-state] textarea,
@@ -260,5 +279,5 @@ body.workspace-active [data-vaul-drawer] input,
 body.workspace-active [data-vaul-drawer] textarea,
 body.workspace-active [data-radix-popper-content-wrapper] [role="option"],
 body.workspace-active [data-radix-popper-content-wrapper] [role="menuitem"] {
-  color: #2f2925 !important;
+  color: #211d1a !important;
 }
