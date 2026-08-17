@@ -235,7 +235,9 @@ function researchCorpus(query: ResearchQuery): string {
 export function extractFederalLawRefs(query: ResearchQuery): FederalLawRef[] {
   const text = researchCorpus(query);
   const out: FederalLawRef[] = [];
-  const lawRx = /(?:от\s+(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4})\s*(?:г\.?\s*)?)?(?:№|N)?\s*(\d{1,4}\s*[-–—]\s*ФЗ)\b/giu;
+  // Do not use ASCII \b after Cyrillic "ФЗ": JS word-boundary semantics do not
+  // treat Cyrillic letters as \w. Use an explicit Unicode-letter lookahead.
+  const lawRx = /(?:от\s+(\d{1,2}[.\-/]\d{1,2}[.\-/]\d{4})\s*(?:г\.?\s*)?)?(?:№|N)?\s*(\d{1,4}\s*[-–—]\s*ФЗ)(?=$|[^\p{L}])/giu;
   for (const match of text.matchAll(lawRx)) {
     const date = normalizeDate(match[1] ?? null);
     const number = normalizeLawNumber(match[2]);
@@ -328,8 +330,6 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
     documentNumber,
     documentDate,
   });
-  // API search proves official origin/identity metadata, but does not return the legal text itself.
-  // Therefore this discovery record cannot independently support a legal conclusion.
   const safety = evaluateOfficialSourceSafety({
     officialUrl,
     identityVerified,
@@ -381,7 +381,7 @@ async function searchPravoByRef(ref: FederalLawRef): Promise<{ sources: Official
   });
   const data = await fetchJson(`${PRAVO_API}/Documents?${params.toString()}`);
   const items = (Array.isArray(data?.items) ? data.items : []).filter((item: any) => exactRefMatches(item, ref));
-  const identityVerified = Boolean(ref.date) ? items.length === 1 : items.length === 1;
+  const identityVerified = items.length === 1;
   const ambiguous = items.length > 1 && !ref.date;
   const mapped = await Promise.all(items.slice(0, ambiguous ? 5 : 1).map((item: any) => mapPravoItem(item, identityVerified, "exact")));
   return { sources: mapped.filter(Boolean) as OfficialSourceResult[], ambiguous };
@@ -394,14 +394,12 @@ function contextQueries(query: ResearchQuery): string[] {
     ...plan.search_hypotheses,
     ...(query.keywords ?? []),
   ])
-    .map((s) => s.replace(/\s+/g, " ").trim())
-    .filter((s) => s.length >= 5 && s.length <= 160)
+    .map((value) => value.replace(/\s+/g, " ").trim())
+    .filter((value) => value.length >= 5 && value.length <= 160)
     .slice(0, 4);
 }
 
 async function searchPravoByContext(text: string): Promise<OfficialSourceResult[]> {
-  // DocumentText is a documented /api/Documents parameter. Search by legal meaning/context,
-  // but results remain discovery-only until identity/content/actuality gates are satisfied.
   const params = new URLSearchParams({
     DocumentText: text,
     PageSize: "10",
@@ -461,10 +459,10 @@ export async function searchOfficialLegalSources(query: ResearchQuery): Promise<
   const deduped = [...new Map(sources.map((source) => [source.source_id, source])).values()];
   diagnostics.pravo_found = deduped.length;
   diagnostics.pravo_identity_verified = deduped.filter(
-    (s) => ((s.metadata?.safety as OfficialSourceSafety | undefined)?.document_identity_verified ?? false),
+    (source) => ((source.metadata?.safety as OfficialSourceSafety | undefined)?.document_identity_verified ?? false),
   ).length;
   diagnostics.substantive_usable = deduped.filter(
-    (s) => ((s.metadata?.safety as OfficialSourceSafety | undefined)?.substantive_use_allowed ?? false),
+    (source) => ((source.metadata?.safety as OfficialSourceSafety | undefined)?.substantive_use_allowed ?? false),
   ).length;
   return { sources: deduped, diagnostics, research_plan: researchPlan };
 }
