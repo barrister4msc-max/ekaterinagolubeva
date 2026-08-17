@@ -1,6 +1,7 @@
 // Layer 2: Repository Layer — unified search interface per source domain.
 
 import type { ResearchQuery } from "./fact-extraction.ts";
+import { searchOfficialLegalSources } from "./official-sources.ts";
 
 export type Bucket =
   | "laws"
@@ -237,15 +238,17 @@ export async function runAllRepositories(
     ekaterina: new PracticeRepository(sb),
     manuals: new ManualRepository(sb),
   };
-  const [laws, court, fns, minfin, ek, manuals] = await Promise.all([
+  const [laws, court, fns, minfin, ek, manuals, official] = await Promise.all([
     repos.laws.search(query, area),
     repos.court_practice.search(query, area),
     repos.fns_letters.search(query, area),
     repos.minfin_letters.search(query, area),
     repos.ekaterina.search(query, area),
     repos.manuals.search(query, area),
+    searchOfficialLegalSources(query),
   ]);
-  const sources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals];
+  const officialSources = official.sources as RawSource[];
+  const sources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals, ...officialSources];
   const counts = {
     laws_found: laws.length,
     court_practice_found: court.length,
@@ -253,6 +256,10 @@ export async function runAllRepositories(
     minfin_found: minfin.length,
     ekaterina_found: ek.length,
     manuals_found: manuals.length,
+    official_sources_found: officialSources.length,
+    official_pravo_attempted: official.diagnostics.pravo_attempted,
+    official_pravo_found: official.diagnostics.pravo_found,
+    official_source_failures: official.diagnostics.failures.length,
   };
   return { sources, counts };
 }
@@ -298,4 +305,3 @@ export async function gapSearch(
   }
   return out;
 }
-
