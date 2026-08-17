@@ -6,6 +6,7 @@ import {
   extractFederalLawRefs,
   isOfficialLegalUrl,
   officialSourcesEnabledFromValue,
+  resolvePravoApiBase,
   type OfficialSourceResult,
 } from "./official-sources.ts";
 import { mergeOfficialWithLocalSources, type RawSource } from "./repositories.ts";
@@ -77,6 +78,14 @@ describe("Official Source Safety Contract", () => {
     });
     expect(safety.substantive_use_allowed).toBe(true);
     expect(safety.verification_level).toBe("substantive");
+  });
+
+  test("relay configuration changes transport only and rejects insecure relay URLs", () => {
+    expect(resolvePravoApiBase(undefined)).toBe("https://publication.pravo.gov.ru/api");
+    expect(resolvePravoApiBase("http://relay.example/api")).toBe("https://publication.pravo.gov.ru/api");
+    expect(resolvePravoApiBase("https://relay.example/api/")).toBe("https://relay.example/api");
+    expect(isOfficialLegalUrl("https://relay.example/document/123")).toBe(false);
+    expect(isOfficialLegalUrl("https://publication.pravo.gov.ru/document/123")).toBe(true);
   });
 });
 
