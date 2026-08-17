@@ -1,9 +1,5 @@
 project_id = "wiylzbdbjokignwvizxt"
 
-# PR32 Preview E2E only. Remove before Ready/merge.
-[edge_runtime.secrets]
-OFFICIAL_LEGAL_SOURCES_ENABLED = "true"
-
 # Flagship tax-document Preview flow. These values mirror the current
 # production function settings; Deploy to production remains controlled by
 # the Supabase GitHub integration toggle.
@@ -28,8 +24,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.review-generated-legal-document]
-verify_jwt = false
-
-# PR32 Preview E2E probe only. Remove before Ready/merge.
-[functions.pr32-official-sources-probe]
 verify_jwt = false
