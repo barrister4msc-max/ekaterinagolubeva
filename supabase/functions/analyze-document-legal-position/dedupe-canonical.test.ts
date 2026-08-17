@@ -58,6 +58,36 @@ describe("canonical-aware dedupe", () => {
     expect(result[0].metadata.provider_id).toBe("pravo");
   });
 
+  test("preserves all research issue identities when the same source answers multiple questions", () => {
+    const canonical = "ru:laws:document:425-фз:2025-11-28";
+    const a = scored({
+      source_id: "a",
+      metadata: {
+        canonical_document_key: canonical,
+        research_issue_ids: ["issue-1"],
+        research_issue_texts: ["Реальность хозяйственной операции"],
+        research_modes: ["exact", "semantic"],
+      },
+    });
+    const b = scored({
+      source_id: "b",
+      metadata: {
+        canonical_document_key: canonical,
+        research_issue_ids: ["issue-2"],
+        research_issue_texts: ["Бремя доказывания"],
+        research_modes: ["adverse", "temporal"],
+      },
+    });
+
+    const [merged] = dedupe([a, b]);
+    expect(merged.metadata.research_issue_ids).toEqual(["issue-1", "issue-2"]);
+    expect(merged.metadata.research_issue_texts).toEqual([
+      "Реальность хозяйственной операции",
+      "Бремя доказывания",
+    ]);
+    expect(merged.metadata.research_modes).toEqual(["exact", "semantic", "adverse", "temporal"]);
+  });
+
   test("keeps different canonical versions separate", () => {
     const a = scored({
       source_id: "v1",
@@ -91,9 +121,6 @@ describe("canonical-aware dedupe", () => {
       title: "Постановление кассации по делу А40-123/2025",
     };
 
-    // Legacy behaviour still groups by case number until an act-level key is
-    // available; the important safety property here is that a case-level
-    // canonical_document_key is not mistaken for a new act-level contract.
     const result = dedupe([first, second]);
     expect(result).toHaveLength(1);
 
