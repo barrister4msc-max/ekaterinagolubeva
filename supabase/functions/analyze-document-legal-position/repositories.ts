@@ -1,10 +1,11 @@
 // Layer 2: Repository Layer — unified search interface per source domain.
 
 import type { ResearchQuery } from "./fact-extraction.ts";
-import { buildResearchPlan, queryForBucket, queryForQuestion, type ResearchPlan, type ResearchQuestion } from "./research-routing.ts";
+import { buildResearchPlan, queryForQuestion, type ResearchPlan, type ResearchQuestion } from "./research-routing.ts";
 import {
   buildCanonicalDocumentKey,
   searchOfficialLegalSources,
+  type OfficialSourceDiagnostics,
   type OfficialSourceResult,
   type OfficialSourceSafety,
 } from "./official-sources.ts";
@@ -451,7 +452,70 @@ export async function runAllRepositories(
     return mergeQuestionAnnotations(batches.flat());
   };
 
-  const officialQuery = queryForBucket(query, researchPlan, "laws");
+  const searchOfficialPerIssue = async (): Promise<{
+    sources: OfficialSourceResult[];
+    diagnostics: OfficialSourceDiagnostics;
+  }> => {
+    const questions = researchPlan.questions.filter((question) => question.buckets.includes("laws"));
+    const results = await Promise.all(
+      questions.map(async (question) => ({
+        question,
+        result: await searchOfficialLegalSources(queryForQuestion(query, question)),
+      })),
+    );
+
+    const annotated: OfficialSourceResult[] = [];
+    const failures: string[] = [];
+    let enabled = false;
+    let pravoExactAttempted = 0;
+    let pravoContextAttempted = 0;
+    let pravoAmbiguous = 0;
+    let registeredProviders = 0;
+
+    for (const { question, result } of results) {
+      enabled ||= result.diagnostics.enabled;
+      pravoExactAttempted += result.diagnostics.pravo_exact_attempted;
+      pravoContextAttempted += result.diagnostics.pravo_context_attempted;
+      pravoAmbiguous += result.diagnostics.pravo_ambiguous;
+      registeredProviders = Math.max(registeredProviders, result.diagnostics.registered_providers);
+      failures.push(...result.diagnostics.failures.map((failure) => `${question.id}:${failure}`));
+      for (const source of result.sources) {
+        annotated.push({
+          ...source,
+          metadata: {
+            ...(source.metadata ?? {}),
+            research_issue_ids: [question.id],
+            research_issue_texts: [question.issue],
+            research_modes: question.modes,
+          },
+        });
+      }
+    }
+
+    const merged = mergeQuestionAnnotations(annotated as RawSource[]) as OfficialSourceResult[];
+    const identityVerified = merged.filter(
+      (source) => ((source.metadata?.safety as OfficialSourceSafety | undefined)?.document_identity_verified ?? false),
+    ).length;
+    const substantiveUsable = merged.filter(
+      (source) => ((source.metadata?.safety as OfficialSourceSafety | undefined)?.substantive_use_allowed ?? false),
+    ).length;
+
+    return {
+      sources: merged,
+      diagnostics: {
+        enabled,
+        pravo_exact_attempted: pravoExactAttempted,
+        pravo_context_attempted: pravoContextAttempted,
+        pravo_found: merged.length,
+        pravo_identity_verified: identityVerified,
+        pravo_ambiguous: pravoAmbiguous,
+        substantive_usable: substantiveUsable,
+        registered_providers: registeredProviders,
+        failures,
+      },
+    };
+  };
+
   const [laws, court, fns, minfin, ek, manuals, official] = await Promise.all([
     searchPerIssue("laws"),
     searchPerIssue("court_practice"),
@@ -459,7 +523,7 @@ export async function runAllRepositories(
     searchPerIssue("minfin_letters"),
     searchPerIssue("ekaterina"),
     searchPerIssue("manuals"),
-    searchOfficialLegalSources(officialQuery),
+    searchOfficialPerIssue(),
   ]);
 
   const localSources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals];
