@@ -192,6 +192,57 @@
   color: #614609 !important;
 }
 
+/* Dark template cards are intentionally dark. The workspace-wide light-surface
+   guard above must not turn their text dark-on-dark. */
+.workspace-glass .db-tcard,
+.workspace-glass .db-tcard h1,
+.workspace-glass .db-tcard h2,
+.workspace-glass .db-tcard h3,
+.workspace-glass .db-tcard h4,
+.workspace-glass .db-tcard h5,
+.workspace-glass .db-tcard h6,
+.workspace-glass .db-tcard .text-foreground,
+.workspace-glass .db-tcard [class*="text-foreground"],
+.workspace-glass .db-tcard .text-white,
+.workspace-glass .db-tcard [class*="text-white"] {
+  color: #fffaf3 !important;
+}
+
+.workspace-glass .db-tcard .text-muted-foreground,
+.workspace-glass .db-tcard [class*="text-muted-foreground"],
+.workspace-glass .db-tcard .text-gray-600,
+.workspace-glass .db-tcard .text-gray-500,
+.workspace-glass .db-tcard .text-slate-600,
+.workspace-glass .db-tcard .text-slate-500,
+.workspace-glass .db-tcard .text-neutral-600,
+.workspace-glass .db-tcard .text-neutral-500,
+.workspace-glass .db-tcard .text-zinc-600,
+.workspace-glass .db-tcard .text-zinc-500,
+.workspace-glass .db-tcard .text-stone-600,
+.workspace-glass .db-tcard .text-stone-500 {
+  color: #d8d0c7 !important;
+}
+
+.workspace-glass .db-tcard .text-amber-700,
+.workspace-glass .db-tcard .text-amber-800,
+.workspace-glass .db-tcard .text-yellow-700,
+.workspace-glass .db-tcard .text-yellow-800 {
+  color: #f4d27c !important;
+}
+
+.workspace-glass .db-tcard .text-green-700,
+.workspace-glass .db-tcard .text-green-800,
+.workspace-glass .db-tcard .text-emerald-700,
+.workspace-glass .db-tcard .text-emerald-800,
+.workspace-glass .db-tcard .text-emerald-600 {
+  color: #7ee2b8 !important;
+}
+
+.workspace-glass .db-tcard button:disabled,
+.workspace-glass .db-tcard [aria-disabled="true"] {
+  color: #d8d0c7 !important;
+}
+
 /* Portaled overlays belong to workspace but live outside .workspace-glass. */
 body.workspace-active [role="dialog"][data-state],
 body.workspace-active [data-vaul-drawer],
