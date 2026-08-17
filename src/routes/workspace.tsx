@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { LayoutDashboard, Inbox, BarChart3, Settings, LogOut, ArrowLeft, MessageSquareQuote, KanbanSquare, Building2, BookOpen, Briefcase, Library, FileSignature, FileText, ClipboardList, Archive } from "lucide-react";
+import "@/workspace-contrast.css";
 
 // Workspace shares the warm premium palette of the public site — no imagery.
 const bgStyle: React.CSSProperties = {
@@ -118,7 +119,7 @@ function WorkspaceLayout() {
         <aside className={`${isFocusedBuilderRoute ? "hidden" : ""} md:w-60 md:shrink-0`}>
           <div className="workspace-sidebar rounded-lg p-5 md:sticky md:top-8">
             <Link to="/" className="block">
-              <div className="text-[10px] uppercase tracking-[0.28em] text-white/70">Workspace</div>
+              <div className="text-[10px] uppercase tracking-[0.28em] text-foreground/70">Workspace</div>
             </Link>
             <nav className="mt-6 flex flex-col gap-1">
               {nav.map((n) => (
@@ -133,13 +134,13 @@ function WorkspaceLayout() {
                 </Link>
               ))}
             </nav>
-            <div className="mt-6 border-t border-white/15 pt-4">
-              <a href="/" className="flex items-center gap-2 px-3 py-2 text-xs text-white/70 hover:text-white">
+            <div className="mt-6 border-t border-border pt-4">
+              <a href="/" className="flex items-center gap-2 px-3 py-2 text-xs text-foreground/70 hover:text-foreground">
                 <ArrowLeft size={12}/> На сайт
               </a>
               <button
                 onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/workspace/login" }))}
-                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-white/70 hover:text-destructive"
+                className="flex w-full items-center gap-2 px-3 py-2 text-xs text-foreground/70 hover:text-destructive"
               >
                 <LogOut size={12}/> Выйти
               </button>

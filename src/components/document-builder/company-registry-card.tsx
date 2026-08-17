@@ -1,4 +1,4 @@
-// PR27 — compact verified company profile card for the intake form.
+// PR29 — compact verified company profile card for the intake form.
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, BadgeCheck, Loader2, Search } from "lucide-react";
 
@@ -97,15 +97,14 @@ export function CompanyRegistryCard({
   const conflicts = result?.conflicts ?? [];
 
   return (
-    <div className="rounded-xl border border-border bg-card/60 p-4 space-y-3">
+    <div className="registry-card rounded-xl border border-border bg-card/80 p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <div className="text-sm font-semibold text-foreground">
             Проверка контрагента по реестру
           </div>
-          <div className="text-xs text-muted-foreground">
-            Реестровые данные подставляются только в пустые поля — введённые вами
-            значения не перезаписываются.
+          <div className="registry-secondary text-xs text-muted-foreground">
+            Проверенные реквизиты заменяют машинно извлечённые значения. Ручные значения юриста не перезаписываются, а исходные данные из документов сохраняются отдельно.
           </div>
         </div>
         <button
@@ -120,7 +119,7 @@ export function CompanyRegistryCard({
       </div>
 
       {!valid && (
-        <div className="text-xs text-muted-foreground">
+        <div className="registry-secondary text-xs text-muted-foreground">
           Укажите ИНН (10 или 12 цифр), чтобы выполнить проверку.
         </div>
       )}
@@ -128,7 +127,7 @@ export function CompanyRegistryCard({
       {error && <div className="text-xs text-destructive">{error}</div>}
 
       {result && result.status !== "verified" && (
-        <div className="text-xs text-amber-700">
+        <div className="text-xs text-amber-800">
           {STATUS_LABELS[result.status] ?? result.status}
         </div>
       )}
@@ -136,43 +135,44 @@ export function CompanyRegistryCard({
       {profile && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <BadgeCheck size={16} className="text-emerald-600" />
+            <BadgeCheck size={16} className="text-emerald-700" />
             {profile.name_short ?? profile.name_full}
           </div>
-          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-1 text-xs sm:grid-cols-2">
             <Row label="ИНН" value={profile.inn} />
             <Row label="КПП" value={profile.kpp} />
             <Row label="ОГРН / ОГРНИП" value={profile.ogrn ?? profile.ogrnip} />
             <Row label="Статус" value={profile.company_status} />
             <Row label="Юридический адрес" value={profile.legal_address} />
-            <Row
-              label="ОКВЭД"
-              value={
-                profile.okved_main
-                  ? `${profile.okved_main}${
-                      profile.business_activity_name
-                        ? ` — ${profile.business_activity_name}`
-                        : ""
-                    }`
-                  : null
-              }
-            />
+            <Row label="Основной ОКВЭД" value={profile.okved_main} />
+            <Row label="Вид деятельности" value={profile.business_activity_name} />
             <Row
               label="Проверено"
               value={new Date(profile.checked_at).toLocaleString("ru-RU")}
             />
-            <Row label="Провайдер" value={profile.provider} />
+            <Row label="Источник" value="DaData — сведения ФНС/ЕГРЮЛ" />
           </dl>
 
+          {result.autofilled_fields.length > 0 && (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800">
+              В карточку подставлены проверенные реестровые данные: {result.autofilled_fields.length} полей.
+            </div>
+          )}
+
           {conflicts.length > 0 && (
-            <div className="rounded-lg border border-amber-300/60 bg-amber-50/60 p-3 space-y-1">
-              <div className="flex items-center gap-2 text-xs font-medium text-amber-800">
+            <div className="registry-warning rounded-lg border border-amber-300/60 bg-amber-50 p-3 space-y-1">
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-800">
                 <AlertTriangle size={14} />
-                Расхождения с документом: {conflicts.length}
+                Существенные расхождения с документами: {conflicts.length}
+              </div>
+              <div className="text-[11px] text-amber-800">
+                Пунктуация, регистр и эквивалентное оформление адреса не считаются расхождением.
               </div>
               {conflicts.map((conflict) => (
-                <div key={conflict.field} className="text-[11px] text-amber-800">
-                  {conflict.reason}: «{conflict.document_value}» → «{conflict.registry_value}»
+                <div key={`${conflict.field}:${conflict.document_value}`} className="text-[11px] text-amber-800">
+                  <strong>{conflict.reason}</strong><br />
+                  По документу: «{conflict.document_value}»<br />
+                  По реестру: «{conflict.registry_value}»
                 </div>
               ))}
             </div>
@@ -186,8 +186,8 @@ export function CompanyRegistryCard({
 function Row({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
   return (
-    <div className="flex gap-2">
-      <dt className="shrink-0 text-muted-foreground/80">{label}:</dt>
+    <div className="flex gap-2 text-foreground">
+      <dt className="registry-secondary shrink-0 text-muted-foreground">{label}:</dt>
       <dd className="text-foreground">{value}</dd>
     </div>
   );

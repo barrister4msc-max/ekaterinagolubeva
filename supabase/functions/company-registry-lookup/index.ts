@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import {
-  buildAutofillPlan,
   buildCompanyMetadataPatch,
   buildMatterTitle,
   decideMatterAction,
@@ -21,6 +20,10 @@ import {
   type DocumentCompanyProfile,
   type RegistryLookupStatus,
 } from "../../../src/lib/company-registry.ts";
+import {
+  buildCanonicalRegistryOverrides,
+  filterFormattingOnlyConflicts,
+} from "../../../src/lib/company-registry-canonical.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,6 +109,7 @@ serve(async (req) => {
     if (answerError) throw answerError;
 
     const answers = (answerRows ?? []) as AnswerRow[];
+    // Preserve the document/OCR layer before any registry canonicalization.
     const documentProfile = extractDocumentCompanyProfile(answers);
 
     const fetched = await fetchDaDataParty({
@@ -128,7 +132,8 @@ serve(async (req) => {
       if (selection.status === "ambiguous_candidates") candidates = selection.candidates;
     }
 
-    const conflicts = profile ? detectCompanyConflicts(documentProfile, profile) : [];
+    const rawConflicts = profile ? detectCompanyConflicts(documentProfile, profile) : [];
+    const conflicts = profile ? filterFormattingOnlyConflicts(rawConflicts, profile) : [];
     const patch = buildCompanyMetadataPatch({
       profile,
       documentProfile,
@@ -158,7 +163,15 @@ serve(async (req) => {
     }
 
     const schemaFieldKeys = await loadSchemaFieldKeys(supabase, session.template_code);
-    const plan = buildAutofillPlan({ profile, answers, schemaFieldKeys });
+    // Registry values are canonical for machine-extracted requisites. Human/lawyer
+    // values are never silently overwritten; material identifier conflicts remain
+    // visible for lawyer choice. The original document layer is kept in metadata.
+    const plan = buildCanonicalRegistryOverrides({
+      profile,
+      answers,
+      schemaFieldKeys,
+      conflicts,
+    });
     if (plan.length > 0) {
       const { error: upsertError } = await supabase.from("document_intake_answers").upsert(
         plan.map((entry) => ({
@@ -169,7 +182,7 @@ serve(async (req) => {
           value_source: REGISTRY_VALUE_SOURCE,
           confidence: 1,
           needs_review: false,
-          is_verified: false,
+          is_verified: true,
         })),
         { onConflict: "session_id,field_name" },
       );
