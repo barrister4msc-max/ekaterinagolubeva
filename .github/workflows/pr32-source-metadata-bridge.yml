@@ -1,0 +1,55 @@
+name: PR32 source metadata bridge
+
+on:
+  push:
+    branches:
+      - feat/official-legal-sources-layer
+
+permissions:
+  contents: write
+
+jobs:
+  apply-test-commit:
+    if: github.event.head_commit.message == 'chore(pr32): run source metadata bridge patch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/official-legal-sources-layer
+          fetch-depth: 0
+
+      - name: Apply bridge patch
+        run: |
+          git apply --check tmp/pr32-source-metadata-bridge.patch
+          git apply tmp/pr32-source-metadata-bridge.patch
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Targeted source tests
+        run: |
+          bun test supabase/functions/analyze-document-legal-position/official-sources.test.ts \
+            supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
+
+      - name: Remove temporary patch workflow
+        run: |
+          rm -f tmp/pr32-source-metadata-bridge.patch
+          rm -f .github/workflows/pr32-source-metadata-bridge.yml
+
+      - name: Commit bridge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(pr32): preserve canonical source metadata"
+          git push origin HEAD:feat/official-legal-sources-layer
