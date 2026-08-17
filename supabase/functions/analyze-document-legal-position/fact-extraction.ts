@@ -153,6 +153,7 @@ function mergeQueryWithRegex(q: ResearchQuery, joinedText: string): ResearchQuer
 
 // ---------- LLM call ----------
 import { callGeminiWithFallback, FLASH_GEMINI_MODELS } from "./gemini-fallback.ts";
+import { normalizeTemporalDate } from "./temporal-date.ts";
 
 async function callFlashViaGemini(prompt: string): Promise<string | null> {
   if (!GEMINI_API_KEY) return null;
@@ -283,9 +284,9 @@ ${docsBlock || "(нет документов)"}
       const record = raw as Record<string, unknown>;
       const role = normStr(record.role) as TemporalAnchorRole | null;
       const label = normStr(record.label);
-      const date = normStr(record.date);
-      const dateFrom = normStr(record.date_from);
-      const dateTo = normStr(record.date_to);
+      const date = normalizeTemporalDate(record.date);
+      const dateFrom = normalizeTemporalDate(record.date_from);
+      const dateTo = normalizeTemporalDate(record.date_to);
       const basis = normStr(record.basis);
       if (!role || !temporalRoles.has(role) || !label || !basis) continue;
       if (!date && !dateFrom && !dateTo) continue;

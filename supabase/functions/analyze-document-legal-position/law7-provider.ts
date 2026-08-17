@@ -1,6 +1,7 @@
 import type { ResearchQuery, TemporalAnchor } from "./fact-extraction.ts";
 import type { RawSource } from "./repositories.ts";
 import type { ResearchQuestion } from "./research-routing.ts";
+import { normalizeTemporalDate } from "./temporal-date.ts";
 import type {
   LegalResearchProvider,
   ResearchProviderContext,
@@ -54,7 +55,8 @@ function uniq(values: Array<string | null | undefined>): string[] {
 function firstIsoAnchor(anchors: TemporalAnchor[]): string | null {
   for (const anchor of anchors) {
     for (const value of [anchor.date, anchor.date_from, anchor.date_to]) {
-      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+      const normalized = normalizeTemporalDate(value);
+      if (normalized) return normalized;
     }
   }
   return null;

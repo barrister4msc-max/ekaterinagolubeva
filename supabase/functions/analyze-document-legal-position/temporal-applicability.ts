@@ -1,6 +1,7 @@
 import type { TemporalAnchor } from "./fact-extraction.ts";
 import type { ResearchPlan } from "./research-routing.ts";
 import type { TrustedSource } from "./enrich.ts";
+import { normalizeTemporalDate } from "./temporal-date.ts";
 
 export type TemporalApplicabilityStatus =
   | "covered"
@@ -33,18 +34,12 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function dateOnly(value: unknown): string | null {
-  const raw = text(value);
-  if (!raw) return null;
-  const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-  return iso?.[1] ?? null;
-}
 
 function anchorBounds(anchor: TemporalAnchor): { from: string; to: string } | null {
-  const exact = dateOnly(anchor.date);
+  const exact = normalizeTemporalDate(anchor.date);
   if (exact) return { from: exact, to: exact };
-  const from = dateOnly(anchor.date_from);
-  const to = dateOnly(anchor.date_to);
+  const from = normalizeTemporalDate(anchor.date_from);
+  const to = normalizeTemporalDate(anchor.date_to);
   if (from && to) return { from, to };
   if (from) return { from, to: from };
   if (to) return { from: to, to };
@@ -137,8 +132,8 @@ export function evaluateTemporalApplicability(opts: {
       let sawResolvable = false;
 
       for (const source of issueSources) {
-        const effectiveFrom = dateOnly((source as Record<string, unknown>).effective_from);
-        const effectiveTo = dateOnly((source as Record<string, unknown>).effective_to);
+        const effectiveFrom = normalizeTemporalDate((source as Record<string, unknown>).effective_from);
+        const effectiveTo = normalizeTemporalDate((source as Record<string, unknown>).effective_to);
         const result = assess(anchor, effectiveFrom, effectiveTo);
         if (result.status !== "unresolved") sawResolvable = true;
         if (result.status === "covered") covered = true;
