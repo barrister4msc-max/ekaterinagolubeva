@@ -37,6 +37,7 @@ import {
   decideGeneration,
 } from "./enrich.ts";
 import { evaluateOfficialExplanationsCoverage } from "./research-coverage.ts";
+import { evaluateTemporalApplicability } from "./temporal-applicability.ts";
 import { runChallenge } from "./challenge.ts";
 import { readCanonicalRelationsFeatureFlags } from "../_shared/legal-analysis/canonical-relations/index.ts";
 import { computeCanonicalRelationsShadow } from "./canonical-shadow.ts";
@@ -379,10 +380,14 @@ Deno.serve(async (req) => {
     let provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
     let validatedConclusions = validateConclusions(provBuild.conclusions, trusted);
     let officialExplanationsCoverage = evaluateOfficialExplanationsCoverage({ plan: researchPlan, trusted });
+    let temporalApplicability = evaluateTemporalApplicability({ plan: researchPlan, trusted });
     let sufficiency = evaluateSufficiency({
       trusted,
       conclusions: validatedConclusions,
-      researchCoverageGaps: officialExplanationsCoverage.gaps,
+      researchCoverageGaps: [
+        ...officialExplanationsCoverage.gaps,
+        ...temporalApplicability.gaps,
+      ],
     });
 
     // Layer 7b: GAP RETRY — one targeted re-search through legal_knowledge_chunks.
@@ -405,10 +410,14 @@ Deno.serve(async (req) => {
         provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
         validatedConclusions = validateConclusions(provBuild.conclusions, trusted);
         officialExplanationsCoverage = evaluateOfficialExplanationsCoverage({ plan: researchPlan, trusted });
+        temporalApplicability = evaluateTemporalApplicability({ plan: researchPlan, trusted });
         sufficiency = evaluateSufficiency({
           trusted,
           conclusions: validatedConclusions,
-          researchCoverageGaps: officialExplanationsCoverage.gaps,
+          researchCoverageGaps: [
+            ...officialExplanationsCoverage.gaps,
+            ...temporalApplicability.gaps,
+          ],
         });
       }
     }
@@ -522,7 +531,10 @@ Deno.serve(async (req) => {
     parsed.provenance_index = provBuild.provenance_index;
     parsed.evidence_matrix = evidenceMatrix;
     parsed.source_sufficiency = sufficiency;
-    parsed.research_coverage = { official_explanations: officialExplanationsCoverage };
+    parsed.research_coverage = {
+      official_explanations: officialExplanationsCoverage,
+      temporal: temporalApplicability,
+    };
     parsed.challenge_result = challengeResult;
     parsed.source_warnings = sourceWarnings;
     parsed.external_search_required = externalSearch.required;
