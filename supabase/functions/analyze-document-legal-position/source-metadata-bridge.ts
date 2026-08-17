@@ -395,6 +395,9 @@ const TRUSTED_METADATA_KEYS = [
   "official_verification",
   "retrieval_method",
   "transport",
+  "research_issue_ids",
+  "research_issue_texts",
+  "research_modes",
 ] as const;
 
 /**

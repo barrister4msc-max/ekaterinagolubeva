@@ -40,6 +40,9 @@ export type TrustedSource = {
   actuality_status: string;
   // Phase B correction: was this source actually used in any conclusion?
   actually_used_in_generation: boolean;
+  research_issue_ids?: string[];
+  research_issue_texts?: string[];
+  research_modes?: string[];
 };
 
 export type SourceWarning = {
@@ -1305,6 +1308,7 @@ export function buildEvidenceMatrix(opts: {
 export function evaluateSufficiency(opts: {
   trusted: TrustedSource[];
   conclusions: Conclusion[];
+  researchCoverageGaps?: string[];
 }): {
   status: "sufficient" | "partial" | "insufficient_critical";
   gaps: string[];
@@ -1316,6 +1320,9 @@ export function evaluateSufficiency(opts: {
   const gaps: string[] = [];
   if (!hasLaws) gaps.push("Нет актуальной редакции нормы (Кодекс/ФЗ)");
   if (!hasHighCourt) gaps.push("Нет практики ВС РФ / кассации по вопросу");
+  for (const gap of opts.researchCoverageGaps ?? []) {
+    if (gap && !gaps.includes(gap)) gaps.push(gap);
+  }
 
   const insufficientConclusions = opts.conclusions.filter(
     (c) => c.provenance.sufficiency.status === "insufficient",

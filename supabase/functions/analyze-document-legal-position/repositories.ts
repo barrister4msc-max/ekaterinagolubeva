@@ -1,7 +1,7 @@
 // Layer 2: Repository Layer — unified search interface per source domain.
 
 import type { ResearchQuery } from "./fact-extraction.ts";
-import { buildResearchPlan, queryForBucket, queryForQuestion, type ResearchQuestion } from "./research-routing.ts";
+import { buildResearchPlan, queryForBucket, queryForQuestion, type ResearchPlan, type ResearchQuestion } from "./research-routing.ts";
 import {
   buildCanonicalDocumentKey,
   searchOfficialLegalSources,
@@ -386,7 +386,7 @@ export async function runAllRepositories(
   sb: SbClient,
   query: ResearchQuery,
   area: string | null,
-): Promise<{ sources: RawSource[]; counts: Record<string, number> }> {
+): Promise<{ sources: RawSource[]; counts: Record<string, number>; researchPlan: ResearchPlan }> {
   const repos = {
     laws: new LawRepository(sb),
     court_practice: new CourtRepository(sb),
@@ -490,7 +490,7 @@ export async function runAllRepositories(
     research_routed_buckets_count: researchPlan.buckets.length,
     research_execution_units_count: researchPlan.questions.reduce((sum, question) => sum + question.buckets.length, 0),
   };
-  return { sources, counts };
+  return { sources, counts, researchPlan };
 }
 
 /**
@@ -501,11 +501,20 @@ export async function gapSearch(
   sb: SbClient,
   gaps: string[],
   practiceArea: string | null,
+  researchPlan?: ResearchPlan,
 ): Promise<RawSource[]> {
   if (!gaps.length) return [];
   const out: RawSource[] = [];
   for (const gap of gaps.slice(0, 5)) {
-    const terms = gap
+    const issueId = gap.match(/^\[(issue-\d+)\]/)?.[1] ?? null;
+    const issue = issueId ? researchPlan?.questions.find((question) => question.id === issueId) ?? null : null;
+    const expectedBucket: Bucket | null = /позиция ФНС/iu.test(gap)
+      ? "fns_letters"
+      : /позиция Минфина/iu.test(gap)
+        ? "minfin_letters"
+        : null;
+    const searchText = issue?.issue ?? gap;
+    const terms = searchText
       .replace(/[^\p{L}\p{N}\s]+/gu, " ")
       .split(/\s+/)
       .filter((t) => t.length >= 4)
@@ -528,7 +537,17 @@ export async function gapSearch(
       else if (st.includes("minfin")) bucket = "minfin_letters";
       else if (st.includes("ekaterina")) bucket = "ekaterina";
       else if (st.includes("manual") || st.includes("template")) bucket = "manuals";
-      out.push(makeChunkSource(r, bucket));
+      if (expectedBucket && bucket !== expectedBucket) continue;
+      const source = makeChunkSource(r, bucket);
+      out.push(issue ? {
+        ...source,
+        metadata: {
+          ...(source.metadata ?? {}),
+          research_issue_ids: [issue.id],
+          research_issue_texts: [issue.issue],
+          research_modes: issue.modes,
+        },
+      } : source);
     }
   }
   return out;
