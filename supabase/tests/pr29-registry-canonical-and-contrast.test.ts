@@ -4,6 +4,7 @@ import {
   buildCanonicalRegistryOverrides,
   filterFormattingOnlyConflicts,
   formatRegistryBusinessActivity,
+  getPreservedDocumentBusinessActivity,
 } from "../../src/lib/company-registry-canonical";
 import {
   detectCompanyConflicts,
@@ -49,6 +50,10 @@ function profile(): CompanyRegistryProfile {
   );
   if (!mapped) throw new Error("registry fixture mapping failed");
   return mapped;
+}
+
+function codeOnlyProfile(): CompanyRegistryProfile {
+  return { ...profile(), business_activity_name: null };
 }
 
 const SCHEMA_FIELDS = [
@@ -152,6 +157,47 @@ describe("PR29 — канонические реквизиты из реестр
     });
     expect(plan.some((entry) => entry.field_name === "taxpayer_legal_address")).toBe(true);
   });
+
+  test("не заменяет полное описание деятельности голым кодом ОКВЭД", () => {
+    const answers: AnswerRow[] = [
+      {
+        field_name: "business_activity",
+        field_value: "68.20 Аренда и управление собственным или арендованным недвижимым имуществом.",
+        value_source: "ai_document",
+      },
+    ];
+    const plan = buildCanonicalRegistryOverrides({
+      profile: codeOnlyProfile(),
+      answers,
+      schemaFieldKeys: SCHEMA_FIELDS,
+      conflicts: [],
+    });
+    expect(formatRegistryBusinessActivity(codeOnlyProfile())).toBeNull();
+    expect(plan.some((entry) => entry.field_name === "business_activity")).toBe(false);
+  });
+
+  test("восстанавливает описание из сохранённого документного профиля после прежней замены на 68.20", () => {
+    const documentProfile = extractDocumentCompanyProfile([
+      {
+        field_name: "business_activity",
+        field_value: "68.20 Аренда и управление собственным или арендованным недвижимым имуществом.",
+        value_source: "ai_document",
+      },
+    ]);
+    const restored = getPreservedDocumentBusinessActivity({
+      profile: codeOnlyProfile(),
+      documentProfile,
+      answers: [
+        {
+          field_name: "business_activity",
+          field_value: "68.20",
+          value_source: "registry",
+          is_verified: true,
+        },
+      ],
+    });
+    expect(restored).toBe("68.20 Аренда и управление собственным или арендованным недвижимым имуществом.");
+  });
 });
 
 describe("PR29 — ложные расхождения из-за оформления", () => {
@@ -195,6 +241,8 @@ describe("PR29 — видимость текста во всём рабочем 
     expect(css).toContain(".workspace-glass .text-white\\/70");
     expect(css).toContain(".workspace-glass button:disabled");
     expect(css).toContain(".workspace-glass .registry-card");
+    expect(css).toContain(".workspace-glass .db-section-label");
+    expect(css).toContain(".workspace-glass .db-tcard");
     expect(css).toContain("body.workspace-active [role=\"dialog\"][data-state]");
   });
 });

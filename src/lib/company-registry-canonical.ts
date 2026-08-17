@@ -6,6 +6,7 @@ import {
   type AutofillEntry,
   type CompanyRegistryConflict,
   type CompanyRegistryProfile,
+  type DocumentCompanyProfile,
 } from "./company-registry";
 
 const HUMAN_SOURCES = new Set(["manual", "lawyer", "lawyer_confirmed", "user"]);
@@ -57,10 +58,31 @@ function isMachineExtracted(row: AnswerRow | undefined): boolean {
 }
 
 export function formatRegistryBusinessActivity(profile: CompanyRegistryProfile): string | null {
-  if (profile.okved_main && profile.business_activity_name) {
-    return `${profile.okved_main} ${profile.business_activity_name}`;
-  }
-  return profile.business_activity_name ?? profile.okved_main;
+  // Do not downgrade a meaningful document description to a bare OKVED code.
+  // The code is already shown separately in the registry card. The form field is
+  // replaced only when the provider also returned the activity name.
+  if (!profile.business_activity_name) return null;
+  if (profile.okved_main) return `${profile.okved_main} ${profile.business_activity_name}`;
+  return profile.business_activity_name;
+}
+
+export function getPreservedDocumentBusinessActivity(params: {
+  profile: CompanyRegistryProfile;
+  documentProfile: DocumentCompanyProfile;
+  answers: AnswerRow[];
+}): string | null {
+  if (params.profile.business_activity_name) return null;
+  const preserved = params.documentProfile.business_activity?.trim();
+  if (!preserved) return null;
+  const current = params.answers.find((row) => row.field_name === "business_activity");
+  if (!current || current.value_source !== REGISTRY_VALUE_SOURCE) return null;
+  const currentValue = answerToString(current.field_value);
+  const code = params.profile.okved_main?.trim();
+  if (!currentValue || !code) return null;
+  // Repair the precise regression seen in production: the former descriptive
+  // document value was replaced by a verified registry code without a name.
+  if (normalizeCompanyName(currentValue) !== normalizeCompanyName(code)) return null;
+  return preserved;
 }
 
 export function buildCanonicalRegistryOverrides(params: {
