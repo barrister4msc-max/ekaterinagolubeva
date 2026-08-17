@@ -7,7 +7,7 @@ import {
   type CompanyRegistryConflict,
   type CompanyRegistryProfile,
   type DocumentCompanyProfile,
-} from "./company-registry";
+} from "./company-registry.ts";
 
 const HUMAN_SOURCES = new Set(["manual", "lawyer", "lawyer_confirmed", "user"]);
 
