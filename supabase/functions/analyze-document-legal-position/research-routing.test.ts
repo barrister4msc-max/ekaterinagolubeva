@@ -10,6 +10,7 @@ const EMPTY_QUERY: ResearchQuery = {
   parties: [],
   amounts: [],
   dates: [],
+  temporal_anchors: [],
   legal_issues: [],
   research_topics: [],
   keywords: [],
@@ -116,11 +117,21 @@ describe("issue-based legal research routing", () => {
     const q = query({
       legal_issues: ["Должная осмотрительность при выборе контрагента"],
       dates: ["2022-03-01"],
+      temporal_anchors: [{
+        role: "transaction_date",
+        label: "Дата спорной операции",
+        date: "2022-03-01",
+        date_from: null,
+        date_to: null,
+        basis: "Дата прямо указана в материалах сделки",
+      }],
     });
 
     const issue = buildResearchPlan(q).questions[0];
     expect(issue.adverse_terms.some((x) => x.includes("против позиции"))).toBe(true);
     expect(issue.temporal_terms).toContain("2022-03-01");
+    expect(issue.temporal_anchors).toHaveLength(1);
+    expect(issue.temporal_anchors[0].role).toBe("transaction_date");
     expect(q.facts).toEqual([]);
   });
 });

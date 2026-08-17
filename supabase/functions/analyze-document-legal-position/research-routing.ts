@@ -1,4 +1,4 @@
-import type { ResearchQuery } from "./fact-extraction.ts";
+import type { ResearchQuery, TemporalAnchor } from "./fact-extraction.ts";
 import type { Bucket } from "./repositories.ts";
 
 export type ResearchMode =
@@ -32,6 +32,7 @@ export type ResearchQuestion = {
   argument_terms: string[];
   adverse_terms: string[];
   temporal_terms: string[];
+  temporal_anchors: TemporalAnchor[];
   buckets: Bucket[];
 };
 
@@ -75,6 +76,25 @@ function isTaxIssue(text: string): boolean {
 
 function needsCounterpartyFacts(text: string): boolean {
   return /контрагент|реальност|операци|поставк|товар|перевоз|склад|ресурс|техническ|номинальн|движени.{0,10}денеж|упд|счет.?фактур/iu.test(text);
+}
+
+function temporalAnchorsForIssue(query: ResearchQuery, issue: string): TemporalAnchor[] {
+  const anchors = query.temporal_anchors ?? [];
+  if (anchors.length === 0) return [];
+  const lower = issue.toLowerCase();
+  const preferred = new Set<string>();
+  if (/налог|54\.1|ндс|вычет|доначис|реконструкц/iu.test(lower)) {
+    ["tax_period", "transaction_date", "inspection_period", "requirement_date", "authority_decision_date"].forEach((role) => preferred.add(role));
+  }
+  if (/провер|требован|решени.{0,10}налог|процессуальн/iu.test(lower)) {
+    ["inspection_period", "requirement_date", "authority_decision_date"].forEach((role) => preferred.add(role));
+  }
+  if (/договор|сделк|поставк|исполн|операци/iu.test(lower)) {
+    ["contract_date", "transaction_date"].forEach((role) => preferred.add(role));
+  }
+  if (/суд|кассац|апелляц|процесс|судеб/iu.test(lower)) preferred.add("court_event_date");
+  if (preferred.size === 0) return anchors.slice(0, 8);
+  return anchors.filter((anchor) => preferred.has(anchor.role)).slice(0, 8);
 }
 
 function bucketsForIssue(issue: string): Bucket[] {
@@ -152,9 +172,15 @@ export function buildResearchPlan(query: ResearchQuery): ResearchPlan {
       ]),
       temporal_terms: uniq([
         issue,
-        ...(query.dates ?? []),
+        ...temporalAnchorsForIssue(query, issue).flatMap((anchor) => [
+          anchor.label,
+          anchor.date,
+          anchor.date_from,
+          anchor.date_to,
+        ]),
         ...(query.metadata_terms ?? []).filter((value) => /период|дата|редакц|действовал|год/iu.test(value)),
       ]).slice(0, 12),
+      temporal_anchors: temporalAnchorsForIssue(query, issue),
       buckets: bucketsForIssue(issue),
     };
   });

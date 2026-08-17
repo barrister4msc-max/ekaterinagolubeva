@@ -14,7 +14,7 @@ function plan(): ResearchPlan {
         modes: ["exact", "metadata", "semantic", "fact_pattern", "issue_argument", "adverse", "temporal"],
         source_roles: ["normative", "judicial", "official_explanation", "adverse", "temporal"],
         exact_terms: [], metadata_terms: [], semantic_terms: [], fact_pattern_terms: [],
-        argument_terms: [], adverse_terms: [], temporal_terms: [],
+        argument_terms: [], adverse_terms: [], temporal_terms: [], temporal_anchors: [],
         buckets: ["laws", "court_practice", "fns_letters", "minfin_letters", "ekaterina", "manuals"],
       },
       {
@@ -23,7 +23,7 @@ function plan(): ResearchPlan {
         modes: ["exact", "metadata", "semantic", "fact_pattern", "issue_argument", "adverse", "temporal"],
         source_roles: ["normative", "judicial", "adverse", "temporal"],
         exact_terms: [], metadata_terms: [], semantic_terms: [], fact_pattern_terms: [],
-        argument_terms: [], adverse_terms: [], temporal_terms: [],
+        argument_terms: [], adverse_terms: [], temporal_terms: [], temporal_anchors: [],
         buckets: ["laws", "court_practice", "ekaterina", "manuals"],
       },
     ],
