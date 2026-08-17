@@ -203,6 +203,36 @@ describe("Canonical Source Metadata Bridge", () => {
     expect(trusted[0].canonical_document_key).toBe("ru:laws:document:425-фз:2025-11-28");
   });
 
+  test("carries research provider provenance without treating it as legal authority", () => {
+    const providerSource: RawSource = {
+      ...source,
+      metadata: {
+        ...source.metadata,
+        provider_id: "law7",
+        provider_type: "research",
+        provider_integration_mode: "mcp",
+        provider_source_class: "retrieval_intermediary",
+        authority_level: "primary",
+        official_origin_verified: false,
+      },
+    };
+    const trusted: Array<Record<string, any>> = [{
+      source_id: "chunk-1",
+      source_ref: "law:нк рф:54.1",
+      trust_score: 95,
+    }];
+
+    carryCanonicalMetadataToTrusted(trusted, [providerSource]);
+
+    expect(trusted[0].provider_id).toBe("law7");
+    expect(trusted[0].provider_type).toBe("research");
+    expect(trusted[0].provider_integration_mode).toBe("mcp");
+    expect(trusted[0].provider_source_class).toBe("retrieval_intermediary");
+    expect(trusted[0].authority_level).toBe("primary");
+    // Provider provenance does not self-certify official origin.
+    expect(trusted[0].official_origin_verified).toBeUndefined();
+  });
+
   test("does not query legal_source_registry again after projection was attempted", async () => {
     let fromCalls = 0;
     const sb = {
