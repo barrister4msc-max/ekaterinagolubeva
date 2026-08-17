@@ -44,7 +44,11 @@ const row = {
   verification_status: "verified",
   last_checked_at: "2026-08-17T10:00:00+00:00",
   retrieved_at: "2026-08-17T09:00:00+00:00",
-  metadata: { canonical_document_key: "ru:laws:document:425-фз:2025-11-28" },
+  metadata: {
+    canonical_document_key: "ru:laws:document:425-фз:2025-11-28",
+    source_group_id: "group-425",
+    is_source_head: true,
+  },
 };
 
 describe("Canonical Source Metadata Bridge", () => {
@@ -61,9 +65,79 @@ describe("Canonical Source Metadata Bridge", () => {
       ...row,
       id: "22222222-2222-2222-2222-222222222222",
       publication_date: "2024-11-28",
-      metadata: {},
+      metadata: {
+        source_group_id: "group-425-old",
+        is_source_head: true,
+      },
     };
     expect(chooseCanonicalRegistryMatch(ambiguousSource, [row, second])).toBeNull();
+  });
+
+  test("collapses chunk-level registry rows to the existing source-group head", () => {
+    const chunkRow = {
+      ...row,
+      id: "33333333-3333-3333-3333-333333333333",
+      metadata: {
+        ...row.metadata,
+        is_source_head: false,
+        chunk_index: 7,
+      },
+    };
+    const byExplicitChunk: RawSource = {
+      ...source,
+      metadata: {
+        ...source.metadata,
+        legal_source_registry_id: chunkRow.id,
+      },
+    };
+
+    const match = chooseCanonicalRegistryMatch(byExplicitChunk, [chunkRow, row]);
+    expect(match?.method).toBe("registry_id_source_head");
+    expect(match?.row.id).toBe(row.id);
+  });
+
+  test("uses document number and date to disambiguate shared provider URLs between source heads", () => {
+    const sharedUrl = "https://www.nalog.gov.ru/rn77/promo/na/";
+    const target = {
+      ...row,
+      id: "44444444-4444-4444-4444-444444444444",
+      source_type: "fns_letter",
+      official_url: sharedUrl,
+      document_number: null,
+      publication_date: null,
+      metadata: {
+        source_group_id: "fns-target",
+        is_source_head: true,
+        document_number: "№ БВ-4-7/8051@ ",
+        document_date: "2024-07-16",
+      },
+    };
+    const other = {
+      ...target,
+      id: "55555555-5555-5555-5555-555555555555",
+      metadata: {
+        source_group_id: "fns-other",
+        is_source_head: true,
+        document_number: "ЕД-1-23/228@ ",
+        document_date: "2026-04-03",
+      },
+    };
+    const fnsSource: RawSource = {
+      ...source,
+      bucket: "fns_letters",
+      source_type: "fns_letter",
+      official_url: sharedUrl,
+      letter_number: "БВ-4-7/8051@",
+      letter_date: "2024-07-16",
+      metadata: {
+        document_number: "БВ-4-7/8051@",
+        document_date: "2024-07-16",
+      },
+    };
+
+    const match = chooseCanonicalRegistryMatch(fnsSource, [target, other]);
+    expect(match?.method).toBe("document_number_date_source_head");
+    expect(match?.row.id).toBe(target.id);
   });
 
   test("projects structured registry columns as canonical runtime metadata", () => {
@@ -73,8 +147,43 @@ describe("Canonical Source Metadata Bridge", () => {
     expect(projected.metadata.current_status).toBe("current");
     expect(projected.metadata.verification_status).toBe("verified");
     expect(projected.metadata.legal_source_registry_id).toBe(row.id);
+    expect(projected.metadata.registry_source_group_id).toBe("group-425");
     expect(projected.metadata.registry_match_attempted).toBe(true);
     expect(projected.official_url).toBe(row.official_url);
+  });
+
+  test("preserves useful legacy registry metadata when structured temporal columns are null", () => {
+    const legacy = {
+      ...row,
+      document_number: null,
+      publication_date: null,
+      effective_from: null,
+      effective_to: null,
+      revision_date: null,
+      authority_name: null,
+      current_status: "unknown",
+      verification_status: "needs_check",
+      metadata: {
+        source_group_id: "legacy-group",
+        is_source_head: true,
+        document_number: "N 146-ФЗ ",
+        document_date: "1998-07-31",
+        edition_date: "2026-01-01",
+        authority: "Федеральный законодатель",
+        official_status: "unverified",
+        verification_status: "official_verified",
+        trust_level: "medium",
+      },
+    };
+    const projected = projectRegistryMetadata(source, legacy, "official_url_source_head");
+    expect(projected.metadata.document_number).toBe("146-ФЗ");
+    expect(projected.metadata.document_date).toBe("1998-07-31");
+    expect(projected.metadata.revision_date).toBe("2026-01-01");
+    expect(projected.metadata.authority_name).toBe("Федеральный законодатель");
+    // Structured verification remains canonical and safer than contradictory legacy metadata.
+    expect(projected.metadata.verification_status).toBe("needs_check");
+    expect(projected.metadata.registry_legacy_verification_status).toBe("official_verified");
+    expect(projected.metadata.registry_official_status).toBe("unverified");
   });
 
   test("carries canonical metadata to TrustedSource without changing source_ref or trust", () => {
