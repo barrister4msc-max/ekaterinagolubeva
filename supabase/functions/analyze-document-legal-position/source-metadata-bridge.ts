@@ -186,6 +186,7 @@ export function projectRegistryMetadata(
       ...source.metadata,
       legal_source_registry_id: row.id,
       registry_match_method: matchMethod,
+      registry_match_attempted: true,
       authority_name: row.authority_name,
       authority_level: row.authority_level,
       jurisdiction: row.jurisdiction,
@@ -212,20 +213,23 @@ export async function attachCanonicalRegistryMetadata(
 ): Promise<RawSource[]> {
   if (!sources.length) return sources;
 
+  const pending = sources.filter((source) => source.metadata?.registry_match_attempted !== true);
+  if (!pending.length) return sources;
+
   const registryIds = uniq(
-    sources.map((source) =>
+    pending.map((source) =>
       text(source.metadata?.legal_source_registry_id ?? source.metadata?.registry_source_id),
     ),
   );
   const officialUrls = uniq(
-    sources.map((source) =>
+    pending.map((source) =>
       text(source.official_url ?? source.metadata?.official_url ?? source.metadata?.source_url),
     ),
   );
   const externalIds = uniq(
-    sources.map((source) => text(source.metadata?.external_id ?? source.metadata?.eo_number)),
+    pending.map((source) => text(source.metadata?.external_id ?? source.metadata?.eo_number)),
   );
-  const documentNumbers = uniq(sources.map(sourceDocumentNumber));
+  const documentNumbers = uniq(pending.map(sourceDocumentNumber));
 
   const batches = await Promise.all([
     rowsForIn(sb, "id", registryIds),
@@ -234,11 +238,15 @@ export async function attachCanonicalRegistryMetadata(
     rowsForIn(sb, "document_number", documentNumbers),
   ]);
   const rows = [...new Map(batches.flat().map((row) => [row.id, row])).values()];
-  if (!rows.length) return sources;
 
   return sources.map((source) => {
+    if (source.metadata?.registry_match_attempted === true) return source;
     const match = chooseCanonicalRegistryMatch(source, rows);
-    return match ? projectRegistryMetadata(source, match.row, match.method) : source;
+    if (match) return projectRegistryMetadata(source, match.row, match.method);
+    return {
+      ...source,
+      metadata: { ...source.metadata, registry_match_attempted: true },
+    };
   });
 }
 
