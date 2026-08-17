@@ -1,0 +1,84 @@
+name: PR32 Issue Routing Apply
+
+on:
+  push:
+    branches:
+      - feat/official-legal-sources-layer
+
+permissions:
+  contents: write
+
+jobs:
+  apply-check-commit:
+    if: github.event.head_commit.message == 'chore(research): apply issue routing integration'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/official-legal-sources-layer
+          fetch-depth: 0
+
+      - name: Apply issue-based routing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('supabase/functions/analyze-document-legal-position/repositories.ts')
+          s = p.read_text()
+
+          old = 'import type { ResearchQuery } from "./fact-extraction.ts";\n'
+          new = old + 'import { buildResearchPlan, queryForBucket } from "./research-routing.ts";\n'
+          if new not in s:
+            if old not in s:
+              raise SystemExit('ResearchQuery import not found')
+            s = s.replace(old, new, 1)
+
+          old_block = '''  const [laws, court, fns, minfin, ek, manuals, official] = await Promise.all([\n    repos.laws.search(query, area),\n    repos.court_practice.search(query, area),\n    repos.fns_letters.search(query, area),\n    repos.minfin_letters.search(query, area),\n    repos.ekaterina.search(query, area),\n    repos.manuals.search(query, area),\n    searchOfficialLegalSources(query),\n  ]);'''
+          new_block = '''  const researchPlan = buildResearchPlan(query);\n  const routed = {\n    laws: queryForBucket(query, researchPlan, "laws"),\n    court_practice: queryForBucket(query, researchPlan, "court_practice"),\n    fns_letters: queryForBucket(query, researchPlan, "fns_letters"),\n    minfin_letters: queryForBucket(query, researchPlan, "minfin_letters"),\n    ekaterina: queryForBucket(query, researchPlan, "ekaterina"),\n    manuals: queryForBucket(query, researchPlan, "manuals"),\n  };\n  const routedBuckets = new Set(researchPlan.buckets);\n\n  const [laws, court, fns, minfin, ek, manuals, official] = await Promise.all([\n    routedBuckets.has("laws") ? repos.laws.search(routed.laws, area) : Promise.resolve([]),\n    routedBuckets.has("court_practice")\n      ? repos.court_practice.search(routed.court_practice, area)\n      : Promise.resolve([]),\n    routedBuckets.has("fns_letters")\n      ? repos.fns_letters.search(routed.fns_letters, area)\n      : Promise.resolve([]),\n    routedBuckets.has("minfin_letters")\n      ? repos.minfin_letters.search(routed.minfin_letters, area)\n      : Promise.resolve([]),\n    routedBuckets.has("ekaterina")\n      ? repos.ekaterina.search(routed.ekaterina, area)\n      : Promise.resolve([]),\n    routedBuckets.has("manuals")\n      ? repos.manuals.search(routed.manuals, area)\n      : Promise.resolve([]),\n    searchOfficialLegalSources(routed.laws),\n  ]);'''
+          if old_block not in s:
+            raise SystemExit('runAllRepositories Promise.all block not found')
+          s = s.replace(old_block, new_block, 1)
+
+          marker = '    metadata_terms_count: query.metadata_terms?.length ?? 0,\n'
+          addition = marker + '    research_questions_count: researchPlan.questions.length,\n    research_modes_count: researchPlan.all_modes.length,\n    research_routed_buckets_count: researchPlan.buckets.length,\n'
+          if addition not in s:
+            if marker not in s:
+              raise SystemExit('counts marker not found')
+            s = s.replace(marker, addition, 1)
+
+          p.write_text(s)
+
+          wf = Path('.github/workflows/pr32-source-metadata-bridge-check.yml')
+          w = wf.read_text()
+          old_test = 'supabase/functions/analyze-document-legal-position/dedupe-canonical.test.ts'
+          new_test = old_test + ' supabase/functions/analyze-document-legal-position/research-routing.test.ts'
+          if new_test not in w:
+            if old_test not in w:
+              raise SystemExit('test list marker not found')
+            w = w.replace(old_test, new_test, 1)
+          wf.write_text(w)
+          PY
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Research routing tests
+        run: bun test supabase/functions/analyze-document-legal-position/research-routing.test.ts supabase/functions/analyze-document-legal-position/official-sources.test.ts supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts supabase/functions/analyze-document-legal-position/source-metadata-merge.test.ts supabase/functions/analyze-document-legal-position/dedupe-canonical.test.ts
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
+
+      - name: Remove temporary workflow and commit
+        run: |
+          rm -f .github/workflows/pr32-issue-routing-apply.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(research): route retrieval by legal issue"
+          git push origin HEAD:feat/official-legal-sources-layer
