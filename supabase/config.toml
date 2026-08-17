@@ -29,3 +29,7 @@ verify_jwt = false
 
 [functions.review-generated-legal-document]
 verify_jwt = false
+
+# PR32 Preview E2E probe only. Remove before Ready/merge.
+[functions.pr32-official-sources-probe]
+verify_jwt = false
