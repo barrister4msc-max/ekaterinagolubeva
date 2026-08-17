@@ -1,0 +1,213 @@
+/* KATI LAWYER workspace contrast guard.
+   Loaded after the shared stylesheet from the workspace route only.
+   Purpose: keep every workspace label, helper, warning, badge and disabled control
+   readable on the warm light workspace surface without changing public-site styles. */
+
+.workspace-glass {
+  color: #2f2925;
+}
+
+.workspace-glass h1,
+.workspace-glass h2,
+.workspace-glass h3,
+.workspace-glass h4,
+.workspace-glass h5,
+.workspace-glass h6,
+.workspace-glass .text-foreground,
+.workspace-glass [class*="text-foreground"] {
+  color: #2f2925 !important;
+}
+
+.workspace-glass .text-muted-foreground,
+.workspace-glass [class*="text-muted-foreground"] {
+  color: #655a50 !important;
+}
+
+/* Legacy dark-workspace utility classes still occur in several screens. */
+.workspace-glass .text-white,
+.workspace-glass .text-white\/95,
+.workspace-glass .text-white\/90,
+.workspace-glass .text-white\/80,
+.workspace-glass .text-white\/75,
+.workspace-glass .text-white\/70,
+.workspace-glass .text-white\/60,
+.workspace-glass .text-white\/50 {
+  color: #3f3731 !important;
+}
+
+/* Status colors must remain semantically distinct but dark enough on light glass. */
+.workspace-glass .text-amber-950,
+.workspace-glass .text-amber-900,
+.workspace-glass .text-amber-800,
+.workspace-glass .text-amber-700,
+.workspace-glass .text-amber-600,
+.workspace-glass .text-yellow-900,
+.workspace-glass .text-yellow-800,
+.workspace-glass .text-yellow-700 {
+  color: #6f4a05 !important;
+}
+.workspace-glass .text-red-950,
+.workspace-glass .text-red-900,
+.workspace-glass .text-red-800,
+.workspace-glass .text-red-700,
+.workspace-glass .text-red-600,
+.workspace-glass .text-rose-900,
+.workspace-glass .text-rose-800,
+.workspace-glass .text-rose-700 {
+  color: #8a2632 !important;
+}
+.workspace-glass .text-blue-950,
+.workspace-glass .text-blue-900,
+.workspace-glass .text-blue-800,
+.workspace-glass .text-blue-700,
+.workspace-glass .text-blue-600,
+.workspace-glass .text-sky-800,
+.workspace-glass .text-sky-700,
+.workspace-glass .text-indigo-700 {
+  color: #245b8f !important;
+}
+.workspace-glass .text-green-950,
+.workspace-glass .text-green-900,
+.workspace-glass .text-green-800,
+.workspace-glass .text-green-700,
+.workspace-glass .text-emerald-800,
+.workspace-glass .text-emerald-700,
+.workspace-glass .text-emerald-600 {
+  color: #216a4a !important;
+}
+.workspace-glass .text-orange-900,
+.workspace-glass .text-orange-800,
+.workspace-glass .text-orange-700 {
+  color: #8a4817 !important;
+}
+.workspace-glass .text-purple-900,
+.workspace-glass .text-purple-800,
+.workspace-glass .text-purple-700,
+.workspace-glass .text-violet-800,
+.workspace-glass .text-violet-700 {
+  color: #664594 !important;
+}
+.workspace-glass .text-gray-900,
+.workspace-glass .text-gray-800,
+.workspace-glass .text-gray-700,
+.workspace-glass .text-slate-900,
+.workspace-glass .text-slate-800,
+.workspace-glass .text-slate-700,
+.workspace-glass .text-neutral-900,
+.workspace-glass .text-neutral-800,
+.workspace-glass .text-zinc-900,
+.workspace-glass .text-zinc-800,
+.workspace-glass .text-stone-900,
+.workspace-glass .text-stone-800,
+.workspace-glass .text-black {
+  color: #2f2925 !important;
+}
+.workspace-glass .text-gray-600,
+.workspace-glass .text-gray-500,
+.workspace-glass .text-slate-600,
+.workspace-glass .text-slate-500,
+.workspace-glass .text-neutral-600,
+.workspace-glass .text-neutral-500,
+.workspace-glass .text-zinc-600,
+.workspace-glass .text-zinc-500,
+.workspace-glass .text-stone-600,
+.workspace-glass .text-stone-500 {
+  color: #655a50 !important;
+}
+
+/* Light status panels with guaranteed text contrast. */
+.workspace-glass .bg-amber-50,
+.workspace-glass .bg-amber-100,
+.workspace-glass .bg-yellow-50,
+.workspace-glass .bg-yellow-100 {
+  background: rgba(255, 244, 214, 0.94) !important;
+  border-color: rgba(160, 112, 20, 0.28) !important;
+  color: #5f430c !important;
+}
+.workspace-glass .bg-red-50,
+.workspace-glass .bg-red-100,
+.workspace-glass .bg-rose-50,
+.workspace-glass .bg-rose-100 {
+  background: rgba(255, 238, 239, 0.95) !important;
+  border-color: rgba(160, 54, 67, 0.25) !important;
+  color: #79242d !important;
+}
+.workspace-glass .bg-blue-50,
+.workspace-glass .bg-blue-100,
+.workspace-glass .bg-sky-50,
+.workspace-glass .bg-sky-100,
+.workspace-glass .bg-indigo-50 {
+  background: rgba(236, 246, 255, 0.95) !important;
+  border-color: rgba(50, 105, 155, 0.24) !important;
+  color: #214f79 !important;
+}
+.workspace-glass .bg-green-50,
+.workspace-glass .bg-green-100,
+.workspace-glass .bg-emerald-50,
+.workspace-glass .bg-emerald-100 {
+  background: rgba(235, 249, 241, 0.95) !important;
+  border-color: rgba(45, 120, 82, 0.24) !important;
+  color: #205c43 !important;
+}
+
+/* Inputs, textarea and select content must always be readable. */
+.workspace-glass input:not([type="checkbox"]):not([type="radio"]),
+.workspace-glass textarea,
+.workspace-glass select,
+.workspace-glass [data-slot="select-trigger"] {
+  color: #2f2925 !important;
+  caret-color: #2f2925;
+}
+.workspace-glass input::placeholder,
+.workspace-glass textarea::placeholder {
+  color: #75695d !important;
+  opacity: 1;
+}
+
+/* Disabled controls: visibly disabled, never invisible. */
+.workspace-glass button:disabled,
+.workspace-glass input:disabled,
+.workspace-glass textarea:disabled,
+.workspace-glass select:disabled,
+.workspace-glass [aria-disabled="true"] {
+  opacity: 0.72 !important;
+}
+.workspace-glass button:disabled,
+.workspace-glass [aria-disabled="true"] {
+  color: #5f554c !important;
+}
+
+/* Registry card and warning rows use semantic utility colors; keep them crisp. */
+.workspace-glass .registry-card {
+  background: rgba(255, 252, 247, 0.92) !important;
+  border-color: rgba(120, 92, 62, 0.24) !important;
+  color: #2f2925 !important;
+}
+.workspace-glass .registry-card .registry-secondary {
+  color: #5f554c !important;
+}
+.workspace-glass .registry-card .registry-warning {
+  background: #fff4d6 !important;
+  border-color: rgba(160, 112, 20, 0.30) !important;
+  color: #614609 !important;
+}
+
+/* Portaled overlays belong to workspace but live outside .workspace-glass. */
+body.workspace-active [role="dialog"][data-state],
+body.workspace-active [data-vaul-drawer],
+body.workspace-active [data-radix-popper-content-wrapper] > * {
+  color: #2f2925 !important;
+}
+body.workspace-active [role="dialog"][data-state] .text-muted-foreground,
+body.workspace-active [data-vaul-drawer] .text-muted-foreground,
+body.workspace-active [data-radix-popper-content-wrapper] .text-muted-foreground {
+  color: #655a50 !important;
+}
+body.workspace-active [role="dialog"][data-state] input,
+body.workspace-active [role="dialog"][data-state] textarea,
+body.workspace-active [data-vaul-drawer] input,
+body.workspace-active [data-vaul-drawer] textarea,
+body.workspace-active [data-radix-popper-content-wrapper] [role="option"],
+body.workspace-active [data-radix-popper-content-wrapper] [role="menuitem"] {
+  color: #2f2925 !important;
+}
