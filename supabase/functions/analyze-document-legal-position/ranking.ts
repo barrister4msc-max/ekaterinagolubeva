@@ -2,6 +2,7 @@
 
 import type { ResearchQuery } from "./fact-extraction.ts";
 import type { Bucket, RawSource } from "./repositories.ts";
+import { attachCanonicalRegistryMetadata } from "./source-metadata-bridge.ts";
 
 export type ScoredSource = RawSource & {
   scores: {
@@ -121,6 +122,9 @@ export async function rankSources(opts: {
   practiceArea: string | null;
 }): Promise<ScoredSource[]> {
   const { sb, sources, query, queryEmbedding, practiceArea } = opts;
+  // Ranking is a shared boundary used by both first-pass retrieval and GAP retry.
+  // Enforce the same canonical metadata projection here so no retry path bypasses it.
+  const canonicalSources = await attachCanonicalRegistryMetadata(sb, sources);
 
   const terms = [
     ...query.legal_issues,
@@ -136,7 +140,7 @@ export async function rankSources(opts: {
 
   const semMap = await semanticScoreMap(sb, queryEmbedding, practiceArea);
 
-  const scored: ScoredSource[] = sources.map((src) => {
+  const scored: ScoredSource[] = canonicalSources.map((src) => {
     const semantic = src.source_table === "legal_knowledge_chunks"
       ? (semMap.get(src.source_id) ?? 0)
       : 0;
