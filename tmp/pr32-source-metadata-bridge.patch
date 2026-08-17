@@ -1,0 +1,209 @@
+--- a/supabase/functions/analyze-document-legal-position/enrich.ts
++++ b/supabase/functions/analyze-document-legal-position/enrich.ts
+@@ -35,7 +35,30 @@
+   is_winner: boolean;
+   superseded_by: string | null;
+   lower_priority_reason: string | null;
+-  // actuality (kept compatible with previous shape)
++  // Canonical source metadata bridge. These fields are additive runtime
++  // projections of the existing legal_source_registry / provider metadata.
++  // They must never replace source_ref or create a second registry truth.
++  authority_name: string | null;
++  authority_level: string | null;
++  publication_date: string | null;
++  effective_from: string | null;
++  effective_to: string | null;
++  revision_date: string | null;
++  is_official: boolean | null;
++  current_status: string | null;
++  last_checked_at: string | null;
++  retrieved_at: string | null;
++  canonical_document_key: string | null;
++  canonical_version_key: string | null;
++  provider_id: string | null;
++  provider: string | null;
++  official_origin_verified: boolean;
++  document_identity_verified: boolean;
++  content_verified: boolean;
++  substantive_use_allowed: boolean;
++  verification_level: string | null;
++  // actuality / verification remain compatible with previous consumers, but
++  // canonical/provider values win over the old URL-presence heuristic.
+   verification_status: string;
+   actuality_status: string;
+   // Phase B correction: was this source actually used in any conclusion?
+@@ -459,9 +482,62 @@
+ 
+ // ---------- Build trusted source set from merged registry -------------------
+ 
++function sourceMetadataBridge(s: MergedSource) {
++  const meta = (s.metadata ?? {}) as Record<string, unknown>;
++  const safety = (meta.official_verification ?? meta.safety) as Record<string, unknown> | undefined;
++  const str = (...values: unknown[]): string | null => {
++    for (const value of values) {
++      if (typeof value === "string" && value.trim()) return value.trim();
++    }
++    return null;
++  };
++  const bool = (...values: unknown[]): boolean | null => {
++    for (const value of values) if (typeof value === "boolean") return value;
++    return null;
++  };
++
++  const verificationLevel = str(meta.verification_level, safety?.verification_level);
++  const verificationStatus =
++    str(meta.verification_status, verificationLevel) ??
++    (s.official_url ? "needs_check" : "missing_url");
++  const actualityStatus =
++    str(meta.actuality_status, safety?.actuality_status) ??
++    (s.official_url ? "requires_actuality_check" : "requires_manual_verification");
++
++  const officialOrigin = bool(meta.official_origin_verified, safety?.official_origin_verified) ?? false;
++  const identityVerified = bool(meta.document_identity_verified, safety?.document_identity_verified) ?? false;
++  const contentVerified = bool(meta.content_verified, safety?.content_verified) ?? false;
++  const substantiveAllowed = bool(meta.substantive_use_allowed, safety?.substantive_use_allowed) ?? false;
++
++  return {
++    authority_name: str(meta.authority_name, meta.signatory_authority),
++    authority_level: str(meta.authority_level),
++    publication_date: str(meta.publication_date),
++    effective_from: str(meta.effective_from),
++    effective_to: str(meta.effective_to),
++    revision_date: str(meta.revision_date, meta.revision),
++    is_official: bool(meta.is_official, meta.official_source),
++    current_status: str(meta.current_status),
++    last_checked_at: str(meta.last_checked_at),
++    retrieved_at: str(meta.retrieved_at, meta.official_retrieved_at),
++    canonical_document_key: str(meta.canonical_document_key),
++    canonical_version_key: str(meta.canonical_version_key),
++    provider_id: str(meta.provider_id),
++    provider: str(meta.provider, meta.official_provider),
++    official_origin_verified: officialOrigin,
++    document_identity_verified: identityVerified,
++    content_verified: contentVerified,
++    substantive_use_allowed: substantiveAllowed,
++    verification_level: verificationLevel,
++    verification_status: verificationStatus,
++    actuality_status: actualityStatus,
++  };
++}
++
+ export function enrichSources(merged: MergedSource[]): TrustedSource[] {
+   const trusted: TrustedSource[] = merged.map((s) => {
+     const t = computeTrust(s);
++    const canonical = sourceMetadataBridge(s);
+     return {
+       source_id: s.source_id,
+       source_ref: makeSourceRef(s),
+@@ -482,10 +558,7 @@
+       is_winner: false,
+       superseded_by: null,
+       lower_priority_reason: null,
+-      verification_status: s.official_url ? "needs_check" : "missing_url",
+-      actuality_status: s.official_url
+-        ? "requires_actuality_check"
+-        : "requires_manual_verification",
++      ...canonical,
+       actually_used_in_generation: false,
+     };
+   });
+diff --git a/supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts b/supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts
+new file mode 100644
+--- /dev/null
++++ b/supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts
+@@ -0,0 +1,95 @@
++import { describe, expect, test } from "bun:test";
++import { enrichSources } from "./enrich.ts";
++
++function merged(metadata: Record<string, unknown>, officialUrl: string | null = null): any {
++  return {
++    bucket: "laws",
++    source_table: "legal_knowledge_chunks",
++    source_id: "source-1",
++    source_type: "federal_law",
++    title: "Федеральный закон № 425-ФЗ",
++    official_url: officialUrl,
++    citation: "425-ФЗ",
++    snippet: "Текст закона",
++    metadata,
++    code: null,
++    article: null,
++    part: null,
++    case_number: null,
++    letter_number: null,
++    letter_date: null,
++    scores: { semantic: 0.8, keyword: 0.8, priority: 0.5, relevance: 1, final: 0.8 },
++    merged_from: [{ source_table: "legal_knowledge_chunks", source_id: "source-1" }],
++    appearances: 1,
++  };
++}
++
++describe("Canonical Source Metadata Bridge", () => {
++  test("projects canonical registry metadata into TrustedSource without changing source_ref", () => {
++    const [source] = enrichSources([
++      merged({
++        authority_name: "Государственная Дума",
++        authority_level: "primary",
++        publication_date: "2025-11-28",
++        effective_from: "2026-01-01",
++        effective_to: null,
++        revision_date: "2025-11-28",
++        is_official: true,
++        current_status: "active",
++        verification_status: "verified",
++        last_checked_at: "2026-08-17T10:00:00.000Z",
++        retrieved_at: "2026-08-17T09:00:00.000Z",
++        canonical_document_key: "ru:laws:document:425-фз:2025-11-28",
++        canonical_version_key: "ru:laws:document:425-фз:2025-11-28:v1",
++      }),
++    ]);
++
++    expect(source.source_ref).toBe("law:source-1");
++    expect(source.authority_name).toBe("Государственная Дума");
++    expect(source.authority_level).toBe("primary");
++    expect(source.effective_from).toBe("2026-01-01");
++    expect(source.current_status).toBe("active");
++    expect(source.verification_status).toBe("verified");
++    expect(source.canonical_document_key).toBe("ru:laws:document:425-фз:2025-11-28");
++    expect(source.canonical_version_key).toBe("ru:laws:document:425-фз:2025-11-28:v1");
++  });
++
++  test("preserves PR32 official safety semantics instead of replacing them with URL heuristics", () => {
++    const [source] = enrichSources([
++      merged(
++        {
++          provider_id: "pravo",
++          official_provider: "publication.pravo.gov.ru",
++          official_retrieved_at: "2026-08-17T09:00:00.000Z",
++          official_verification: {
++            official_origin_verified: true,
++            document_identity_verified: true,
++            content_verified: false,
++            actuality_status: "verified",
++            substantive_use_allowed: false,
++            verification_level: "identity",
++          },
++        },
++        "https://publication.pravo.gov.ru/document/0001",
++      ),
++    ]);
++
++    expect(source.provider_id).toBe("pravo");
++    expect(source.provider).toBe("publication.pravo.gov.ru");
++    expect(source.official_origin_verified).toBe(true);
++    expect(source.document_identity_verified).toBe(true);
++    expect(source.content_verified).toBe(false);
++    expect(source.substantive_use_allowed).toBe(false);
++    expect(source.verification_level).toBe("identity");
++    expect(source.verification_status).toBe("identity");
++    expect(source.actuality_status).toBe("verified");
++  });
++
++  test("keeps legacy URL-based status only as fallback when canonical metadata is absent", () => {
++    const [source] = enrichSources([
++      merged({}, "https://publication.pravo.gov.ru/document/legacy"),
++    ]);
++    expect(source.verification_status).toBe("needs_check");
++    expect(source.actuality_status).toBe("requires_actuality_check");
++  });
++});
