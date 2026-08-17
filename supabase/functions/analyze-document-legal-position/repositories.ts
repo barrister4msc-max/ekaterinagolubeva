@@ -1,6 +1,7 @@
 // Layer 2: Repository Layer — unified search interface per source domain.
 
 import type { ResearchQuery } from "./fact-extraction.ts";
+import { buildResearchPlan, queryForBucket } from "./research-routing.ts";
 import {
   buildCanonicalDocumentKey,
   searchOfficialLegalSources,
@@ -394,14 +395,25 @@ export async function runAllRepositories(
     ekaterina: new PracticeRepository(sb),
     manuals: new ManualRepository(sb),
   };
+  const researchPlan = buildResearchPlan(query);
+  const routed = {
+    laws: queryForBucket(query, researchPlan, "laws"),
+    court_practice: queryForBucket(query, researchPlan, "court_practice"),
+    fns_letters: queryForBucket(query, researchPlan, "fns_letters"),
+    minfin_letters: queryForBucket(query, researchPlan, "minfin_letters"),
+    ekaterina: queryForBucket(query, researchPlan, "ekaterina"),
+    manuals: queryForBucket(query, researchPlan, "manuals"),
+  };
+  const routedBuckets = new Set(researchPlan.buckets);
+
   const [laws, court, fns, minfin, ek, manuals, official] = await Promise.all([
-    repos.laws.search(query, area),
-    repos.court_practice.search(query, area),
-    repos.fns_letters.search(query, area),
-    repos.minfin_letters.search(query, area),
-    repos.ekaterina.search(query, area),
-    repos.manuals.search(query, area),
-    searchOfficialLegalSources(query),
+    routedBuckets.has("laws") ? repos.laws.search(routed.laws, area) : Promise.resolve([]),
+    routedBuckets.has("court_practice") ? repos.court_practice.search(routed.court_practice, area) : Promise.resolve([]),
+    routedBuckets.has("fns_letters") ? repos.fns_letters.search(routed.fns_letters, area) : Promise.resolve([]),
+    routedBuckets.has("minfin_letters") ? repos.minfin_letters.search(routed.minfin_letters, area) : Promise.resolve([]),
+    routedBuckets.has("ekaterina") ? repos.ekaterina.search(routed.ekaterina, area) : Promise.resolve([]),
+    routedBuckets.has("manuals") ? repos.manuals.search(routed.manuals, area) : Promise.resolve([]),
+    searchOfficialLegalSources(routed.laws),
   ]);
 
   const localSources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals];
@@ -427,6 +439,9 @@ export async function runAllRepositories(
     legal_concepts_count: query.legal_concepts?.length ?? 0,
     search_hypotheses_count: query.search_hypotheses?.length ?? 0,
     metadata_terms_count: query.metadata_terms?.length ?? 0,
+    research_questions_count: researchPlan.questions.length,
+    research_modes_count: researchPlan.all_modes.length,
+    research_routed_buckets_count: researchPlan.buckets.length,
   };
   return { sources, counts };
 }
