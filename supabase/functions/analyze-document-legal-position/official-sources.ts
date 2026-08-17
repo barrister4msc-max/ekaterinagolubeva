@@ -270,7 +270,7 @@ export function buildSemanticResearchPlan(query: ResearchQuery): SemanticResearc
     exact_requisites: exact,
     semantic_intents: concepts,
     metadata_terms: metadataTerms,
-    // Search hypotheses are explicitly search-only; they never become facts here.
+    // Search hypotheses are explicitly search-only; they never become facts or conclusions by themselves.
     search_hypotheses: hypotheses,
   };
 }
@@ -279,7 +279,7 @@ function buildPravoDocumentUrl(eoNumber: string): string {
   return `https://publication.pravo.gov.ru/document/${encodeURIComponent(eoNumber)}`;
 }
 
-async function fetchJson(url: string, timeoutMs = 4500): Promise<any> {
+async function fetchJson(url: string, timeoutMs = 12000): Promise<any> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
