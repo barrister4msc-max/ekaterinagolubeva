@@ -1,3 +1,4 @@
+// PR32 Preview E2E probe. Temporary; remove before Ready/merge.
 import {
   buildCanonicalDocumentKey,
   searchOfficialLegalSources,
