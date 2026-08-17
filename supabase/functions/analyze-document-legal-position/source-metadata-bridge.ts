@@ -54,6 +54,16 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function bool(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  return null;
+}
+
 function dateOnly(value: unknown): string | null {
   const raw = text(value);
   if (!raw) return null;
@@ -63,8 +73,28 @@ function dateOnly(value: unknown): string | null {
   return ru ? `${ru[3]}-${ru[2].padStart(2, "0")}-${ru[1].padStart(2, "0")}` : null;
 }
 
+function normalizedNumber(value: unknown): string | null {
+  const raw = text(value);
+  if (!raw) return null;
+  return raw
+    .replace(/^[№N]\s*/iu, "")
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, "")
+    .toUpperCase();
+}
+
+function normalizedArticle(value: unknown): string | null {
+  const raw = text(value);
+  if (!raw) return null;
+  return raw
+    .toLowerCase()
+    .replace(/^(?:ст\.?|статья)\s*/iu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function sourceDocumentNumber(source: RawSource): string | null {
-  return text(
+  return normalizedNumber(
     source.metadata?.document_number ??
       source.metadata?.letter_number ??
       source.letter_number,
@@ -80,12 +110,32 @@ function sourceDocumentDate(source: RawSource): string | null {
   );
 }
 
+function sourceArticle(source: RawSource): string | null {
+  return normalizedArticle(source.article ?? source.metadata?.article);
+}
+
+function registryDocumentNumber(row: RegistryRow): string | null {
+  return normalizedNumber(row.document_number ?? row.metadata?.document_number ?? row.metadata?.letter_number);
+}
+
 function registryDocumentDate(row: RegistryRow): string | null {
   return dateOnly(
     row.metadata?.document_date ??
       row.metadata?.letter_date ??
       row.publication_date,
   );
+}
+
+function registryArticle(row: RegistryRow): string | null {
+  return normalizedArticle(row.metadata?.article);
+}
+
+function registrySourceGroupId(row: RegistryRow): string | null {
+  return text(row.metadata?.source_group_id);
+}
+
+function isRegistrySourceHead(row: RegistryRow): boolean {
+  return bool(row.metadata?.is_source_head) === true;
 }
 
 function registryCanonicalKey(row: RegistryRow): string | null {
@@ -98,6 +148,33 @@ function sourceCanonicalKey(source: RawSource): string | null {
 
 function uniq(values: Array<string | null>): string[] {
   return [...new Set(values.filter((value): value is string => !!value))];
+}
+
+function canonicalRowFor(row: RegistryRow, rows: RegistryRow[]): RegistryRow {
+  if (isRegistrySourceHead(row)) return row;
+  const groupId = registrySourceGroupId(row);
+  if (!groupId) return row;
+  return rows.find(
+    (candidate) => registrySourceGroupId(candidate) === groupId && isRegistrySourceHead(candidate),
+  ) ?? row;
+}
+
+function canonicalCandidates(rows: RegistryRow[]): RegistryRow[] {
+  const byGroup = new Map<string, RegistryRow>();
+  const ungrouped: RegistryRow[] = [];
+  for (const row of rows) {
+    const canonical = canonicalRowFor(row, rows);
+    const groupId = registrySourceGroupId(canonical);
+    if (groupId) {
+      const existing = byGroup.get(groupId);
+      if (!existing || (isRegistrySourceHead(canonical) && !isRegistrySourceHead(existing))) {
+        byGroup.set(groupId, canonical);
+      }
+    } else {
+      ungrouped.push(canonical);
+    }
+  }
+  return [...new Map([...byGroup.values(), ...ungrouped].map((row) => [row.id, row])).values()];
 }
 
 async function rowsForIn(
@@ -132,38 +209,47 @@ export function chooseCanonicalRegistryMatch(
 ): { row: RegistryRow; method: string } | null {
   if (!rows.length) return null;
   const meta = source.metadata ?? {};
+  const candidates = canonicalCandidates(rows);
+
   const explicitId = text(meta.legal_source_registry_id ?? meta.registry_source_id);
   if (explicitId) {
-    const row = rows.find((candidate) => candidate.id === explicitId);
-    if (row) return { row, method: "registry_id" };
+    const exact = rows.find((candidate) => candidate.id === explicitId);
+    if (exact) {
+      const row = canonicalRowFor(exact, rows);
+      return { row, method: row.id === exact.id ? "registry_id" : "registry_id_source_head" };
+    }
   }
 
   const canonical = sourceCanonicalKey(source);
   if (canonical) {
-    const matches = rows.filter((candidate) => registryCanonicalKey(candidate) === canonical);
+    const matches = candidates.filter((candidate) => registryCanonicalKey(candidate) === canonical);
     if (matches.length === 1) return { row: matches[0], method: "canonical_document_key" };
   }
 
   const officialUrl = text(source.official_url ?? meta.official_url ?? meta.source_url);
   if (officialUrl) {
-    const matches = rows.filter((candidate) => candidate.official_url === officialUrl);
-    if (matches.length === 1) return { row: matches[0], method: "official_url" };
+    const matches = candidates.filter((candidate) => candidate.official_url === officialUrl);
+    if (matches.length === 1) return { row: matches[0], method: "official_url_source_head" };
   }
 
   const externalId = text(meta.external_id ?? meta.eo_number);
   if (externalId) {
-    const matches = rows.filter((candidate) => candidate.external_id === externalId);
-    if (matches.length === 1) return { row: matches[0], method: "external_id" };
+    const matches = candidates.filter((candidate) => candidate.external_id === externalId);
+    if (matches.length === 1) return { row: matches[0], method: "external_id_source_head" };
   }
 
   const number = sourceDocumentNumber(source);
   const date = sourceDocumentDate(source);
   if (number && date) {
-    const matches = rows.filter(
+    let matches = candidates.filter(
       (candidate) =>
-        candidate.document_number === number && registryDocumentDate(candidate) === date,
+        registryDocumentNumber(candidate) === number && registryDocumentDate(candidate) === date,
     );
-    if (matches.length === 1) return { row: matches[0], method: "document_number_date" };
+    const article = sourceArticle(source);
+    if (matches.length > 1 && article) {
+      matches = matches.filter((candidate) => registryArticle(candidate) === article);
+    }
+    if (matches.length === 1) return { row: matches[0], method: "document_number_date_source_head" };
   }
 
   return null;
@@ -177,6 +263,26 @@ export function projectRegistryMetadata(
   const registryMeta = row.metadata ?? {};
   const canonicalDocumentKey =
     registryCanonicalKey(row) ?? sourceCanonicalKey(source) ?? null;
+  const documentNumber = registryDocumentNumber(row) ?? sourceDocumentNumber(source);
+  const documentDate = registryDocumentDate(row) ?? sourceDocumentDate(source);
+  const publicationDate =
+    dateOnly(row.publication_date) ??
+    dateOnly(registryMeta.publication_date) ??
+    dateOnly(source.metadata?.publication_date);
+  const effectiveFrom =
+    dateOnly(row.effective_from) ??
+    dateOnly(registryMeta.effective_from) ??
+    dateOnly(source.metadata?.effective_from);
+  const effectiveTo =
+    dateOnly(row.effective_to) ??
+    dateOnly(registryMeta.effective_to) ??
+    dateOnly(source.metadata?.effective_to);
+  const revisionDate =
+    dateOnly(row.revision_date) ??
+    dateOnly(registryMeta.revision_date) ??
+    dateOnly(registryMeta.edition_date) ??
+    dateOnly(source.metadata?.revision_date) ??
+    dateOnly(source.metadata?.edition_date);
 
   return {
     ...source,
@@ -185,23 +291,30 @@ export function projectRegistryMetadata(
     metadata: {
       ...source.metadata,
       legal_source_registry_id: row.id,
+      registry_source_group_id: registrySourceGroupId(row),
       registry_match_method: matchMethod,
       registry_match_attempted: true,
-      authority_name: row.authority_name,
+      authority_name: row.authority_name ?? text(registryMeta.authority) ?? source.metadata?.authority_name ?? null,
       authority_level: row.authority_level,
       jurisdiction: row.jurisdiction,
       practice_area: row.practice_area ?? source.metadata?.practice_area ?? null,
-      publication_date: row.publication_date,
-      effective_from: row.effective_from,
-      effective_to: row.effective_to,
-      revision_date: row.revision_date,
+      document_number: documentNumber,
+      document_date: documentDate,
+      publication_date: publicationDate,
+      effective_from: effectiveFrom,
+      effective_to: effectiveTo,
+      revision_date: revisionDate,
       is_official: row.is_official,
       current_status: row.current_status,
       verification_status: row.verification_status,
       last_checked_at: row.last_checked_at,
       registry_retrieved_at: row.retrieved_at,
       canonical_document_key: canonicalDocumentKey,
-      // Keep provider-specific registry extensions additive; structured columns above win.
+      // Diagnostic legacy fields are transported, not interpreted as legal truth.
+      registry_official_status: text(registryMeta.official_status),
+      registry_trust_level: text(registryMeta.trust_level),
+      registry_legacy_verification_status: text(registryMeta.verification_status),
+      // Existing Safety Contract remains the only source of official-origin/content permission.
       registry_metadata: registryMeta,
     },
   };
@@ -235,6 +348,7 @@ export async function attachCanonicalRegistryMetadata(
     rowsForIn(sb, "id", registryIds),
     rowsForIn(sb, "official_url", officialUrls),
     rowsForIn(sb, "external_id", externalIds),
+    // Structured document_number is retained for forward compatibility once legacy data is normalized.
     rowsForIn(sb, "document_number", documentNumbers),
   ]);
   const rows = [...new Map(batches.flat().map((row) => [row.id, row])).values()];
@@ -252,11 +366,14 @@ export async function attachCanonicalRegistryMetadata(
 
 const TRUSTED_METADATA_KEYS = [
   "legal_source_registry_id",
+  "registry_source_group_id",
   "registry_match_method",
   "authority_name",
   "authority_level",
   "jurisdiction",
   "practice_area",
+  "document_number",
+  "document_date",
   "publication_date",
   "effective_from",
   "effective_to",
@@ -267,6 +384,9 @@ const TRUSTED_METADATA_KEYS = [
   "last_checked_at",
   "registry_retrieved_at",
   "canonical_document_key",
+  "registry_official_status",
+  "registry_trust_level",
+  "registry_legacy_verification_status",
   "provider_id",
   "provider",
   "official_provider",
