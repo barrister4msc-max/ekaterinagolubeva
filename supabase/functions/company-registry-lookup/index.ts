@@ -23,6 +23,7 @@ import {
 import {
   buildCanonicalRegistryOverrides,
   filterFormattingOnlyConflicts,
+  getPreservedDocumentBusinessActivity,
 } from "../../../src/lib/company-registry-canonical.ts";
 
 const corsHeaders = {
@@ -45,6 +46,27 @@ type LookupResult = {
   matter_blocked_reason: string | null;
   error?: string;
 };
+
+function asDocumentProfile(value: unknown): DocumentCompanyProfile | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as Partial<DocumentCompanyProfile>;
+  const keys: Array<keyof DocumentCompanyProfile> = [
+    "taxpayer_name",
+    "taxpayer_inn",
+    "taxpayer_ogrn",
+    "taxpayer_kpp",
+    "taxpayer_legal_address",
+    "business_activity",
+  ];
+  const result = {} as DocumentCompanyProfile;
+  let hasValue = false;
+  for (const key of keys) {
+    const raw = candidate[key];
+    result[key] = typeof raw === "string" && raw.trim() ? raw.trim() : null;
+    if (result[key]) hasValue = true;
+  }
+  return hasValue ? result : null;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -109,8 +131,13 @@ serve(async (req) => {
     if (answerError) throw answerError;
 
     const answers = (answerRows ?? []) as AnswerRow[];
-    // Preserve the document/OCR layer before any registry canonicalization.
-    const documentProfile = extractDocumentCompanyProfile(answers);
+    // Once captured, the original document/OCR layer must never be replaced by
+    // later registry-generated answers. This keeps the legal evidence layer intact.
+    const metadata = session.metadata && typeof session.metadata === "object"
+      ? session.metadata as Record<string, unknown>
+      : {};
+    const documentProfile =
+      asDocumentProfile(metadata.document_company_profile) ?? extractDocumentCompanyProfile(answers);
 
     const fetched = await fetchDaDataParty({
       inn,
@@ -163,9 +190,6 @@ serve(async (req) => {
     }
 
     const schemaFieldKeys = await loadSchemaFieldKeys(supabase, session.template_code);
-    // Registry values are canonical for machine-extracted requisites. Human/lawyer
-    // values are never silently overwritten; material identifier conflicts remain
-    // visible for lawyer choice. The original document layer is kept in metadata.
     const plan = buildCanonicalRegistryOverrides({
       profile,
       answers,
@@ -187,6 +211,28 @@ serve(async (req) => {
         { onConflict: "session_id,field_name" },
       );
       if (upsertError) throw upsertError;
+    }
+
+    // DaData may return the verified OKVED code but omit its text name. In that
+    // case never degrade a useful document description to "68.20". If a prior
+    // registry run already did so, restore the preserved document description.
+    const preservedBusinessActivity = getPreservedDocumentBusinessActivity({
+      profile,
+      documentProfile,
+      answers,
+    });
+    if (preservedBusinessActivity) {
+      const { error: restoreError } = await supabase.from("document_intake_answers").upsert({
+        session_id: sessionId,
+        field_name: "business_activity",
+        field_label: "Сфера деятельности",
+        field_value: preservedBusinessActivity,
+        value_source: "document_preserved",
+        confidence: null,
+        needs_review: false,
+        is_verified: false,
+      }, { onConflict: "session_id,field_name" });
+      if (restoreError) throw restoreError;
     }
 
     let matterId: string | null = session.matter_id ?? null;
@@ -274,6 +320,11 @@ serve(async (req) => {
       }
     }
 
+    const updatedFields = plan.map((entry) => entry.field_name);
+    if (preservedBusinessActivity && !updatedFields.includes("business_activity")) {
+      updatedFields.push("business_activity");
+    }
+
     return json({
       success: true,
       status: matterBlockedReason ? "matter_creation_blocked" : "verified",
@@ -284,7 +335,7 @@ serve(async (req) => {
       document_profile: documentProfile,
       conflicts,
       candidates: [],
-      autofilled_fields: plan.map((entry) => entry.field_name),
+      autofilled_fields: updatedFields,
       matter_id: matterId,
       matter_blocked_reason: matterBlockedReason,
     } satisfies LookupResult);
