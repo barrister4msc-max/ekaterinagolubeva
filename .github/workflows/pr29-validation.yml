@@ -1,0 +1,32 @@
+name: PR29 validation
+
+on:
+  push:
+    branches:
+      - feat/registry-canonical-company-data
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: PR29 tests
+        run: bun test supabase/tests/pr29-registry-canonical-and-contrast.test.ts supabase/tests/pr27-company-registry.test.ts supabase/tests/pr28-focused-builder.test.ts
+      - name: Intake and privacy regressions
+        run: bun test supabase/tests/pr23-document-package-files.test.ts supabase/tests/pr23-upload-orchestration.test.ts supabase/tests/pr24-residual-redaction.test.ts supabase/tests/pr25-upload-lifecycle.test.ts supabase/tests/reliable-intake-excel.test.ts supabase/tests/pr22-redaction-ai-fill-safety.test.ts
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Build
+        run: bun run build
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Edge function check
+        run: deno check --no-lock supabase/functions/company-registry-lookup/index.ts
