@@ -1,0 +1,79 @@
+name: PR32 Per-Issue Source Trace Apply
+
+on:
+  push:
+    branches:
+      - feat/official-legal-sources-layer
+
+permissions:
+  contents: write
+
+jobs:
+  apply-check-push:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/official-legal-sources-layer
+          fetch-depth: 0
+
+      - name: Apply per-issue source trace
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('supabase/functions/analyze-document-legal-position/repositories.ts')
+          s = p.read_text()
+          s = s.replace(
+            'import { buildResearchPlan, queryForBucket } from "./research-routing.ts";',
+            'import { buildResearchPlan, queryForBucket, queryForQuestion, type ResearchQuestion } from "./research-routing.ts";',
+          )
+
+          old = '''  const researchPlan = buildResearchPlan(query);\n  const routed = {\n    laws: queryForBucket(query, researchPlan, "laws"),\n    court_practice: queryForBucket(query, researchPlan, "court_practice"),\n    fns_letters: queryForBucket(query, researchPlan, "fns_letters"),\n    minfin_letters: queryForBucket(query, researchPlan, "minfin_letters"),\n    ekaterina: queryForBucket(query, researchPlan, "ekaterina"),\n    manuals: queryForBucket(query, researchPlan, "manuals"),\n  };\n  const routedBuckets = new Set(researchPlan.buckets);\n\n  const [laws, court, fns, minfin, ek, manuals, official] = await Promise.all([\n    routedBuckets.has("laws") ? repos.laws.search(routed.laws, area) : Promise.resolve([]),\n    routedBuckets.has("court_practice") ? repos.court_practice.search(routed.court_practice, area) : Promise.resolve([]),\n    routedBuckets.has("fns_letters") ? repos.fns_letters.search(routed.fns_letters, area) : Promise.resolve([]),\n    routedBuckets.has("minfin_letters") ? repos.minfin_letters.search(routed.minfin_letters, area) : Promise.resolve([]),\n    routedBuckets.has("ekaterina") ? repos.ekaterina.search(routed.ekaterina, area) : Promise.resolve([]),\n    routedBuckets.has("manuals") ? repos.manuals.search(routed.manuals, area) : Promise.resolve([]),\n    searchOfficialLegalSources(routed.laws),\n  ]);'''
+
+          new = '''  const researchPlan = buildResearchPlan(query);\n\n  const annotateQuestion = (source: RawSource, question: ResearchQuestion): RawSource => ({\n    ...source,\n    metadata: {\n      ...(source.metadata ?? {}),\n      research_issue_ids: [question.id],\n      research_issue_texts: [question.issue],\n      research_modes: question.modes,\n    },\n  });\n\n  const mergeQuestionAnnotations = (sources: RawSource[]): RawSource[] => {\n    const byIdentity = new Map<string, RawSource>();\n    for (const source of sources) {\n      const key = `${source.source_table}|${source.source_id}`;\n      const existing = byIdentity.get(key);\n      if (!existing) {\n        byIdentity.set(key, source);\n        continue;\n      }\n      const strings = (value: unknown): string[] =>\n        Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];\n      existing.metadata = {\n        ...(existing.metadata ?? {}),\n        ...(source.metadata ?? {}),\n        research_issue_ids: Array.from(new Set([\n          ...strings(existing.metadata?.research_issue_ids),\n          ...strings(source.metadata?.research_issue_ids),\n        ])),\n        research_issue_texts: Array.from(new Set([\n          ...strings(existing.metadata?.research_issue_texts),\n          ...strings(source.metadata?.research_issue_texts),\n        ])),\n        research_modes: Array.from(new Set([\n          ...strings(existing.metadata?.research_modes),\n          ...strings(source.metadata?.research_modes),\n        ])),\n      };\n    }\n    return [...byIdentity.values()];\n  };\n\n  const searchPerIssue = async (bucket: Bucket): Promise<RawSource[]> => {\n    const repository = repos[bucket];\n    const questions = researchPlan.questions.filter((question) => question.buckets.includes(bucket));\n    if (!repository || questions.length === 0) return [];\n    const batches = await Promise.all(\n      questions.map(async (question) => {\n        const found = await repository.search(queryForQuestion(query, question), area);\n        return found.map((source) => annotateQuestion(source, question));\n      }),\n    );\n    return mergeQuestionAnnotations(batches.flat());\n  };\n\n  const officialQuery = queryForBucket(query, researchPlan, "laws");\n  const [laws, court, fns, minfin, ek, manuals, official] = await Promise.all([\n    searchPerIssue("laws"),\n    searchPerIssue("court_practice"),\n    searchPerIssue("fns_letters"),\n    searchPerIssue("minfin_letters"),\n    searchPerIssue("ekaterina"),\n    searchPerIssue("manuals"),\n    searchOfficialLegalSources(officialQuery),\n  ]);'''
+          if old not in s:
+            raise SystemExit('current issue-routing block not found')
+          s = s.replace(old, new, 1)
+          marker = '    research_routed_buckets_count: researchPlan.buckets.length,\n'
+          addition = marker + '    research_execution_units_count: researchPlan.questions.reduce((sum, question) => sum + question.buckets.length, 0),\n'
+          if addition not in s:
+            if marker not in s:
+              raise SystemExit('routing count marker not found')
+            s = s.replace(marker, addition, 1)
+          p.write_text(s)
+
+          p = Path('supabase/functions/analyze-document-legal-position/dedupe.ts')
+          s = p.read_text()
+          old = '''  if (aCanonical !== bCanonical) {\n    return aCanonical ? { ...b, ...a } : { ...a, ...b };\n  }\n  return incomingWins ? { ...a, ...b } : { ...b, ...a };'''
+          new = '''  const merged = aCanonical !== bCanonical\n    ? (aCanonical ? { ...b, ...a } : { ...a, ...b })\n    : (incomingWins ? { ...a, ...b } : { ...b, ...a });\n\n  const mergeStringArray = (key: string) => {\n    const left = Array.isArray(a[key]) ? a[key].filter((value): value is string => typeof value === "string") : [];\n    const right = Array.isArray(b[key]) ? b[key].filter((value): value is string => typeof value === "string") : [];\n    if (left.length || right.length) merged[key] = Array.from(new Set([...left, ...right]));\n  };\n  mergeStringArray("research_issue_ids");\n  mergeStringArray("research_issue_texts");\n  mergeStringArray("research_modes");\n  return merged;'''
+          if old not in s:
+            raise SystemExit('mergeMetadata return block not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Research trace tests
+        run: bun test supabase/functions/analyze-document-legal-position/research-routing.test.ts supabase/functions/analyze-document-legal-position/dedupe-canonical.test.ts supabase/functions/analyze-document-legal-position/official-sources.test.ts supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts supabase/functions/analyze-document-legal-position/source-metadata-merge.test.ts
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
+
+      - name: Commit source files only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/analyze-document-legal-position/repositories.ts supabase/functions/analyze-document-legal-position/dedupe.ts
+          git commit -m "feat(research): preserve source to issue trace"
+          git push origin HEAD:feat/official-legal-sources-layer
