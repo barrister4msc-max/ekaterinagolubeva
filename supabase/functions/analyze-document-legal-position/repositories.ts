@@ -1,7 +1,12 @@
 // Layer 2: Repository Layer — unified search interface per source domain.
 
 import type { ResearchQuery } from "./fact-extraction.ts";
-import { searchOfficialLegalSources } from "./official-sources.ts";
+import {
+  buildCanonicalDocumentKey,
+  searchOfficialLegalSources,
+  type OfficialSourceResult,
+  type OfficialSourceSafety,
+} from "./official-sources.ts";
 
 export type Bucket =
   | "laws"
@@ -21,7 +26,6 @@ export type RawSource = {
   citation: string | null;
   snippet: string;
   metadata: Record<string, unknown>;
-  // dedupe / scoring inputs
   code?: string | null;
   article?: string | null;
   part?: string | null;
@@ -35,6 +39,10 @@ type SbClient = any;
 function s(...vals: unknown[]): string | null {
   for (const v of vals) if (typeof v === "string" && v.trim()) return v.trim();
   return null;
+}
+
+function uniqRows(rows: any[]): any[] {
+  return [...new Map(rows.map((row) => [String(row.id), row])).values()];
 }
 
 function makeChunkSource(row: any, bucket: Bucket): RawSource {
@@ -64,63 +72,214 @@ function makeChunkSource(row: any, bucket: Bucket): RawSource {
   };
 }
 
+function contextualTerms(query: ResearchQuery): string[] {
+  const raw = [
+    ...(query.semantic_intents ?? []),
+    ...(query.legal_concepts ?? []),
+    ...(query.search_hypotheses ?? []),
+    ...(query.research_topics ?? []),
+    ...(query.legal_issues ?? []),
+    ...(query.keywords ?? []),
+  ];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of raw) {
+    const cleaned = String(value ?? "")
+      .replace(/[%_]/g, " ")
+      .replace(/[^\p{L}\p{N}.\-\s]+/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (cleaned.length < 4) continue;
+    // Prefer a short phrase over a huge AI-generated sentence.
+    const term = cleaned.split(" ").slice(0, 6).join(" ").slice(0, 120);
+    const key = term.toLowerCase();
+    if (!term || seen.has(key)) continue;
+    seen.add(key);
+    out.push(term);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
+function articleNumbers(query: ResearchQuery): string[] {
+  const out: string[] = [];
+  for (const value of query.articles ?? []) {
+    const match = value.match(/(?:ст\.?|статья|статьи|статьей)\s*(\d+(?:\.\d+)*)/iu);
+    if (match?.[1] && !out.includes(match[1])) out.push(match[1]);
+  }
+  return out.slice(0, 6);
+}
+
 async function selectChunks(
   sb: SbClient,
   types: string[],
   practiceArea: string | null,
   limit: number,
+  researchQuery?: ResearchQuery,
 ): Promise<any[]> {
+  const fields = "id, title, content, metadata, category, source_type";
   const orMeta = types
     .flatMap((t) => [
       `metadata->>source_type.eq.${t}`,
       `metadata->>source_kind.eq.${t}`,
     ])
     .join(",");
-  let q = sb
-    .from("legal_knowledge_chunks")
-    .select("id, title, content, metadata, category, source_type")
-    .eq("is_active", true)
-    .or(orMeta)
-    .limit(limit);
-  if (practiceArea) q = q.eq("category", practiceArea);
-  const { data: a } = await q;
-  let rows = (a ?? []) as any[];
+
+  const collected: any[] = [];
+  const add = (rows: any[] | null | undefined) => collected.push(...(rows ?? []));
+
+  // 1) Metadata-exact search first (article numbers are high precision).
+  if (researchQuery) {
+    for (const article of articleNumbers(researchQuery)) {
+      let q = sb
+        .from("legal_knowledge_chunks")
+        .select(fields)
+        .eq("is_active", true)
+        .or(orMeta)
+        .filter("metadata->>article", "eq", article)
+        .limit(Math.min(8, limit));
+      if (practiceArea) q = q.eq("category", practiceArea);
+      const { data } = await q;
+      add(data);
+    }
+
+    // 2) Context/meaning search over content. The terms may be AI-expanded, but
+    // they are search-only and never become facts or conclusions by themselves.
+    for (const term of contextualTerms(researchQuery)) {
+      let q = sb
+        .from("legal_knowledge_chunks")
+        .select(fields)
+        .eq("is_active", true)
+        .or(orMeta)
+        .ilike("content", `%${term}%`)
+        .limit(Math.min(10, limit));
+      if (practiceArea) q = q.eq("category", practiceArea);
+      const { data } = await q;
+      add(data);
+    }
+  }
+
+  let rows = uniqRows(collected).slice(0, limit);
+
+  // 3) Preserve the legacy typed pool as a fallback/recall source.
+  if (rows.length < limit) {
+    let q = sb
+      .from("legal_knowledge_chunks")
+      .select(fields)
+      .eq("is_active", true)
+      .or(orMeta)
+      .limit(limit);
+    if (practiceArea) q = q.eq("category", practiceArea);
+    const { data } = await q;
+    rows = uniqRows([...rows, ...((data ?? []) as any[])]).slice(0, limit);
+  }
 
   if (rows.length < limit) {
     let q2 = sb
       .from("legal_knowledge_chunks")
-      .select("id, title, content, metadata, category, source_type")
+      .select(fields)
       .eq("is_active", true)
       .in("source_type", types)
       .limit(limit);
     if (practiceArea) q2 = q2.eq("category", practiceArea);
-    const { data: b } = await q2;
-    const extra = ((b ?? []) as any[]).filter((r) => !rows.some((x) => x.id === r.id));
-    rows = rows.concat(extra).slice(0, limit);
+    const { data } = await q2;
+    rows = uniqRows([...rows, ...((data ?? []) as any[])]).slice(0, limit);
   }
 
   if (rows.length === 0 && practiceArea) {
-    const { data: c } = await sb
+    const { data } = await sb
       .from("legal_knowledge_chunks")
-      .select("id, title, content, metadata, category, source_type")
+      .select(fields)
       .eq("is_active", true)
       .or(orMeta)
       .limit(limit);
-    rows = (c ?? []) as any[];
+    rows = (data ?? []) as any[];
   }
   return rows;
+}
+
+function localCanonicalKey(source: RawSource): string | null {
+  const meta = source.metadata ?? {};
+  const explicit = s(meta.canonical_document_key);
+  if (explicit) return explicit;
+  return buildCanonicalDocumentKey({
+    bucket: source.bucket,
+    documentNumber: s(meta.document_number, meta.letter_number),
+    documentDate: s(meta.document_date, meta.letter_date, meta.publication_date),
+    caseNumber: source.case_number ?? s(meta.case_number),
+    article: source.article ?? s(meta.article),
+    code: source.code ?? s(meta.code, meta.code_name),
+  });
+}
+
+function officialCanonicalKey(source: OfficialSourceResult): string | null {
+  return s(source.metadata?.canonical_document_key) ??
+    buildCanonicalDocumentKey({
+      bucket: source.bucket,
+      documentNumber: s(source.metadata?.document_number, source.letter_number),
+      documentDate: s(source.metadata?.document_date, source.letter_date),
+      caseNumber: source.case_number,
+      article: source.article,
+      code: source.code,
+    });
+}
+
+/**
+ * External discovery metadata may verify/annotate a local substantive source.
+ * A discovery-only external result is NEVER injected into the substantive
+ * source pool unless its Safety Contract explicitly allows it.
+ */
+export function mergeOfficialWithLocalSources(
+  localSources: RawSource[],
+  officialSources: OfficialSourceResult[],
+): { sources: RawSource[]; linked: number; substantiveExternal: number } {
+  const byCanonical = new Map<string, RawSource>();
+  for (const source of localSources) {
+    const key = localCanonicalKey(source);
+    if (key) byCanonical.set(key, source);
+  }
+
+  let linked = 0;
+  let substantiveExternal = 0;
+  const standalone: RawSource[] = [];
+
+  for (const official of officialSources) {
+    const key = officialCanonicalKey(official);
+    const local = key ? byCanonical.get(key) : undefined;
+    const safety = official.metadata?.safety as OfficialSourceSafety | undefined;
+    if (local && safety?.official_origin_verified) {
+      linked++;
+      local.official_url = official.official_url;
+      local.metadata = {
+        ...local.metadata,
+        canonical_document_key: key,
+        official_provider: official.metadata?.provider,
+        official_retrieved_at: official.metadata?.retrieved_at,
+        official_verification: safety,
+        official_publication_url: official.official_url,
+      };
+      continue;
+    }
+    if (safety?.substantive_use_allowed === true) {
+      standalone.push(official as RawSource);
+      substantiveExternal++;
+    }
+  }
+
+  return { sources: [...localSources, ...standalone], linked, substantiveExternal };
 }
 
 // ───── Repositories ─────
 
 export class LawRepository {
   constructor(private sb: SbClient) {}
-  async search(_q: ResearchQuery, area: string | null): Promise<RawSource[]> {
+  async search(q: ResearchQuery, area: string | null): Promise<RawSource[]> {
     const rows = await selectChunks(
       this.sb,
       ["law_full_text", "federal_law", "law_full_text_placeholder"],
       area,
       30,
+      q,
     );
     return rows.map((r) => makeChunkSource(r, "laws"));
   }
@@ -128,48 +287,46 @@ export class LawRepository {
 
 export class CourtRepository {
   constructor(private sb: SbClient) {}
-  async search(_q: ResearchQuery, area: string | null): Promise<RawSource[]> {
-    const rows = await selectChunks(this.sb, ["court_practice", "vs_review"], area, 24);
+  async search(q: ResearchQuery, area: string | null): Promise<RawSource[]> {
+    const rows = await selectChunks(this.sb, ["court_practice", "vs_review"], area, 24, q);
     return rows.map((r) => makeChunkSource(r, "court_practice"));
   }
 }
 
 export class FNSRepository {
   constructor(private sb: SbClient) {}
-  async search(_q: ResearchQuery, area: string | null): Promise<RawSource[]> {
-    const rows = await selectChunks(this.sb, ["fns_letter"], area, 18);
+  async search(q: ResearchQuery, area: string | null): Promise<RawSource[]> {
+    const rows = await selectChunks(this.sb, ["fns_letter"], area, 18, q);
     return rows.map((r) => makeChunkSource(r, "fns_letters"));
   }
 }
 
 export class MinfinRepository {
   constructor(private sb: SbClient) {}
-  async search(_q: ResearchQuery, area: string | null): Promise<RawSource[]> {
-    const rows = await selectChunks(this.sb, ["minfin_letter"], area, 18);
+  async search(q: ResearchQuery, area: string | null): Promise<RawSource[]> {
+    const rows = await selectChunks(this.sb, ["minfin_letter"], area, 18, q);
     return rows.map((r) => makeChunkSource(r, "minfin_letters"));
   }
 }
 
 export class PracticeRepository {
   constructor(private sb: SbClient) {}
-  async search(_q: ResearchQuery, area: string | null): Promise<RawSource[]> {
+  async search(q: ResearchQuery, area: string | null): Promise<RawSource[]> {
     const out: RawSource[] = [];
 
-    // 1. chunks tagged as ekaterina_practice — cross-category, do NOT filter by practiceArea
-    const chunks = await selectChunks(this.sb, ["ekaterina_practice"], null, 12);
+    const chunks = await selectChunks(this.sb, ["ekaterina_practice"], null, 12, q);
     for (const r of chunks) out.push(makeChunkSource(r, "ekaterina"));
 
-    // 2. practice_document_legal_analysis
     try {
-      let q = this.sb
+      let dbq = this.sb
         .from("practice_document_legal_analysis")
         .select(
           "id, document_id, practice_area, document_type, legal_position, legal_reasoning, quality_level, use_in_rag",
         )
         .eq("use_in_rag", true)
         .limit(8);
-      if (area) q = q.eq("practice_area", area);
-      const { data } = await q;
+      if (area) dbq = dbq.eq("practice_area", area);
+      const { data } = await dbq;
       for (const r of (data ?? []) as any[]) {
         out.push({
           bucket: "ekaterina",
@@ -190,7 +347,6 @@ export class PracticeRepository {
       }
     } catch (_) { /* table optional */ }
 
-    // 3. practice_legal_analysis_sources
     try {
       const { data } = await this.sb
         .from("practice_legal_analysis_sources")
@@ -219,8 +375,8 @@ export class PracticeRepository {
 
 export class ManualRepository {
   constructor(private sb: SbClient) {}
-  async search(_q: ResearchQuery, area: string | null): Promise<RawSource[]> {
-    const rows = await selectChunks(this.sb, ["manual", "manual_seed", "template"], area, 10);
+  async search(q: ResearchQuery, area: string | null): Promise<RawSource[]> {
+    const rows = await selectChunks(this.sb, ["manual", "manual_seed", "template"], area, 10, q);
     return rows.map((r) => makeChunkSource(r, "manuals"));
   }
 }
@@ -247,8 +403,10 @@ export async function runAllRepositories(
     repos.manuals.search(query, area),
     searchOfficialLegalSources(query),
   ]);
-  const officialSources = official.sources as RawSource[];
-  const sources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals, ...officialSources];
+
+  const localSources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals];
+  const mergedOfficial = mergeOfficialWithLocalSources(localSources, official.sources);
+  const sources = mergedOfficial.sources;
   const counts = {
     laws_found: laws.length,
     court_practice_found: court.length,
@@ -256,10 +414,19 @@ export async function runAllRepositories(
     minfin_found: minfin.length,
     ekaterina_found: ek.length,
     manuals_found: manuals.length,
-    official_sources_found: officialSources.length,
-    official_pravo_attempted: official.diagnostics.pravo_attempted,
+    official_sources_discovered: official.sources.length,
+    official_sources_linked_to_local: mergedOfficial.linked,
+    official_sources_substantive_external: mergedOfficial.substantiveExternal,
+    official_pravo_exact_attempted: official.diagnostics.pravo_exact_attempted,
+    official_pravo_context_attempted: official.diagnostics.pravo_context_attempted,
     official_pravo_found: official.diagnostics.pravo_found,
+    official_pravo_identity_verified: official.diagnostics.pravo_identity_verified,
+    official_pravo_ambiguous: official.diagnostics.pravo_ambiguous,
     official_source_failures: official.diagnostics.failures.length,
+    semantic_intents_count: query.semantic_intents?.length ?? 0,
+    legal_concepts_count: query.legal_concepts?.length ?? 0,
+    search_hypotheses_count: query.search_hypotheses?.length ?? 0,
+    metadata_terms_count: query.metadata_terms?.length ?? 0,
   };
   return { sources, counts };
 }
@@ -267,7 +434,6 @@ export async function runAllRepositories(
 /**
  * Gap-targeted retry: keyword search across legal_knowledge_chunks for
  * specific sufficiency gaps surfaced by enrich.evaluateSufficiency.
- * Returns RawSource[] that can be merged with the first-pass set.
  */
 export async function gapSearch(
   sb: SbClient,
