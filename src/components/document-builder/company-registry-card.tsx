@@ -95,6 +95,7 @@ export function CompanyRegistryCard({
 
   const profile = result?.profile ?? null;
   const conflicts = result?.conflicts ?? [];
+  const autofilledFields = result?.autofilled_fields ?? [];
 
   return (
     <div className="registry-card rounded-xl border border-border bg-card/80 p-4 space-y-3">
@@ -153,9 +154,9 @@ export function CompanyRegistryCard({
             <Row label="Источник" value="DaData — сведения ФНС/ЕГРЮЛ" />
           </dl>
 
-          {result.autofilled_fields.length > 0 && (
+          {autofilledFields.length > 0 && (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800">
-              В карточку подставлены проверенные реестровые данные: {result.autofilled_fields.length} полей.
+              В карточку подставлены проверенные реестровые данные: {autofilledFields.length} полей.
             </div>
           )}
 
