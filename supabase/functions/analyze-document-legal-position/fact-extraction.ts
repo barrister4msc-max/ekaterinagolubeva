@@ -20,6 +20,12 @@ export type ResearchQuery = {
   organizations: string[];
   inn: string[];
   ogrn: string[];
+  // Semantic Legal Research Contract. These fields are SEARCH-ONLY and must
+  // never be promoted to established facts without independent evidence.
+  semantic_intents: string[];
+  legal_concepts: string[];
+  metadata_terms: string[];
+  search_hypotheses: string[];
 };
 
 export const EMPTY_QUERY: ResearchQuery = {
@@ -37,6 +43,10 @@ export const EMPTY_QUERY: ResearchQuery = {
   organizations: [],
   inn: [],
   ogrn: [],
+  semantic_intents: [],
+  legal_concepts: [],
+  metadata_terms: [],
+  search_hypotheses: [],
 };
 
 // ---------- Robust JSON parsing ----------
@@ -213,7 +223,11 @@ ${docsBlock || "(нет документов)"}
   "articles": [string],
   "organizations": [string],
   "inn": [string],
-  "ogrn": [string]
+  "ogrn": [string],
+  "semantic_intents": [string],
+  "legal_concepts": [string],
+  "metadata_terms": [string],
+  "search_hypotheses": [string]
 }
 
 ПРАВИЛА ФОРМАТИРОВАНИЯ:
@@ -227,7 +241,7 @@ ${docsBlock || "(нет документов)"}
 - parties: ВСЕ участники из шапок документов и ответов (наименования юр.лиц и ФИО).
 - dates: ВСЕ значимые даты (договор, требование, решение, сроки).
 - amounts: ВСЕ денежные суммы в рублях.
-- facts: 5–15 кратких фактических утверждений из документов (что произошло).
+- facts: 5–15 кратких фактических утверждений ТОЛЬКО из документов/ответов. Не добавляй сюда предположения для поиска.
 - legal_issues: короткие формулировки спорных правовых вопросов.
 - keywords: расширенный набор терминов и синонимов для keyword-поиска (15–30).
 - research_topics: темы для поиска норм и практики ("ст. 54.1 НК", "реальность операции", "деловая цель").
@@ -235,7 +249,12 @@ ${docsBlock || "(нет документов)"}
 - organizations: наименования юр.лиц с организационно-правовой формой.
 - inn: только ИНН (10 или 12 цифр).
 - ogrn: только ОГРН/ОГРНИП (13 или 15 цифр).
-- Никаких выдумок. Если поле не выводится из материалов — пустой массив или null.`;
+- semantic_intents: поисковые формулировки по СМЫСЛУ ситуации, включая релевантные правовые доктрины/виды споров даже если они не названы дословно.
+- legal_concepts: юридические понятия и институты, которые следует проверить по официальным источникам и локальной KB.
+- metadata_terms: реквизиты и признаки для metadata-поиска: виды актов, органы, налоги, периоды, суды, категории споров, номера и даты, если они следуют из материалов.
+- search_hypotheses: допустимые гипотезы ТОЛЬКО ДЛЯ ПОИСКА (например, "проверить практику о техническом контрагенте"). Они НЕ являются фактами дела и не могут подтверждать вывод без найденного источника.
+- Можно расширять поиск по контексту и смыслу, но нельзя переносить поисковую гипотезу в facts.
+- Никаких выдумок в facts/requisites. Если установленного факта нет — не добавляй его как факт.`;
 
   let raw = await callFlashViaLovable(prompt);
   if (!raw) raw = await callFlashViaGemini(prompt);
@@ -251,7 +270,6 @@ ${docsBlock || "(нет документов)"}
     console.error("[fact-extraction] no LLM response (LOVABLE_API_KEY/GEMINI_API_KEY missing or error)");
   }
 
-  // Normalize arrays/strings from LLM
   const norm = (v: unknown): string[] =>
     Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean) : [];
   const normStr = (v: unknown): string | null => {
@@ -270,13 +288,16 @@ ${docsBlock || "(нет документов)"}
     legal_issues: norm(llmQuery.legal_issues),
     keywords: norm(llmQuery.keywords),
     research_topics: norm(llmQuery.research_topics),
-    articles: norm((llmQuery as any).articles),
-    organizations: norm((llmQuery as any).organizations),
-    inn: norm((llmQuery as any).inn ?? (llmQuery as any).INN),
-    ogrn: norm((llmQuery as any).ogrn ?? (llmQuery as any).OGRN),
+    articles: norm(llmQuery.articles),
+    organizations: norm(llmQuery.organizations),
+    inn: norm(llmQuery.inn ?? (llmQuery as any).INN),
+    ogrn: norm(llmQuery.ogrn ?? (llmQuery as any).OGRN),
+    semantic_intents: norm(llmQuery.semantic_intents),
+    legal_concepts: norm(llmQuery.legal_concepts),
+    metadata_terms: norm(llmQuery.metadata_terms),
+    search_hypotheses: norm(llmQuery.search_hypotheses),
   };
 
-  // Always merge deterministic regex extraction so the query is never empty
   return mergeQueryWithRegex(fromLlm, joinedRaw);
 }
 
@@ -287,6 +308,10 @@ export function queryToSearchString(q: ResearchQuery): string {
     q.document_type ?? "",
     ...q.legal_issues,
     ...q.research_topics,
+    ...q.semantic_intents,
+    ...q.legal_concepts,
+    ...q.search_hypotheses,
+    ...q.metadata_terms,
     ...q.keywords,
     ...q.articles,
     ...q.facts.slice(0, 5),
