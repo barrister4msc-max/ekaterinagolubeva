@@ -60,11 +60,14 @@ jobs:
           DUMP="$(find /tmp/law7_backup -type f -path '*/postgresql/law7.dump' -print -quit)"
           test -n "$DUMP"
           echo "LAW7_DUMP=$DUMP" >> "$GITHUB_ENV"
-          find /tmp/law7_backup -maxdepth 3 -type f \( -name 'README.md' -o -name '*.json' \) -print | head -20
 
-      - name: Restore isolated Law7 PostgreSQL source
+      - name: Restore only Law7 consolidated-code tables
         run: |
-          pg_restore -h 127.0.0.1 -U postgres -d law7 --no-owner --no-acl "$LAW7_DUMP"
+          pg_restore -h 127.0.0.1 -U postgres -d law7 --no-owner --no-acl \
+            --table=consolidated_codes \
+            --table=code_article_versions \
+            --table=amendment_applications \
+            "$LAW7_DUMP"
           psql -h 127.0.0.1 -U postgres -d law7 -Atc "select count(*) from code_article_versions;"
           psql -h 127.0.0.1 -U postgres -d law7 -Atc "select count(*) from code_article_versions where code_id='NK_RF' and article_number in ('54.1','88','89','93','100','101');"
 
@@ -72,8 +75,7 @@ jobs:
         env:
           LAW7_SOURCE_COMMIT: 70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2
         run: |
-          python scripts/law7_controlled_export.py \
-            --output /tmp/law7_nk_controlled.json
+          python scripts/law7_controlled_export.py --output /tmp/law7_nk_controlled.json
           python scripts/law7_mirror_import.py --input /tmp/law7_nk_controlled.json
 
       - name: Assert controlled scope
