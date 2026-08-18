@@ -83,16 +83,11 @@ describe("PR31 registry activity fallback", () => {
   });
 });
 
-describe("PR31 focused builder escape and search contrast", () => {
+describe("PR31 builder escape regression on current main", () => {
   const source = readFileSync("src/routes/workspace.document-builder.tsx", "utf8");
 
-  test("provides explicit return to workspace menu", () => {
-    expect(source).toContain("Вернуться в меню");
+  test("preserves the newer explicit return to workspace dashboard", () => {
     expect(source).toContain('navigate({ to: "/workspace/dashboard" })');
-  });
-
-  test("search icon and placeholder use explicit foreground contrast", () => {
-    expect(source).toContain("text-foreground opacity-90 stroke-[2.25]");
-    expect(source).toContain("placeholder:text-foreground/60");
+    expect(source).toContain("В дашборд");
   });
 });

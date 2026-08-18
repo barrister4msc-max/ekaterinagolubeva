@@ -6,6 +6,13 @@ project_id = "wiylzbdbjokignwvizxt"
 [functions.extract-document-text]
 verify_jwt = false
 
+# External research OCR uses the same internal authorization boundary as
+# extract-document-text but never persists text into documents/session rows.
+# Gateway JWT verification must stay off because project ES256 access tokens
+# are validated inside the function via auth.getUser() + admin RPC.
+[functions.extract-external-research-text]
+verify_jwt = false
+
 # Authorization is enforced in the function with auth.getUser() followed by
 # is_admin_or_superadmin(). Gateway JWT verification rejects the project's
 # asymmetric ES256 access tokens before those checks can run.

@@ -22,6 +22,72 @@ const ALLOWED_USED_FOR = new Set([
   "generation",
 ]);
 
+function metadataText(metadata: Record<string, unknown> | undefined, key: string): string | null {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function nestedText(value: unknown, key: string): string | null {
+  if (!value || typeof value !== "object") return null;
+  const nested = (value as Record<string, unknown>)[key];
+  return typeof nested === "string" && nested.trim() ? nested.trim() : null;
+}
+
+export function sourceVerificationStatus(source: MergedSource): string {
+  const metadata = source.metadata ?? {};
+  return (
+    metadataText(metadata, "verification_status") ??
+    nestedText(metadata.official_verification, "verification_level") ??
+    nestedText(metadata.safety, "verification_level") ??
+    (source.official_url ? "needs_check" : "missing_url")
+  );
+}
+
+export function sourceActualityStatus(source: MergedSource): string {
+  const metadata = source.metadata ?? {};
+  return (
+    metadataText(metadata, "actuality_status") ??
+    nestedText(metadata.official_verification, "actuality_status") ??
+    nestedText(metadata.safety, "actuality_status") ??
+    (source.official_url ? "requires_actuality_check" : "requires_manual_verification")
+  );
+}
+
+function canonicalSourceProjection(source: MergedSource): Record<string, unknown> {
+  const metadata = source.metadata ?? {};
+  const keys = [
+    "legal_source_registry_id",
+    "registry_match_method",
+    "authority_name",
+    "authority_level",
+    "jurisdiction",
+    "practice_area",
+    "publication_date",
+    "effective_from",
+    "effective_to",
+    "revision_date",
+    "is_official",
+    "current_status",
+    "last_checked_at",
+    "registry_retrieved_at",
+    "canonical_document_key",
+    "provider_id",
+    "provider",
+    "official_provider",
+    "official_retrieved_at",
+    "official_publication_url",
+    "official_verification",
+    "retrieval_method",
+    "transport",
+  ];
+  const out: Record<string, unknown> = {};
+  for (const key of keys) {
+    const value = metadata[key];
+    if (value !== undefined && value !== null) out[key] = value;
+  }
+  return out;
+}
+
 export function extractJson(text: string): unknown {
   return safeParseGeminiJson(text);
 }
@@ -95,10 +161,9 @@ export function mergeWithRegistry(
         source_table: reg.source_table,
         official_url: reg.official_url,
         url: reg.official_url ?? item.url,
-        verification_status: reg.official_url ? "needs_check" : "missing_url",
-        actuality_status: reg.official_url
-          ? "requires_actuality_check"
-          : "requires_manual_verification",
+        ...canonicalSourceProjection(reg),
+        verification_status: sourceVerificationStatus(reg),
+        actuality_status: sourceActualityStatus(reg),
       };
     });
 
@@ -143,20 +208,23 @@ export function mergeWithRegistry(
       official_url: r.official_url,
       url: r.official_url,
       citation: r.citation,
-      verification_status: r.official_url ? "needs_check" : "missing_url",
-      actuality_status: r.official_url
-        ? "requires_actuality_check"
-        : "requires_manual_verification",
+      ...canonicalSourceProjection(r),
+      verification_status: sourceVerificationStatus(r),
+      actuality_status: sourceActualityStatus(r),
       scores: r.scores,
       appearances: r.appearances,
       merged_from: r.merged_from,
     });
+    const actualityStatus = sourceActualityStatus(r);
     actuality.push({
       source: r.title,
-      status: r.official_url ? "requires_actuality_check" : "needs_check",
-      note: r.official_url
-        ? "Источник найден, актуальность редакции требует проверки."
-        : "Источник без публичного URL, требуется проверка юристом.",
+      status: actualityStatus,
+      note:
+        actualityStatus === "verified" || actualityStatus === "not_applicable"
+          ? "Актуальность источника подтверждена canonical metadata / verification contract."
+          : r.official_url
+            ? "Источник найден, актуальность редакции требует проверки."
+            : "Источник без публичного URL, требуется проверка юристом.",
     });
   }
   return { combined_sources: combined, source_actuality: actuality };

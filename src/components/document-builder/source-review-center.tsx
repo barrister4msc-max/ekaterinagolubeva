@@ -20,6 +20,7 @@ import {
 import { fetchLatestLegalAnalysis } from "@/lib/legal-analysis";
 import { supabase } from "@/integrations/supabase/client";
 import type { LegalAnalysisSourceWarning } from "@/lib/legal-analysis";
+import { ExternalLegalResearchPanel } from "@/components/document-builder/external-legal-research-panel";
 import {
   loadReviewMap,
   saveReviewEntry,
@@ -133,11 +134,21 @@ export function SourceReviewCenter({ sessionId }: { sessionId: string | null }) 
 
   if (!sessionId) return null;
 
+  const externalResearch = (
+    <ExternalLegalResearchPanel
+      sessionId={sessionId}
+      externalSearchRequired={Boolean(runQuery.data?.analysis?.external_search_required)}
+    />
+  );
+
   if (runQuery.isLoading) {
     return (
-      <div className="db-subcard">
-        <div className="db-section-label flex items-center gap-2">
-          <Loader2 size={14} className="animate-spin" /> Загрузка источников…
+      <div className="space-y-3">
+        {externalResearch}
+        <div className="db-subcard">
+          <div className="db-section-label flex items-center gap-2">
+            <Loader2 size={14} className="animate-spin" /> Загрузка источников…
+          </div>
         </div>
       </div>
     );
@@ -145,72 +156,78 @@ export function SourceReviewCenter({ sessionId }: { sessionId: string | null }) 
 
   if (!runQuery.data) {
     return (
-      <div className="db-subcard">
-        <div className="db-section-label">Источники</div>
-        <div className="mt-2 text-xs text-white/65">
-          AI правовой анализ ещё не выполнен. Запустите анализ в карточке опросника.
+      <div className="space-y-3">
+        {externalResearch}
+        <div className="db-subcard">
+          <div className="db-section-label">Источники</div>
+          <div className="mt-2 text-xs text-white/65">
+            AI правовой анализ ещё не выполнен. Внешнее исследование можно сохранить заранее, затем запустить анализ в карточке опросника.
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="db-subcard">
-      <div className="flex items-center justify-between gap-3">
-        <div className="db-section-label">Центр проверки источников</div>
-        <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
-          Осталось без решения:{" "}
-          <span
-            className={
-              remaining.length === 0
-                ? "text-emerald-200"
-                : "text-amber-200"
-            }
-          >
-            {remaining.length}
-          </span>{" "}
-          из {warnings.length}
+    <div className="space-y-3">
+      {externalResearch}
+      <div className="db-subcard">
+        <div className="flex items-center justify-between gap-3">
+          <div className="db-section-label">Центр проверки источников</div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-white/55">
+            Осталось без решения:{" "}
+            <span
+              className={
+                remaining.length === 0
+                  ? "text-emerald-200"
+                  : "text-amber-200"
+              }
+            >
+              {remaining.length}
+            </span>{" "}
+            из {warnings.length}
+          </div>
         </div>
-      </div>
 
-      <div className="mt-2 text-[11px] text-white/55">
-        Предупреждения не блокируют формирование документа.
-        После подтверждения предупреждение считается обработанным.
-        После отклонения оно остаётся в списке до повторной проверки или замены источника.
-      </div>
+        <div className="mt-2 text-[11px] text-white/55">
+          Предупреждения не блокируют формирование документа.
+          После подтверждения предупреждение считается обработанным.
+          После отклонения оно остаётся в списке до повторной проверки или замены источника.
+        </div>
 
-      {warnings.length === 0 ? (
-        <div className="mt-3 rounded-md border border-emerald-400/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
-          <CheckCircle2 size={14} className="inline mr-1" />
-          Источники прошли проверку без предупреждений.
-        </div>
-      ) : (
-        <ul className="mt-3 space-y-2">
-          {warnings.map((w) => {
-            const key = warningKey(w);
-            const rv = reviews[key];
-            return (
-              <WarningRow
-  key={key}
-  warning={w}
-  review={rv}
-  pending={mutation.isPending}
-  onOpen={() => setSelectedWarning(w)}
-  onChange={(patch) => mutation.mutate({ key, patch })}
-/>
-            );
-          })}
-        </ul>
-      )}
-    <SourceWarningDrawer
-  warning={selectedWarning}
-  onClose={() => setSelectedWarning(null)}
-/>
-      {mutation.isError && (
-        <div className="mt-3 text-xs text-rose-200">
-          Ошибка сохранения: {String((mutation.error as Error).message)}
-        </div>
-      )}
+        {warnings.length === 0 ? (
+          <div className="mt-3 rounded-md border border-emerald-400/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
+            <CheckCircle2 size={14} className="inline mr-1" />
+            Источники прошли проверку без предупреждений.
+          </div>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {warnings.map((w) => {
+              const key = warningKey(w);
+              const rv = reviews[key];
+              return (
+                <WarningRow
+                  key={key}
+                  warning={w}
+                  review={rv}
+                  pending={mutation.isPending}
+                  onOpen={() => setSelectedWarning(w)}
+                  onChange={(patch) => mutation.mutate({ key, patch })}
+                />
+              );
+            })}
+          </ul>
+        )}
+        <SourceWarningDrawer
+          warning={selectedWarning}
+          onClose={() => setSelectedWarning(null)}
+        />
+        {mutation.isError && (
+          <div className="mt-3 text-xs text-rose-200">
+            Ошибка сохранения: {String((mutation.error as Error).message)}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -295,27 +312,27 @@ function WarningRow({
           <XCircle size={12} className="inline mr-1" /> Отклонить
         </button>
         <button
-  type="button"
-  className="db-ghost"
-  onClick={onOpen}
->
-  <BookOpen size={12} className="inline mr-1" />
-  Просмотреть источник
-</button>
+          type="button"
+          className="db-ghost"
+          onClick={onOpen}
+        >
+          <BookOpen size={12} className="inline mr-1" />
+          Просмотреть источник
+        </button>
 
-<button
-  type="button"
-  className="db-ghost"
-  onClick={() => setEditing((v) => !v)}
->
-  <MessageSquare size={12} className="inline mr-1" />
-  {editing ? "Скрыть комментарий" : "Комментарий"}
-</button>
+        <button
+          type="button"
+          className="db-ghost"
+          onClick={() => setEditing((v) => !v)}
+        >
+          <MessageSquare size={12} className="inline mr-1" />
+          {editing ? "Скрыть комментарий" : "Комментарий"}
+        </button>
         <div className="ml-auto text-[11px] text-white/45">
           Статус:
-<span className="text-white/75">
-  {REVIEW_STATUS_LABEL[status]}
-</span>
+          <span className="text-white/75">
+            {REVIEW_STATUS_LABEL[status]}
+          </span>
           {review?.reviewed_at && (
             <>
               {" · "}
@@ -358,43 +375,43 @@ function SourceWarningDrawer({
 }) {
   if (!warning) return null;
 
-const kbChunkId = extractKbChunkId(warning.source_ref);
+  const kbChunkId = extractKbChunkId(warning.source_ref);
 
-const kbQuery = useQuery({
-  queryKey: ["source-warning-kb-chunk", kbChunkId],
-  enabled: !!kbChunkId,
-  queryFn: async () => {
-    const { data, error } = await supabase
-      .from("legal_knowledge_chunks" as any)
-      .select("id,title,content,source_type,category,metadata")
-      .eq("id", kbChunkId)
-      .maybeSingle();
+  const kbQuery = useQuery({
+    queryKey: ["source-warning-kb-chunk", kbChunkId],
+    enabled: !!kbChunkId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("legal_knowledge_chunks" as any)
+        .select("id,title,content,source_type,category,metadata")
+        .eq("id", kbChunkId)
+        .maybeSingle();
 
-    if (error) return null;
-    return data as any;
-  },
-});
+      if (error) return null;
+      return data as any;
+    },
+  });
 
-const title = kbQuery.data?.title ?? getSourceTitle(warning);
-const text = kbQuery.data?.content ?? getSourceText(warning);
-const url =
-  kbQuery.data?.metadata?.official_url ??
-  kbQuery.data?.metadata?.source_url ??
-  kbQuery.data?.metadata?.url ??
-  getOfficialUrl(warning);
+  const title = kbQuery.data?.title ?? getSourceTitle(warning);
+  const text = kbQuery.data?.content ?? getSourceText(warning);
+  const url =
+    kbQuery.data?.metadata?.official_url ??
+    kbQuery.data?.metadata?.source_url ??
+    kbQuery.data?.metadata?.url ??
+    getOfficialUrl(warning);
 
-const sourceMetadata = {
-  ...((warning as any).metadata ?? {}),
-  ...(kbQuery.data?.metadata ?? {}),
-};
+  const sourceMetadata = {
+    ...((warning as any).metadata ?? {}),
+    ...(kbQuery.data?.metadata ?? {}),
+  };
 
-const w = { ...(warning as any), metadata: sourceMetadata };
-console.log("SOURCE DRAWER", {
-  source_ref: warning.source_ref,
-  kbChunkId,
-  kbData: kbQuery.data,
-  metadata: sourceMetadata,
-});
+  const w = { ...(warning as any), metadata: sourceMetadata };
+  console.log("SOURCE DRAWER", {
+    source_ref: warning.source_ref,
+    kbChunkId,
+    kbData: kbQuery.data,
+    metadata: sourceMetadata,
+  });
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
       <div className="h-full w-full max-w-[520px] overflow-y-auto border-l border-white/15 bg-slate-950 p-5 text-white shadow-2xl">
@@ -421,21 +438,21 @@ console.log("SOURCE DRAWER", {
               Основные сведения
             </div>
             <InfoRow label="Тип предупреждения" value={WARNING_LABEL[warning.warning_type] ?? warning.warning_type} />
-<InfoRow label="ID источника" value={warning.source_ref} />
-<InfoRow label="Источник KB" value={kbChunkId} />
-<InfoRow label="Название" value={kbQuery.data?.title} />
-<InfoRow label="Оригинальный файл" value={w.metadata.original_file_name} />
-<InfoRow label="Категория" value={kbQuery.data?.category ?? w.metadata.category} />
-<InfoRow label="Подкатегория" value={w.metadata.subcategory} />
-<InfoRow label="Тип источника" value={kbQuery.data?.source_type ?? w.metadata.source_type ?? w.metadata.source_kind} />
-<InfoRow label="Статья" value={w.metadata.article} />
-<InfoRow label="Номер документа" value={w.metadata.document_number} />
-<InfoRow label="Дата документа" value={w.metadata.document_date} />
-<InfoRow label="Архив" value={w.metadata.archive_name} />
-<InfoRow label="Источник" value={w.metadata.source_origin} />
-<InfoRow label="Статус проверки" value={w.metadata.verification_status} />
-<InfoRow label="Официальная ссылка" value={w.metadata.official_url ?? w.metadata.source_url} />
-<InfoRow label="Заменён на" value={warning.superseded_by} />
+            <InfoRow label="ID источника" value={warning.source_ref} />
+            <InfoRow label="Источник KB" value={kbChunkId} />
+            <InfoRow label="Название" value={kbQuery.data?.title} />
+            <InfoRow label="Оригинальный файл" value={w.metadata.original_file_name} />
+            <InfoRow label="Категория" value={kbQuery.data?.category ?? w.metadata.category} />
+            <InfoRow label="Подкатегория" value={w.metadata.subcategory} />
+            <InfoRow label="Тип источника" value={kbQuery.data?.source_type ?? w.metadata.source_type ?? w.metadata.source_kind} />
+            <InfoRow label="Статья" value={w.metadata.article} />
+            <InfoRow label="Номер документа" value={w.metadata.document_number} />
+            <InfoRow label="Дата документа" value={w.metadata.document_date} />
+            <InfoRow label="Архив" value={w.metadata.archive_name} />
+            <InfoRow label="Источник" value={w.metadata.source_origin} />
+            <InfoRow label="Статус проверки" value={w.metadata.verification_status} />
+            <InfoRow label="Официальная ссылка" value={w.metadata.official_url ?? w.metadata.source_url} />
+            <InfoRow label="Заменён на" value={warning.superseded_by} />
 
             {url && (
               <a
@@ -458,30 +475,30 @@ console.log("SOURCE DRAWER", {
               {warning.message}
             </div>
           </section>
-           <section className="rounded-md border border-white/10 bg-white/5 p-3">
-  <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
-    Использование источника
-  </div>
+          <section className="rounded-md border border-white/10 bg-white/5 p-3">
+            <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
+              Использование источника
+            </div>
 
-  {warning.affected_conclusions && warning.affected_conclusions.length > 0 ? (
-    <div className="space-y-2">
-      <div className="text-white/70">
-        Этот источник связан со следующими выводами AI:
-      </div>
+            {warning.affected_conclusions && warning.affected_conclusions.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-white/70">
+                  Этот источник связан со следующими выводами AI:
+                </div>
 
-      <ul className="list-disc space-y-1 pl-5 text-white/75">
-        {warning.affected_conclusions.map((conclusion) => (
-          <li key={conclusion}>{conclusion}</li>
-        ))}
-      </ul>
-    </div>
-  ) : (
-    <div className="rounded border border-amber-400/30 bg-amber-500/10 p-3 text-amber-100">
-      В текущих данных не указано, где именно используется этот источник.
-      Требуется ручная проверка связи источника с выводами.
-    </div>
-  )}
-</section>   
+                <ul className="list-disc space-y-1 pl-5 text-white/75">
+                  {warning.affected_conclusions.map((conclusion) => (
+                    <li key={conclusion}>{conclusion}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="rounded border border-amber-400/30 bg-amber-500/10 p-3 text-amber-100">
+                В текущих данных не указано, где именно используется этот источник.
+                Требуется ручная проверка связи источника с выводами.
+              </div>
+            )}
+          </section>
           <section className="rounded-md border border-white/10 bg-white/5 p-3">
             <div className="mb-2 flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
               <FileText size={12} />
@@ -499,35 +516,33 @@ console.log("SOURCE DRAWER", {
             )}
           </section>
 
-          
-
           {w.metadata && (
-  <section className="rounded-md border border-white/10 bg-white/5 p-3">
-    <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
-      Сведения об источнике
-    </div>
+            <section className="rounded-md border border-white/10 bg-white/5 p-3">
+              <div className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
+                Сведения об источнике
+              </div>
 
-    <InfoRow label="Категория" value={w.metadata.category} />
-    <InfoRow label="Подкатегория" value={w.metadata.subcategory} />
-    <InfoRow label="Тип источника" value={w.metadata.source_type} />
-    <InfoRow label="Автор" value={w.metadata.author} />
-    <InfoRow label="Орган" value={w.metadata.organization} />
-    <InfoRow label="Дата" value={w.metadata.date} />
-    <InfoRow label="Редакция" value={w.metadata.version} />
-    <InfoRow label="Номер документа" value={w.metadata.document_number} />
-   <InfoRow label="Оригинальный файл" value={w.metadata.original_file_name} />
-<InfoRow label="Архив" value={w.metadata.archive_name} />
-<InfoRow label="Источник" value={w.metadata.source_origin} />
-<InfoRow label="Статус проверки" value={w.metadata.verification_status} />
-<InfoRow label="Официальная ссылка" value={w.metadata.official_url ?? w.metadata.source_url} />
+              <InfoRow label="Категория" value={w.metadata.category} />
+              <InfoRow label="Подкатегория" value={w.metadata.subcategory} />
+              <InfoRow label="Тип источника" value={w.metadata.source_type} />
+              <InfoRow label="Автор" value={w.metadata.author} />
+              <InfoRow label="Орган" value={w.metadata.organization} />
+              <InfoRow label="Дата" value={w.metadata.date} />
+              <InfoRow label="Редакция" value={w.metadata.version} />
+              <InfoRow label="Номер документа" value={w.metadata.document_number} />
+              <InfoRow label="Оригинальный файл" value={w.metadata.original_file_name} />
+              <InfoRow label="Архив" value={w.metadata.archive_name} />
+              <InfoRow label="Источник" value={w.metadata.source_origin} />
+              <InfoRow label="Статус проверки" value={w.metadata.verification_status} />
+              <InfoRow label="Официальная ссылка" value={w.metadata.official_url ?? w.metadata.source_url} />
 
-    {Object.keys(w.metadata).length === 0 && (
-      <div className="text-white/60">
-        Метаданные отсутствуют.
-      </div>
-    )}
-  </section>
-)}
+              {Object.keys(w.metadata).length === 0 && (
+                <div className="text-white/60">
+                  Метаданные отсутствуют.
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </div>
     </div>

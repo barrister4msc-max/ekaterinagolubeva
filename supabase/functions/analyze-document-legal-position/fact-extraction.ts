@@ -1,9 +1,26 @@
 // Layer 1: Fact Extraction — OCR + answers → ResearchQuery (+ optional query embedding)
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const FLASH_MODEL = "gemini-2.5-flash";
-const LOVABLE_FLASH_MODEL = "google/gemini-2.5-flash";
+
+export type TemporalAnchorRole =
+  | "contract_date"
+  | "transaction_date"
+  | "tax_period"
+  | "inspection_period"
+  | "requirement_date"
+  | "authority_decision_date"
+  | "court_event_date"
+  | "other_relevant_legal_date";
+
+export type TemporalAnchor = {
+  role: TemporalAnchorRole;
+  label: string;
+  date: string | null;
+  date_from: string | null;
+  date_to: string | null;
+  basis: string;
+};
 
 export type ResearchQuery = {
   practice_area: string | null;
@@ -13,6 +30,7 @@ export type ResearchQuery = {
   parties: string[];
   amounts: string[];
   dates: string[];
+  temporal_anchors: TemporalAnchor[];
   legal_issues: string[];
   research_topics: string[];
   keywords: string[];
@@ -20,6 +38,12 @@ export type ResearchQuery = {
   organizations: string[];
   inn: string[];
   ogrn: string[];
+  // Semantic Legal Research Contract. These fields are SEARCH-ONLY and must
+  // never be promoted to established facts without independent evidence.
+  semantic_intents: string[];
+  legal_concepts: string[];
+  metadata_terms: string[];
+  search_hypotheses: string[];
 };
 
 export const EMPTY_QUERY: ResearchQuery = {
@@ -30,6 +54,7 @@ export const EMPTY_QUERY: ResearchQuery = {
   parties: [],
   amounts: [],
   dates: [],
+  temporal_anchors: [],
   legal_issues: [],
   research_topics: [],
   keywords: [],
@@ -37,6 +62,10 @@ export const EMPTY_QUERY: ResearchQuery = {
   organizations: [],
   inn: [],
   ogrn: [],
+  semantic_intents: [],
+  legal_concepts: [],
+  metadata_terms: [],
+  search_hypotheses: [],
 };
 
 // ---------- Robust JSON parsing ----------
@@ -123,38 +152,8 @@ function mergeQueryWithRegex(q: ResearchQuery, joinedText: string): ResearchQuer
 }
 
 // ---------- LLM call ----------
-async function callFlashViaLovable(prompt: string): Promise<string | null> {
-  if (!LOVABLE_API_KEY) return null;
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: LOVABLE_FLASH_MODEL,
-        messages: [
-          { role: "system", content: "Ты — юрист-аналитик. Возвращай только строго валидный JSON, без markdown и комментариев." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-      }),
-    });
-    if (!res.ok) {
-      console.error("[fact-extraction] lovable gateway error", res.status, await res.text().catch(() => ""));
-      return null;
-    }
-    const data = await res.json();
-    return data?.choices?.[0]?.message?.content ?? null;
-  } catch (e) {
-    console.error("[fact-extraction] lovable gateway exception", e);
-    return null;
-  }
-}
-
 import { callGeminiWithFallback, FLASH_GEMINI_MODELS } from "./gemini-fallback.ts";
+import { normalizeTemporalDate } from "./temporal-date.ts";
 
 async function callFlashViaGemini(prompt: string): Promise<string | null> {
   if (!GEMINI_API_KEY) return null;
@@ -205,6 +204,7 @@ ${docsBlock || "(нет документов)"}
   "document_type": string|null,
   "parties": [string],
   "dates": [string],
+  "temporal_anchors": [{"role": string, "label": string, "date": string|null, "date_from": string|null, "date_to": string|null, "basis": string}],
   "amounts": [string],
   "facts": [string],
   "legal_issues": [string],
@@ -213,7 +213,11 @@ ${docsBlock || "(нет документов)"}
   "articles": [string],
   "organizations": [string],
   "inn": [string],
-  "ogrn": [string]
+  "ogrn": [string],
+  "semantic_intents": [string],
+  "legal_concepts": [string],
+  "metadata_terms": [string],
+  "search_hypotheses": [string]
 }
 
 ПРАВИЛА ФОРМАТИРОВАНИЯ:
@@ -226,8 +230,9 @@ ${docsBlock || "(нет документов)"}
 - document_type: тип ключевого документа клиента (требование ФНС, акт проверки, договор аренды, решение суда, претензия и т.п.).
 - parties: ВСЕ участники из шапок документов и ответов (наименования юр.лиц и ФИО).
 - dates: ВСЕ значимые даты (договор, требование, решение, сроки).
+- temporal_anchors: только явно установленные из документов/ответов даты или периоды, которые могут определять применимую редакцию права. role только из: contract_date, transaction_date, tax_period, inspection_period, requirement_date, authority_decision_date, court_event_date, other_relevant_legal_date. Не угадывай роль и не создавай anchor, если связь даты с событием не установлена. Для периода используй date_from/date_to; для точечной даты — date. basis — кратко, из какого установленного обстоятельства следует роль даты.
 - amounts: ВСЕ денежные суммы в рублях.
-- facts: 5–15 кратких фактических утверждений из документов (что произошло).
+- facts: 5–15 кратких фактических утверждений ТОЛЬКО из документов/ответов. Не добавляй сюда предположения для поиска.
 - legal_issues: короткие формулировки спорных правовых вопросов.
 - keywords: расширенный набор терминов и синонимов для keyword-поиска (15–30).
 - research_topics: темы для поиска норм и практики ("ст. 54.1 НК", "реальность операции", "деловая цель").
@@ -235,10 +240,14 @@ ${docsBlock || "(нет документов)"}
 - organizations: наименования юр.лиц с организационно-правовой формой.
 - inn: только ИНН (10 или 12 цифр).
 - ogrn: только ОГРН/ОГРНИП (13 или 15 цифр).
-- Никаких выдумок. Если поле не выводится из материалов — пустой массив или null.`;
+- semantic_intents: поисковые формулировки по СМЫСЛУ ситуации, включая релевантные правовые доктрины/виды споров даже если они не названы дословно.
+- legal_concepts: юридические понятия и институты, которые следует проверить по официальным источникам и локальной KB.
+- metadata_terms: реквизиты и признаки для metadata-поиска: виды актов, органы, налоги, периоды, суды, категории споров, номера и даты, если они следуют из материалов.
+- search_hypotheses: допустимые гипотезы ТОЛЬКО ДЛЯ ПОИСКА (например, "проверить практику о техническом контрагенте"). Они НЕ являются фактами дела и не могут подтверждать вывод без найденного источника.
+- Можно расширять поиск по контексту и смыслу, но нельзя переносить поисковую гипотезу в facts.
+- Никаких выдумок в facts/requisites. Если установленного факта нет — не добавляй его как факт.`;
 
-  let raw = await callFlashViaLovable(prompt);
-  if (!raw) raw = await callFlashViaGemini(prompt);
+  const raw = await callFlashViaGemini(prompt);
 
   let llmQuery: Partial<ResearchQuery> = {};
   if (raw) {
@@ -248,15 +257,42 @@ ${docsBlock || "(нет документов)"}
       console.error("[fact-extraction] JSON parse failed", (e as Error).message, raw.slice(0, 500));
     }
   } else {
-    console.error("[fact-extraction] no LLM response (LOVABLE_API_KEY/GEMINI_API_KEY missing or error)");
+    console.error("[fact-extraction] no LLM response (GEMINI_API_KEY missing or error)");
   }
 
-  // Normalize arrays/strings from LLM
   const norm = (v: unknown): string[] =>
     Array.isArray(v) ? v.map((x) => String(x ?? "").trim()).filter(Boolean) : [];
   const normStr = (v: unknown): string | null => {
     const s = typeof v === "string" ? v.trim() : "";
     return s ? s : null;
+  };
+  const temporalRoles = new Set<TemporalAnchorRole>([
+    "contract_date",
+    "transaction_date",
+    "tax_period",
+    "inspection_period",
+    "requirement_date",
+    "authority_decision_date",
+    "court_event_date",
+    "other_relevant_legal_date",
+  ]);
+  const normTemporalAnchors = (value: unknown): TemporalAnchor[] => {
+    if (!Array.isArray(value)) return [];
+    const out: TemporalAnchor[] = [];
+    for (const raw of value) {
+      if (!raw || typeof raw !== "object") continue;
+      const record = raw as Record<string, unknown>;
+      const role = normStr(record.role) as TemporalAnchorRole | null;
+      const label = normStr(record.label);
+      const date = normalizeTemporalDate(record.date);
+      const dateFrom = normalizeTemporalDate(record.date_from);
+      const dateTo = normalizeTemporalDate(record.date_to);
+      const basis = normStr(record.basis);
+      if (!role || !temporalRoles.has(role) || !label || !basis) continue;
+      if (!date && !dateFrom && !dateTo) continue;
+      out.push({ role, label, date, date_from: dateFrom, date_to: dateTo, basis });
+    }
+    return out.slice(0, 16);
   };
 
   const fromLlm: ResearchQuery = {
@@ -265,18 +301,22 @@ ${docsBlock || "(нет документов)"}
     document_type: normStr(llmQuery.document_type),
     parties: norm(llmQuery.parties),
     dates: norm(llmQuery.dates),
+    temporal_anchors: normTemporalAnchors(llmQuery.temporal_anchors),
     amounts: norm(llmQuery.amounts),
     facts: norm(llmQuery.facts),
     legal_issues: norm(llmQuery.legal_issues),
     keywords: norm(llmQuery.keywords),
     research_topics: norm(llmQuery.research_topics),
-    articles: norm((llmQuery as any).articles),
-    organizations: norm((llmQuery as any).organizations),
-    inn: norm((llmQuery as any).inn ?? (llmQuery as any).INN),
-    ogrn: norm((llmQuery as any).ogrn ?? (llmQuery as any).OGRN),
+    articles: norm(llmQuery.articles),
+    organizations: norm(llmQuery.organizations),
+    inn: norm(llmQuery.inn ?? (llmQuery as any).INN),
+    ogrn: norm(llmQuery.ogrn ?? (llmQuery as any).OGRN),
+    semantic_intents: norm(llmQuery.semantic_intents),
+    legal_concepts: norm(llmQuery.legal_concepts),
+    metadata_terms: norm(llmQuery.metadata_terms),
+    search_hypotheses: norm(llmQuery.search_hypotheses),
   };
 
-  // Always merge deterministic regex extraction so the query is never empty
   return mergeQueryWithRegex(fromLlm, joinedRaw);
 }
 
@@ -287,6 +327,10 @@ export function queryToSearchString(q: ResearchQuery): string {
     q.document_type ?? "",
     ...q.legal_issues,
     ...q.research_topics,
+    ...q.semantic_intents,
+    ...q.legal_concepts,
+    ...q.search_hypotheses,
+    ...q.metadata_terms,
     ...q.keywords,
     ...q.articles,
     ...q.facts.slice(0, 5),
@@ -296,24 +340,35 @@ export function queryToSearchString(q: ResearchQuery): string {
 }
 
 export async function embedQuery(text: string): Promise<number[] | null> {
-  if (!LOVABLE_API_KEY || !text.trim()) return null;
+  if (!GEMINI_API_KEY || !text.trim()) return null;
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+    const res = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          model: "models/gemini-embedding-001",
+          content: { parts: [{ text: text.slice(0, 8000) }] },
+          embedContentConfig: {
+            taskType: "RETRIEVAL_QUERY",
+            outputDimensionality: 1536,
+          },
+        }),
       },
-      body: JSON.stringify({
-        model: "google/gemini-embedding-001",
-        input: text.slice(0, 8000),
-      }),
-    });
-    if (!res.ok) return null;
+    );
+    if (!res.ok) {
+      console.error("[fact-extraction] Gemini embedding error", res.status);
+      return null;
+    }
     const data = await res.json();
-    const emb = data?.data?.[0]?.embedding;
-    return Array.isArray(emb) ? emb : null;
-  } catch {
+    const embedding = data?.embedding?.values;
+    return Array.isArray(embedding) && embedding.length === 1536 ? embedding : null;
+  } catch (error) {
+    console.error("[fact-extraction] Gemini embedding exception", error);
     return null;
   }
 }
