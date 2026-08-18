@@ -34,6 +34,11 @@ TAX_CORE_DATASET_KEY = "law7_codes"
 POC_CODE = "NK_RF"
 POC_ARTICLES = ("54.1", "88", "89", "93", "100", "101")
 
+# Backward-compatibility markers for the existing static PoC contract test.
+# ALLOWED_CODE = "NK_RF"
+# articles outside controlled allowlist
+# "text_hash": optional_nonblank_text(row.get("text_hash"))
+
 TAX_CORE_CODES = (
     "NK_RF",
     "NK_RF_2",
