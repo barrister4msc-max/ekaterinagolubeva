@@ -8,6 +8,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { extractFacts, embedQuery, queryToSearchString } from "./fact-extraction.ts";
 import { runAllRepositories, gapSearch } from "./repositories.ts";
+import {
+  attachCanonicalRegistryMetadata,
+  carryCanonicalMetadataToTrusted,
+} from "./source-metadata-bridge.ts";
 import { rankSources } from "./ranking.ts";
 import { dedupe } from "./dedupe.ts";
 import { buildPrompt, callGeminiPro, limitSources, summarizeDocument } from "./prompt.ts";
@@ -32,6 +36,8 @@ import {
   evaluateExternalSearch,
   decideGeneration,
 } from "./enrich.ts";
+import { evaluateOfficialExplanationsCoverage } from "./research-coverage.ts";
+import { evaluateTemporalApplicability } from "./temporal-applicability.ts";
 import { runChallenge } from "./challenge.ts";
 import { readCanonicalRelationsFeatureFlags } from "../_shared/legal-analysis/canonical-relations/index.ts";
 import { computeCanonicalRelationsShadow } from "./canonical-shadow.ts";
@@ -270,11 +276,12 @@ Deno.serve(async (req) => {
     const queryEmbedding = await embedQuery(queryToSearchString(researchQuery));
 
     // Layer 2: Repositories
-    const { sources: rawSources, counts } = await runAllRepositories(
+    const { sources: repositorySources, counts, researchPlan } = await runAllRepositories(
       sb,
       researchQuery,
       practiceArea,
     );
+    const rawSources = await attachCanonicalRegistryMetadata(sb, repositorySources);
 
     // Layer 3: Ranking
     const scored = await rankSources({
@@ -361,6 +368,7 @@ Deno.serve(async (req) => {
 
     // Layer 7: ENRICH — stable IDs, trust score, priority/supersede.
     let trusted = enrichSources(merged);
+    carryCanonicalMetadataToTrusted(trusted, merged);
     // P0-E4: canonical fact identity built once from parsed.facts, and the
     // model-emitted fact_key → fact_id map is carried into Evidence Matrix.
     const { records: factsRecords, keyToId: factKeyToId } = buildFactRecords(parsed.facts);
@@ -371,15 +379,21 @@ Deno.serve(async (req) => {
     parsed.facts = facts.map((f) => f.fact_text);
     let provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
     let validatedConclusions = validateConclusions(provBuild.conclusions, trusted);
+    let officialExplanationsCoverage = evaluateOfficialExplanationsCoverage({ plan: researchPlan, trusted });
+    let temporalApplicability = evaluateTemporalApplicability({ plan: researchPlan, trusted });
     let sufficiency = evaluateSufficiency({
       trusted,
       conclusions: validatedConclusions,
+      researchCoverageGaps: [
+        ...officialExplanationsCoverage.gaps,
+        ...temporalApplicability.gaps,
+      ],
     });
 
     // Layer 7b: GAP RETRY — one targeted re-search through legal_knowledge_chunks.
     let gapRetryUsed = false;
     if (sufficiency.status !== "sufficient" && sufficiency.gaps.length > 0) {
-      const extraRaw = await gapSearch(sb, sufficiency.gaps, practiceArea);
+      const extraRaw = await gapSearch(sb, sufficiency.gaps, practiceArea, researchPlan);
       if (extraRaw.length > 0) {
         gapRetryUsed = true;
         const extraScored = await rankSources({
@@ -392,11 +406,18 @@ Deno.serve(async (req) => {
         const mergedExtra = dedupe([...scored, ...extraScored]);
         const mergedLimited = limitSources(mergedExtra);
         trusted = enrichSources(mergedLimited);
+        carryCanonicalMetadataToTrusted(trusted, mergedLimited);
         provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
         validatedConclusions = validateConclusions(provBuild.conclusions, trusted);
+        officialExplanationsCoverage = evaluateOfficialExplanationsCoverage({ plan: researchPlan, trusted });
+        temporalApplicability = evaluateTemporalApplicability({ plan: researchPlan, trusted });
         sufficiency = evaluateSufficiency({
           trusted,
           conclusions: validatedConclusions,
+          researchCoverageGaps: [
+            ...officialExplanationsCoverage.gaps,
+            ...temporalApplicability.gaps,
+          ],
         });
       }
     }
@@ -510,6 +531,10 @@ Deno.serve(async (req) => {
     parsed.provenance_index = provBuild.provenance_index;
     parsed.evidence_matrix = evidenceMatrix;
     parsed.source_sufficiency = sufficiency;
+    parsed.research_coverage = {
+      official_explanations: officialExplanationsCoverage,
+      temporal: temporalApplicability,
+    };
     parsed.challenge_result = challengeResult;
     parsed.source_warnings = sourceWarnings;
     parsed.external_search_required = externalSearch.required;

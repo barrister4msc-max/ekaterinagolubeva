@@ -2,6 +2,7 @@
 
 import type { ResearchQuery } from "./fact-extraction.ts";
 import type { Bucket, RawSource } from "./repositories.ts";
+import { attachCanonicalRegistryMetadata } from "./source-metadata-bridge.ts";
 
 export type ScoredSource = RawSource & {
   scores: {
@@ -37,9 +38,30 @@ function tokenize(s: string): string[] {
     .filter((t) => t.length >= 3);
 }
 
+function metadataSearchText(metadata: Record<string, unknown> | undefined): string {
+  if (!metadata) return "";
+  const values: string[] = [];
+  const walk = (value: unknown, depth = 0) => {
+    if (depth > 2 || value == null) return;
+    if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+      values.push(String(value));
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.slice(0, 20).forEach((v) => walk(v, depth + 1));
+      return;
+    }
+    if (typeof value === "object") {
+      Object.values(value as Record<string, unknown>).slice(0, 40).forEach((v) => walk(v, depth + 1));
+    }
+  };
+  walk(metadata);
+  return values.join(" ").slice(0, 6000).toLowerCase();
+}
+
 function keywordScore(src: RawSource, terms: string[]): number {
   if (terms.length === 0) return 0;
-  const hay = (src.title + " " + src.snippet).toLowerCase();
+  const hay = `${src.title} ${src.snippet} ${metadataSearchText(src.metadata)}`.toLowerCase();
   let hits = 0;
   const seen = new Set<string>();
   for (const t of terms) {
@@ -53,7 +75,6 @@ function keywordScore(src: RawSource, terms: string[]): number {
 function priorityScore(src: RawSource): number {
   const p = (src.metadata?.priority as string | undefined)?.toLowerCase();
   if (p && p in PRIORITY_WEIGHT) return PRIORITY_WEIGHT[p];
-  // practice_legal_analysis_sources brings relevance_score as 0..1 (sometimes 0..100)
   const rel = src.metadata?.relevance_score as number | undefined;
   if (typeof rel === "number") return rel > 1 ? Math.min(1, rel / 100) : Math.max(0, Math.min(1, rel));
   const ql = (src.metadata?.quality_level as string | undefined)?.toLowerCase();
@@ -101,18 +122,25 @@ export async function rankSources(opts: {
   practiceArea: string | null;
 }): Promise<ScoredSource[]> {
   const { sb, sources, query, queryEmbedding, practiceArea } = opts;
+  // Ranking is a shared boundary used by both first-pass retrieval and GAP retry.
+  // Enforce the same canonical metadata projection here so no retry path bypasses it.
+  const canonicalSources = await attachCanonicalRegistryMetadata(sb, sources);
 
   const terms = [
     ...query.legal_issues,
     ...query.research_topics,
+    ...query.semantic_intents,
+    ...query.legal_concepts,
+    ...query.search_hypotheses,
+    ...query.metadata_terms,
     ...query.keywords,
+    ...query.articles,
     ...(query.subcategory ? [query.subcategory] : []),
-  ]
-    .flatMap((t) => tokenize(t));
+  ].flatMap((t) => tokenize(t));
 
   const semMap = await semanticScoreMap(sb, queryEmbedding, practiceArea);
 
-  const scored: ScoredSource[] = sources.map((src) => {
+  const scored: ScoredSource[] = canonicalSources.map((src) => {
     const semantic = src.source_table === "legal_knowledge_chunks"
       ? (semMap.get(src.source_id) ?? 0)
       : 0;
@@ -123,12 +151,11 @@ export async function rankSources(opts: {
     return { ...src, scores: { semantic, keyword, priority, relevance, final } };
   });
 
-  // sort + trim per bucket
   const byBucket = new Map<Bucket, ScoredSource[]>();
-  for (const s of scored) {
-    const arr = byBucket.get(s.bucket) ?? [];
-    arr.push(s);
-    byBucket.set(s.bucket, arr);
+  for (const source of scored) {
+    const arr = byBucket.get(source.bucket) ?? [];
+    arr.push(source);
+    byBucket.set(source.bucket, arr);
   }
   const out: ScoredSource[] = [];
   for (const [bucket, arr] of byBucket) {
