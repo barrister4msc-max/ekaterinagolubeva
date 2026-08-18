@@ -62,7 +62,33 @@ export type ExternalResearchLinkResult = {
   unresolved_source_ids: string[];
 };
 
+export type ExternalResearchRunSnapshot = {
+  imports_received: number;
+  candidates_normalized: number;
+  duplicates_removed: number;
+  linked: number;
+  unresolved: number;
+  providers: ExternalResearchProviderId[];
+  warnings: string[];
+  references: Array<{
+    source_id: string;
+    provider_ids: string[];
+    bucket: Bucket;
+    citation: string | null;
+    imported_url: string | null;
+    document_number: string | null;
+    document_date: string | null;
+    research_issue_ids: string[];
+    linked: boolean;
+  }>;
+};
+
 const PROVIDERS = new Set<ExternalResearchProviderId>(["strizh", "garant", "consultant", "other"]);
+const MAX_IMPORTS = 20;
+const MAX_LINKS_PER_IMPORT = 50;
+const MAX_CANDIDATES_PER_IMPORT = 50;
+const MAX_ISSUE_IDS_PER_IMPORT = 12;
+const MAX_SNAPSHOT_REFERENCES = 100;
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -154,6 +180,7 @@ function normalizedCandidate(
     snippet: excerpt?.slice(0, 1800) ?? "",
     metadata: {
       provider_id: provider,
+      discovered_via_providers: [provider],
       provider_type: "research",
       provider_integration_mode: "manual_import",
       provider_source_class: "retrieval_intermediary",
@@ -197,7 +224,8 @@ function provider(value: unknown): ExternalResearchProviderId | null {
 
 /** Parse session/request staging data without accepting arbitrary provider identities. */
 export function parseExternalResearchImportInputs(value: unknown): ExternalResearchImportInput[] {
-  const values = Array.isArray(value) ? value : value && typeof value === "object" ? [value] : [];
+  const values = (Array.isArray(value) ? value : value && typeof value === "object" ? [value] : [])
+    .slice(0, MAX_IMPORTS);
   const out: ExternalResearchImportInput[] = [];
   for (const item of values) {
     if (!item || typeof item !== "object") continue;
@@ -207,12 +235,18 @@ export function parseExternalResearchImportInputs(value: unknown): ExternalResea
     out.push({
       provider: p,
       answer_text: text(raw.answer_text),
-      links: Array.isArray(raw.links) ? raw.links.filter((v): v is string => typeof v === "string") : [],
+      links: Array.isArray(raw.links)
+        ? raw.links.filter((v): v is string => typeof v === "string").slice(0, MAX_LINKS_PER_IMPORT)
+        : [],
       candidates: Array.isArray(raw.candidates)
-        ? raw.candidates.filter((v): v is ExternalResearchCandidate => !!v && typeof v === "object")
+        ? raw.candidates
+          .filter((v): v is ExternalResearchCandidate => !!v && typeof v === "object")
+          .slice(0, MAX_CANDIDATES_PER_IMPORT)
         : [],
       research_issue_ids: Array.isArray(raw.research_issue_ids)
-        ? raw.research_issue_ids.filter((v): v is string => typeof v === "string")
+        ? raw.research_issue_ids
+          .filter((v): v is string => typeof v === "string")
+          .slice(0, MAX_ISSUE_IDS_PER_IMPORT)
         : [],
     });
   }
@@ -245,6 +279,10 @@ export function normalizeExternalResearchImport(
     existing.metadata.research_issue_ids = uniq([
       ...((existing.metadata.research_issue_ids as string[] | undefined) ?? []),
       ...((source.metadata.research_issue_ids as string[] | undefined) ?? []),
+    ]);
+    existing.metadata.discovered_via_providers = uniq([
+      ...((existing.metadata.discovered_via_providers as string[] | undefined) ?? []),
+      ...((source.metadata.discovered_via_providers as string[] | undefined) ?? []),
     ]);
     if (!existing.snippet && source.snippet) existing.snippet = source.snippet;
   }
@@ -289,6 +327,10 @@ export function normalizeExternalResearchImports(
       existing.metadata.research_issue_ids = uniq([
         ...((existing.metadata.research_issue_ids as string[] | undefined) ?? []),
         ...((source.metadata.research_issue_ids as string[] | undefined) ?? []),
+      ]);
+      existing.metadata.discovered_via_providers = uniq([
+        ...((existing.metadata.discovered_via_providers as string[] | undefined) ?? []),
+        ...((source.metadata.discovered_via_providers as string[] | undefined) ?? []),
       ]);
     }
   }
@@ -355,7 +397,10 @@ export function linkExternalResearchToLocalSources(
           : []) as unknown[]),
         {
           import_source_id: imported.source_id,
-          provider_id: imported.metadata?.provider_id ?? null,
+          provider_ids: uniq([
+            ...((imported.metadata?.discovered_via_providers as string[] | undefined) ?? []),
+            imported.metadata?.provider_id,
+          ]),
           imported_url: imported.metadata?.imported_url ?? null,
           citation: imported.citation,
         },
@@ -368,5 +413,40 @@ export function linkExternalResearchToLocalSources(
     linked,
     unresolved: unresolved.length,
     unresolved_source_ids: unresolved,
+  };
+}
+
+/**
+ * Immutable per-run audit snapshot. It intentionally excludes provider
+ * narrative and excerpts; only reference metadata needed to reproduce the
+ * retrieval admission decision is persisted.
+ */
+export function buildExternalResearchRunSnapshot(
+  batch: ExternalResearchBatchResult,
+  link: ExternalResearchLinkResult,
+): ExternalResearchRunSnapshot {
+  const unresolved = new Set(link.unresolved_source_ids);
+  return {
+    imports_received: batch.diagnostics.imports_received,
+    candidates_normalized: batch.diagnostics.candidates_normalized,
+    duplicates_removed: batch.diagnostics.duplicates_removed,
+    linked: link.linked,
+    unresolved: link.unresolved,
+    providers: batch.diagnostics.providers,
+    warnings: batch.diagnostics.warnings,
+    references: batch.sources.slice(0, MAX_SNAPSHOT_REFERENCES).map((source) => ({
+      source_id: source.source_id,
+      provider_ids: uniq([
+        ...((source.metadata?.discovered_via_providers as string[] | undefined) ?? []),
+        source.metadata?.provider_id,
+      ]),
+      bucket: source.bucket,
+      citation: source.citation,
+      imported_url: text(source.metadata?.imported_url),
+      document_number: text(source.metadata?.document_number),
+      document_date: text(source.metadata?.document_date),
+      research_issue_ids: uniq((source.metadata?.research_issue_ids as unknown[] | undefined) ?? []),
+      linked: !unresolved.has(source.source_id),
+    })),
   };
 }
