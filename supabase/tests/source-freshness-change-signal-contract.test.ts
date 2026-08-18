@@ -28,9 +28,10 @@ describe("PR39 Source Freshness persistence contract", () => {
     expect(migration).not.toContain("'CURRENT', 'RECHECK_DUE', 'CHANGED'");
   });
 
-  test("recheck outcome is typed separately from verification status", () => {
+  test("recheck outcome is typed separately from verification status and fails closed", () => {
     expect(migration).toContain("recheck_outcome");
-    expect(migration).toContain("'UNCHANGED', 'SOURCE_CHANGED', 'STATUS_CHANGED', 'UNAVAILABLE'");
+    expect(migration).toContain("'UNCHANGED', 'SOURCE_CHANGED', 'STATUS_CHANGED', 'UNAVAILABLE', 'UNRESOLVED'");
+    expect(migration).toContain("observations are insufficient for a reliable comparison");
     expect(migration).toContain("Separate from verification workflow status");
   });
 
