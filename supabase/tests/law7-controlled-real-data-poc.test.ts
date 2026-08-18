@@ -15,10 +15,12 @@ describe("Law7 controlled real-data PoC contract", () => {
     expect(exporter).toContain("articles outside controlled allowlist");
   });
 
-  test("Law7 source access is explicit read-only and provenance is required", () => {
+  test("Law7 source access is explicit read-only and exact provenance is required", () => {
     expect(exporter).toContain("set transaction read only");
     expect(exporter).toContain("conn.rollback()");
     expect(exporter).toContain("LAW7_SOURCE_COMMIT");
+    expect(exporter).toContain("verified backup SHA256");
+    expect(exporter).toContain("exact source provenance");
     expect(exporter).toContain('SOURCE_REPOSITORY = "mikhashev/law7"');
   });
 
