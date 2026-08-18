@@ -1,4 +1,5 @@
 # Temporary verification workflow; remove after GREEN.
+# Verification target: session staging UI + Analyzer admission contract.
 name: PR34 External Research UI Check
 
 on:
