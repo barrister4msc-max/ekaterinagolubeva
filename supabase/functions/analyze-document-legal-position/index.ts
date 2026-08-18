@@ -12,6 +12,12 @@ import {
   attachCanonicalRegistryMetadata,
   carryCanonicalMetadataToTrusted,
 } from "./source-metadata-bridge.ts";
+import {
+  buildExternalResearchRunSnapshot,
+  linkExternalResearchToLocalSources,
+  normalizeExternalResearchImports,
+  parseExternalResearchImportInputs,
+} from "./external-research-import.ts";
 import { rankSources } from "./ranking.ts";
 import { dedupe } from "./dedupe.ts";
 import { buildPrompt, callGeminiPro, limitSources, summarizeDocument } from "./prompt.ts";
@@ -161,10 +167,23 @@ Deno.serve(async (req) => {
     // session
     const { data: session, error: sessErr } = await sb
       .from("document_intake_sessions")
-      .select("id, template_code, jurisdiction, language")
+      .select("id, template_code, jurisdiction, language, metadata")
       .eq("id", sessionId)
       .single();
     if (sessErr) throw new Error(`session: ${sessErr.message}`);
+
+    const sessionMetadata = ((session as any).metadata ?? {}) as Record<string, unknown>;
+    const externalResearchInputs = [
+      ...parseExternalResearchImportInputs(sessionMetadata.external_legal_research_imports),
+      ...parseExternalResearchImportInputs(body?.external_research_imports),
+    ];
+    const externalResearch = normalizeExternalResearchImports(externalResearchInputs);
+    const stagedExternalResearchSnapshot = buildExternalResearchRunSnapshot(externalResearch, {
+      sources: [],
+      linked: 0,
+      unresolved: externalResearch.sources.length,
+      unresolved_source_ids: externalResearch.sources.map((source) => source.source_id),
+    });
 
     // answers
     const { data: answerRows } = await sb
@@ -252,13 +271,15 @@ Deno.serve(async (req) => {
             documents_used: 0,
             documents_rejected: rejectedDocs.length,
             reason: "no_usable_document_text",
+            external_research: stagedExternalResearchSnapshot,
           } as any,
         })
         .eq("id", runId);
       return json({ success: false, run_id: runId, error: "no_documents", message: msg }, 200);
     }
 
-    // Layer 1: Fact Extraction
+    // Layer 1: Fact Extraction. External research is deliberately excluded from
+    // this input so provider narrative/reference text cannot become case facts.
     const docTextById = new Map<string, string>();
     for (const d of docs ?? []) docTextById.set(d.id as string, pickText(d));
     const docsForExtraction = usedDocs.map((d) => ({
@@ -275,13 +296,41 @@ Deno.serve(async (req) => {
     });
     const queryEmbedding = await embedQuery(queryToSearchString(researchQuery));
 
-    // Layer 2: Repositories
+    // Layer 2: Repositories + discovery-only External Legal Research Import.
     const { sources: repositorySources, counts, researchPlan } = await runAllRepositories(
       sb,
       researchQuery,
       practiceArea,
     );
-    const rawSources = await attachCanonicalRegistryMetadata(sb, repositorySources);
+    const canonicalRepositorySources = await attachCanonicalRegistryMetadata(sb, repositorySources);
+    const canonicalExternalCandidates = await attachCanonicalRegistryMetadata(sb, externalResearch.sources);
+    const externalResearchLink = linkExternalResearchToLocalSources(
+      canonicalRepositorySources,
+      canonicalExternalCandidates,
+    );
+    const externalResearchRunSnapshot = buildExternalResearchRunSnapshot(
+      externalResearch,
+      externalResearchLink,
+    );
+    const rawSources = externalResearchLink.sources;
+
+    // Persist the sanitized run-specific import snapshot before model calls so
+    // failed runs remain auditable. Narrative/excerpts are never included.
+    const { error: snapshotErr } = await sb
+      .from("document_intake_ai_runs")
+      .update({
+        input_snapshot: {
+          template_code: session.template_code,
+          practice_area: practiceArea,
+          answers_count: Object.keys(answers).length,
+          documents_total: audited.length,
+          documents_used: usedDocs.length,
+          documents_rejected: rejectedDocs.length,
+          external_research: externalResearchRunSnapshot,
+        } as any,
+      })
+      .eq("id", runId);
+    if (snapshotErr) throw new Error(`update_run_snapshot: ${snapshotErr.message}`);
 
     // Layer 3: Ranking
     const scored = await rankSources({
@@ -512,6 +561,10 @@ Deno.serve(async (req) => {
       sources_after_enrich: trusted.length,
       sources_winners: trusted.filter((s) => s.is_winner && s.use_in_generation).length,
       gap_retry_used: gapRetryUsed ? 1 : 0,
+      external_research_imports: externalResearch.diagnostics.imports_received,
+      external_research_candidates: externalResearch.diagnostics.candidates_normalized,
+      external_research_linked: externalResearchLink.linked,
+      external_research_unresolved: externalResearchLink.unresolved,
       ...counts,
       semantic_enabled: queryEmbedding ? 1 : 0,
     };
@@ -520,6 +573,7 @@ Deno.serve(async (req) => {
       model_attempts: modelAttempts,
       final_model: model,
       fallback_used,
+      external_research_import: externalResearchRunSnapshot,
     };
 
     // Extended ai_result fields (Phase A core):
@@ -592,6 +646,7 @@ Deno.serve(async (req) => {
           template_code: session.template_code,
           practice_area: practiceArea,
           answers_count: Object.keys(answers).length,
+          external_research: externalResearchRunSnapshot,
           ...parsed.research_summary,
         } as any,
       })
