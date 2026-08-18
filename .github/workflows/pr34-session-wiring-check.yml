@@ -1,4 +1,5 @@
 # Temporary verification workflow; remove after GREEN.
+# Verification target: session/run wiring + discovery-only admission.
 name: PR34 Session Wiring Check
 
 on:
