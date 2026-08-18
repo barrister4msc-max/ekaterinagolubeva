@@ -20,10 +20,10 @@ export type ExternalResearchExtractionResult = {
 const MAX_TEXT_CHARS = 120_000;
 const MAX_REFERENCES = 20;
 const URL_RE = /https?:\/\/[^\s<>()"']+/giu;
-const CASE_RE = /\b[АA]\d{1,3}-\d{2,9}\/\d{4}\b/giu;
-const ARTICLE_RE = /\b(?:ст\.?|статья)\s*(\d+(?:\.\d+)*)\s*((?:НК|ГК|АПК|ГПК|КоАП|ТК|ЖК|СК|БК|УК)\s*РФ)\b/giu;
-const LETTER_RE = /\b((?:Письмо|Информация|Разъяснения?)\s+(?:ФНС|Минфина|Министерства\s+финансов)(?:\s+России|\s+РФ)?)\s*(?:от\s*)?(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{4})?\s*(?:№|N)\s*([A-Za-zА-Яа-я0-9\-\/\.]+)\b/giu;
-const GENERIC_DOC_RE = /\b((?:Федеральный\s+закон|Постановление|Определение|Решение|Приказ|Письмо))\s*(?:от\s*)?(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{4})?\s*(?:№|N)\s*([A-Za-zА-Яа-я0-9\-\/\.]+)\b/giu;
+const CASE_RE = /(?:^|[^A-Za-zА-Яа-я0-9])([АA]\d{1,3}-\d{2,9}\/\d{4})(?=$|[^A-Za-zА-Яа-я0-9])/giu;
+const ARTICLE_RE = /(?:^|[^A-Za-zА-Яа-я0-9])(?:ст\.?|статья)\s*(\d+(?:\.\d+)*)\s*((?:НК|ГК|АПК|ГПК|КоАП|ТК|ЖК|СК|БК|УК)\s*РФ)(?=$|[^A-Za-zА-Яа-я0-9])/giu;
+const LETTER_RE = /(?:^|[^A-Za-zА-Яа-я0-9])((?:Письмо|Информация|Разъяснения?)\s+(?:ФНС|Минфина|Министерства\s+финансов)(?:\s+России|\s+РФ)?)\s*(?:от\s*)?(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{4})?\s*(?:№|N)\s*([A-Za-zА-Яа-я0-9@\-\/\.]+)/giu;
+const GENERIC_DOC_RE = /(?:^|[^A-Za-zА-Яа-я0-9])((?:Федеральный\s+закон|Постановление|Определение|Решение|Приказ|Письмо))\s*(?:от\s*)?(\d{1,2}[.\/-]\d{1,2}[.\/-]\d{4})?\s*(?:№|N)\s*([A-Za-zА-Яа-я0-9@\-\/\.]+)/giu;
 
 function cleanUrl(value: string): string {
   return value.replace(/[),.;:!?]+$/g, "").slice(0, 2000);
@@ -118,14 +118,14 @@ export function extractExternalResearchReferences(input: string): ExternalResear
   }
 
   for (const match of text.matchAll(CASE_RE)) {
-    const caseNumber = normalizeSpace(match[0]);
+    const caseNumber = normalizeSpace(match[1] ?? "");
     addReference(references, seen, {
       title: `Судебное дело ${caseNumber}`,
       url: null,
       citation: caseNumber,
       document_number: null,
       document_date: null,
-      case_number: caseNumber,
+      case_number: caseNumber || null,
       code: null,
       article: null,
     });
