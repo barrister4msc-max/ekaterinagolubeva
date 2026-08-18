@@ -4,7 +4,8 @@ export type RecheckOutcome =
   | "UNCHANGED"
   | "SOURCE_CHANGED"
   | "STATUS_CHANGED"
-  | "UNAVAILABLE";
+  | "UNAVAILABLE"
+  | "UNRESOLVED";
 
 export type ChangeSignal =
   | "SOURCE_CHANGED"
@@ -145,30 +146,27 @@ export type SourceObservation = {
 
 /**
  * Compare a prior verified observation with the new official-provider observation.
- * Null means the provider was reachable but the observations do not contain enough
- * comparable revision/hash evidence to prove UNCHANGED. Callers must treat null as
- * unresolved, never as a successful no-change result.
+ * UNCHANGED is returned only when at least one observation axis is comparable and
+ * no previously/newly observed axis disappears or appears without a counterpart.
  */
 export function deriveRecheckOutcome(
   before: SourceObservation,
   after: SourceObservation,
-): RecheckOutcome | null {
+): RecheckOutcome {
   if (!after.available) return "UNAVAILABLE";
 
   const beforeStatus = normalize(before.currentStatus);
   const afterStatus = normalize(after.currentStatus);
-  const statusComparable = Boolean(beforeStatus && afterStatus);
-  if (statusComparable && beforeStatus !== afterStatus) {
-    return "STATUS_CHANGED";
-  }
-
   const beforeRevision = normalize(before.revisionDate);
   const afterRevision = normalize(after.revisionDate);
   const beforeHash = normalize(before.contentHash);
   const afterHash = normalize(after.contentHash);
+
+  const statusComparable = Boolean(beforeStatus && afterStatus);
   const revisionComparable = Boolean(beforeRevision && afterRevision);
   const hashComparable = Boolean(beforeHash && afterHash);
 
+  if (statusComparable && beforeStatus !== afterStatus) return "STATUS_CHANGED";
   if (
     (revisionComparable && beforeRevision !== afterRevision) ||
     (hashComparable && beforeHash !== afterHash)
@@ -176,8 +174,14 @@ export function deriveRecheckOutcome(
     return "SOURCE_CHANGED";
   }
 
-  if (!revisionComparable && !hashComparable) return null;
-  return "UNCHANGED";
+  const statusPresenceMismatch = Boolean(beforeStatus) !== Boolean(afterStatus);
+  const revisionPresenceMismatch = Boolean(beforeRevision) !== Boolean(afterRevision);
+  const hashPresenceMismatch = Boolean(beforeHash) !== Boolean(afterHash);
+  if (statusPresenceMismatch || revisionPresenceMismatch || hashPresenceMismatch) {
+    return "UNRESOLVED";
+  }
+
+  return statusComparable || revisionComparable || hashComparable ? "UNCHANGED" : "UNRESOLVED";
 }
 
 export function changeSignalForOutcome(outcome: RecheckOutcome): ChangeSignal | null {
