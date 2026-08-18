@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Plus, Search, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clipboard, Loader2, Plus, Search, Trash2, Upload } from "lucide-react";
 import {
   loadExternalLegalResearchImports,
   saveExternalLegalResearchImports,
@@ -11,6 +11,8 @@ import {
   readExternalResearchFile,
   type ExtractedExternalResearchReference,
 } from "@/lib/external-legal-research-extractor";
+import { buildHumanResearchRequest } from "@/lib/external-research-human-connector";
+import { fetchLatestLegalAnalysis } from "@/lib/legal-analysis";
 
 const PROVIDER_LABELS: Record<ExternalLegalResearchProvider, string> = {
   strizh: "Стриж",
@@ -54,7 +56,7 @@ function issueIds(value: string): string[] {
 function hasReference(draft: DraftFields): boolean {
   return Boolean(
     draft.title.trim() || draft.url.trim() || draft.citation.trim() ||
-    draft.documentNumber.trim() || draft.caseNumber.trim(),
+      draft.documentNumber.trim() || draft.caseNumber.trim(),
   );
 }
 
@@ -88,6 +90,8 @@ export function ExternalLegalResearchPanel({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [extracting, setExtracting] = useState(false);
+  const [buildingRequest, setBuildingRequest] = useState(false);
+  const [humanRequest, setHumanRequest] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [extractionNotice, setExtractionNotice] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
@@ -154,9 +158,7 @@ export function ExternalLegalResearchPanel({
       answer_text: answer || null,
       candidates: candidate ? [candidate] : [],
       research_issue_ids: ids,
-    }])) {
-      setDraft(EMPTY_DRAFT);
-    }
+    }])) setDraft(EMPTY_DRAFT);
   };
 
   const addExtractedReferences = async (
@@ -225,6 +227,33 @@ export function ExternalLegalResearchPanel({
     }
   };
 
+  const buildStrizhRequest = async () => {
+    setBuildingRequest(true);
+    setError(null);
+    try {
+      const run = await fetchLatestLegalAnalysis(sessionId);
+      const request = buildHumanResearchRequest("strizh", run?.analysis ?? null);
+      setHumanRequest(request.prompt);
+      if (request.issue_ids.length > 0) {
+        setDraft((current) => ({ ...current, provider: "strizh", issueIds: request.issue_ids.join(", ") }));
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBuildingRequest(false);
+    }
+  };
+
+  const copyHumanRequest = async () => {
+    if (!humanRequest) return;
+    try {
+      await navigator.clipboard.writeText(humanRequest);
+      setExtractionNotice("Запрос для Стриж скопирован. Отправь его в Стриж, затем вставь ответ сюда или загрузи экспортированный файл.");
+    } catch {
+      setError("Не удалось скопировать автоматически. Выдели текст запроса вручную.");
+    }
+  };
+
   const remove = async (index: number) => {
     await persist(imports.filter((_, itemIndex) => itemIndex !== index));
   };
@@ -248,6 +277,31 @@ export function ExternalLegalResearchPanel({
 
       <div className="mt-3 rounded-md border border-white/10 bg-white/5 p-3 text-[11px] text-white/60">
         Research narrative сам по себе не становится фактом или источником. TXT/MD/HTML/RTF/DOCX читаются локально; PDF/JPG/PNG/WEBP проходят отдельный OCR без записи в документы дела. После OCR извлекаются только явные реквизиты, а непроверенный импорт не попадает в TrustedSource и генерацию.
+      </div>
+
+      <div className="mt-3 rounded-md border border-sky-300/20 bg-sky-500/5 p-3">
+        <div className="text-xs font-medium text-sky-100">Human Research Connector — Стриж</div>
+        <div className="mt-1 text-[11px] text-white/55">
+          Публичного документированного API/MCP Стриж не подключаем через догадки. Вместо этого KATI LAWYER формирует запрос из текущих research gaps, Challenge и search-only контекста; ответ возвращается через безопасный импорт ниже.
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" className="db-ghost" disabled={buildingRequest} onClick={() => void buildStrizhRequest()}>
+            {buildingRequest ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />} Сформировать запрос для Стриж
+          </button>
+          {humanRequest && (
+            <button type="button" className="db-ghost" onClick={() => void copyHumanRequest()}>
+              <Clipboard size={13} /> Копировать запрос
+            </button>
+          )}
+        </div>
+        {humanRequest && (
+          <textarea
+            className="db-input mt-2 min-h-[180px] w-full text-[11px]"
+            readOnly
+            value={humanRequest}
+            aria-label="Запрос для Стриж"
+          />
+        )}
       </div>
 
       {loading ? (
