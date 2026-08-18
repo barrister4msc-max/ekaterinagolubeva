@@ -1,0 +1,85 @@
+{
+  "dataset_key": "law7_codes_poc",
+  "source_repository": "synthetic/test-fixture",
+  "source_commit": "0000000000000000000000000000000000000000",
+  "codes": [
+    {
+      "code": "NK_RF",
+      "name": "СИНТЕТИЧЕСКИЙ Налоговый кодекс — TEST FIXTURE",
+      "short_name": "НК РФ TEST",
+      "description": "Synthetic fixture only. Not legal text.",
+      "original_eo_number": null,
+      "original_date": "2000-01-01",
+      "official_url": null
+    },
+    {
+      "code": "APK_RF",
+      "name": "СИНТЕТИЧЕСКИЙ Арбитражный процессуальный кодекс — TEST FIXTURE",
+      "short_name": "АПК РФ TEST",
+      "description": "Synthetic fixture only. Not legal text.",
+      "original_eo_number": null,
+      "original_date": "2000-01-01",
+      "official_url": null
+    }
+  ],
+  "article_versions": [
+    {
+      "code_id": "NK_RF",
+      "article_number": "54.1",
+      "version_date": "2022-01-01",
+      "article_title": "Статья 54.1 — СИНТЕТИЧЕСКИЙ TEST FIXTURE",
+      "article_text": "СИНТЕТИЧЕСКИЙ TEST FIXTURE TEXT. Не является текстом закона и не предназначен для правового использования.",
+      "amendment_eo_number": "fixture-amendment-1",
+      "amendment_date": "2021-12-01",
+      "is_current": false,
+      "is_repealed": false,
+      "repealed_date": null
+    },
+    {
+      "code_id": "NK_RF",
+      "article_number": "54.1",
+      "version_date": "2024-01-01",
+      "article_title": "Статья 54.1 — СИНТЕТИЧЕСКИЙ CURRENT TEST FIXTURE",
+      "article_text": "СИНТЕТИЧЕСКИЙ CURRENT TEST FIXTURE TEXT. Не является текстом закона.",
+      "amendment_eo_number": "fixture-amendment-2",
+      "amendment_date": "2023-12-01",
+      "is_current": true,
+      "is_repealed": false,
+      "repealed_date": null
+    },
+    {
+      "code_id": "APK_RF",
+      "article_number": "1",
+      "version_date": "2024-01-01",
+      "article_title": "Статья 1 — СИНТЕТИЧЕСКИЙ TEST FIXTURE",
+      "article_text": "СИНТЕТИЧЕСКИЙ АПК TEST FIXTURE TEXT. Не является текстом закона.",
+      "amendment_eo_number": null,
+      "amendment_date": null,
+      "is_current": true,
+      "is_repealed": false,
+      "repealed_date": null
+    }
+  ],
+  "amendments": [
+    {
+      "code_id": "NK_RF",
+      "amendment_eo_number": "fixture-amendment-1",
+      "amendment_date": "2021-12-01",
+      "amendment_type": "modification",
+      "articles_affected": ["54.1"],
+      "articles_added": [],
+      "articles_modified": ["54.1"],
+      "articles_repealed": []
+    },
+    {
+      "code_id": "NK_RF",
+      "amendment_eo_number": "fixture-amendment-2",
+      "amendment_date": "2023-12-01",
+      "amendment_type": "modification",
+      "articles_affected": ["54.1"],
+      "articles_added": [],
+      "articles_modified": ["54.1"],
+      "articles_repealed": []
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+name: Law7 Mirror PoC Dry Run
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate synthetic normalized dataset
+        run: python scripts/law7_mirror_import.py --input scripts/fixtures/law7_mirror_poc.synthetic.json
+      - name: Verify workflow cannot write to Supabase
+        shell: bash
+        run: |
+          test -z "${DATABASE_URL:-}"
+          ! grep -q -- '--apply' .github/workflows/law7-mirror-poc-dry-run.yml

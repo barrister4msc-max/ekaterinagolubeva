@@ -9,6 +9,8 @@ import {
   type OfficialSourceResult,
   type OfficialSourceSafety,
 } from "./official-sources.ts";
+import { executeResearchProvider, type ResearchProviderDiagnostics } from "./research-provider-contract.ts";
+import { SupabaseLaw7ResearchProvider, SupabaseLaw7Transport } from "./law7-supabase-transport.ts";
 
 export type Bucket =
   | "laws"
@@ -399,6 +401,7 @@ export async function runAllRepositories(
     ekaterina: new PracticeRepository(sb),
     manuals: new ManualRepository(sb),
   };
+  const law7Provider = new SupabaseLaw7ResearchProvider(new SupabaseLaw7Transport(sb));
   const researchPlan = buildResearchPlan(query);
 
   const annotateQuestion = (source: RawSource, question: ResearchQuestion): RawSource => ({
@@ -453,6 +456,29 @@ export async function runAllRepositories(
       }),
     );
     return mergeQuestionAnnotations(batches.flat());
+  };
+
+  const searchLaw7PerIssue = async (): Promise<{
+    sources: RawSource[];
+    diagnostics: ResearchProviderDiagnostics[];
+  }> => {
+    const questions = researchPlan.questions.filter((question) => question.buckets.includes("laws"));
+    if (questions.length === 0) return { sources: [], diagnostics: [] };
+    const results = await Promise.all(
+      questions.map(async (question) => ({
+        question,
+        result: await executeResearchProvider(
+          law7Provider,
+          queryForQuestion(query, question),
+          { question, practice_area: area },
+        ),
+      })),
+    );
+    return {
+      sources: mergeQuestionAnnotations(results.flatMap(({ question, result }) =>
+        result.sources.map((source) => annotateQuestion(source, question)))),
+      diagnostics: results.map(({ result }) => result.diagnostics),
+    };
   };
 
   const searchOfficialPerIssue = async (): Promise<{
@@ -519,7 +545,7 @@ export async function runAllRepositories(
     };
   };
 
-  const [laws, court, fns, minfin, ek, manuals, official] = await Promise.all([
+  const [laws, court, fns, minfin, ek, manuals, official, law7] = await Promise.all([
     searchPerIssue("laws"),
     searchPerIssue("court_practice"),
     searchPerIssue("fns_letters"),
@@ -527,9 +553,10 @@ export async function runAllRepositories(
     searchPerIssue("ekaterina"),
     searchPerIssue("manuals"),
     searchOfficialPerIssue(),
+    searchLaw7PerIssue(),
   ]);
 
-  const localSources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals];
+  const localSources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals, ...law7.sources];
   const mergedOfficial = mergeOfficialWithLocalSources(localSources, official.sources);
   const sources = mergedOfficial.sources;
   const counts = {
@@ -539,6 +566,12 @@ export async function runAllRepositories(
     minfin_found: minfin.length,
     ekaterina_found: ek.length,
     manuals_found: manuals.length,
+    law7_found: law7.sources.length,
+    law7_provider_success: law7.diagnostics.filter((d) => d.status === "success").length,
+    law7_provider_partial: law7.diagnostics.filter((d) => d.status === "partial").length,
+    law7_provider_unavailable: law7.diagnostics.filter((d) => d.status === "unavailable").length,
+    law7_provider_failed: law7.diagnostics.filter((d) => d.status === "failed").length,
+    law7_execution_units_count: law7.diagnostics.length,
     official_sources_discovered: official.sources.length,
     official_sources_linked_to_local: mergedOfficial.linked,
     official_sources_substantive_external: mergedOfficial.substantiveExternal,
