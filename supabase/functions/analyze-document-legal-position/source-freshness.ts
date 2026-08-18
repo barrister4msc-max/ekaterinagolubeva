@@ -147,7 +147,8 @@ export type SourceObservation = {
 /**
  * Compare a prior verified observation with the new official-provider observation.
  * UNCHANGED is returned only when at least one observation axis is comparable and
- * no previously/newly observed axis disappears or appears without a counterpart.
+ * every observed axis remains comparable. If an axis exists only before or only
+ * after the recheck, the result is UNRESOLVED rather than a false no-change result.
  */
 export function deriveRecheckOutcome(
   before: SourceObservation,
