@@ -1,0 +1,42 @@
+# Temporary verification workflow; remove after GREEN.
+name: PR34 External Research Extractor Check
+
+on:
+  push:
+    branches:
+      - feat/external-legal-research-import
+  pull_request:
+    branches:
+      - feat/official-legal-sources-layer
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Frozen install
+        run: bun install --frozen-lockfile
+      - name: External research extractor tests
+        run: bun test tests/external-legal-research-extractor.test.ts
+      - name: External research staging tests
+        run: bun test tests/external-legal-research-staging.test.ts
+      - name: External research analyzer tests
+        run: bun test supabase/functions/analyze-document-legal-position/external-research-import.test.ts
+      - name: Analyzer tests
+        run: bun test supabase/functions/analyze-document-legal-position/*.test.ts
+      - name: Stacked diff check
+        run: |
+          git fetch origin feat/official-legal-sources-layer
+          git diff --check origin/feat/official-legal-sources-layer...HEAD
+      - name: Typecheck
+        run: bun run typecheck
+      - name: Build
+        run: bun run build
