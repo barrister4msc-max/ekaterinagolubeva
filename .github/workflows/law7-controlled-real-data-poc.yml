@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       source_commit:
-        description: "Exact mikhashev/law7 commit used as provenance"
+        description: "Exact immutable source revision: Law7 commit or verified backup SHA256"
         required: true
         type: string
       apply_to_poc_mirror:
@@ -13,7 +13,7 @@ on:
         default: false
         type: boolean
       smoke_date:
-        description: "Historical date for article 54.1 smoke lookup"
+        description: "Date-specific lookup used to prove fail-closed behavior before historical coverage is verified"
         required: true
         default: "2021-01-01"
         type: string
@@ -92,21 +92,34 @@ jobs:
         env:
           POC_DB: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
         run: test -n "$POC_DB"
-      - name: Apply mirror schema to PoC database
+      - name: Apply mirror schema and temporal safety guard to PoC database
         env:
           POC_DB: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
-        run: psql "$POC_DB" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818133000_law7_mirror_poc.sql
+        run: |
+          psql "$POC_DB" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818133000_law7_mirror_poc.sql
+          psql "$POC_DB" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818152000_law7_mirror_temporal_fail_closed.sql
       - name: Import controlled subset into PoC mirror
         env:
           DATABASE_URL: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
         run: python scripts/law7_mirror_import.py --input "$EXPORT_PATH" --apply
-      - name: E2E mirror smoke — availability, historical article and amendment history
+      - name: Mark imported historical coverage unverified until separately validated
+        env:
+          POC_DB: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
+        run: >-
+          psql "$POC_DB" -v ON_ERROR_STOP=1 -c
+          "update law7_mirror.sync_state
+          set metadata = coalesce(metadata, '{}'::jsonb) || '{\"historical_coverage\":\"unverified\"}'::jsonb,
+              updated_at = now()
+          where dataset_key = 'law7_codes_poc';"
+      - name: E2E mirror smoke — retrieval available, temporal/history fail closed
         env:
           POC_DB: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
           SMOKE_DATE: ${{ inputs.smoke_date }}
         shell: bash
         run: |
           test "$(psql "$POC_DB" -Atc "select public.law7_mirror_is_available();")" = "t"
-          psql "$POC_DB" -Atc "select article_number || '|' || version_date from public.law7_mirror_get_article_version('NK_RF','54.1',date '$SMOKE_DATE');" | grep '^54\.1|'
-          test "$(psql "$POC_DB" -Atc "select count(*) from public.law7_mirror_trace_amendment_history('NK_RF','54.1',50);")" -ge 1
-          psql "$POC_DB" -Atc "select count(*) from law7_mirror.article_versions where code_id='NK_RF' and article_number in ('54.1','88','89','93','100','101');" | grep -E '^[1-9][0-9]*$'
+          test "$(psql "$POC_DB" -Atc "select count(*) from public.law7_mirror_get_article_version('NK_RF','54.1',null);")" = "1"
+          test "$(psql "$POC_DB" -Atc "select count(*) from public.law7_mirror_get_article_version('NK_RF','54.1',date '$SMOKE_DATE');")" = "0"
+          test "$(psql "$POC_DB" -Atc "select count(*) from public.law7_mirror_trace_amendment_history('NK_RF','54.1',50);")" = "0"
+          test "$(psql "$POC_DB" -Atc "select count(*) from public.law7_mirror_query_laws('налоговая проверка',10);")" -ge 1
+          test "$(psql "$POC_DB" -Atc "select count(*) from law7_mirror.article_versions where code_id='NK_RF' and article_number in ('54.1','88','89','93','100','101');")" = "6"
