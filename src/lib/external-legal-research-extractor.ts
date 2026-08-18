@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { supabase } from "@/integrations/supabase/client";
 
 export type ExtractedExternalResearchReference = {
   title: string | null;
@@ -19,6 +20,7 @@ export type ExternalResearchExtractionResult = {
 
 const MAX_TEXT_CHARS = 120_000;
 const MAX_REFERENCES = 20;
+const MAX_BINARY_FILE_BYTES = 10 * 1024 * 1024;
 const URL_RE = /https?:\/\/[^\s<>()"']+/giu;
 const CASE_RE = /(?:^|[^A-Za-zА-Яа-я0-9])([АA]\d{1,3}-\d{2,9}\/\d{4})(?=$|[^A-Za-zА-Яа-я0-9])/giu;
 const ARTICLE_RE = /(?:^|[^A-Za-zА-Яа-я0-9])(?:ст\.?|статья)\s*(\d+(?:\.\d+)*)\s*((?:НК|ГК|АПК|ГПК|КоАП|ТК|ЖК|СК|БК|УК)\s*РФ)(?=$|[^A-Za-zА-Яа-я0-9])/giu;
@@ -192,6 +194,49 @@ async function readDocx(file: File): Promise<string> {
     .replace(/&gt;/g, ">");
 }
 
+function binaryResearchMime(file: File): string | null {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".webp")) return "image/webp";
+  return null;
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Не удалось прочитать research-файл."));
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function readBinaryResearchFile(file: File, mimeType: string): Promise<string> {
+  if (file.size <= 0) throw new Error("Research-файл пуст.");
+  if (file.size > MAX_BINARY_FILE_BYTES) {
+    throw new Error("Research-файл больше 10 МБ. Раздели его на части перед безопасным OCR.");
+  }
+
+  const fileBase64 = await fileToDataUrl(file);
+  const { data, error } = await supabase.functions.invoke("extract-external-research-text", {
+    body: {
+      purpose: "external_legal_research",
+      file_name: file.name,
+      mime_type: mimeType,
+      file_base64: fileBase64,
+    },
+  });
+  if (error) throw new Error(error.message || "Не удалось извлечь текст research-файла.");
+  if (!data?.ok) {
+    if (data?.error === "unsupported_legacy_doc") {
+      throw new Error("Legacy DOC пока не поддерживается безопасным research extraction path. Сохрани файл как DOCX или PDF.");
+    }
+    throw new Error(String(data?.error ?? "Не удалось извлечь текст research-файла."));
+  }
+  return String(data.text ?? "");
+}
+
 export async function readExternalResearchFile(file: File): Promise<ExternalResearchExtractionResult> {
   const name = file.name.toLowerCase();
   let text: string;
@@ -204,8 +249,14 @@ export async function readExternalResearchFile(file: File): Promise<ExternalRese
     text = stripRtf(await file.text());
   } else if (name.endsWith(".txt") || name.endsWith(".md")) {
     text = await file.text();
+  } else if (name.endsWith(".doc")) {
+    throw new Error("Legacy DOC пока не поддерживается безопасным research extraction path. Сохрани файл как DOCX или PDF.");
   } else {
-    throw new Error("Поддерживаются research-файлы TXT, MD, HTML, RTF и DOCX. PDF/DOC/изображения требуют отдельного безопасного extraction path, чтобы не попадать в Fact Extraction.");
+    const mimeType = binaryResearchMime(file);
+    if (!mimeType) {
+      throw new Error("Поддерживаются research-файлы TXT, MD, HTML, RTF, DOCX, PDF, JPG, PNG и WEBP.");
+    }
+    text = await readBinaryResearchFile(file, mimeType);
   }
 
   return extractExternalResearchReferences(text);
