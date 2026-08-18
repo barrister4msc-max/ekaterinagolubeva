@@ -1,13 +1,15 @@
 import type { ResearchQuery } from "./fact-extraction.ts";
 
-export type OfficialProviderId = "pravo" | "fns" | "minfin" | "vsrf" | "kad";
+export type OfficialProviderId = "pravo" | "fns" | "minfin" | "vsrf" | "kad" | "kremlin";
 
 export type OfficialProviderRegistration = {
   id: OfficialProviderId;
   name: string;
   hosts: string[];
+  official_public_interface: boolean;
+  documented_machine_interface: boolean;
   machine_readable_search: boolean;
-  documented_interface: boolean;
+  direct_backend_allowed: boolean;
 };
 
 export const OFFICIAL_PROVIDER_REGISTRY: OfficialProviderRegistration[] = [
@@ -15,38 +17,70 @@ export const OFFICIAL_PROVIDER_REGISTRY: OfficialProviderRegistration[] = [
     id: "pravo",
     name: "Официальное опубликование правовых актов",
     hosts: ["publication.pravo.gov.ru"],
+    official_public_interface: true,
+    documented_machine_interface: true,
     machine_readable_search: true,
-    documented_interface: true,
+    direct_backend_allowed: true,
   },
   {
     id: "fns",
     name: "ФНС России",
     hosts: ["nalog.gov.ru", "www.nalog.gov.ru"],
+    official_public_interface: true,
+    documented_machine_interface: false,
     machine_readable_search: false,
-    documented_interface: false,
+    direct_backend_allowed: false,
   },
   {
     id: "minfin",
     name: "Минфин России",
     hosts: ["minfin.gov.ru", "www.minfin.gov.ru"],
+    official_public_interface: false,
+    documented_machine_interface: false,
     machine_readable_search: false,
-    documented_interface: false,
+    direct_backend_allowed: false,
   },
   {
     id: "vsrf",
     name: "Верховный Суд Российской Федерации",
     hosts: ["vsrf.ru", "www.vsrf.ru", "supcourt.ru", "www.supcourt.ru"],
+    official_public_interface: true,
+    documented_machine_interface: false,
     machine_readable_search: false,
-    documented_interface: false,
+    direct_backend_allowed: false,
   },
   {
     id: "kad",
     name: "Картотека арбитражных дел",
     hosts: ["kad.arbitr.ru"],
+    official_public_interface: true,
+    documented_machine_interface: false,
     machine_readable_search: false,
-    documented_interface: false,
+    direct_backend_allowed: false,
+  },
+  {
+    id: "kremlin",
+    name: "Президент России — Банк документов",
+    hosts: ["kremlin.ru", "www.kremlin.ru"],
+    official_public_interface: true,
+    documented_machine_interface: false,
+    machine_readable_search: false,
+    direct_backend_allowed: false,
   },
 ];
+
+export function getOfficialProviderRegistration(
+  providerId: OfficialProviderId,
+): OfficialProviderRegistration {
+  const provider = OFFICIAL_PROVIDER_REGISTRY.find((item) => item.id === providerId);
+  if (!provider) throw new Error(`Unknown official provider: ${providerId}`);
+  return provider;
+}
+
+export function isDirectBackendAllowed(providerId: OfficialProviderId): boolean {
+  const provider = getOfficialProviderRegistration(providerId);
+  return provider.documented_machine_interface && provider.machine_readable_search && provider.direct_backend_allowed;
+}
 
 export type OfficialSourceSafety = {
   official_origin_verified: boolean;
@@ -396,6 +430,7 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
       safety,
       verification_status: safety.verification_level,
       substantive_use_allowed: safety.substantive_use_allowed,
+      search_mode: searchMode,
     },
   };
 }
