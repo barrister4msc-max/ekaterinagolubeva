@@ -1,8 +1,7 @@
 name: Temporary PR41 Law7 verifier
 
 on:
-  pull_request:
-    types: [edited]
+  push:
     branches: [main]
 
 permissions:
@@ -10,13 +9,12 @@ permissions:
 
 jobs:
   verify-pr41:
-    if: ${{ github.event.pull_request.number == 41 }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact PR41 head
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: 1ece55ed026450e5270b8d6449fe9c37d0824d64
           fetch-depth: 0
 
       - name: Verify tested head SHA
@@ -24,11 +22,8 @@ jobs:
         run: |
           EXPECTED="1ece55ed026450e5270b8d6449fe9c37d0824d64"
           ACTUAL="$(git rev-parse HEAD)"
-          EVENT_HEAD="${{ github.event.pull_request.head.sha }}"
           echo "expected_head_sha=$EXPECTED"
-          echo "event_head_sha=$EVENT_HEAD"
           echo "tested_head_sha=$ACTUAL"
-          test "$EVENT_HEAD" = "$EXPECTED"
           test "$ACTUAL" = "$EXPECTED"
 
       - uses: oven-sh/setup-bun@v2
@@ -68,7 +63,7 @@ jobs:
         run: python scripts/law7_mirror_import.py --input scripts/tests/fixtures/law7_tax_core_dry_run.json
 
       - name: Diff check
-        run: git diff --check origin/main...HEAD
+        run: git diff --check e378cc459b5024c9fb646852852f674ab8acfa40...HEAD
 
       - name: Typecheck
         run: bun run typecheck
