@@ -2,6 +2,9 @@ name: Law7 Mirror PoC Dry Run
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -14,8 +17,29 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: oven-sh/setup-bun@v2
+      - name: Python syntax
+        run: python -m py_compile scripts/law7_controlled_export.py scripts/law7_mirror_import.py
+      - name: TAX CORE exporter unit tests and importer dry-run
+        run: python -m unittest discover -s scripts/tests -p 'test_law7_controlled_export.py' -v
+      - name: Legacy controlled PoC contract
+        run: bun test supabase/tests/law7-controlled-real-data-poc.test.ts
+      - name: Existing Law7 mirror migration contract
+        run: bun test supabase/tests/law7-mirror-poc-migration.test.ts
+      - name: Existing Law7 temporal verification contract
+        run: bun test supabase/tests/law7-article-temporal-verification.test.ts
+      - name: Existing Law7 analyzer/provider tests
+        run: >-
+          bun test
+          supabase/functions/analyze-document-legal-position/law7-provider.test.ts
+          supabase/functions/analyze-document-legal-position/law7-repository-wiring.test.ts
+          supabase/functions/analyze-document-legal-position/law7-supabase-transport.test.ts
       - name: Validate synthetic normalized dataset
         run: python scripts/law7_mirror_import.py --input scripts/fixtures/law7_mirror_poc.synthetic.json
+      - name: Validate TAX CORE fixture dry-run
+        run: python scripts/law7_mirror_import.py --input scripts/tests/fixtures/law7_tax_core_dry_run.json
+      - name: Diff check
+        run: git diff --check origin/main...HEAD
       - name: Verify workflow cannot write to Supabase
         shell: bash
         run: |
