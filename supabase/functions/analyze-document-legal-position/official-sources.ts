@@ -430,7 +430,6 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
       safety,
       verification_status: safety.verification_level,
       substantive_use_allowed: safety.substantive_use_allowed,
-      search_mode: searchMode,
     },
   };
 }
