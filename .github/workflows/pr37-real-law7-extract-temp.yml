@@ -63,6 +63,7 @@ jobs:
 
       - name: Restore only Law7 consolidated-code tables
         run: |
+          psql -h 127.0.0.1 -U postgres -d law7 -v ON_ERROR_STOP=1 -c 'create extension if not exists "uuid-ossp";'
           pg_restore -h 127.0.0.1 -U postgres -d law7 --no-owner --no-acl \
             --table=consolidated_codes \
             --table=code_article_versions \
