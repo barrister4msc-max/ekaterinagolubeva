@@ -1,0 +1,45 @@
+{
+  "dataset_key": "law7_codes",
+  "source_repository": "mikhashev/law7",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "codes": [
+    {
+      "code": "NK_RF",
+      "name": "Налоговый кодекс Российской Федерации (часть первая)"
+    },
+    {
+      "code": "NK_RF_2",
+      "name": "Налоговый кодекс Российской Федерации (часть вторая)"
+    }
+  ],
+  "article_versions": [
+    {
+      "code_id": "NK_RF",
+      "article_number": "54.1",
+      "version_date": "2017-08-19",
+      "article_text": "Контрольный текст статьи 54.1 для dry-run fixture.",
+      "is_current": true,
+      "is_repealed": false
+    },
+    {
+      "code_id": "NK_RF_2",
+      "article_number": "164",
+      "version_date": "2026-01-01",
+      "article_text": "Контрольный текст статьи 164 для dry-run fixture.",
+      "is_current": true,
+      "is_repealed": false
+    }
+  ],
+  "amendments": [
+    {
+      "code_id": "NK_RF",
+      "amendment_eo_number": "fixture-amendment-1",
+      "amendment_date": "2017-07-18",
+      "amendment_type": "federal_law",
+      "articles_affected": [],
+      "articles_added": ["54.1"],
+      "articles_modified": [],
+      "articles_repealed": []
+    }
+  ]
+}
