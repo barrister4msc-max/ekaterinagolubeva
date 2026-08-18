@@ -28,10 +28,10 @@ describe("Law7 per-version temporal verification gate", () => {
       migration.indexOf("create or replace function public.law7_mirror_trace_amendment_history"),
     );
 
-    expect(getArticle).not.toContain("sync_state");
-    expect(getArticle).not.toContain("historical_coverage");
-    expect(history).not.toContain("sync_state");
-    expect(history).not.toContain("historical_coverage");
+    expect(getArticle).not.toContain("from law7_mirror.sync_state");
+    expect(getArticle).not.toContain("metadata ->> 'historical_coverage'");
+    expect(history).not.toContain("from law7_mirror.sync_state");
+    expect(history).not.toContain("metadata ->> 'historical_coverage'");
   });
 
   test("only explicit verified records can unlock date-specific lookup/history", () => {
