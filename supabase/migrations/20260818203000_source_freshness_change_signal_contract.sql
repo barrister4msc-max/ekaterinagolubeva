@@ -58,18 +58,21 @@ begin
       on delete set null;
   end if;
 
-  if not exists (
+  if exists (
     select 1 from pg_constraint
     where conname = 'legal_source_verification_logs_recheck_outcome_check'
       and conrelid = 'public.legal_source_verification_logs'::regclass
   ) then
     alter table public.legal_source_verification_logs
-      add constraint legal_source_verification_logs_recheck_outcome_check
-      check (
-        recheck_outcome is null
-        or recheck_outcome in ('UNCHANGED', 'SOURCE_CHANGED', 'STATUS_CHANGED', 'UNAVAILABLE')
-      );
+      drop constraint legal_source_verification_logs_recheck_outcome_check;
   end if;
+
+  alter table public.legal_source_verification_logs
+    add constraint legal_source_verification_logs_recheck_outcome_check
+    check (
+      recheck_outcome is null
+      or recheck_outcome in ('UNCHANGED', 'SOURCE_CHANGED', 'STATUS_CHANGED', 'UNAVAILABLE', 'UNRESOLVED')
+    );
 
   if not exists (
     select 1 from pg_constraint
@@ -138,7 +141,7 @@ comment on column public.legal_regulatory_monitored_sources.source_registry_id i
   'Canonical identity bridge to legal_source_registry. Legacy monitoring fields remain display/snapshot metadata and are not a second source registry.';
 
 comment on column public.legal_source_verification_logs.recheck_outcome is
-  'Outcome of a completed source recheck: UNCHANGED, SOURCE_CHANGED, STATUS_CHANGED, or UNAVAILABLE. Separate from verification workflow status and from operational FreshnessState.';
+  'Outcome of a completed source recheck: UNCHANGED, SOURCE_CHANGED, STATUS_CHANGED, UNAVAILABLE, or UNRESOLVED when observations are insufficient for a reliable comparison. Separate from verification workflow status and from operational FreshnessState.';
 
 comment on column public.legal_regulatory_update_alerts.signal_type is
   'Typed change signal: SOURCE_CHANGED or STATUS_CHANGED for the source itself; POSITION_UPDATE_AVAILABLE for newer official material on the same research issue.';
