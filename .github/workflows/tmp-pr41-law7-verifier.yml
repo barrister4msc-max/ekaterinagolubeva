@@ -1,7 +1,8 @@
 name: Temporary PR41 Law7 verifier
 
 on:
-  push:
+  pull_request_target:
+    types: [edited]
     branches: [main]
 
 permissions:
@@ -10,6 +11,7 @@ permissions:
 
 jobs:
   verify-pr41:
+    if: ${{ github.event.pull_request.number == 41 }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact PR41 head
@@ -17,14 +19,18 @@ jobs:
         with:
           ref: 1ece55ed026450e5270b8d6449fe9c37d0824d64
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Verify tested head SHA
         shell: bash
         run: |
           EXPECTED="1ece55ed026450e5270b8d6449fe9c37d0824d64"
+          EVENT_HEAD="${{ github.event.pull_request.head.sha }}"
           ACTUAL="$(git rev-parse HEAD)"
           echo "expected_head_sha=$EXPECTED"
+          echo "event_head_sha=$EVENT_HEAD"
           echo "tested_head_sha=$ACTUAL"
+          test "$EVENT_HEAD" = "$EXPECTED"
           test "$ACTUAL" = "$EXPECTED"
 
       - uses: oven-sh/setup-bun@v2
