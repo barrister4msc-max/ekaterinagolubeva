@@ -35,6 +35,7 @@ export type DocumentCompanyProfile = {
   taxpayer_ogrn: string | null;
   taxpayer_kpp: string | null;
   taxpayer_legal_address: string | null;
+  okved_main: string | null;
   business_activity: string | null;
 };
 
@@ -225,7 +226,8 @@ const DOCUMENT_FIELD_ALIASES: Record<keyof DocumentCompanyProfile, string[]> = {
     "legal_address",
     "registration_address",
   ],
-  business_activity: ["business_activity", "okved", "activity"],
+  okved_main: ["main_okved", "okved_main", "okved_code", "taxpayer_okved", "okved"],
+  business_activity: ["business_activity", "business_activity_name", "activity"],
 };
 
 function answerToString(value: unknown): string | null {
@@ -298,6 +300,10 @@ export function normalizeDigits(value: string): string {
   return value.replace(/\D/g, "");
 }
 
+export function normalizeOkvedCode(value: string): string {
+  return value.trim().replace(/[^0-9]/g, "");
+}
+
 type ConflictRule = {
   field: string;
   documentValue: string | null;
@@ -353,12 +359,20 @@ export function detectCompanyConflicts(
       reason: "Юридический адрес в документе отличается от адреса в реестре",
     },
     {
+      field: "okved_main",
+      documentValue: documentProfile.okved_main,
+      registryValue: registryProfile.okved_main,
+      normalize: normalizeOkvedCode,
+      severity: "low",
+      reason: "Основной ОКВЭД в документе отличается от реестра",
+    },
+    {
       field: "business_activity",
       documentValue: documentProfile.business_activity,
-      registryValue: registryProfile.business_activity_name ?? registryProfile.okved_main,
+      registryValue: registryProfile.business_activity_name,
       normalize: normalizeCompanyName,
       severity: "low",
-      reason: "Вид деятельности в документе отличается от ОКВЭД в реестре",
+      reason: "Описание вида деятельности в документе отличается от реестра",
     },
   ];
 

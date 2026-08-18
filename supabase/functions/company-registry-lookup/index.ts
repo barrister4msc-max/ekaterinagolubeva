@@ -56,6 +56,7 @@ function asDocumentProfile(value: unknown): DocumentCompanyProfile | null {
     "taxpayer_ogrn",
     "taxpayer_kpp",
     "taxpayer_legal_address",
+    "okved_main",
     "business_activity",
   ];
   const result = {} as DocumentCompanyProfile;
