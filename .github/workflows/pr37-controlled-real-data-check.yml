@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/law7-controlled-real-data-poc
+  pull_request:
+    branches:
+      - feat/law7-supabase-mirror-poc
 
 permissions:
   contents: read
