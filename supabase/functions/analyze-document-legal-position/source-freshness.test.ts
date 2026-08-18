@@ -60,6 +60,7 @@ describe("Source Freshness contract", () => {
     expect(classifySourceFreshness("codex")).toBe("LAW_CODE");
     expect(classifySourceFreshness("fns_letter")).toBe("OFFICIAL_EXPLANATION");
     expect(classifySourceFreshness("court_practice")).toBe("COURT_PRACTICE");
+    expect(classifySourceFreshness("letter")).toBe("OTHER");
 
     expect(sourceFreshnessPolicy("codex").documentFreshness).toBe(true);
     expect(sourceFreshnessPolicy("codex").issuePositionFreshness).toBe(false);
@@ -71,7 +72,7 @@ describe("Source Freshness contract", () => {
     expect(sourceFreshnessPolicy("court_practice").practiceFreshness).toBe(true);
   });
 
-  test("recheck outcomes are separate from freshness states", () => {
+  test("recheck outcomes are separate from freshness states and fail closed", () => {
     expect(
       deriveRecheckOutcome(
         { available: true, revisionDate: "2026-01-01", currentStatus: "active", contentHash: "aaa" },
@@ -99,6 +100,27 @@ describe("Source Freshness contract", () => {
         { available: false },
       ),
     ).toBe("UNAVAILABLE");
+
+    expect(
+      deriveRecheckOutcome(
+        { available: true },
+        { available: true },
+      ),
+    ).toBeNull();
+
+    expect(
+      deriveRecheckOutcome(
+        { available: true, currentStatus: "active" },
+        { available: true, currentStatus: "active" },
+      ),
+    ).toBeNull();
+
+    expect(
+      deriveRecheckOutcome(
+        { available: true, contentHash: "aaa" },
+        { available: true, contentHash: "aaa" },
+      ),
+    ).toBe("UNCHANGED");
 
     expect(changeSignalForOutcome("SOURCE_CHANGED")).toBe("SOURCE_CHANGED");
     expect(changeSignalForOutcome("STATUS_CHANGED")).toBe("STATUS_CHANGED");
