@@ -8,6 +8,11 @@ already accepted by `scripts/law7_mirror_import.py`.
 
 Scope is intentionally fixed for the first real-data PoC: NK_RF articles
 54.1, 88, 89, 93, 100 and 101. Source access is transaction READ ONLY.
+
+`source_commit` is the existing mirror-contract field name. For this bridge it
+must contain an exact immutable source revision: either a Law7 Git commit or a
+verified backup SHA256. It must never be filled with an unrelated repository
+HEAD merely to satisfy provenance.
 """
 
 from __future__ import annotations
@@ -35,19 +40,19 @@ def iso(value: Any) -> str | None:
     return text[:10] if text else None
 
 
-def optional_nonblank_text(value: Any) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
 def text_array(value: Any) -> list[str]:
     if value is None:
         return []
     if not isinstance(value, (list, tuple)):
         raise ValueError("expected PostgreSQL text[] value")
     return [str(item).strip() for item in value if str(item).strip()]
+
+
+def optional_nonblank_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def ensure_allowlist(code: str, articles: Iterable[str]) -> tuple[str, list[str]]:
@@ -162,8 +167,6 @@ def build_dataset(
             "is_current": row.get("is_current") is True,
             "is_repealed": row.get("is_repealed") is True,
             "repealed_date": iso(row.get("repealed_date")),
-            # The published Law7 backup can contain an empty string here.
-            # Normalize it to null so the existing mirror importer computes SHA256.
             "text_hash": optional_nonblank_text(row.get("text_hash")),
         } for row in version_rows],
         "amendments": [{
@@ -195,7 +198,7 @@ def main() -> int:
         if not source_url:
             raise ValueError("LAW7_SOURCE_DATABASE_URL (or --source-database-url) is required")
         if not source_commit:
-            raise ValueError("LAW7_SOURCE_COMMIT (or --source-commit) is required for provenance")
+            raise ValueError("LAW7_SOURCE_COMMIT (or --source-commit) is required for exact source provenance")
 
         code_row, versions, amendments = fetch_rows(source_url, code, articles)
         dataset = build_dataset(source_commit, code_row, versions, amendments, articles)
