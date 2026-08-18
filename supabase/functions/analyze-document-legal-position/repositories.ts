@@ -77,6 +77,7 @@ function makeChunkSource(row: any, bucket: Bucket): RawSource {
 function contextualTerms(query: ResearchQuery): string[] {
   const raw = [
     ...(query.semantic_intents ?? []),
+    ...(query.metadata_terms ?? []),
     ...(query.legal_concepts ?? []),
     ...(query.search_hypotheses ?? []),
     ...(query.research_topics ?? []),
@@ -147,6 +148,8 @@ async function selectChunks(
 
     // 2) Context/meaning search over content. The terms may be AI-expanded, but
     // they are search-only and never become facts or conclusions by themselves.
+    // metadata_terms are included because issue-specific temporal terms are
+    // projected there by queryForQuestion().
     for (const term of contextualTerms(researchQuery)) {
       let q = sb
         .from("legal_knowledge_chunks")
@@ -557,6 +560,50 @@ export async function runAllRepositories(
   return { sources, counts, researchPlan };
 }
 
+function isTemporalGap(gap: string): boolean {
+  return /temporal applicability|temporal metadata|temporal research|не разрешена temporal applicability|не применимы к|историческ.{0,20}редакц|редакц.{0,20}период/iu.test(gap);
+}
+
+function gapPattern(value: string): string | null {
+  const terms = value
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+    .split(/\s+/)
+    .filter((term) => term.length >= 4)
+    .slice(0, 4);
+  return terms.length ? `%${terms.join("%")}%` : null;
+}
+
+/**
+ * Build bounded retry patterns. Temporal gaps keep the ordinary issue query,
+ * but also add date/period/revision hints from the exact issue anchors. These
+ * hints remain retrieval-only and never become facts or applicability verdicts.
+ */
+export function buildGapSearchPatterns(
+  gap: string,
+  issue: ResearchQuestion | null,
+): string[] {
+  const patterns: string[] = [];
+  const seen = new Set<string>();
+  const add = (value: string) => {
+    const pattern = gapPattern(value);
+    if (!pattern || seen.has(pattern)) return;
+    seen.add(pattern);
+    patterns.push(pattern);
+  };
+
+  add(issue?.issue ?? gap);
+
+  if (issue && isTemporalGap(gap)) {
+    for (const hint of issue.temporal_terms) {
+      if (!/\d{4}|дат|период|редакц|действ|вступ|утрат/iu.test(hint)) continue;
+      add(hint);
+      if (patterns.length >= 4) break;
+    }
+  }
+
+  return patterns.slice(0, 4);
+}
+
 /**
  * Gap-targeted retry: keyword search across legal_knowledge_chunks for
  * specific sufficiency gaps surfaced by enrich.evaluateSufficiency.
@@ -577,23 +624,23 @@ export async function gapSearch(
       : /позиция Минфина/iu.test(gap)
         ? "minfin_letters"
         : null;
-    const searchText = issue?.issue ?? gap;
-    const terms = searchText
-      .replace(/[^\p{L}\p{N}\s]+/gu, " ")
-      .split(/\s+/)
-      .filter((t) => t.length >= 4)
-      .slice(0, 4);
-    if (terms.length === 0) continue;
-    const pattern = "%" + terms.join("%") + "%";
-    let q = sb
-      .from("legal_knowledge_chunks")
-      .select("id, title, content, metadata, category, source_type")
-      .eq("is_active", true)
-      .ilike("content", pattern)
-      .limit(6);
-    if (practiceArea) q = q.eq("category", practiceArea);
-    const { data } = await q;
-    for (const r of (data ?? []) as any[]) {
+    const patterns = buildGapSearchPatterns(gap, issue);
+    if (patterns.length === 0) continue;
+
+    const rows: any[] = [];
+    for (const pattern of patterns) {
+      let q = sb
+        .from("legal_knowledge_chunks")
+        .select("id, title, content, metadata, category, source_type")
+        .eq("is_active", true)
+        .ilike("content", pattern)
+        .limit(6);
+      if (practiceArea) q = q.eq("category", practiceArea);
+      const { data } = await q;
+      rows.push(...((data ?? []) as any[]));
+    }
+
+    for (const r of uniqRows(rows)) {
       const st = ((r.source_type as string | null) ?? "").toLowerCase();
       let bucket: Bucket = "laws";
       if (st.includes("court")) bucket = "court_practice";
