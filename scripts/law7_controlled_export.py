@@ -35,6 +35,13 @@ def iso(value: Any) -> str | None:
     return text[:10] if text else None
 
 
+def optional_nonblank_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def text_array(value: Any) -> list[str]:
     if value is None:
         return []
@@ -155,7 +162,9 @@ def build_dataset(
             "is_current": row.get("is_current") is True,
             "is_repealed": row.get("is_repealed") is True,
             "repealed_date": iso(row.get("repealed_date")),
-            "text_hash": row.get("text_hash"),
+            # The published Law7 backup can contain an empty string here.
+            # Normalize it to null so the existing mirror importer computes SHA256.
+            "text_hash": optional_nonblank_text(row.get("text_hash")),
         } for row in version_rows],
         "amendments": [{
             "code_id": str(row["code_id"]).strip(),
