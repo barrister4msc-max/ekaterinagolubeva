@@ -58,5 +58,17 @@ jobs:
         run: bun run typecheck
       - name: Build
         run: bun run build
-      - name: Deno check company registry
-        run: deno check --no-lock supabase/functions/company-registry-lookup/index.ts
+      - name: Confirm legacy Deno command fails on untouched main for dependency resolution
+        run: |
+          set +e
+          (cd /tmp/pr31-main && deno check --no-lock supabase/functions/company-registry-lookup/index.ts > /tmp/main-deno.log 2>&1)
+          code=$?
+          set -e
+          cat /tmp/main-deno.log
+          if [ "$code" -eq 0 ]; then
+            echo "Legacy Deno command unexpectedly passes on main; reassess PR31 failure."
+            exit 1
+          fi
+          grep -q "Could not find a matching package for 'npm:@supabase/supabase-js@2.95.3'" /tmp/main-deno.log
+      - name: Deno check company registry with automatic npm resolution
+        run: deno check --no-lock --node-modules-dir=auto supabase/functions/company-registry-lookup/index.ts
