@@ -26,7 +26,7 @@ jobs:
       - name: Frozen install
         run: bun install --frozen-lockfile
       - name: External research staging tests
-        run: bun test src/lib/external-legal-research-staging.test.ts
+        run: bun test tests/external-legal-research-staging.test.ts
       - name: External research analyzer tests
         run: bun test supabase/functions/analyze-document-legal-position/external-research-import.test.ts
       - name: Analyzer tests
