@@ -66,7 +66,6 @@ const EXPLANATION_TYPES = new Set([
   "minfin_letter",
   "official_explanation",
   "tax_explanation",
-  "letter",
 ]);
 
 const COURT_TYPES = new Set([
@@ -144,16 +143,22 @@ export type SourceObservation = {
   contentHash?: string | null;
 };
 
-/** Compare a prior verified observation with the new official-provider observation. */
+/**
+ * Compare a prior verified observation with the new official-provider observation.
+ * Null means the provider was reachable but the observations do not contain enough
+ * comparable revision/hash evidence to prove UNCHANGED. Callers must treat null as
+ * unresolved, never as a successful no-change result.
+ */
 export function deriveRecheckOutcome(
   before: SourceObservation,
   after: SourceObservation,
-): RecheckOutcome {
+): RecheckOutcome | null {
   if (!after.available) return "UNAVAILABLE";
 
   const beforeStatus = normalize(before.currentStatus);
   const afterStatus = normalize(after.currentStatus);
-  if (beforeStatus && afterStatus && beforeStatus !== afterStatus) {
+  const statusComparable = Boolean(beforeStatus && afterStatus);
+  if (statusComparable && beforeStatus !== afterStatus) {
     return "STATUS_CHANGED";
   }
 
@@ -161,14 +166,17 @@ export function deriveRecheckOutcome(
   const afterRevision = normalize(after.revisionDate);
   const beforeHash = normalize(before.contentHash);
   const afterHash = normalize(after.contentHash);
+  const revisionComparable = Boolean(beforeRevision && afterRevision);
+  const hashComparable = Boolean(beforeHash && afterHash);
 
   if (
-    (beforeRevision && afterRevision && beforeRevision !== afterRevision) ||
-    (beforeHash && afterHash && beforeHash !== afterHash)
+    (revisionComparable && beforeRevision !== afterRevision) ||
+    (hashComparable && beforeHash !== afterHash)
   ) {
     return "SOURCE_CHANGED";
   }
 
+  if (!revisionComparable && !hashComparable) return null;
   return "UNCHANGED";
 }
 
