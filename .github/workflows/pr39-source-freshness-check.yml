@@ -99,7 +99,9 @@ jobs:
           end $$;
 
           insert into public.legal_source_verification_logs(source_kind, recheck_outcome)
-          values ('law', 'SOURCE_CHANGED');
+          values
+            ('law', 'SOURCE_CHANGED'),
+            ('law', 'UNRESOLVED');
 
           insert into public.legal_regulatory_update_alerts(
             monitored_source_id, source_registry_id, signal_type, research_issue_id, research_issue_text
