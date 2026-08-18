@@ -1,0 +1,125 @@
+name: Law7 Controlled Real-Data PoC
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: "Exact immutable source revision: Law7 commit or verified backup SHA256"
+        required: true
+        type: string
+      apply_to_poc_mirror:
+        description: "Apply exported NK RF subset to the non-production PoC mirror"
+        required: true
+        default: false
+        type: boolean
+      smoke_date:
+        description: "Date-specific lookup used to prove fail-closed behavior before historical coverage is verified"
+        required: true
+        default: "2021-01-01"
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  EXPORT_PATH: ${{ runner.temp }}/law7_nk_controlled_poc.json
+
+jobs:
+  export-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL client dependency
+        run: python -m pip install "psycopg[binary]>=3.2,<4"
+      - name: Export allowlisted real Law7 data read-only
+        env:
+          LAW7_SOURCE_DATABASE_URL: ${{ secrets.LAW7_SOURCE_DATABASE_URL }}
+          LAW7_SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: >-
+          python scripts/law7_controlled_export.py
+          --output "$EXPORT_PATH"
+          --code NK_RF
+          --articles 54.1 88 89 93 100 101
+      - name: Validate with existing KATI mirror importer contract
+        run: python scripts/law7_mirror_import.py --input "$EXPORT_PATH"
+      - name: Assert controlled payload contains all six target articles
+        shell: bash
+        run: |
+          python - "$EXPORT_PATH" <<'PY'
+          import json, sys
+          p = json.load(open(sys.argv[1], encoding="utf-8"))
+          found = {str(x["article_number"]) for x in p["article_versions"]}
+          expected = {"54.1", "88", "89", "93", "100", "101"}
+          missing = sorted(expected - found)
+          if missing:
+              raise SystemExit(f"missing articles: {missing}")
+          print({"articles": sorted(expected), "versions": len(p["article_versions"]), "amendments": len(p["amendments"])})
+          PY
+      - name: Upload normalized PoC payload for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: law7-nk-controlled-poc-${{ inputs.source_commit }}
+          path: ${{ env.EXPORT_PATH }}
+          retention-days: 1
+
+  apply-and-smoke-poc:
+    if: ${{ inputs.apply_to_poc_mirror }}
+    needs: export-and-validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL client dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          python -m pip install "psycopg[binary]>=3.2,<4"
+      - name: Re-export exact allowlisted source data read-only
+        env:
+          LAW7_SOURCE_DATABASE_URL: ${{ secrets.LAW7_SOURCE_DATABASE_URL }}
+          LAW7_SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: >-
+          python scripts/law7_controlled_export.py
+          --output "$EXPORT_PATH"
+          --code NK_RF
+          --articles 54.1 88 89 93 100 101
+      - name: Refuse missing PoC mirror secret
+        env:
+          POC_DB: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
+        run: test -n "$POC_DB"
+      - name: Apply mirror schema and temporal safety guard to PoC database
+        env:
+          POC_DB: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
+        run: |
+          psql "$POC_DB" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818133000_law7_mirror_poc.sql
+          psql "$POC_DB" -v ON_ERROR_STOP=1 -f supabase/migrations/20260818152000_law7_mirror_temporal_fail_closed.sql
+      - name: Import controlled subset into PoC mirror
+        env:
+          DATABASE_URL: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
+        run: python scripts/law7_mirror_import.py --input "$EXPORT_PATH" --apply
+      - name: Mark imported historical coverage unverified until separately validated
+        env:
+          POC_DB: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
+        run: >-
+          psql "$POC_DB" -v ON_ERROR_STOP=1 -c
+          "update law7_mirror.sync_state
+          set metadata = coalesce(metadata, '{}'::jsonb) || '{\"historical_coverage\":\"unverified\"}'::jsonb,
+              updated_at = now()
+          where dataset_key = 'law7_codes_poc';"
+      - name: E2E mirror smoke — retrieval available, temporal/history fail closed
+        env:
+          POC_DB: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
+          SMOKE_DATE: ${{ inputs.smoke_date }}
+        shell: bash
+        run: |
+          test "$(psql "$POC_DB" -Atc "select public.law7_mirror_is_available();")" = "t"
+          test "$(psql "$POC_DB" -Atc "select count(*) from public.law7_mirror_get_article_version('NK_RF','54.1',null);")" = "1"
+          test "$(psql "$POC_DB" -Atc "select count(*) from public.law7_mirror_get_article_version('NK_RF','54.1',date '$SMOKE_DATE');")" = "0"
+          test "$(psql "$POC_DB" -Atc "select count(*) from public.law7_mirror_trace_amendment_history('NK_RF','54.1',50);")" = "0"
+          test "$(psql "$POC_DB" -Atc "select count(*) from public.law7_mirror_query_laws('налоговая проверка',10);")" -ge 1
+          test "$(psql "$POC_DB" -Atc "select count(*) from law7_mirror.article_versions where code_id='NK_RF' and article_number in ('54.1','88','89','93','100','101');")" = "6"
