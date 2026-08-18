@@ -29,6 +29,10 @@ function cleanUrl(value: string): string {
   return value.replace(/[),.;:!?]+$/g, "").slice(0, 2000);
 }
 
+function cleanDocumentNumber(value: string): string {
+  return normalizeSpace(value).replace(/[.,;:!?]+$/g, "");
+}
+
 function normalizeDate(value: string | null | undefined): string | null {
   if (!value) return null;
   const match = value.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
@@ -73,7 +77,7 @@ export function extractExternalResearchReferences(input: string): ExternalResear
   for (const match of text.matchAll(LETTER_RE)) {
     const authority = normalizeSpace(match[1] ?? "Письмо");
     const date = normalizeDate(match[2]);
-    const number = normalizeSpace(match[3] ?? "");
+    const number = cleanDocumentNumber(match[3] ?? "");
     addReference(references, seen, {
       title: authority,
       url: null,
@@ -89,7 +93,7 @@ export function extractExternalResearchReferences(input: string): ExternalResear
   for (const match of text.matchAll(GENERIC_DOC_RE)) {
     const kind = normalizeSpace(match[1] ?? "Документ");
     const date = normalizeDate(match[2]);
-    const number = normalizeSpace(match[3] ?? "");
+    const number = cleanDocumentNumber(match[3] ?? "");
     addReference(references, seen, {
       title: kind,
       url: null,
