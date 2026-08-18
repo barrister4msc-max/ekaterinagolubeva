@@ -1,3 +1,4 @@
+# Temporary verification workflow; remove after GREEN.
 name: PR34 External Research UI Check
 
 on:
