@@ -28,6 +28,12 @@ describe("Law7 controlled real-data PoC contract", () => {
     expect(exporter).toContain("status = 'applied'");
   });
 
+  test("blank upstream text hashes are normalized for deterministic importer hashing", () => {
+    expect(exporter).toContain("optional_nonblank_text");
+    expect(exporter).toContain('"text_hash": optional_nonblank_text(row.get("text_hash"))');
+    expect(importer).toContain('hashlib.sha256(article_text.encode("utf-8")).hexdigest()');
+  });
+
   test("existing KATI importer remains the only mirror writer", () => {
     expect(workflow).toContain("scripts/law7_mirror_import.py");
     expect(importer).toContain("DATABASE_URL is required with --apply");
