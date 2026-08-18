@@ -13,6 +13,7 @@ import {
   carryCanonicalMetadataToTrusted,
 } from "./source-metadata-bridge.ts";
 import {
+  buildExternalResearchRunSnapshot,
   linkExternalResearchToLocalSources,
   normalizeExternalResearchImports,
   parseExternalResearchImportInputs,
@@ -177,6 +178,12 @@ Deno.serve(async (req) => {
       ...parseExternalResearchImportInputs(body?.external_research_imports),
     ];
     const externalResearch = normalizeExternalResearchImports(externalResearchInputs);
+    const stagedExternalResearchSnapshot = buildExternalResearchRunSnapshot(externalResearch, {
+      sources: [],
+      linked: 0,
+      unresolved: externalResearch.sources.length,
+      unresolved_source_ids: externalResearch.sources.map((source) => source.source_id),
+    });
 
     // answers
     const { data: answerRows } = await sb
@@ -264,12 +271,7 @@ Deno.serve(async (req) => {
             documents_used: 0,
             documents_rejected: rejectedDocs.length,
             reason: "no_usable_document_text",
-            external_research: {
-              imports_received: externalResearch.diagnostics.imports_received,
-              candidates_normalized: externalResearch.diagnostics.candidates_normalized,
-              providers: externalResearch.diagnostics.providers,
-              warnings: externalResearch.diagnostics.warnings,
-            },
+            external_research: stagedExternalResearchSnapshot,
           } as any,
         })
         .eq("id", runId);
@@ -306,7 +308,29 @@ Deno.serve(async (req) => {
       canonicalRepositorySources,
       canonicalExternalCandidates,
     );
+    const externalResearchRunSnapshot = buildExternalResearchRunSnapshot(
+      externalResearch,
+      externalResearchLink,
+    );
     const rawSources = externalResearchLink.sources;
+
+    // Persist the sanitized run-specific import snapshot before model calls so
+    // failed runs remain auditable. Narrative/excerpts are never included.
+    const { error: snapshotErr } = await sb
+      .from("document_intake_ai_runs")
+      .update({
+        input_snapshot: {
+          template_code: session.template_code,
+          practice_area: practiceArea,
+          answers_count: Object.keys(answers).length,
+          documents_total: audited.length,
+          documents_used: usedDocs.length,
+          documents_rejected: rejectedDocs.length,
+          external_research: externalResearchRunSnapshot,
+        } as any,
+      })
+      .eq("id", runId);
+    if (snapshotErr) throw new Error(`update_run_snapshot: ${snapshotErr.message}`);
 
     // Layer 3: Ranking
     const scored = await rankSources({
@@ -549,16 +573,7 @@ Deno.serve(async (req) => {
       model_attempts: modelAttempts,
       final_model: model,
       fallback_used,
-      external_research_import: {
-        imports_received: externalResearch.diagnostics.imports_received,
-        candidates_normalized: externalResearch.diagnostics.candidates_normalized,
-        duplicates_removed: externalResearch.diagnostics.duplicates_removed,
-        linked: externalResearchLink.linked,
-        unresolved: externalResearchLink.unresolved,
-        unresolved_source_ids: externalResearchLink.unresolved_source_ids,
-        providers: externalResearch.diagnostics.providers,
-        warnings: externalResearch.diagnostics.warnings,
-      },
+      external_research_import: externalResearchRunSnapshot,
     };
 
     // Extended ai_result fields (Phase A core):
@@ -631,15 +646,7 @@ Deno.serve(async (req) => {
           template_code: session.template_code,
           practice_area: practiceArea,
           answers_count: Object.keys(answers).length,
-          external_research: {
-            imports_received: externalResearch.diagnostics.imports_received,
-            candidates_normalized: externalResearch.diagnostics.candidates_normalized,
-            duplicates_removed: externalResearch.diagnostics.duplicates_removed,
-            linked: externalResearchLink.linked,
-            unresolved: externalResearchLink.unresolved,
-            providers: externalResearch.diagnostics.providers,
-            warnings: externalResearch.diagnostics.warnings,
-          },
+          external_research: externalResearchRunSnapshot,
           ...parsed.research_summary,
         } as any,
       })
