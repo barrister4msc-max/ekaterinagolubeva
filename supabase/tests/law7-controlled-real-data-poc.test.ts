@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 const exporter = readFileSync("scripts/law7_controlled_export.py", "utf8");
 const importer = readFileSync("scripts/law7_mirror_import.py", "utf8");
 const workflow = readFileSync(".github/workflows/law7-controlled-real-data-poc.yml", "utf8");
+const temporalGuard = readFileSync("supabase/migrations/20260818152000_law7_mirror_temporal_fail_closed.sql", "utf8");
 
 describe("Law7 controlled real-data PoC contract", () => {
   test("export is fixed to the first NK RF allowlist", () => {
@@ -32,6 +33,16 @@ describe("Law7 controlled real-data PoC contract", () => {
     expect(exporter).toContain("optional_nonblank_text");
     expect(exporter).toContain('"text_hash": optional_nonblank_text(row.get("text_hash"))');
     expect(importer).toContain('hashlib.sha256(article_text.encode("utf-8")).hexdigest()');
+  });
+
+  test("unverified historical coverage fails closed without disabling general retrieval", () => {
+    expect(temporalGuard).toContain("historical_coverage' = 'verified");
+    expect(temporalGuard).toContain("p_as_of_date is null");
+    expect(workflow).toContain("historical_coverage\\\":\\\"unverified");
+    expect(workflow).toContain("law7_mirror_is_available");
+    expect(workflow).toContain("law7_mirror_query_laws");
+    expect(workflow).toContain("law7_mirror_get_article_version");
+    expect(workflow).toContain('= "0"');
   });
 
   test("existing KATI importer remains the only mirror writer", () => {
