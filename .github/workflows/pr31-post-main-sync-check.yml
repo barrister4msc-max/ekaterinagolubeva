@@ -59,4 +59,18 @@ jobs:
       - name: Build
         run: bun run build
       - name: Deno check company registry with automatic npm resolution
-        run: deno check --no-lock --node-modules-dir=auto supabase/functions/company-registry-lookup/index.ts
+        id: deno_check
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          deno check --no-lock --node-modules-dir=auto supabase/functions/company-registry-lookup/index.ts 2>&1 | tee deno-check.log
+      - name: Upload Deno diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr31-deno-check-log
+          path: deno-check.log
+          if-no-files-found: error
+      - name: Fail if Deno check failed
+        if: steps.deno_check.outcome != 'success'
+        run: exit 1
