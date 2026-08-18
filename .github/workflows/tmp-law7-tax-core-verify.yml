@@ -1,9 +1,9 @@
 name: Temporary Law7 TAX CORE verifier
 
 on:
-  push:
+  pull_request:
     branches:
-      - feat/law7-tax-core-controlled-export
+      - main
 
 permissions:
   contents: read
