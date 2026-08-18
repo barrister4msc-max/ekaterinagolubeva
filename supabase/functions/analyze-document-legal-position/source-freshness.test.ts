@@ -75,17 +75,59 @@ describe("Source Freshness contract", () => {
   test("recheck outcomes are separate from freshness states and fail closed", () => {
     expect(
       deriveRecheckOutcome(
-        { available: true, revisionDate: "2026-01-01", currentStatus: "active", contentHash: "aaa" },
-        { available: true, revisionDate: "2026-01-01", currentStatus: "active", contentHash: "aaa" },
+        { available: true },
+        { available: true },
+      ),
+    ).toBe("UNRESOLVED");
+
+    expect(
+      deriveRecheckOutcome(
+        { available: true, contentHash: "aaa" },
+        { available: true },
+      ),
+    ).toBe("UNRESOLVED");
+
+    expect(
+      deriveRecheckOutcome(
+        { available: true },
+        { available: true, contentHash: "aaa" },
+      ),
+    ).toBe("UNRESOLVED");
+
+    expect(
+      deriveRecheckOutcome(
+        { available: true, contentHash: "aaa" },
+        { available: true, contentHash: "aaa" },
       ),
     ).toBe("UNCHANGED");
 
     expect(
       deriveRecheckOutcome(
-        { available: true, revisionDate: "2026-01-01", currentStatus: "active", contentHash: "aaa" },
-        { available: true, revisionDate: "2026-08-01", currentStatus: "active", contentHash: "bbb" },
+        { available: true, contentHash: "aaa" },
+        { available: true, contentHash: "bbb" },
       ),
     ).toBe("SOURCE_CHANGED");
+
+    expect(
+      deriveRecheckOutcome(
+        { available: true, revisionDate: "2026-01-01" },
+        { available: true, revisionDate: "2026-01-01" },
+      ),
+    ).toBe("UNCHANGED");
+
+    expect(
+      deriveRecheckOutcome(
+        { available: true, revisionDate: "2026-01-01" },
+        { available: true, revisionDate: "2026-08-01" },
+      ),
+    ).toBe("SOURCE_CHANGED");
+
+    expect(
+      deriveRecheckOutcome(
+        { available: true, currentStatus: "active" },
+        { available: true, currentStatus: "active" },
+      ),
+    ).toBe("UNCHANGED");
 
     expect(
       deriveRecheckOutcome(
@@ -96,36 +138,30 @@ describe("Source Freshness contract", () => {
 
     expect(
       deriveRecheckOutcome(
+        { available: true, currentStatus: "active", contentHash: "aaa" },
+        { available: true, currentStatus: "active" },
+      ),
+    ).toBe("UNRESOLVED");
+
+    expect(
+      deriveRecheckOutcome(
+        { available: true, revisionDate: "2026-01-01", currentStatus: "active", contentHash: "aaa" },
+        { available: true, revisionDate: "2026-01-01", currentStatus: "active", contentHash: "aaa" },
+      ),
+    ).toBe("UNCHANGED");
+
+    expect(
+      deriveRecheckOutcome(
         { available: true },
         { available: false },
       ),
     ).toBe("UNAVAILABLE");
 
-    expect(
-      deriveRecheckOutcome(
-        { available: true },
-        { available: true },
-      ),
-    ).toBeNull();
-
-    expect(
-      deriveRecheckOutcome(
-        { available: true, currentStatus: "active" },
-        { available: true, currentStatus: "active" },
-      ),
-    ).toBeNull();
-
-    expect(
-      deriveRecheckOutcome(
-        { available: true, contentHash: "aaa" },
-        { available: true, contentHash: "aaa" },
-      ),
-    ).toBe("UNCHANGED");
-
     expect(changeSignalForOutcome("SOURCE_CHANGED")).toBe("SOURCE_CHANGED");
     expect(changeSignalForOutcome("STATUS_CHANGED")).toBe("STATUS_CHANGED");
     expect(changeSignalForOutcome("UNCHANGED")).toBeNull();
     expect(changeSignalForOutcome("UNAVAILABLE")).toBeNull();
+    expect(changeSignalForOutcome("UNRESOLVED")).toBeNull();
   });
 
   test("new FNS/Minfin/court material is POSITION_UPDATE_AVAILABLE, not SOURCE_CHANGED", () => {
