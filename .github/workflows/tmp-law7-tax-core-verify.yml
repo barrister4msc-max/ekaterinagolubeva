@@ -1,0 +1,25 @@
+name: Temporary Law7 TAX CORE verifier
+
+on:
+  push:
+    branches:
+      - feat/law7-tax-core-controlled-export
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: oven-sh/setup-bun@v2
+      - name: Python syntax
+        run: python -m py_compile scripts/law7_controlled_export.py scripts/law7_mirror_import.py
+      - name: TAX CORE exporter unit tests and importer dry-run
+        run: python -m unittest discover -s scripts/tests -p 'test_law7_controlled_export.py' -v
+      - name: Existing Law7 PoC contract test
+        run: bun test supabase/tests/law7-controlled-real-data-poc.test.ts
