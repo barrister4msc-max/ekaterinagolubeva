@@ -1,0 +1,84 @@
+{
+  "rows": 2866,
+  "max": {
+    "payload_bytes": 234518,
+    "code": "NK_RF_2",
+    "article": "217",
+    "version_date": "2000-07-31",
+    "article_text_bytes": 233226
+  },
+  "top10": [
+    {
+      "payload_bytes": 234518,
+      "code": "NK_RF_2",
+      "article": "217",
+      "version_date": "2000-07-31",
+      "article_text_bytes": 233226
+    },
+    {
+      "payload_bytes": 179091,
+      "code": "NK_RF_2",
+      "article": "427",
+      "version_date": "2000-07-31",
+      "article_text_bytes": 178053
+    },
+    {
+      "payload_bytes": 178617,
+      "code": "NK_RF_2",
+      "article": "333.33",
+      "version_date": "2000-07-31",
+      "article_text_bytes": 177087
+    },
+    {
+      "payload_bytes": 175741,
+      "code": "NK_RF_2",
+      "article": "251",
+      "version_date": "2000-07-31",
+      "article_text_bytes": 174670
+    },
+    {
+      "payload_bytes": 163644,
+      "code": "NK_RF_2",
+      "article": "149",
+      "version_date": "2000-07-31",
+      "article_text_bytes": 162539
+    },
+    {
+      "payload_bytes": 160449,
+      "code": "NK_RF_2",
+      "article": "200",
+      "version_date": "2000-07-31",
+      "article_text_bytes": 159548
+    },
+    {
+      "payload_bytes": 156890,
+      "code": "NK_RF_2",
+      "article": "165",
+      "version_date": "2000-07-31",
+      "article_text_bytes": 155819
+    },
+    {
+      "payload_bytes": 147857,
+      "code": "NK_RF_2",
+      "article": "284",
+      "version_date": "2000-07-31",
+      "article_text_bytes": 146990
+    },
+    {
+      "payload_bytes": 132105,
+      "code": "NK_RF_2",
+      "article": "333.35",
+      "version_date": "2000-07-31",
+      "article_text_bytes": 131093
+    },
+    {
+      "payload_bytes": 119751,
+      "code": "NK_RF_2",
+      "article": "201",
+      "version_date": "2000-07-31",
+      "article_text_bytes": 118980
+    }
+  ],
+  "p95_payload_bytes": 20410,
+  "p99_payload_bytes": 55883
+}
