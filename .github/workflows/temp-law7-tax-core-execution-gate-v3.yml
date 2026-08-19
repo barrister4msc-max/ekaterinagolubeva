@@ -1,0 +1,202 @@
+name: TEMP Law7 TAX CORE Execution Gate v3
+
+on:
+  push:
+    branches:
+      - audit/law7-tax-core-execution-gate-20260819
+    paths-ignore:
+      - audit/law7-tax-core-execution-result/**
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_BACKUP_SHA256: 70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2
+  BACKUP_URL: https://drive.google.com/file/d/1DPLpFpuwUZbLZEGo2TxnCAcLRdb2V1aD/view?usp=sharing
+  BACKUP_PATH: /tmp/law7_backup_20260211_014519.tar.gz
+  DUMP_PATH: /tmp/law7_backup_20260211_014519/postgresql/law7.dump
+  EXPORT_PATH: /tmp/law7_tax_core.json
+  LAW7_SOURCE_DATABASE_URL: postgresql://law7:postgres@127.0.0.1:5432/law7
+  PGPASSWORD: postgres
+
+jobs:
+  execution-gate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: law7
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: law7
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U law7 -d law7"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Execute exact TAX CORE gate and persist evidence
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          RESULT_DIR="audit/law7-tax-core-execution-result"
+          EVIDENCE_DIR="/tmp/law7-evidence"
+          mkdir -p "$RESULT_DIR" "$EVIDENCE_DIR"
+          rm -f "$RESULT_DIR"/* || true
+          STAGE="initialization"
+          START_SHA="$(git rev-parse HEAD)"
+          RUN_ID="${GITHUB_RUN_ID}"
+
+          persist_result() {
+            rc=$?
+            trap - EXIT
+            STATUS="PASS"
+            if [ "$rc" -ne 0 ]; then STATUS="FAIL"; fi
+            python - "$RESULT_DIR/status.json" "$STATUS" "$STAGE" "$START_SHA" "$RUN_ID" "$rc" <<'PY'
+          import json, sys
+          path, status, stage, sha, run_id, rc = sys.argv[1:]
+          json.dump({
+              "status": status,
+              "failed_or_last_stage": stage,
+              "audit_branch_head": sha,
+              "github_run_id": int(run_id),
+              "base_main_sha": "6609067b33453e1afb154f297495f1f57a41fdef",
+              "backup_sha256_expected": "70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2",
+              "exit_code": int(rc),
+              "supabase_write": False,
+              "preview_apply": False
+          }, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+          PY
+            for f in "$EVIDENCE_DIR"/*; do
+              [ -f "$f" ] && cp "$f" "$RESULT_DIR/" || true
+            done
+            git config user.name "kati-lawyer-audit-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add "$RESULT_DIR"
+            git commit -m "chore: record Law7 TAX CORE execution gate v3 result [skip ci]" || true
+            git push origin "HEAD:${GITHUB_REF_NAME}" || true
+            exit "$rc"
+          }
+          trap persist_result EXIT
+
+          STAGE="exact-main-source-assertion"
+          git merge-base --is-ancestor 6609067b33453e1afb154f297495f1f57a41fdef HEAD
+          git diff --exit-code 6609067b33453e1afb154f297495f1f57a41fdef -- scripts/law7_controlled_export.py scripts/law7_mirror_import.py
+          git show -s --format='%H %s' 6609067b33453e1afb154f297495f1f57a41fdef | tee "$EVIDENCE_DIR/main_base.txt"
+
+          STAGE="install-tooling"
+          sudo apt-get update 2>&1 | tee "$EVIDENCE_DIR/apt-update.log"
+          sudo apt-get install -y postgresql-client 2>&1 | tee "$EVIDENCE_DIR/apt-install.log"
+          python -m pip install --disable-pip-version-check "psycopg[binary]>=3.2,<4" gdown 2>&1 | tee "$EVIDENCE_DIR/pip-install.log"
+          { pg_restore --version; psql --version; python --version; gdown --version; } | tee "$EVIDENCE_DIR/tool_versions.txt"
+
+          STAGE="download-and-sha256"
+          gdown "$BACKUP_URL" -O "$BACKUP_PATH" 2>&1 | tee "$EVIDENCE_DIR/gdown.log"
+          ACTUAL="$(sha256sum "$BACKUP_PATH" | awk '{print $1}')"
+          printf '%s  %s\n' "$ACTUAL" "$BACKUP_PATH" | tee "$EVIDENCE_DIR/backup_sha256.txt"
+          test "$ACTUAL" = "$EXPECTED_BACKUP_SHA256"
+          tar -tzf "$BACKUP_PATH" >"$EVIDENCE_DIR/tar_inventory.txt"
+          grep -Fx 'law7_backup_20260211_014519/postgresql/law7.dump' "$EVIDENCE_DIR/tar_inventory.txt"
+          tar -xzf "$BACKUP_PATH" -C /tmp 'law7_backup_20260211_014519/postgresql/law7.dump'
+          test -s "$DUMP_PATH"
+
+          STAGE="dump-dependency-audit"
+          pg_restore --list "$DUMP_PATH" >"$EVIDENCE_DIR/pg_restore_list.txt"
+          grep ' EXTENSION ' "$EVIDENCE_DIR/pg_restore_list.txt" | tee "$EVIDENCE_DIR/extensions.txt" || true
+          grep -q 'EXTENSION.*uuid-ossp' "$EVIDENCE_DIR/pg_restore_list.txt"
+          grep -q 'EXTENSION.*pg_trgm' "$EVIDENCE_DIR/pg_restore_list.txt"
+
+          STAGE="postgresql-restore"
+          pg_restore --host=127.0.0.1 --username=law7 --dbname=law7 --no-owner --no-acl --exit-on-error "$DUMP_PATH" 2>&1 | tee "$EVIDENCE_DIR/restore.log"
+          psql "$LAW7_SOURCE_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'select version();' | tee "$EVIDENCE_DIR/postgres_version.txt"
+
+          STAGE="read-only-sql-inventory"
+          psql "$LAW7_SOURCE_DATABASE_URL" -v ON_ERROR_STOP=1 -P pager=off <<'SQL' | tee "$EVIDENCE_DIR/sql_inventory.txt"
+          begin read only;
+          select code_id, count(distinct article_number) as articles,
+                 count(*) as versions,
+                 count(*) filter (where is_current) as current_versions,
+                 count(*) filter (where is_repealed) as repealed_versions,
+                 min(version_date) as min_date,
+                 max(version_date) as max_date,
+                 count(*) filter (where nullif(btrim(article_text),'') is null) as blank_text,
+                 count(*) filter (where version_date is null) as missing_dates,
+                 count(*) filter (where nullif(btrim(text_hash),'') is null) as missing_hashes
+          from code_article_versions
+          where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF','KAS_RF')
+          group by code_id order by code_id;
+          select code_id, article_number, version_date, count(*)
+          from code_article_versions
+          where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF','KAS_RF')
+          group by code_id, article_number, version_date having count(*) > 1;
+          with c as (
+            select code_id, article_number, count(*) filter (where is_current) as current_count
+            from code_article_versions
+            where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF','KAS_RF')
+            group by code_id, article_number
+          )
+          select count(*) filter (where current_count=0) as zero_current,
+                 count(*) filter (where current_count>1) as multiple_current from c;
+          select c.code, (select count(*) from code_article_versions v where v.code_id=c.code) as corpus_rows
+          from consolidated_codes c where c.code='KAS_RF';
+          select code_id, count(*) as applied_amendments, min(amendment_date), max(amendment_date)
+          from amendment_applications
+          where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF','KAS_RF') and status='applied'
+          group by code_id order by code_id;
+          rollback;
+          SQL
+
+          STAGE="actual-pr41-exporter"
+          python scripts/law7_controlled_export.py \
+            --source-database-url "$LAW7_SOURCE_DATABASE_URL" \
+            --source-commit "$EXPECTED_BACKUP_SHA256" \
+            --codes NK_RF NK_RF_2 APK_RF KoAP_RF BK_RF GK_RF GK_RF_2 KONST_RF KAS_RF \
+            --output "$EXPORT_PATH" | tee "$EVIDENCE_DIR/export_summary.json"
+
+          STAGE="actual-main-importer-dry-run"
+          env -u DATABASE_URL python scripts/law7_mirror_import.py --input "$EXPORT_PATH" | tee "$EVIDENCE_DIR/importer_dry_run.json"
+
+          STAGE="normalized-json-integrity"
+          python - "$EXPORT_PATH" "$EVIDENCE_DIR/integrity_report.json" <<'PY'
+          import hashlib, json, re, sys
+          from collections import Counter
+          from datetime import date
+          src, report_path = sys.argv[1:]
+          data = json.load(open(src, encoding='utf-8'))
+          expected = {'NK_RF':250,'NK_RF_2':522,'APK_RF':402,'KoAP_RF':224,'BK_RF':110,'GK_RF':554,'GK_RF_2':667,'KONST_RF':137}
+          assert data['dataset_key'] == 'law7_codes'
+          assert data['source_repository'] == 'mikhashev/law7'
+          assert data['source_commit'] == '70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2'
+          assert [x['code'] for x in data['codes']] == list(expected)
+          assert data.get('unavailable_codes') == ['KAS_RF']
+          versions, amendments = data['article_versions'], data['amendments']
+          assert len(versions) == 2866
+          assert len(amendments) == 0
+          assert dict(Counter(x['code_id'] for x in versions)) == expected
+          keys=[(x['code_id'],str(x['article_number']),x['version_date']) for x in versions]
+          assert len(keys)==len(set(keys))
+          assert all(str(x['article_text']).strip() for x in versions)
+          for x in versions:
+              date.fromisoformat(x['version_date'])
+              assert re.fullmatch(r'[0-9a-f]{64}', x['text_hash'])
+              assert hashlib.sha256(x['article_text'].encode('utf-8')).hexdigest() == x['text_hash']
+              assert x['is_current'] is True
+              assert x['is_repealed'] is False
+          report={'status':'PASS','codes':8,'article_versions':2866,'amendments':0,'unavailable_codes':['KAS_RF'],'per_code':expected,'duplicate_version_keys':0,'blank_article_text':0,'invalid_dates':0,'bad_or_mismatched_hashes':0,'current_versions':2866,'repealed_versions':0,'importer_limits':{'codes':'8/32','article_versions':'2866/25000','amendments':'0/25000'}}
+          json.dump(report,open(report_path,'w',encoding='utf-8'),ensure_ascii=False,indent=2)
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+          sha256sum "$EXPORT_PATH" | tee "$EVIDENCE_DIR/export_json_sha256.txt"
+
+          STAGE="completed"
