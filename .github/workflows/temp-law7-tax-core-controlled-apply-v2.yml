@@ -1,0 +1,134 @@
+name: temp-law7-tax-core-controlled-apply-v2
+
+on:
+  push:
+    branches: [audit/law7-tax-core-execution-gate-20260819]
+    paths:
+      - 'audit/trigger-law7-sql-artifact-upload.txt'
+
+permissions:
+  contents: write
+
+env:
+  TARGET_REF: uprzchrouemzajvcojag
+  PROD_REF: wiylzbdbjokignwvizxt
+  SOURCE_COMMIT: 70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2
+  EXPECTED_EXPORT_SHA256: 6a41ae0bab9095d2c7b2339ec401c877add352d16f69c861757ad42c03b56de9
+  RAW_DATABASE_URL: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
+
+jobs:
+  controlled-apply-v2:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Normalize existing Preview pooler URL and fail closed
+        run: |
+          python - <<'PY'
+          import os, urllib.parse
+          raw=os.environ.get('RAW_DATABASE_URL','').strip(); target=os.environ['TARGET_REF']; prod=os.environ['PROD_REF']
+          if not raw: raise SystemExit('BLOCKED: LAW7_POC_MIRROR_DATABASE_URL is empty')
+          if target not in raw: raise SystemExit('BLOCKED: secret does not identify exact Preview ref')
+          if prod in raw: raise SystemExit('BLOCKED: secret identifies production ref')
+          u=urllib.parse.urlsplit(raw)
+          user=urllib.parse.unquote(u.username or '')
+          password=urllib.parse.unquote(u.password or '')
+          if not password: raise SystemExit('BLOCKED: secret has no database password')
+          host=u.hostname or ''
+          if host.endswith('.pooler.supabase.com') and user == 'postgres':
+              user='postgres.'+target
+          if host.endswith('.pooler.supabase.com') and user != 'postgres.'+target:
+              raise SystemExit('BLOCKED: pooler username is not exact Preview user')
+          auth=urllib.parse.quote(user,safe='')+':'+urllib.parse.quote(password,safe='')
+          netloc=auth+'@'+host+((':'+str(u.port)) if u.port else '')
+          normalized=urllib.parse.urlunsplit((u.scheme,netloc,u.path,u.query,u.fragment))
+          with open(os.environ['GITHUB_ENV'],'a') as f: f.write('DATABASE_URL='+normalized+'\n')
+          print('TARGET_GUARD=PASS')
+          print('target_ref='+target)
+          print('pooler_user_normalized='+str(host.endswith('.pooler.supabase.com')))
+          PY
+
+      - name: Reconstruct exact verified export
+        run: |
+          python - <<'PY'
+          import hashlib,importlib.util,json,pathlib,re
+          mat=pathlib.Path('audit/law7-tax-core-preview-apply'); mfest=json.loads((mat/'manifest.json').read_text())
+          exp=os.environ['EXPECTED_EXPORT_SHA256'] if False else '6a41ae0bab9095d2c7b2339ec401c877add352d16f69c861757ad42c03b56de9'; src='70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2'
+          assert mfest['status']=='READY' and mfest['export_sha256']==exp and mfest['source_commit']==src and mfest['codes']==8 and mfest['article_versions']==2866 and mfest['amendments']==0 and mfest['unavailable_codes']==['KAS_RF'] and len(mfest['version_batch_files'])==29
+          t=(mat/mfest['first']).read_text(); mm=re.search(r'\$law7codes\$(\[.*?\])\$law7codes\$',t,re.S); assert mm; codes=json.loads(mm.group(1))
+          versions=[]
+          for fn in mfest['version_batch_files']:
+              t=(mat/fn).read_text(); mm=re.search(r'\$law7v\d+\$(\[.*\])\$law7v\d+\$',t,re.S); assert mm; versions.extend(json.loads(mm.group(1)))
+          spec=importlib.util.spec_from_file_location('e','scripts/law7_controlled_export.py'); mod=importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+          ds=mod.build_dataset(dataset_key=mod.TAX_CORE_DATASET_KEY,source_commit=src,code_rows=codes,version_rows=versions,amendment_rows=[],required_codes=[*mod.TAX_CORE_CODES,*mod.CONDITIONAL_TAX_CORE_CODES],unavailable_codes=['KAS_RF'])
+          candidates=[json.dumps(ds,ensure_ascii=False,indent=2),json.dumps(ds,ensure_ascii=False,indent=2)+'\n']; payload=next((x for x in candidates if hashlib.sha256(x.encode()).hexdigest()==exp),None)
+          if payload is None: raise SystemExit('BLOCKED: exact exporter SHA mismatch')
+          keys=set(); bad=blank=current=repealed=0; pc={}
+          for r in ds['article_versions']:
+              k=(r['code_id'],r['article_number'],r['version_date']);
+              if k in keys: raise SystemExit('BLOCKED: duplicate version key')
+              keys.add(k); bad+=hashlib.sha256(r['article_text'].encode()).hexdigest()!=r['text_hash']; blank+=not r['article_text'].strip(); current+=r['is_current'] is True; repealed+=r['is_repealed'] is True; pc[r['code_id']]=pc.get(r['code_id'],0)+1
+          expected={'NK_RF':250,'NK_RF_2':522,'APK_RF':402,'KoAP_RF':224,'BK_RF':110,'GK_RF':554,'GK_RF_2':667,'KONST_RF':137}
+          assert pc==expected and len(keys)==2866 and bad==0 and blank==0 and current==2866 and repealed==0 and ds['amendments']==[]
+          pathlib.Path('/tmp/law7_tax_core_apply.json').write_text(payload,encoding='utf-8')
+          print('RECONSTRUCTION=PASS'); print('export_sha256='+exp); print('8/2866/0 hashes=PASS')
+          PY
+
+      - name: Install psycopg
+        run: python -m pip install --disable-pip-version-check 'psycopg[binary]>=3.2,<4'
+
+      - name: Read-only connection preflight
+        run: |
+          python - <<'PY'
+          import os,psycopg
+          with psycopg.connect(os.environ['DATABASE_URL']) as c:
+              c.execute('set transaction read only')
+              r=c.execute("select current_user, current_database()").fetchone()
+              print('DB_PREFLIGHT=PASS')
+              print('current_user='+str(r[0]))
+              c.rollback()
+          PY
+
+      - name: Apply with exact current-main importer
+        run: |
+          set -o pipefail
+          python scripts/law7_mirror_import.py --input /tmp/law7_tax_core_apply.json --apply | tee /tmp/importer-apply-summary.json
+
+      - name: Read-only full reconciliation
+        run: |
+          python - <<'PY'
+          import hashlib,json,os,psycopg
+          from psycopg.rows import dict_row
+          src=os.environ['SOURCE_COMMIT']; expected={'NK_RF':250,'NK_RF_2':522,'APK_RF':402,'KoAP_RF':224,'BK_RF':110,'GK_RF':554,'GK_RF_2':667,'KONST_RF':137}; report={}
+          with psycopg.connect(os.environ['DATABASE_URL'],row_factory=dict_row) as c:
+              c.execute('set transaction read only')
+              with c.cursor() as q:
+                  q.execute('select code from law7_mirror.codes order by code'); codes=[r['code'] for r in q.fetchall()]; report['codes']=len(codes); assert set(codes)==set(expected)
+                  q.execute('select code_id,count(*)::int n from law7_mirror.article_versions group by code_id order by code_id'); pc={r['code_id']:r['n'] for r in q.fetchall()}; report['per_code']=pc; assert pc==expected
+                  q.execute('select count(*)::int n from law7_mirror.article_versions'); report['article_versions']=q.fetchone()['n']
+                  q.execute('select count(*)::int n from law7_mirror.amendments'); report['amendments']=q.fetchone()['n']
+                  q.execute("select count(*)::int n from law7_mirror.article_versions where btrim(article_text)=''"); report['blank_text']=q.fetchone()['n']
+                  q.execute('select count(*)::int n from (select code_id,article_number,version_date,count(*) from law7_mirror.article_versions group by 1,2,3 having count(*)>1) d'); report['duplicate_keys']=q.fetchone()['n']
+                  q.execute('select count(*)::int n from law7_mirror.article_versions where source_commit<>%s',(src,)); report['provenance_mismatch']=q.fetchone()['n']
+                  q.execute('select count(*)::int n from law7_mirror.article_versions where is_current'); report['current']=q.fetchone()['n']
+                  q.execute('select count(*)::int n from law7_mirror.article_versions where is_repealed'); report['repealed']=q.fetchone()['n']
+                  bad=0; q.execute('select article_text,text_hash from law7_mirror.article_versions')
+                  for r in q: bad += hashlib.sha256(r['article_text'].encode()).hexdigest()!=r['text_hash']
+                  report['hash_mismatches']=bad
+                  q.execute("select dataset_key,status,source_repository,source_commit,codes_count,article_versions_count,amendments_count,completed_at is not null has_completed_at from law7_mirror.sync_state where dataset_key='law7_codes'"); report['sync_state']=dict(q.fetchone())
+              c.rollback()
+          want={'dataset_key':'law7_codes','status':'completed','source_repository':'mikhashev/law7','source_commit':src,'codes_count':8,'article_versions_count':2866,'amendments_count':0,'has_completed_at':True}
+          assert report['codes']==8 and report['article_versions']==2866 and report['amendments']==0 and report['blank_text']==0 and report['duplicate_keys']==0 and report['provenance_mismatch']==0 and report['current']==2866 and report['repealed']==0 and report['hash_mismatches']==0 and report['sync_state']==want
+          print(json.dumps(report,ensure_ascii=False,indent=2)); print('POST_IMPORT_AUDIT=PASS')
+          PY
+
+      - name: Record v2 safe result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          python - <<'PY'
+          import base64,json,os,subprocess
+          s='PASS' if os.environ['JOB_STATUS']=='success' else 'FAIL'; body={'status':s,'run_id':int(os.environ['GITHUB_RUN_ID']),'head':os.environ['GITHUB_SHA'],'target_ref':os.environ['TARGET_REF'],'production_write':False,'lovable_write':False}; content=base64.b64encode((json.dumps(body)+'\n').encode()).decode(); path=f"audit/law7-controlled-preview-apply-v2-result/run-{os.environ['GITHUB_RUN_ID']}.json"; url=f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/contents/{path}"; data=json.dumps({'message':f'audit: record controlled Preview apply v2 {s}','content':content,'branch':os.environ['GITHUB_REF_NAME']}); subprocess.run(['curl','--fail','--silent','--show-error','-X','PUT',url,'-H','Accept: application/vnd.github+json','-H',f"Authorization: Bearer {os.environ['GH_TOKEN']}",'-H','X-GitHub-Api-Version: 2022-11-28','-d',data],check=True)
+          PY
