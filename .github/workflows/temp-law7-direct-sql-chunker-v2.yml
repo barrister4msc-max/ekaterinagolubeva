@@ -11,21 +11,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Mark started
-        run: |
-          mkdir -p audit/law7-tax-core-preview-direct-chunks-v2
-          printf '{"status":"STARTED","run_id":"%s","head":"%s"}\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" > audit/law7-tax-core-preview-direct-chunks-v2/status.json
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add audit/law7-tax-core-preview-direct-chunks-v2/status.json
-          git commit -m 'audit: direct SQL chunker started' || true
-          git push || true
       - name: Build chunks
         id: build
         run: |
           set -euo pipefail
           python - <<'PY'
-          import glob, hashlib, json, pathlib, re, shutil
+          import glob, hashlib, json, pathlib, re
           srcs=sorted(glob.glob('audit/law7-tax-core-preview-apply/[0-9][0-9][0-9]_versions.sql'))
           if len(srcs)!=29: raise SystemExit(f'expected 29 source batches, got {len(srcs)}')
           rows=[]
@@ -36,15 +27,16 @@ jobs:
             rows.extend(json.loads(m.group(1)))
           if len(rows)!=2866: raise SystemExit(f'expected 2866 rows, got {len(rows)}')
           out=pathlib.Path('audit/law7-tax-core-preview-direct-chunks-v2')
+          out.mkdir(parents=True,exist_ok=True)
           for p in out.glob('*.sql'): p.unlink()
           source='70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2'
           def sql_for(batch,i):
             tag=f'law7d{i:04d}'
             payload=json.dumps(batch,ensure_ascii=False,separators=(',',':'))
             return f"""begin;\nwith j as (select * from jsonb_to_recordset(${tag}${payload}${tag}$::jsonb) as x(code_id text,article_number text,version_date date,article_text text,article_title text,amendment_eo_number text,amendment_date date,is_current boolean,is_repealed boolean,repealed_date date,text_hash text))\ninsert into law7_mirror.article_versions(code_id,article_number,version_date,article_text,article_title,amendment_eo_number,amendment_date,is_current,is_repealed,repealed_date,text_hash,source_commit,imported_at)\nselect code_id,article_number,version_date,article_text,article_title,amendment_eo_number,amendment_date,is_current,is_repealed,repealed_date,text_hash,'{source}',now() from j\non conflict (code_id,article_number,version_date) do update set article_text=excluded.article_text,article_title=excluded.article_title,amendment_eo_number=excluded.amendment_eo_number,amendment_date=excluded.amendment_date,is_current=excluded.is_current,is_repealed=excluded.is_repealed,repealed_date=excluded.repealed_date,text_hash=excluded.text_hash,source_commit=excluded.source_commit,imported_at=now();\ncommit;\n"""
-          MAX=55000; items=[]; cur=[]; idx=1
+          MAX=120000; items=[]; cur=[]; idx=1
           def emit(batch,i):
-            sql=sql_for(batch,i); data=sql.encode();
+            sql=sql_for(batch,i); data=sql.encode()
             if len(data)>MAX: raise SystemExit(f'chunk too large {i}: {len(data)}')
             name=f'{i:04d}.sql'; (out/name).write_bytes(data)
             items.append({'file':name,'rows':len(batch),'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'first':[batch[0]['code_id'],batch[0]['article_number'],batch[0]['version_date']],'last':[batch[-1]['code_id'],batch[-1]['article_number'],batch[-1]['version_date']]})
@@ -63,6 +55,8 @@ jobs:
         if: always()
         run: |
           set +e
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git pull --rebase
           if [ "${{ steps.build.outcome }}" = "success" ]; then STATUS=PASS; else STATUS=FAIL; fi
           printf '{"status":"%s","run_id":"%s","head":"%s","build_outcome":"%s"}\n' "$STATUS" "$GITHUB_RUN_ID" "$GITHUB_SHA" "${{ steps.build.outcome }}" > audit/law7-tax-core-preview-direct-chunks-v2/status.json
