@@ -1,0 +1,150 @@
+name: TEMP Law7 TAX CORE Preview Apply
+
+on:
+  push:
+    branches:
+      - audit/law7-tax-core-execution-gate-20260819
+    paths-ignore:
+      - audit/law7-tax-core-preview-apply-result/**
+      - audit/law7-tax-core-execution-result/**
+      - audit/law7-tax-core-preview-materialize/**
+      - audit/law7-tax-core-preview-apply/**
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_PROJECT_REF: uprzchrouemzajvcojag
+  EXPECTED_BACKUP_SHA256: 70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2
+  EXPECTED_EXPORT_SHA256: 6a41ae0bab9095d2c7b2339ec401c877add352d16f69c861757ad42c03b56de9
+  BACKUP_URL: https://drive.google.com/file/d/1DPLpFpuwUZbLZEGo2TxnCAcLRdb2V1aD/view?usp=sharing
+  BACKUP_PATH: /tmp/law7_backup.tar.gz
+  DUMP_PATH: /tmp/law7_backup_20260211_014519/postgresql/law7.dump
+  EXPORT_PATH: /tmp/law7_tax_core.json
+  LAW7_SOURCE_DATABASE_URL: postgresql://law7:postgres@127.0.0.1:5432/law7
+  PGPASSWORD: postgres
+
+jobs:
+  apply-preview:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: law7
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: law7
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U law7 -d law7"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Mark apply run started
+        run: |
+          mkdir -p audit/law7-tax-core-preview-apply-result
+          printf '{"status":"STARTED","run_id":%s,"head":"%s","target":"uprzchrouemzajvcojag"}\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" > audit/law7-tax-core-preview-apply-result/status.json
+          git config user.name kati-lawyer-audit-bot
+          git config user.email actions@users.noreply.github.com
+          git add audit/law7-tax-core-preview-apply-result/status.json
+          git commit -m 'chore: mark Law7 Preview apply started [skip ci]' || true
+          git push origin "HEAD:${GITHUB_REF_NAME}" || true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install disposable tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          python -m pip install --disable-pip-version-check 'psycopg[binary]>=3.2,<4' gdown
+
+      - name: Assert exact main scripts and exact Preview target secret
+        env:
+          POC_DB: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor 6609067b33453e1afb154f297495f1f57a41fdef HEAD
+          git diff --exit-code 6609067b33453e1afb154f297495f1f57a41fdef -- scripts/law7_controlled_export.py scripts/law7_mirror_import.py
+          test -n "$POC_DB"
+          python - <<'PY'
+          import os, sys
+          u=os.environ['POC_DB']
+          expected=os.environ['EXPECTED_PROJECT_REF']
+          if expected not in u:
+              raise SystemExit('LAW7_POC_MIRROR_DATABASE_URL does not target the authorized Preview ref')
+          print('target_guard=PASS')
+          PY
+          psql "$POC_DB" -v ON_ERROR_STOP=1 -Atc "select to_regclass('law7_mirror.article_versions') is not null and to_regclass('law7_mirror.sync_state') is not null;" | grep -qx t
+
+      - name: Reproduce exact verified TAX CORE exporter artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          gdown "$BACKUP_URL" -O "$BACKUP_PATH"
+          test "$(sha256sum "$BACKUP_PATH" | awk '{print $1}')" = "$EXPECTED_BACKUP_SHA256"
+          tar -xzf "$BACKUP_PATH" -C /tmp 'law7_backup_20260211_014519/postgresql/law7.dump'
+          pg_restore --host=127.0.0.1 --username=law7 --dbname=law7 --no-owner --no-acl --exit-on-error "$DUMP_PATH"
+          python scripts/law7_controlled_export.py \
+            --source-database-url "$LAW7_SOURCE_DATABASE_URL" \
+            --source-commit "$EXPECTED_BACKUP_SHA256" \
+            --codes NK_RF NK_RF_2 APK_RF KoAP_RF BK_RF GK_RF GK_RF_2 KONST_RF KAS_RF \
+            --output "$EXPORT_PATH"
+          env -u DATABASE_URL python scripts/law7_mirror_import.py --input "$EXPORT_PATH"
+          test "$(sha256sum "$EXPORT_PATH" | awk '{print $1}')" = "$EXPECTED_EXPORT_SHA256"
+
+      - name: Apply exact TAX CORE only to authorized Preview
+        env:
+          DATABASE_URL: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          python scripts/law7_mirror_import.py --input "$EXPORT_PATH" --apply
+
+      - name: Read-only post-import audit
+        env:
+          POC_DB: ${{ secrets.LAW7_POC_MIRROR_DATABASE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=audit/law7-tax-core-preview-apply-result
+          mkdir -p "$OUT"
+          psql "$POC_DB" -v ON_ERROR_STOP=1 -At -F $'\t' > "$OUT/post_import.tsv" <<'SQL'
+          begin read only;
+          select 'codes',count(*) from law7_mirror.codes where code in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF');
+          select 'versions',count(*) from law7_mirror.article_versions where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF');
+          select 'amendments',count(*) from law7_mirror.amendments where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF');
+          select 'bad_hashes',count(*) from law7_mirror.article_versions where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF') and (text_hash is null or text_hash !~ '^[0-9a-f]{64}$');
+          select 'blank_text',count(*) from law7_mirror.article_versions where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF') and nullif(btrim(article_text),'') is null;
+          select 'duplicates',count(*) from (select code_id,article_number,version_date from law7_mirror.article_versions where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF') group by 1,2,3 having count(*)>1) d;
+          select 'wrong_provenance',count(*) from law7_mirror.article_versions where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF') and source_commit <> '70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2';
+          select 'zero_current',count(*) from (select code_id,article_number,count(*) filter(where is_current) c from law7_mirror.article_versions where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF') group by 1,2 having count(*) filter(where is_current)=0) x;
+          select 'multi_current',count(*) from (select code_id,article_number,count(*) filter(where is_current) c from law7_mirror.article_versions where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF') group by 1,2 having count(*) filter(where is_current)>1) x;
+          select 'repealed',count(*) from law7_mirror.article_versions where code_id in ('NK_RF','NK_RF_2','APK_RF','KoAP_RF','BK_RF','GK_RF','GK_RF_2','KONST_RF') and is_repealed;
+          select 'kas_rows',count(*) from law7_mirror.article_versions where code_id='KAS_RF';
+          select 'sync',status||'|'||codes_count||'|'||article_versions_count||'|'||amendments_count||'|'||coalesce(source_commit,'') from law7_mirror.sync_state where dataset_key='law7_codes';
+          rollback;
+          SQL
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('audit/law7-tax-core-preview-apply-result/post_import.tsv')
+          vals={}
+          for line in p.read_text().splitlines():
+              k,v=line.split('\t',1); vals[k]=v
+          expected={'codes':'8','versions':'2866','amendments':'0','bad_hashes':'0','blank_text':'0','duplicates':'0','wrong_provenance':'0','zero_current':'0','multi_current':'0','repealed':'0','kas_rows':'0','sync':'completed|8|2866|0|70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2'}
+          assert vals==expected,(vals,expected)
+          import json, os
+          json.dump({'status':'PASS','run_id':int(os.environ['GITHUB_RUN_ID']),'target':'uprzchrouemzajvcojag','codes':8,'article_versions':2866,'amendments':0,'bad_hashes':0,'blank_text':0,'duplicates':0,'wrong_provenance':0,'zero_current':0,'multi_current':0,'repealed':0,'kas_rows':0,'sync_state':'completed','source_commit':'70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2','export_sha256':'6a41ae0bab9095d2c7b2339ec401c877add352d16f69c861757ad42c03b56de9','production_write':False},open('audit/law7-tax-core-preview-apply-result/status.json','w'),ensure_ascii=False,indent=2)
+          PY
+          git config user.name kati-lawyer-audit-bot
+          git config user.email actions@users.noreply.github.com
+          git add "$OUT"
+          git commit -m 'chore: record Law7 TAX CORE Preview apply audit [skip ci]' || true
+          git push origin "HEAD:${GITHUB_REF_NAME}" || true
