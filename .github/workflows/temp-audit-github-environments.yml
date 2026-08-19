@@ -1,0 +1,28 @@
+name: temp-audit-github-environments
+on:
+  push:
+    branches:
+      - audit/law7-tax-core-execution-gate-20260819
+    paths-ignore:
+      - 'audit/github-environments/**'
+permissions:
+  contents: write
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read environment names only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p audit/github-environments
+          gh api "repos/${GITHUB_REPOSITORY}/environments" --jq '[.environments[].name]' > audit/github-environments/names.json
+      - name: Commit report
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add audit/github-environments/names.json
+          git commit -m 'audit: record GitHub environment names' || exit 0
+          git push
