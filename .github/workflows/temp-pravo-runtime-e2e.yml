@@ -1,0 +1,140 @@
+name: TEMP Pravo Runtime E2E
+
+on:
+  push:
+    branches:
+      - audit/law7-tax-core-execution-gate-20260819
+    paths:
+      - .github/workflows/temp-pravo-runtime-e2e.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pravo-runtime-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Execute live Pravo provider E2E
+        env:
+          OFFICIAL_LEGAL_SOURCES_ENABLED: "true"
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/pravo-runtime-e2e.ts <<'TS'
+          // Runtime-only E2E. No Supabase client, no writes, no production secrets.
+          const originalDeno = (globalThis as any).Deno;
+          const envGet = (name: string): string | undefined => process.env[name];
+          try {
+            if (originalDeno?.env) {
+              (globalThis as any).Deno = { ...originalDeno, env: { ...originalDeno.env, get: envGet } };
+            } else {
+              (globalThis as any).Deno = { env: { get: envGet } };
+            }
+          } catch {
+            // Bun may expose a non-writable Deno global. In that case patch env.get only.
+            if ((globalThis as any).Deno?.env) (globalThis as any).Deno.env.get = envGet;
+          }
+
+          const {
+            searchOfficialLegalSources,
+            isOfficialLegalUrl,
+          } = await import(`${process.cwd()}/supabase/functions/analyze-document-legal-position/official-sources.ts`);
+
+          const query: any = {
+            practice_area: "tax",
+            subcategory: "налоговый контроль",
+            document_type: "legal_research_e2e",
+            facts: [],
+            parties: [],
+            amounts: [],
+            dates: ["18.07.2017"],
+            temporal_anchors: [],
+            legal_issues: ["Применение статьи 54.1 НК РФ"],
+            research_topics: ["ст. 54.1 НК РФ", "пределы осуществления прав по исчислению налоговой базы"],
+            keywords: ["статья 54.1 НК РФ", "налоговая база"],
+            articles: ["ст. 54.1 НК РФ", "Федеральный закон от 18.07.2017 № 163-ФЗ"],
+            organizations: [],
+            inn: [],
+            ogrn: [],
+            semantic_intents: ["официальная публикация изменений Налогового кодекса, связанных со статьей 54.1"],
+            legal_concepts: ["пределы осуществления прав налогоплательщиком"],
+            metadata_terms: ["18.07.2017", "163-ФЗ", "Налоговый кодекс"],
+            search_hypotheses: ["проверить официальный акт, которым введена статья 54.1 НК РФ"],
+          };
+
+          const result = await searchOfficialLegalSources(query);
+          const d = result.diagnostics;
+          const exact = result.sources.filter((s: any) =>
+            s?.metadata?.safety?.document_identity_verified === true
+          );
+          const substantive = result.sources.filter((s: any) =>
+            s?.metadata?.safety?.substantive_use_allowed === true
+          );
+          const badHosts = result.sources.filter((s: any) => !isOfficialLegalUrl(String(s.official_url ?? "")));
+          const contentVerified = result.sources.filter((s: any) =>
+            s?.metadata?.safety?.content_verified === true
+          );
+          const actualityVerified = result.sources.filter((s: any) =>
+            s?.metadata?.safety?.actuality_status === "verified"
+          );
+
+          console.log(JSON.stringify({
+            provider_enabled: d.enabled,
+            exact_attempted: d.pravo_exact_attempted,
+            context_attempted: d.pravo_context_attempted,
+            found: d.pravo_found,
+            identity_verified: d.pravo_identity_verified,
+            ambiguous: d.pravo_ambiguous,
+            substantive_usable: d.substantive_usable,
+            failures: d.failures,
+            exact_source_ids: exact.map((s: any) => s.source_id),
+            exact_citations: exact.map((s: any) => s.citation),
+            bad_official_hosts: badHosts.length,
+            content_verified_count: contentVerified.length,
+            actuality_verified_count: actualityVerified.length,
+          }, null, 2));
+
+          const fail = (message: string): never => {
+            console.error(`E2E_FAIL: ${message}`);
+            process.exit(1);
+          };
+
+          if (!d.enabled) fail("official provider rollout flag was not enabled");
+          if (d.pravo_exact_attempted < 1) fail("exact requisites path was not attempted");
+          if (d.pravo_context_attempted < 1) fail("context DocumentText path was not attempted");
+          if (d.failures.length > 0) fail(`live Pravo calls failed: ${d.failures.join(" | ")}`);
+          if (d.pravo_found < 1) fail("live Pravo API returned no provider results");
+          if (exact.length < 1) fail("no exactly identified official document was verified");
+          if (badHosts.length !== 0) fail("provider returned a non-official host");
+          // Current Safety Contract is deliberately fail-closed: Pravo metadata
+          // verifies origin/identity, not full legal text or temporal actuality.
+          if (contentVerified.length !== 0) fail("unexpected content_verified=true");
+          if (actualityVerified.length !== 0) fail("unexpected actuality_status=verified");
+          if (substantive.length !== 0 || d.substantive_usable !== 0) {
+            fail("discovery/identity metadata unexpectedly became substantive authority");
+          }
+
+          console.log("PRAVO_RUNTIME_E2E=PASS");
+          TS
+
+          bun /tmp/pravo-runtime-e2e.ts
+
+      - name: Confirm no write surface in verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -Eq 'SUPABASE_(SERVICE_ROLE_KEY|DB_URL|DATABASE_URL)|--apply|execute_sql|apply_migration' .github/workflows/temp-pravo-runtime-e2e.yml; then
+            echo "Verifier unexpectedly contains a write-capable Supabase surface" >&2
+            exit 1
+          fi
+          echo "NO_SUPABASE_WRITE_SURFACE=PASS"
