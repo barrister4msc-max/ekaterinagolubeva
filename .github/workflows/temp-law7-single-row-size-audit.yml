@@ -1,0 +1,40 @@
+name: temp-law7-single-row-size-audit
+on:
+  push:
+    branches: [audit/law7-tax-core-execution-gate-20260819]
+    paths-ignore:
+      - 'audit/law7-single-row-size/**'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute row sizes
+        run: |
+          python - <<'PY'
+          import glob,json,pathlib,re,statistics
+          srcs=sorted(glob.glob('audit/law7-tax-core-preview-apply/[0-9][0-9][0-9]_versions.sql'))
+          rows=[]
+          for p in srcs:
+            txt=pathlib.Path(p).read_text(); m=re.search(r'\$law7v\d+\$(\[.*\])\$law7v\d+\$',txt,re.S); rows.extend(json.loads(m.group(1)))
+          assert len(rows)==2866
+          sizes=[]
+          for r in rows:
+            payload=json.dumps([r],ensure_ascii=False,separators=(',',':')).encode()
+            sizes.append((len(payload),r['code_id'],r['article_number'],r['version_date'],len(r['article_text'].encode())))
+          sizes.sort()
+          def item(x): return {'payload_bytes':x[0],'code':x[1],'article':x[2],'version_date':x[3],'article_text_bytes':x[4]}
+          report={'rows':len(sizes),'max':item(sizes[-1]),'top10':[item(x) for x in sizes[-10:][::-1]],'p95_payload_bytes':sizes[int(len(sizes)*.95)][0],'p99_payload_bytes':sizes[int(len(sizes)*.99)][0]}
+          out=pathlib.Path('audit/law7-single-row-size'); out.mkdir(parents=True,exist_ok=True); (out/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - name: Commit report
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git pull --rebase --autostash || true
+          git add audit/law7-single-row-size/report.json
+          git commit -m 'audit: record Law7 single-row SQL sizes' || exit 0
+          git push
