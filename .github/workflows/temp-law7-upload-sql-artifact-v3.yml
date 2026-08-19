@@ -1,0 +1,47 @@
+name: temp-law7-upload-sql-artifact-v3
+on:
+  push:
+    branches: [audit/law7-tax-core-execution-gate-20260819]
+    paths-ignore:
+      - 'audit/law7-sql-artifact-status-v3/**'
+permissions:
+  contents: write
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify materialized manifest
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('audit/law7-tax-core-preview-apply/manifest.json'))
+          assert m['status']=='READY'
+          assert m['codes']==8
+          assert m['article_versions']==2866
+          assert m['amendments']==0
+          assert len(m['version_batch_files'])==29
+          assert m['source_commit']=='70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2'
+          assert m['export_sha256']=='6a41ae0bab9095d2c7b2339ec401c877add352d16f69c861757ad42c03b56de9'
+          PY
+      - name: Upload exact SQL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: law7-tax-core-preview-apply-sql-v3
+          path: audit/law7-tax-core-preview-apply/
+          retention-days: 1
+      - name: Record PASS with unique run id
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY' > /tmp/status.json
+          import json, os
+          print(json.dumps({'status':'PASS','run_id':int(os.environ['GITHUB_RUN_ID']),'head':os.environ['GITHUB_SHA'],'artifact':'law7-tax-core-preview-apply-sql-v3'}))
+          PY
+          CONTENT=$(base64 -w0 /tmp/status.json)
+          curl -fsS -X PUT \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/contents/audit/law7-sql-artifact-status-v3/run-${GITHUB_RUN_ID}.json" \
+            -d "{\"message\":\"audit: record Law7 SQL artifact v3 ${GITHUB_RUN_ID}\",\"content\":\"${CONTENT}\",\"branch\":\"${GITHUB_REF_NAME}\"}"
