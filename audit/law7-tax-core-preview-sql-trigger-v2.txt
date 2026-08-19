@@ -1,0 +1,1 @@
+trigger observable exact Law7 TAX CORE Preview SQL materializer v2
