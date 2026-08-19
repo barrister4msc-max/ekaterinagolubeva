@@ -29,54 +29,81 @@ jobs:
         run: |
           set -u
           echo '=== DNS ==='
-          getent ahosts publication.pravo.gov.ru | head -n 8 || true
+          getent ahosts publication.pravo.gov.ru | head -n 12 || true
 
-          echo '=== exact /api/Documents ==='
+          probe() {
+            label="$1"
+            family="$2"
+            url="$3"
+            out="/tmp/pravo-${label}.body"
+            err="/tmp/pravo-${label}.err"
+            echo "=== ${label} (${family}) ==="
+            set +e
+            meta=$(curl ${family} --silent --show-error --location \
+              --connect-timeout 10 --max-time 25 \
+              --header 'Accept: application/json' \
+              --output "$out" \
+              --write-out 'http=%{http_code} remote_ip=%{remote_ip} dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} first_byte=%{time_starttransfer} total=%{time_total} bytes=%{size_download}' \
+              "$url" 2>"$err")
+            rc=$?
+            set -e
+            echo "curl_rc=$rc $meta"
+            sed -n '1,6p' "$err" || true
+            if [ -f "$out" ]; then
+              python3 - "$out" <<'PY'
+          import sys
+          from pathlib import Path
+          p=Path(sys.argv[1])
+          b=p.read_bytes()
+          print('body_bytes=', len(b))
+          print('body_prefix=', b[:240].decode('utf-8','replace').replace('\n',' '))
+          PY
+            fi
+            echo "PROBE_RESULT label=${label} rc=${rc}"
+            return 0
+          }
+
           exact_url='https://publication.pravo.gov.ru/api/Documents?NumberSearchType=0&Number=163-%D0%A4%D0%97&PageSize=30'
-          exact_meta=$(curl --silent --show-error --location \
-            --connect-timeout 10 --max-time 60 \
-            --header 'Accept: application/json' \
-            --output /tmp/pravo-exact.json \
-            --write-out 'http=%{http_code} dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} first_byte=%{time_starttransfer} total=%{time_total} bytes=%{size_download}' \
-            "$exact_url" 2>/tmp/pravo-exact.err)
-          exact_rc=$?
-          echo "curl_rc=$exact_rc $exact_meta"
-          sed -n '1,5p' /tmp/pravo-exact.err || true
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('/tmp/pravo-exact.json')
-          if p.exists():
-              b=p.read_bytes()
-              print('exact_body_bytes=', len(b))
-              print('exact_body_prefix=', b[:240].decode('utf-8','replace').replace('\n',' '))
-          PY
-
-          echo '=== documented /api/Document example ==='
           detail_url='https://publication.pravo.gov.ru/api/Document?eoNumber=2600202104190001'
-          detail_meta=$(curl --silent --show-error --location \
-            --connect-timeout 10 --max-time 60 \
-            --header 'Accept: application/json' \
-            --output /tmp/pravo-detail.json \
-            --write-out 'http=%{http_code} dns=%{time_namelookup} connect=%{time_connect} tls=%{time_appconnect} first_byte=%{time_starttransfer} total=%{time_total} bytes=%{size_download}' \
-            "$detail_url" 2>/tmp/pravo-detail.err)
-          detail_rc=$?
-          echo "curl_rc=$detail_rc $detail_meta"
-          sed -n '1,5p' /tmp/pravo-detail.err || true
+
+          # GitHub runner currently resolves publication.pravo.gov.ru to IPv4.
+          # Probe both normal selection and forced IPv4. Forced IPv6 is diagnostic-only.
+          probe exact-auto '' "$exact_url"
+          probe exact-ipv4 '-4' "$exact_url"
+          probe detail-auto '' "$detail_url"
+          probe detail-ipv4 '-4' "$detail_url"
+          probe exact-ipv6 '-6' "$exact_url"
+
+          echo '=== raw TCP/TLS ==='
           python3 - <<'PY'
-          from pathlib import Path
-          p=Path('/tmp/pravo-detail.json')
-          if p.exists():
-              b=p.read_bytes()
-              print('detail_body_bytes=', len(b))
-              print('detail_body_prefix=', b[:240].decode('utf-8','replace').replace('\n',' '))
+          import socket, ssl, time
+          host='publication.pravo.gov.ru'
+          for family, name in [(socket.AF_INET,'ipv4'), (socket.AF_INET6,'ipv6')]:
+              try:
+                  infos=socket.getaddrinfo(host,443,family,socket.SOCK_STREAM)
+              except Exception as e:
+                  print(f'{name}_dns_error={e!r}')
+                  continue
+              if not infos:
+                  print(f'{name}_no_addresses')
+                  continue
+              addr=infos[0][4]
+              t=time.time()
+              try:
+                  s=socket.socket(family,socket.SOCK_STREAM)
+                  s.settimeout(10)
+                  s.connect(addr)
+                  tcp=time.time()-t
+                  ctx=ssl.create_default_context()
+                  ss=ctx.wrap_socket(s,server_hostname=host)
+                  tls=time.time()-t
+                  print(f'{name}_tcp_tls=PASS addr={addr} tcp={tcp:.3f}s tls_total={tls:.3f}s cipher={ss.cipher()[0]}')
+                  ss.close()
+              except Exception as e:
+                  print(f'{name}_tcp_tls=FAIL addr={addr} elapsed={time.time()-t:.3f}s error={e!r}')
           PY
 
-          echo '=== diagnostic classification ==='
-          if [ "$exact_rc" -eq 0 ] && [ "$detail_rc" -eq 0 ]; then
-            echo 'PRAVO_DIRECT_TRANSPORT=REACHABLE'
-          else
-            echo 'PRAVO_DIRECT_TRANSPORT=DEGRADED_OR_UNREACHABLE'
-          fi
+          echo 'PRAVO_TRANSPORT_DIAGNOSTICS=COMPLETE'
 
       - name: Execute live Pravo provider E2E
         env:
@@ -85,7 +112,6 @@ jobs:
         run: |
           set -euo pipefail
           cat > /tmp/pravo-runtime-e2e.ts <<'TS'
-          // Runtime-only E2E. No Supabase client, no writes, no production secrets.
           const originalDeno = (globalThis as any).Deno;
           const envGet = (name: string): string | undefined => process.env[name];
           try {
@@ -98,10 +124,7 @@ jobs:
             if ((globalThis as any).Deno?.env) (globalThis as any).Deno.env.get = envGet;
           }
 
-          const {
-            searchOfficialLegalSources,
-            isOfficialLegalUrl,
-          } = await import(`${process.cwd()}/supabase/functions/analyze-document-legal-position/official-sources.ts`);
+          const { searchOfficialLegalSources, isOfficialLegalUrl } = await import(`${process.cwd()}/supabase/functions/analyze-document-legal-position/official-sources.ts`);
 
           const query: any = {
             practice_area: "tax",
@@ -166,6 +189,7 @@ jobs:
           bun /tmp/pravo-runtime-e2e.ts
 
       - name: Confirm no write surface in verifier
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
