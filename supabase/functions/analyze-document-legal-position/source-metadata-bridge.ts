@@ -396,6 +396,12 @@ const TRUSTED_METADATA_KEYS = [
   "official_retrieved_at",
   "official_publication_url",
   "official_verification",
+  "official_origin_verified",
+  "document_identity_verified",
+  "content_verified",
+  "actuality_status",
+  "substantive_use_allowed",
+  "verification_level",
   "retrieval_method",
   "transport",
   "research_issue_ids",
@@ -406,6 +412,12 @@ const TRUSTED_METADATA_KEYS = [
 /**
  * Additive runtime projection. Existing source_ref/trust/priority semantics stay intact.
  * Canonical registry verification_status wins when present; otherwise legacy value remains.
+ *
+ * Provider Safety Contract is fail-closed only when the provider explicitly emits
+ * substantive_use_allowed=false. Legacy sources that do not carry this field retain
+ * their pre-existing behavior. This lets retrieval intermediaries (for example Law7)
+ * participate in research/ranking while preventing them from being promoted into
+ * generation merely because they belong to the `laws` bucket.
  */
 export function carryCanonicalMetadataToTrusted(
   trustedSources: Array<Record<string, any>>,
@@ -421,5 +433,12 @@ export function carryCanonicalMetadataToTrusted(
     }
     const registryVerification = text(meta.verification_status);
     if (registryVerification) trusted.verification_status = registryVerification;
+
+    if (bool(meta.substantive_use_allowed) === false) {
+      trusted.use_in_generation = false;
+      const reason = text(trusted.trust_reason);
+      const safetyReason = "Provider Safety Contract: substantive_use_allowed=false";
+      trusted.trust_reason = reason ? `${reason}; ${safetyReason}` : safetyReason;
+    }
   }
 }
