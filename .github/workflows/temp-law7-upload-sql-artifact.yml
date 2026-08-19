@@ -11,7 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Mark started
+        run: |
+          mkdir -p audit/law7-sql-artifact-status
+          printf '{"status":"STARTED","run_id":%s,"head":"%s"}\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" > audit/law7-sql-artifact-status/status.json
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add audit/law7-sql-artifact-status/status.json
+          git commit -m 'audit: Law7 SQL artifact upload started' || true
+          git push || true
       - name: Verify materialized manifest
+        id: verify
         run: |
           python - <<'PY'
           import json
@@ -20,19 +30,24 @@ jobs:
           assert m['article_versions']==2866
           assert m['amendments']==0
           assert m['export_sha256']=='6a41ae0bab9095d2c7b2339ec401c877add352d16f69c861757ad42c03b56de9'
+          assert len(m['version_batch_files'])==29
           PY
-      - uses: actions/upload-artifact@v4
+      - name: Upload exact SQL artifact
+        id: upload
+        uses: actions/upload-artifact@v4
         with:
           name: law7-tax-core-preview-apply-sql
           path: audit/law7-tax-core-preview-apply/
           retention-days: 1
-      - name: Record run id
+      - name: Record final result
+        if: always()
         run: |
-          mkdir -p audit/law7-sql-artifact-status
-          printf '{"status":"PASS","run_id":%s,"head":"%s"}\n' "$GITHUB_RUN_ID" "$GITHUB_SHA" > audit/law7-sql-artifact-status/status.json
+          set +e
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git pull --rebase --autostash || true
+          if [ "${{ steps.verify.outcome }}" = "success" ] && [ "${{ steps.upload.outcome }}" = "success" ]; then STATUS=PASS; else STATUS=FAIL; fi
+          printf '{"status":"%s","run_id":%s,"head":"%s","verify":"%s","upload":"%s"}\n' "$STATUS" "$GITHUB_RUN_ID" "$GITHUB_SHA" "${{ steps.verify.outcome }}" "${{ steps.upload.outcome }}" > audit/law7-sql-artifact-status/status.json
           git add audit/law7-sql-artifact-status/status.json
-          git commit -m 'audit: record Law7 SQL artifact run' || exit 0
+          git commit -m "audit: Law7 SQL artifact upload $STATUS" || true
           git push
