@@ -1,0 +1,62 @@
+name: temp-law7-direct-sql-chunker
+on:
+  push:
+    branches:
+      - audit/law7-tax-core-execution-gate-20260819
+    paths-ignore:
+      - 'audit/law7-tax-core-preview-direct-chunks/**'
+permissions:
+  contents: write
+jobs:
+  chunk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build deterministic small SQL chunks
+        run: |
+          python - <<'PY'
+          import glob, hashlib, json, pathlib, re, shutil
+          srcs = sorted(glob.glob('audit/law7-tax-core-preview-apply/[0-9][0-9][0-9]_versions.sql'))
+          assert len(srcs) == 29, len(srcs)
+          out = pathlib.Path('audit/law7-tax-core-preview-direct-chunks')
+          if out.exists(): shutil.rmtree(out)
+          out.mkdir(parents=True)
+          source_commit='70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2'
+          rows=[]
+          for p in srcs:
+              txt=pathlib.Path(p).read_text()
+              m=re.search(r'\$law7v\d+\$(\[.*\])\$law7v\d+\$', txt, re.S)
+              assert m, p
+              batch=json.loads(m.group(1))
+              rows.extend(batch)
+          assert len(rows)==2866, len(rows)
+          def sql_for(batch, idx):
+              tag=f'law7d{idx:04d}'
+              payload=json.dumps(batch, ensure_ascii=False, separators=(',',':'))
+              return f'''begin;\nwith j as (select * from jsonb_to_recordset(${tag}${payload}${tag}$::jsonb) as x(code_id text,article_number text,version_date date,article_text text,article_title text,amendment_eo_number text,amendment_date date,is_current boolean,is_repealed boolean,repealed_date date,text_hash text))\ninsert into law7_mirror.article_versions(code_id,article_number,version_date,article_text,article_title,amendment_eo_number,amendment_date,is_current,is_repealed,repealed_date,text_hash,source_commit,imported_at)\nselect code_id,article_number,version_date,article_text,article_title,amendment_eo_number,amendment_date,is_current,is_repealed,repealed_date,text_hash,'{source_commit}',now() from j\non conflict (code_id,article_number,version_date) do update set article_text=excluded.article_text,article_title=excluded.article_title,amendment_eo_number=excluded.amendment_eo_number,amendment_date=excluded.amendment_date,is_current=excluded.is_current,is_repealed=excluded.is_repealed,repealed_date=excluded.repealed_date,text_hash=excluded.text_hash,source_commit=excluded.source_commit,imported_at=now();\ncommit;\n'''
+          MAX=60000
+          manifest=[]; cur=[]; idx=1
+          for row in rows:
+              test=cur+[row]
+              if cur and len(sql_for(test,idx).encode())>MAX:
+                  sql=sql_for(cur,idx); name=f'{idx:04d}.sql'; data=sql.encode()
+                  (out/name).write_bytes(data)
+                  manifest.append({'file':name,'rows':len(cur),'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'first':[cur[0]['code_id'],cur[0]['article_number'],cur[0]['version_date']],'last':[cur[-1]['code_id'],cur[-1]['article_number'],cur[-1]['version_date']]})
+                  idx+=1; cur=[row]
+              else: cur=test
+          if cur:
+              sql=sql_for(cur,idx); name=f'{idx:04d}.sql'; data=sql.encode(); (out/name).write_bytes(data)
+              manifest.append({'file':name,'rows':len(cur),'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'first':[cur[0]['code_id'],cur[0]['article_number'],cur[0]['version_date']],'last':[cur[-1]['code_id'],cur[-1]['article_number'],cur[-1]['version_date']]})
+          assert sum(x['rows'] for x in manifest)==2866
+          assert max(x['bytes'] for x in manifest)<=MAX
+          meta={'status':'READY','source_rows':2866,'source_commit':source_commit,'chunks':len(manifest),'max_bytes':max(x['bytes'] for x in manifest),'total_bytes':sum(x['bytes'] for x in manifest),'items':manifest}
+          (out/'manifest.json').write_text(json.dumps(meta,ensure_ascii=False,indent=2))
+          print(json.dumps({k:meta[k] for k in ['status','source_rows','chunks','max_bytes','total_bytes']},indent=2))
+          PY
+      - name: Commit chunks
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add audit/law7-tax-core-preview-direct-chunks
+          git commit -m 'audit: materialize deterministic direct SQL chunks' || exit 0
+          git push
