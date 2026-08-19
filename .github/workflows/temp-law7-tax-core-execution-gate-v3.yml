@@ -17,11 +17,11 @@ env:
   DUMP_PATH: /tmp/law7_backup_20260211_014519/postgresql/law7.dump
   EXPORT_PATH: /tmp/law7_tax_core.json
   LAW7_SOURCE_DATABASE_URL: postgresql://law7:postgres@127.0.0.1:5432/law7
-  PGPASSWORD: postgres
 
 jobs:
   execution-gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:15
@@ -46,7 +46,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Execute exact TAX CORE gate and persist evidence
+      - name: Execute exact TAX CORE gate without apt
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -61,26 +61,23 @@ jobs:
           persist_result() {
             rc=$?
             trap - EXIT
-            STATUS="PASS"
-            if [ "$rc" -ne 0 ]; then STATUS="FAIL"; fi
+            STATUS="PASS"; [ "$rc" -ne 0 ] && STATUS="FAIL"
             python - "$RESULT_DIR/status.json" "$STATUS" "$STAGE" "$START_SHA" "$RUN_ID" "$rc" <<'PY'
           import json, sys
           path, status, stage, sha, run_id, rc = sys.argv[1:]
           json.dump({
-              "status": status,
-              "failed_or_last_stage": stage,
-              "audit_branch_head": sha,
-              "github_run_id": int(run_id),
-              "base_main_sha": "6609067b33453e1afb154f297495f1f57a41fdef",
-              "backup_sha256_expected": "70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2",
-              "exit_code": int(rc),
-              "supabase_write": False,
-              "preview_apply": False
+            "status": status,
+            "failed_or_last_stage": stage,
+            "audit_branch_head": sha,
+            "github_run_id": int(run_id),
+            "base_main_sha": "6609067b33453e1afb154f297495f1f57a41fdef",
+            "backup_sha256_expected": "70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2",
+            "exit_code": int(rc),
+            "supabase_write": False,
+            "preview_apply": False
           }, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
           PY
-            for f in "$EVIDENCE_DIR"/*; do
-              [ -f "$f" ] && cp "$f" "$RESULT_DIR/" || true
-            done
+            for f in "$EVIDENCE_DIR"/*; do [ -f "$f" ] && cp "$f" "$RESULT_DIR/" || true; done
             git config user.name "kati-lawyer-audit-bot"
             git config user.email "actions@users.noreply.github.com"
             git add "$RESULT_DIR"
@@ -95,11 +92,16 @@ jobs:
           git diff --exit-code 6609067b33453e1afb154f297495f1f57a41fdef -- scripts/law7_controlled_export.py scripts/law7_mirror_import.py
           git show -s --format='%H %s' 6609067b33453e1afb154f297495f1f57a41fdef | tee "$EVIDENCE_DIR/main_base.txt"
 
-          STAGE="install-tooling"
-          sudo apt-get update 2>&1 | tee "$EVIDENCE_DIR/apt-update.log"
-          sudo apt-get install -y postgresql-client 2>&1 | tee "$EVIDENCE_DIR/apt-install.log"
+          STAGE="tooling"
           python -m pip install --disable-pip-version-check "psycopg[binary]>=3.2,<4" gdown 2>&1 | tee "$EVIDENCE_DIR/pip-install.log"
-          { pg_restore --version; psql --version; python --version; gdown --version; } | tee "$EVIDENCE_DIR/tool_versions.txt"
+          PG_CONTAINER="$(docker ps --filter ancestor=postgres:15 --format '{{.ID}}' | head -n1)"
+          test -n "$PG_CONTAINER"
+          {
+            docker exec "$PG_CONTAINER" pg_restore --version
+            docker exec "$PG_CONTAINER" psql --version
+            python --version
+            gdown --version
+          } | tee "$EVIDENCE_DIR/tool_versions.txt"
 
           STAGE="download-and-sha256"
           gdown "$BACKUP_URL" -O "$BACKUP_PATH" 2>&1 | tee "$EVIDENCE_DIR/gdown.log"
@@ -112,17 +114,17 @@ jobs:
           test -s "$DUMP_PATH"
 
           STAGE="dump-dependency-audit"
-          pg_restore --list "$DUMP_PATH" >"$EVIDENCE_DIR/pg_restore_list.txt"
+          docker exec -i "$PG_CONTAINER" pg_restore --list < "$DUMP_PATH" >"$EVIDENCE_DIR/pg_restore_list.txt"
           grep ' EXTENSION ' "$EVIDENCE_DIR/pg_restore_list.txt" | tee "$EVIDENCE_DIR/extensions.txt" || true
           grep -q 'EXTENSION.*uuid-ossp' "$EVIDENCE_DIR/pg_restore_list.txt"
           grep -q 'EXTENSION.*pg_trgm' "$EVIDENCE_DIR/pg_restore_list.txt"
 
           STAGE="postgresql-restore"
-          pg_restore --host=127.0.0.1 --username=law7 --dbname=law7 --no-owner --no-acl --exit-on-error "$DUMP_PATH" 2>&1 | tee "$EVIDENCE_DIR/restore.log"
-          psql "$LAW7_SOURCE_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc 'select version();' | tee "$EVIDENCE_DIR/postgres_version.txt"
+          docker exec -i -e PGPASSWORD=postgres "$PG_CONTAINER" pg_restore --username=law7 --dbname=law7 --no-owner --no-acl --exit-on-error < "$DUMP_PATH" 2>&1 | tee "$EVIDENCE_DIR/restore.log"
+          docker exec -e PGPASSWORD=postgres "$PG_CONTAINER" psql -U law7 -d law7 -v ON_ERROR_STOP=1 -Atc 'select version();' | tee "$EVIDENCE_DIR/postgres_version.txt"
 
           STAGE="read-only-sql-inventory"
-          psql "$LAW7_SOURCE_DATABASE_URL" -v ON_ERROR_STOP=1 -P pager=off <<'SQL' | tee "$EVIDENCE_DIR/sql_inventory.txt"
+          docker exec -i -e PGPASSWORD=postgres "$PG_CONTAINER" psql -U law7 -d law7 -v ON_ERROR_STOP=1 -P pager=off <<'SQL' | tee "$EVIDENCE_DIR/sql_inventory.txt"
           begin read only;
           select code_id, count(distinct article_number) as articles,
                  count(*) as versions,
@@ -198,5 +200,4 @@ jobs:
           print(json.dumps(report,ensure_ascii=False,indent=2))
           PY
           sha256sum "$EXPORT_PATH" | tee "$EVIDENCE_DIR/export_json_sha256.txt"
-
           STAGE="completed"
