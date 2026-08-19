@@ -1,0 +1,9 @@
+{
+  "DATABASE_URL": false,
+  "LAW7_POC_MIRROR_DATABASE_URL": false,
+  "LAW7_SOURCE_DATABASE_URL": false,
+  "SUPABASE_ACCESS_TOKEN": false,
+  "SUPABASE_DB_PASSWORD": false,
+  "SUPABASE_DB_URL": false,
+  "SUPABASE_SERVICE_ROLE_KEY": false
+}
