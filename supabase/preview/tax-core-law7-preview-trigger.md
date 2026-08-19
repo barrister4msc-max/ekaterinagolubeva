@@ -4,6 +4,6 @@ Technical marker used only to trigger Supabase GitHub Integration.
 
 The Preview must replay the existing active `supabase/migrations` chain.
 
-No migration, runtime, Edge Function, or production behavior is changed by this file.
+Temporary verified Law7 TAX CORE data migrations are present only for Preview reconciliation.
 
-DO NOT MERGE this technical PR.
+No production merge is authorized. DO NOT MERGE this technical PR.
