@@ -1,0 +1,158 @@
+name: TEMP Law7 TAX CORE Preview SQL Materialize
+
+on:
+  push:
+    branches:
+      - audit/law7-tax-core-execution-gate-20260819
+    paths:
+      - audit/law7-tax-core-preview-sql-trigger.txt
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_BACKUP_SHA256: 70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2
+  EXPECTED_EXPORT_SHA256: 6a41ae0bab9095d2c7b2339ec401c877add352d16f69c861757ad42c03b56de9
+  BACKUP_URL: https://drive.google.com/file/d/1DPLpFpuwUZbLZEGo2TxnCAcLRdb2V1aD/view?usp=sharing
+  BACKUP_PATH: /tmp/law7_backup.tar.gz
+  DUMP_PATH: /tmp/law7_backup_20260211_014519/postgresql/law7.dump
+  EXPORT_PATH: /tmp/law7_tax_core.json
+  LAW7_SOURCE_DATABASE_URL: postgresql://law7:postgres@127.0.0.1:5432/law7
+  PGPASSWORD: postgres
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: law7
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: law7
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U law7 -d law7"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install disposable tooling
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          python -m pip install --disable-pip-version-check "psycopg[binary]>=3.2,<4" gdown
+      - name: Restore exact verified backup and export exact PR41 dataset
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code 6609067b33453e1afb154f297495f1f57a41fdef -- scripts/law7_controlled_export.py scripts/law7_mirror_import.py
+          gdown "$BACKUP_URL" -O "$BACKUP_PATH"
+          test "$(sha256sum "$BACKUP_PATH" | awk '{print $1}')" = "$EXPECTED_BACKUP_SHA256"
+          tar -xzf "$BACKUP_PATH" -C /tmp 'law7_backup_20260211_014519/postgresql/law7.dump'
+          pg_restore --host=127.0.0.1 --username=law7 --dbname=law7 --no-owner --no-acl --exit-on-error "$DUMP_PATH"
+          python scripts/law7_controlled_export.py \
+            --source-database-url "$LAW7_SOURCE_DATABASE_URL" \
+            --source-commit "$EXPECTED_BACKUP_SHA256" \
+            --codes NK_RF NK_RF_2 APK_RF KoAP_RF BK_RF GK_RF GK_RF_2 KONST_RF KAS_RF \
+            --output "$EXPORT_PATH"
+          env -u DATABASE_URL python scripts/law7_mirror_import.py --input "$EXPORT_PATH"
+          test "$(sha256sum "$EXPORT_PATH" | awk '{print $1}')" = "$EXPECTED_EXPORT_SHA256"
+      - name: Materialize importer-equivalent SQL batches from exact exporter JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="audit/law7-tax-core-preview-apply"
+          rm -rf "$OUT"
+          mkdir -p "$OUT"
+          python - "$EXPORT_PATH" "$OUT" <<'PY'
+          import json, pathlib, hashlib, sys
+          src, out_dir = sys.argv[1:]
+          out = pathlib.Path(out_dir)
+          data = json.load(open(src, encoding='utf-8'))
+          source_commit = data['source_commit']
+          assert data['dataset_key'] == 'law7_codes'
+          assert source_commit == '70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2'
+          assert len(data['codes']) == 8
+          assert len(data['article_versions']) == 2866
+          assert len(data['amendments']) == 0
+          assert data.get('unavailable_codes') == ['KAS_RF']
+
+          def dq_json(value, tag):
+              raw = json.dumps(value, ensure_ascii=False, separators=(',', ':'))
+              marker = f'${tag}$'
+              assert marker not in raw
+              return marker + raw + marker
+
+          codes_json = dq_json(data['codes'], 'law7codes')
+          pre = f"""begin;
+          insert into law7_mirror.sync_state(dataset_key,status,source_repository,source_commit,started_at,metadata)
+          values ('law7_codes','running','mikhashev/law7','{source_commit}',now(),'{{\"importer\":\"kati-law7-mirror-v1\"}}'::jsonb)
+          on conflict (dataset_key) do update set status=excluded.status,source_repository=excluded.source_repository,source_commit=excluded.source_commit,started_at=excluded.started_at,completed_at=null,metadata=excluded.metadata,updated_at=now();
+          with j as (
+            select * from jsonb_to_recordset({codes_json}::jsonb) as x(
+              code text,name text,short_name text,description text,original_eo_number text,original_date date,official_url text)
+          )
+          insert into law7_mirror.codes(code,name,short_name,description,original_eo_number,original_date,official_url,source_commit,source_updated_at,imported_at)
+          select code,name,short_name,description,original_eo_number,original_date,official_url,'{source_commit}',now(),now() from j
+          on conflict (code) do update set name=excluded.name,short_name=excluded.short_name,description=excluded.description,original_eo_number=excluded.original_eo_number,original_date=excluded.original_date,official_url=excluded.official_url,source_commit=excluded.source_commit,source_updated_at=excluded.source_updated_at,imported_at=now();
+          commit;
+          """
+          (out/'000_sync_and_codes.sql').write_text(pre, encoding='utf-8')
+
+          rows = data['article_versions']
+          batch_size = 100
+          files=[]
+          for idx in range(0, len(rows), batch_size):
+              batch=rows[idx:idx+batch_size]
+              n=idx//batch_size+1
+              tag=f'law7v{n:03d}'
+              payload=dq_json(batch, tag)
+              sql=f"""begin;
+              with j as (
+                select * from jsonb_to_recordset({payload}::jsonb) as x(
+                  code_id text,article_number text,version_date date,article_text text,article_title text,
+                  amendment_eo_number text,amendment_date date,is_current boolean,is_repealed boolean,repealed_date date,text_hash text)
+              )
+              insert into law7_mirror.article_versions
+                (code_id,article_number,version_date,article_text,article_title,amendment_eo_number,amendment_date,is_current,is_repealed,repealed_date,text_hash,source_commit,imported_at)
+              select code_id,article_number,version_date,article_text,article_title,amendment_eo_number,amendment_date,is_current,is_repealed,repealed_date,text_hash,'{source_commit}',now() from j
+              on conflict (code_id,article_number,version_date) do update set
+                article_text=excluded.article_text,article_title=excluded.article_title,amendment_eo_number=excluded.amendment_eo_number,
+                amendment_date=excluded.amendment_date,is_current=excluded.is_current,is_repealed=excluded.is_repealed,
+                repealed_date=excluded.repealed_date,text_hash=excluded.text_hash,source_commit=excluded.source_commit,imported_at=now();
+              commit;
+              """
+              name=f'{n:03d}_versions.sql'
+              (out/name).write_text(sql, encoding='utf-8')
+              files.append(name)
+
+          finish="""begin;
+          update law7_mirror.sync_state
+          set status='completed',codes_count=8,article_versions_count=2866,amendments_count=0,completed_at=now(),updated_at=now()
+          where dataset_key='law7_codes';
+          commit;
+          """
+          (out/'999_sync_completed.sql').write_text(finish, encoding='utf-8')
+          manifest={
+            'status':'READY','dataset_key':'law7_codes','source_commit':source_commit,
+            'export_sha256':'6a41ae0bab9095d2c7b2339ec401c877add352d16f69c861757ad42c03b56de9',
+            'codes':8,'article_versions':2866,'amendments':0,'unavailable_codes':['KAS_RF'],
+            'batch_size':batch_size,'version_batch_files':files,
+            'first':'000_sync_and_codes.sql','last':'999_sync_completed.sql'
+          }
+          (out/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+          PY
+          git config user.name "kati-lawyer-audit-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add audit/law7-tax-core-preview-apply
+          git commit -m "chore: materialize exact Law7 TAX CORE Preview SQL batches [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
