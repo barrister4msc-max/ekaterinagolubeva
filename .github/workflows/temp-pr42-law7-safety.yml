@@ -1,0 +1,36 @@
+name: TEMP PR42 Law7 Safety
+
+on:
+  push:
+    branches:
+      - feat/legal-source-pack-7
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  law7-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Provider Safety Contract tests
+        run: |
+          bun test \
+            supabase/functions/analyze-document-legal-position/provider-safety-contract.test.ts \
+            supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts \
+            supabase/functions/analyze-document-legal-position/law7-supabase-transport.test.ts
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
