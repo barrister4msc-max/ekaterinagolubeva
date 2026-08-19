@@ -1,0 +1,30 @@
+{
+  "status": "PASS",
+  "codes": 8,
+  "article_versions": 2866,
+  "amendments": 0,
+  "unavailable_codes": [
+    "KAS_RF"
+  ],
+  "per_code": {
+    "NK_RF": 250,
+    "NK_RF_2": 522,
+    "APK_RF": 402,
+    "KoAP_RF": 224,
+    "BK_RF": 110,
+    "GK_RF": 554,
+    "GK_RF_2": 667,
+    "KONST_RF": 137
+  },
+  "duplicate_version_keys": 0,
+  "blank_article_text": 0,
+  "invalid_dates": 0,
+  "bad_or_mismatched_hashes": 0,
+  "current_versions": 2866,
+  "repealed_versions": 0,
+  "importer_limits": {
+    "codes": "8/32",
+    "article_versions": "2866/25000",
+    "amendments": "0/25000"
+  }
+}

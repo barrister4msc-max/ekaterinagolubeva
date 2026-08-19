@@ -1,0 +1,35 @@
+{
+  "dataset_key": "law7_codes",
+  "source_repository": "mikhashev/law7",
+  "source_commit": "70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2",
+  "mode": "tax_core",
+  "requested_codes": [
+    "NK_RF",
+    "NK_RF_2",
+    "APK_RF",
+    "KoAP_RF",
+    "BK_RF",
+    "GK_RF",
+    "GK_RF_2",
+    "KONST_RF",
+    "KAS_RF"
+  ],
+  "exported_codes": [
+    "NK_RF",
+    "NK_RF_2",
+    "APK_RF",
+    "KoAP_RF",
+    "BK_RF",
+    "GK_RF",
+    "GK_RF_2",
+    "KONST_RF"
+  ],
+  "unavailable_codes": [
+    "KAS_RF"
+  ],
+  "articles": null,
+  "article_versions": 2866,
+  "amendments": 0,
+  "output": "/tmp/law7_tax_core.json",
+  "source_mode": "read_only"
+}

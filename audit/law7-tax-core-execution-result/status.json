@@ -1,10 +1,11 @@
 {
-  "status": "FAIL",
-  "failed_or_last_stage": "download-and-sha256",
-  "audit_branch_head": "c6c52fe1fdec87e8553e25d45e66ac930ae53b0d",
+  "status": "PASS",
+  "failed_or_last_stage": "completed",
+  "audit_branch_head": "0a087d279fd6e47d8732b7c6b88e0d7b62744bbe",
+  "github_run_id": 32251140751,
   "base_main_sha": "6609067b33453e1afb154f297495f1f57a41fdef",
   "backup_sha256_expected": "70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2",
-  "exit_code": 2,
+  "exit_code": 0,
   "supabase_write": false,
   "preview_apply": false
 }

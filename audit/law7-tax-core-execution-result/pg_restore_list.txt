@@ -1,0 +1,219 @@
+;
+; Archive created at 2026-02-10 18:45:20 UTC
+;     dbname: law7
+;     TOC Entries: 208
+;     Compression: gzip
+;     Dump Version: 1.14-0
+;     Format: CUSTOM
+;     Integer: 4 bytes
+;     Offset: 8 bytes
+;     Dumped from database version: 15.14
+;     Dumped by pg_dump version: 15.14
+;
+;
+; Selected TOC Entries:
+;
+3; 3079 16396 EXTENSION - pg_trgm 
+3842; 0 0 COMMENT - EXTENSION pg_trgm 
+2; 3079 16385 EXTENSION - uuid-ossp 
+3843; 0 0 COMMENT - EXTENSION "uuid-ossp" 
+282; 1255 16616 FUNCTION public normalize_text(text) law7
+283; 1255 16608 FUNCTION public update_updated_at_column() law7
+225; 1259 17178 TABLE public amendment_applications law7
+238; 1259 36209 TABLE public article_number_reference law7
+237; 1259 36208 SEQUENCE public article_number_reference_id_seq law7
+3844; 0 0 SEQUENCE OWNED BY public article_number_reference_id_seq law7
+221; 1259 16525 TABLE public categories law7
+224; 1259 17165 TABLE public code_article_versions law7
+3845; 0 0 COMMENT public COLUMN code_article_versions.article_number_consultant law7
+226; 1259 17188 TABLE public consolidated_codes law7
+217; 1259 16478 TABLE public countries law7
+216; 1259 16477 SEQUENCE public countries_id_seq law7
+3846; 0 0 SEQUENCE OWNED BY public countries_id_seq law7
+240; 1259 41655 TABLE public court_decision_article_references law7
+232; 1259 27896 TABLE public court_decisions law7
+3847; 0 0 COMMENT public TABLE court_decisions law7
+239; 1259 41646 TABLE public courts law7
+223; 1259 16573 TABLE public document_content law7
+228; 1259 27816 TABLE public document_manifests law7
+220; 1259 16513 TABLE public document_types law7
+222; 1259 16535 TABLE public documents law7
+235; 1259 27951 TABLE public government_agencies law7
+3848; 0 0 COMMENT public TABLE government_agencies law7
+234; 1259 27930 TABLE public legal_positions law7
+3849; 0 0 COMMENT public TABLE legal_positions law7
+236; 1259 27973 TABLE public official_interpretations law7
+3850; 0 0 COMMENT public TABLE official_interpretations law7
+3851; 0 0 COMMENT public COLUMN official_interpretations.download_urls law7
+233; 1259 27914 TABLE public practice_reviews law7
+3852; 0 0 COMMENT public TABLE practice_reviews law7
+218; 1259 16488 TABLE public publication_blocks law7
+219; 1259 16503 TABLE public signatory_authorities law7
+227; 1259 18498 VIEW public recent_documents law7
+231; 1259 27877 TABLE public regional_code_articles law7
+3853; 0 0 COMMENT public TABLE regional_code_articles law7
+229; 1259 27829 TABLE public regional_codes law7
+3854; 0 0 COMMENT public TABLE regional_codes law7
+230; 1259 27860 TABLE public regional_documents law7
+3855; 0 0 COMMENT public TABLE regional_documents law7
+3496; 2604 36212 DEFAULT public article_number_reference id law7
+3411; 2604 16481 DEFAULT public countries id law7
+3821; 0 17178 TABLE DATA public amendment_applications law7
+3833; 0 36209 TABLE DATA public article_number_reference law7
+3817; 0 16525 TABLE DATA public categories law7
+3820; 0 17165 TABLE DATA public code_article_versions law7
+3822; 0 17188 TABLE DATA public consolidated_codes law7
+3813; 0 16478 TABLE DATA public countries law7
+3835; 0 41655 TABLE DATA public court_decision_article_references law7
+3827; 0 27896 TABLE DATA public court_decisions law7
+3834; 0 41646 TABLE DATA public courts law7
+3819; 0 16573 TABLE DATA public document_content law7
+3823; 0 27816 TABLE DATA public document_manifests law7
+3816; 0 16513 TABLE DATA public document_types law7
+3818; 0 16535 TABLE DATA public documents law7
+3830; 0 27951 TABLE DATA public government_agencies law7
+3829; 0 27930 TABLE DATA public legal_positions law7
+3831; 0 27973 TABLE DATA public official_interpretations law7
+3828; 0 27914 TABLE DATA public practice_reviews law7
+3814; 0 16488 TABLE DATA public publication_blocks law7
+3826; 0 27877 TABLE DATA public regional_code_articles law7
+3824; 0 27829 TABLE DATA public regional_codes law7
+3825; 0 27860 TABLE DATA public regional_documents law7
+3815; 0 16503 TABLE DATA public signatory_authorities law7
+3856; 0 0 SEQUENCE SET public article_number_reference_id_seq law7
+3857; 0 0 SEQUENCE SET public countries_id_seq law7
+3555; 2606 17187 CONSTRAINT public amendment_applications amendment_applications_pkey law7
+3624; 2606 36218 CONSTRAINT public article_number_reference article_number_reference_pkey law7
+3521; 2606 16534 CONSTRAINT public categories categories_pkey law7
+3545; 2606 17175 CONSTRAINT public code_article_versions code_article_versions_pkey law7
+3547; 2606 17177 CONSTRAINT public code_article_versions code_article_versions_unique law7
+3561; 2606 17201 CONSTRAINT public consolidated_codes consolidated_codes_code_key law7
+3563; 2606 17199 CONSTRAINT public consolidated_codes consolidated_codes_pkey law7
+3504; 2606 16487 CONSTRAINT public countries countries_code_key law7
+3506; 2606 16485 CONSTRAINT public countries countries_pkey law7
+3634; 2606 41663 CONSTRAINT public court_decision_article_references court_decision_article_references_pkey law7
+3592; 2606 27908 CONSTRAINT public court_decisions court_decisions_pkey law7
+3630; 2606 41654 CONSTRAINT public courts courts_pkey law7
+3540; 2606 16580 CONSTRAINT public document_content document_content_pkey law7
+3568; 2606 27827 CONSTRAINT public document_manifests document_manifests_country_id_key law7
+3570; 2606 27825 CONSTRAINT public document_manifests document_manifests_pkey law7
+3516; 2606 16524 CONSTRAINT public document_types document_types_code_key law7
+3518; 2606 16522 CONSTRAINT public document_types document_types_pkey law7
+3524; 2606 16547 CONSTRAINT public documents documents_eo_number_key law7
+3526; 2606 16545 CONSTRAINT public documents documents_pkey law7
+3608; 2606 27962 CONSTRAINT public government_agencies government_agencies_pkey law7
+3606; 2606 27940 CONSTRAINT public legal_positions legal_positions_pkey law7
+3619; 2606 27984 CONSTRAINT public official_interpretations official_interpretations_pkey law7
+3621; 2606 41678 CONSTRAINT public official_interpretations official_interpretations_unique_doc law7
+3602; 2606 27924 CONSTRAINT public practice_reviews practice_reviews_pkey law7
+3509; 2606 16502 CONSTRAINT public publication_blocks publication_blocks_code_key law7
+3511; 2606 16500 CONSTRAINT public publication_blocks publication_blocks_pkey law7
+3590; 2606 27890 CONSTRAINT public regional_code_articles regional_code_articles_pkey law7
+3576; 2606 27843 CONSTRAINT public regional_codes regional_codes_country_id_region_id_code_id_key law7
+3578; 2606 27841 CONSTRAINT public regional_codes regional_codes_pkey law7
+3584; 2606 27871 CONSTRAINT public regional_documents regional_documents_pkey law7
+3514; 2606 16512 CONSTRAINT public signatory_authorities signatory_authorities_pkey law7
+3622; 1259 37930 INDEX public article_number_reference_full_unique law7
+3556; 1259 17208 INDEX public idx_amendment_applications_code_id law7
+3557; 1259 17210 INDEX public idx_amendment_applications_date law7
+3558; 1259 17207 INDEX public idx_amendment_applications_eo_number law7
+3559; 1259 17209 INDEX public idx_amendment_applications_status law7
+3625; 1259 36221 INDEX public idx_article_number_reference_code_id law7
+3626; 1259 36222 INDEX public idx_article_number_reference_consultant law7
+3627; 1259 37871 INDEX public idx_article_number_reference_matched_unique law7
+3628; 1259 37872 INDEX public idx_article_number_reference_missing_unique law7
+3522; 1259 16602 INDEX public idx_categories_code law7
+3548; 1259 17203 INDEX public idx_code_article_versions_code_article law7
+3549; 1259 17204 INDEX public idx_code_article_versions_code_current law7
+3550; 1259 17206 INDEX public idx_code_article_versions_code_date law7
+3551; 1259 36207 INDEX public idx_code_article_versions_consultant_number law7
+3552; 1259 25037 INDEX public idx_code_article_versions_source law7
+3553; 1259 17205 INDEX public idx_code_article_versions_version_date law7
+3564; 1259 17211 INDEX public idx_consolidated_codes_code law7
+3565; 1259 17212 INDEX public idx_consolidated_codes_consolidated law7
+3566; 1259 25036 INDEX public idx_consolidated_codes_source law7
+3635; 1259 41671 INDEX public idx_court_decision_article_refs_code_article law7
+3636; 1259 41670 INDEX public idx_court_decision_article_refs_code_id law7
+3637; 1259 41672 INDEX public idx_court_decision_article_refs_reference_type law7
+3593; 1259 28006 INDEX public idx_court_decisions_binding law7
+3594; 1259 28005 INDEX public idx_court_decisions_case_number law7
+3595; 1259 28003 INDEX public idx_court_decisions_court_type law7
+3596; 1259 28004 INDEX public idx_court_decisions_date law7
+3597; 1259 41674 INDEX public idx_court_decisions_full_text_russian law7
+3598; 1259 41673 INDEX public idx_court_decisions_summary_trgm law7
+3631; 1259 41676 INDEX public idx_courts_court_type law7
+3632; 1259 41675 INDEX public idx_courts_name_trgm law7
+3541; 1259 16597 INDEX public idx_document_content_full_text_english law7
+3542; 1259 16596 INDEX public idx_document_content_full_text_russian law7
+3543; 1259 16598 INDEX public idx_document_content_raw_text_trgm law7
+3571; 1259 27828 INDEX public idx_document_manifests_country_id law7
+3519; 1259 16601 INDEX public idx_document_types_code law7
+3527; 1259 16595 INDEX public idx_documents_complex_name_trgm law7
+3528; 1259 16592 INDEX public idx_documents_country law7
+3529; 1259 27694 INDEX public idx_documents_country_jurisdiction law7
+3530; 1259 16587 INDEX public idx_documents_document_date law7
+3531; 1259 16590 INDEX public idx_documents_document_type law7
+3532; 1259 16586 INDEX public idx_documents_eo_number law7
+3533; 1259 27693 INDEX public idx_documents_jurisdiction law7
+3534; 1259 18497 INDEX public idx_documents_name_trgm law7
+3535; 1259 16591 INDEX public idx_documents_publication_block law7
+3536; 1259 16588 INDEX public idx_documents_publish_date law7
+3537; 1259 16589 INDEX public idx_documents_signatory_authority law7
+3538; 1259 16594 INDEX public idx_documents_title_trgm law7
+3609; 1259 28013 INDEX public idx_gov_agencies_active law7
+3610; 1259 28011 INDEX public idx_gov_agencies_country law7
+3611; 1259 28012 INDEX public idx_gov_agencies_type law7
+3603; 1259 28009 INDEX public idx_legal_positions_decision law7
+3604; 1259 28010 INDEX public idx_legal_positions_valid law7
+3612; 1259 28014 INDEX public idx_official_interpretations_agency law7
+3613; 1259 28016 INDEX public idx_official_interpretations_date law7
+3614; 1259 28017 INDEX public idx_official_interpretations_topic law7
+3615; 1259 28015 INDEX public idx_official_interpretations_type law7
+3616; 1259 41679 INDEX public idx_official_interpretations_unique_doc law7
+3617; 1259 28018 INDEX public idx_official_interpretations_valid law7
+3599; 1259 28007 INDEX public idx_practice_reviews_court law7
+3600; 1259 28008 INDEX public idx_practice_reviews_date law7
+3507; 1259 16599 INDEX public idx_publication_blocks_code law7
+3585; 1259 27999 INDEX public idx_regional_articles_code law7
+3586; 1259 28001 INDEX public idx_regional_articles_current law7
+3587; 1259 28002 INDEX public idx_regional_articles_date law7
+3588; 1259 28000 INDEX public idx_regional_articles_region law7
+3572; 1259 27858 INDEX public idx_regional_codes_active law7
+3573; 1259 27857 INDEX public idx_regional_codes_code_id law7
+3574; 1259 27856 INDEX public idx_regional_codes_region law7
+3579; 1259 27995 INDEX public idx_regional_documents_country_region law7
+3580; 1259 27997 INDEX public idx_regional_documents_date law7
+3581; 1259 27998 INDEX public idx_regional_documents_region_id law7
+3582; 1259 27996 INDEX public idx_regional_documents_type law7
+3512; 1259 16600 INDEX public idx_signatory_authorities_name law7
+3659; 2620 16613 TRIGGER public categories update_categories_updated_at law7
+3655; 2620 16609 TRIGGER public countries update_countries_updated_at law7
+3665; 2620 28021 TRIGGER public court_decisions update_court_decisions_updated_at law7
+3661; 2620 16615 TRIGGER public document_content update_document_content_updated_at law7
+3658; 2620 16612 TRIGGER public document_types update_document_types_updated_at law7
+3660; 2620 16614 TRIGGER public documents update_documents_updated_at law7
+3667; 2620 28023 TRIGGER public government_agencies update_government_agencies_updated_at law7
+3668; 2620 28024 TRIGGER public official_interpretations update_official_interpretations_updated_at law7
+3666; 2620 28022 TRIGGER public practice_reviews update_practice_reviews_updated_at law7
+3656; 2620 16610 TRIGGER public publication_blocks update_publication_blocks_updated_at law7
+3664; 2620 28020 TRIGGER public regional_code_articles update_regional_code_articles_updated_at law7
+3662; 2620 27859 TRIGGER public regional_codes update_regional_codes_updated_at law7
+3663; 2620 28019 TRIGGER public regional_documents update_regional_documents_updated_at law7
+3657; 2620 16611 TRIGGER public signatory_authorities update_signatory_authorities_updated_at law7
+3654; 2606 41664 FK CONSTRAINT public court_decision_article_references court_decision_article_references_court_decision_id_fkey law7
+3646; 2606 27909 FK CONSTRAINT public court_decisions court_decisions_country_id_fkey law7
+3643; 2606 16581 FK CONSTRAINT public document_content document_content_document_id_fkey law7
+3638; 2606 16563 FK CONSTRAINT public documents documents_category_id_fkey law7
+3639; 2606 16568 FK CONSTRAINT public documents documents_country_id_fkey law7
+3640; 2606 16553 FK CONSTRAINT public documents documents_document_type_id_fkey law7
+3641; 2606 16558 FK CONSTRAINT public documents documents_publication_block_id_fkey law7
+3642; 2606 16548 FK CONSTRAINT public documents documents_signatory_authority_id_fkey law7
+3650; 2606 27963 FK CONSTRAINT public government_agencies government_agencies_country_id_fkey law7
+3651; 2606 27968 FK CONSTRAINT public government_agencies government_agencies_parent_agency_id_fkey law7
+3648; 2606 27941 FK CONSTRAINT public legal_positions legal_positions_country_id_fkey law7
+3649; 2606 27946 FK CONSTRAINT public legal_positions legal_positions_decision_id_fkey law7
+3652; 2606 27990 FK CONSTRAINT public official_interpretations official_interpretations_agency_id_fkey law7
+3653; 2606 27985 FK CONSTRAINT public official_interpretations official_interpretations_country_id_fkey law7
+3647; 2606 27925 FK CONSTRAINT public practice_reviews practice_reviews_country_id_fkey law7
+3645; 2606 27891 FK CONSTRAINT public regional_code_articles regional_code_articles_country_id_fkey law7
+3644; 2606 27872 FK CONSTRAINT public regional_documents regional_documents_country_fkey law7

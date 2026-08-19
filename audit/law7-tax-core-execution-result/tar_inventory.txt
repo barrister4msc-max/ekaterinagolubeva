@@ -1,0 +1,7 @@
+law7_backup_20260211_014519/
+law7_backup_20260211_014519/.env.example
+law7_backup_20260211_014519/postgresql/
+law7_backup_20260211_014519/postgresql/law7.dump
+law7_backup_20260211_014519/qdrant/
+law7_backup_20260211_014519/qdrant/law_chunks.snapshot
+law7_backup_20260211_014519/README.md

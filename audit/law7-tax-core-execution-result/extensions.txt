@@ -1,0 +1,4 @@
+3; 3079 16396 EXTENSION - pg_trgm 
+3842; 0 0 COMMENT - EXTENSION pg_trgm 
+2; 3079 16385 EXTENSION - uuid-ossp 
+3843; 0 0 COMMENT - EXTENSION "uuid-ossp" 

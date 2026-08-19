@@ -1,0 +1,9 @@
+{
+  "dataset_key": "law7_codes",
+  "source_repository": "mikhashev/law7",
+  "source_commit": "70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2",
+  "codes": 8,
+  "article_versions": 2866,
+  "amendments": 0,
+  "mode": "dry-run"
+}
