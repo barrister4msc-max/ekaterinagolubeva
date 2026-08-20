@@ -1,5 +1,0 @@
-install=success
-identity=success
-regressions=success
-typecheck=success
-diffcheck=success
