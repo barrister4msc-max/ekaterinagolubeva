@@ -1,6 +1,7 @@
 name: TEMP P0-A5 FNS Analyzer wiring
 
 on:
+  pull_request:
   push:
     branches:
       - feat/p0a5-fns-snr-analyzer-orchestration
