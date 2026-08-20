@@ -29,6 +29,8 @@ RusLawOD remains useful as:
 
 Neither source may self-certify official origin, current applicability, or substantive use.
 
-## Next action
+## FNS Open Data path
 
 Proceed with FNS Open Data first because FNS publishes documented HTTPS dataset and schema URLs directly on official domains. Import them as `factual_official_data`, never as legal authority.
+
+The first controlled real-data parser dry-run uses the FNS SNR dataset `7707329152-snr`, pinned to the verified `2026-06-25` release and `structure-20230425.xsd`. The parser is read-only and uses Python stdlib `zipfile` + `xml.etree.ElementTree.iterparse`; it does not contain a database client or a write path.
