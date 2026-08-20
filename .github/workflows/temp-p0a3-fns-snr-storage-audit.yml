@@ -76,6 +76,32 @@ jobs:
           );
 
           do $$
+          begin
+            begin
+              insert into fns_open_data.company_tax_regimes (
+                inn, organization_name, regimes, data_as_of, dataset_id, source_url, source_sha256
+              ) values (
+                '7701234568', 'ООО Подмена', array['usn'], '2026-06-01', '7707329152-snr',
+                'https://example.com/fake.zip', repeat('b', 64)
+              );
+              raise exception 'untrusted company source_url unexpectedly accepted';
+            exception when check_violation then
+              null;
+            end;
+
+            begin
+              insert into fns_open_data.sync_state (
+                dataset_id, status, source_url, source_sha256, records_count
+              ) values (
+                '7707329152-snr', 'running', 'https://example.com/fake.zip', repeat('b', 64), 0
+              ) on conflict (dataset_id) do update set source_url = excluded.source_url;
+              raise exception 'untrusted sync source_url unexpectedly accepted';
+            exception when check_violation then
+              null;
+            end;
+          end $$;
+
+          do $$
           declare
             available boolean;
             row_count int;
