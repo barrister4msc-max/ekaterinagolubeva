@@ -1,0 +1,110 @@
+name: TEMP P0-A8 DEBTAM value-shape probe
+
+on:
+  push:
+    branches:
+      - feat/p0a8-debtam-freshness-audit
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download official pinned DEBTAM archive
+        id: download
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/debtam
+          curl -fL --retry 3 --retry-delay 2 'https://file.nalog.ru/opendata/7707329152-debtam/data-20260725-structure-20181201.zip' -o /tmp/debtam/data.zip
+          test -s /tmp/debtam/data.zip
+      - name: Analyze bounded attribute shapes without persisting source values
+        id: probe
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile, xml.etree.ElementTree as ET, re, json, decimal
+
+          zf=zipfile.ZipFile('/tmp/debtam/data.zip')
+          xmls=[n for n in zf.namelist() if n.lower().endswith('.xml')][:5]
+          money_attrs=['СумНедНалог','СумПени','СумШтраф','ОбщСумНедоим']
+          stats={a:{'present':0,'empty':0,'integer':0,'decimal_dot':0,'decimal_comma':0,'negative':0,'zero':0,'other':0,'max_scale':0} for a in money_attrs}
+          doc_count=0; debtor_rows=0; debt_rows=0; docs_with_multiple_debts=0
+          inn_lengths={}; names_present=0
+          tax_name_present=0
+
+          for member in xmls:
+              with zf.open(member) as f:
+                  current_debt_count=0
+                  for event,elem in ET.iterparse(f,events=('end',)):
+                      tag=elem.tag.split('}')[-1]
+                      if tag=='СведНП':
+                          inn=elem.attrib.get('ИННЮЛ','')
+                          inn_lengths[len(inn)]=inn_lengths.get(len(inn),0)+1
+                          if elem.attrib.get('НаимОрг','').strip(): names_present+=1
+                          debtor_rows+=1
+                      elif tag=='СведНедоим':
+                          debt_rows+=1; current_debt_count+=1
+                          if elem.attrib.get('НаимНалог','').strip(): tax_name_present+=1
+                          for a in money_attrs:
+                              if a not in elem.attrib: continue
+                              s=elem.attrib.get(a,'').strip(); st=stats[a]; st['present']+=1
+                              if s=='': st['empty']+=1; continue
+                              if s.startswith('-'): st['negative']+=1
+                              norm=s.replace(',','.')
+                              try:
+                                  d=decimal.Decimal(norm)
+                                  if d==0: st['zero']+=1
+                                  scale=max(0,-d.as_tuple().exponent); st['max_scale']=max(st['max_scale'],scale)
+                                  if ',' in s: st['decimal_comma']+=1
+                                  elif '.' in s: st['decimal_dot']+=1
+                                  else: st['integer']+=1
+                              except Exception:
+                                  st['other']+=1
+                      elif tag=='Документ':
+                          doc_count+=1
+                          if current_debt_count>1: docs_with_multiple_debts+=1
+                          current_debt_count=0
+                      elem.clear()
+
+          report=[]
+          report.append(f'xml_members_sampled={len(xmls)}')
+          report.append(f'documents_sampled={doc_count}')
+          report.append(f'taxpayer_rows={debtor_rows}')
+          report.append(f'debt_rows={debt_rows}')
+          report.append(f'documents_with_multiple_debt_rows={docs_with_multiple_debts}')
+          report.append('inn_length_counts='+json.dumps(inn_lengths,sort_keys=True))
+          report.append(f'organization_name_present={names_present}')
+          report.append(f'tax_name_present={tax_name_present}')
+          report.append('money_stats='+json.dumps(stats,ensure_ascii=False,sort_keys=True))
+          Path('.tmp-p0a8-debtam-value-report.txt').write_text('\n'.join(report)+'\n',encoding='utf-8')
+          PY
+      - name: Record outcomes
+        if: always()
+        env:
+          DOWNLOAD: ${{ steps.download.outcome }}
+          PROBE: ${{ steps.probe.outcome }}
+        run: |
+          cat > .tmp-p0a8-debtam-value-status.txt <<EOF
+          download=$DOWNLOAD
+          probe=$PROBE
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-p0a8-debtam-value-status.txt
+          if [ -f .tmp-p0a8-debtam-value-report.txt ]; then git add .tmp-p0a8-debtam-value-report.txt; fi
+          git commit -m "chore: record P0-A8 DEBTAM value-shape probe"
+          git push origin HEAD:feat/p0a8-debtam-freshness-audit
+      - name: Enforce success
+        if: always()
+        env:
+          DOWNLOAD: ${{ steps.download.outcome }}
+          PROBE: ${{ steps.probe.outcome }}
+        run: |
+          test "$DOWNLOAD" = success
+          test "$PROBE" = success
