@@ -23,7 +23,9 @@ create table if not exists fns_open_data.company_tax_regimes (
   constraint fns_snr_inn_format check (inn ~ '^[0-9]{10}$'),
   constraint fns_snr_org_name_nonempty check (length(btrim(organization_name)) > 0),
   constraint fns_snr_dataset_id check (dataset_id = '7707329152-snr'),
-  constraint fns_snr_source_url_https check (source_url like 'https://%'),
+  constraint fns_snr_source_url_official check (
+    source_url ~ '^https://(www\.nalog\.gov\.ru|nalog\.gov\.ru|data\.nalog\.ru|file\.nalog\.ru)/'
+  ),
   constraint fns_snr_source_sha256 check (source_sha256 ~ '^[0-9a-f]{64}$'),
   constraint fns_snr_regimes_allowed check (
     regimes <@ array['eshn','usn','ausn','srp']::text[]
@@ -43,7 +45,9 @@ create table if not exists fns_open_data.sync_state (
   metadata jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now(),
   constraint fns_sync_dataset_id check (dataset_id = '7707329152-snr'),
-  constraint fns_sync_source_url_https check (source_url like 'https://%'),
+  constraint fns_sync_source_url_official check (
+    source_url ~ '^https://(www\.nalog\.gov\.ru|nalog\.gov\.ru|data\.nalog\.ru|file\.nalog\.ru)/'
+  ),
   constraint fns_sync_source_sha256 check (source_sha256 ~ '^[0-9a-f]{64}$')
 );
 
@@ -58,7 +62,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = public, fns_open_data
+set search_path = pg_catalog
 as $$
   select exists (
     select 1
@@ -87,7 +91,7 @@ returns table (
 language sql
 stable
 security definer
-set search_path = public, fns_open_data
+set search_path = pg_catalog
 as $$
   select
     r.inn,
@@ -100,8 +104,8 @@ as $$
     r.source_url,
     r.source_sha256
   from fns_open_data.company_tax_regimes r
-  where r.inn = btrim(p_inn)
-    and btrim(p_inn) ~ '^[0-9]{10}$'
+  where r.inn = pg_catalog.btrim(p_inn)
+    and pg_catalog.btrim(p_inn) ~ '^[0-9]{10}$'
     and (p_as_of_date is null or r.data_as_of <= p_as_of_date)
   order by r.data_as_of desc
   limit 1;
