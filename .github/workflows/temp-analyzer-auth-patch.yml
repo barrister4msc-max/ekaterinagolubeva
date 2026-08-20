@@ -1,0 +1,81 @@
+name: TEMP Analyzer auth patch
+
+on:
+  push:
+    branches:
+      - fix/analyzer-auth-guard-v2
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+      - name: Patch analyzer entrypoint deterministically
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('supabase/functions/analyze-document-legal-position/index.ts')
+          s = p.read_text()
+          import_needle = 'import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";\n'
+          import_repl = import_needle + 'import { authorizeAnalyzerRequest } from "./auth-boundary.ts";\n'
+          if import_needle not in s:
+              raise SystemExit('import needle missing')
+          s = s.replace(import_needle, import_repl, 1)
+
+          entry_needle = '''  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+          if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+          let body: any;
+          '''
+          entry_repl = '''  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+          if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+          const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+          const authResult = await authorizeAnalyzerRequest(req, sb);
+          if (!authResult.ok) return json({ error: authResult.error }, authResult.status);
+
+          let body: any;
+          '''
+          if entry_needle not in s:
+              raise SystemExit('entry needle missing')
+          s = s.replace(entry_needle, entry_repl, 1)
+
+          duplicate_needle = '''  const canonicalRelationsEnabled = readCanonicalRelationsFeatureFlags().enabled;
+
+          const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+
+          const { data: runRow, error: runInsertErr } = await sb
+          '''
+          duplicate_repl = '''  const canonicalRelationsEnabled = readCanonicalRelationsFeatureFlags().enabled;
+
+          const { data: runRow, error: runInsertErr } = await sb
+          '''
+          if duplicate_needle not in s:
+              raise SystemExit('duplicate client needle missing')
+          s = s.replace(duplicate_needle, duplicate_repl, 1)
+          p.write_text(s)
+          PY
+      - name: Auth regression tests
+        run: bun test supabase/tests/analyze-document-legal-position-auth.test.ts
+      - name: Existing provider safety regressions
+        run: bun test supabase/functions/analyze-document-legal-position/provider-safety-contract.test.ts supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts
+      - name: Diff check
+        run: git diff --check
+      - name: Typecheck
+        run: bunx tsc --noEmit
+      - name: Build
+        run: bun run build
+      - name: Remove temporary workflow and commit patch
+        run: |
+          rm .github/workflows/temp-analyzer-auth-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/analyze-document-legal-position/index.ts supabase/functions/analyze-document-legal-position/auth-boundary.ts supabase/tests/analyze-document-legal-position-auth.test.ts .github/workflows/temp-analyzer-auth-patch.yml
+          git commit -m "fix: enforce analyzer admin authorization before service-role operations"
+          git push origin HEAD:fix/analyzer-auth-guard-v2
