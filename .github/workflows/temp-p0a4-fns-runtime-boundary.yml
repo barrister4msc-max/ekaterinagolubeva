@@ -1,6 +1,7 @@
 name: TEMP P0-A4 FNS runtime boundary
 
 on:
+  pull_request:
   push:
     branches:
       - feat/p0a4-fns-snr-analyzer-factual-runtime
