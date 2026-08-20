@@ -25,7 +25,7 @@ export type CompanyFactualRuntimeSnapshot = {
 };
 
 /**
- * P0-A4 runtime boundary for company factual evidence.
+ * P0-A4/P0-A5 runtime boundary for company factual evidence.
  *
  * This loader is intentionally NOT a legal research provider. It may be called
  * by the Analyzer orchestration after answers are loaded, but the returned
@@ -33,6 +33,12 @@ export type CompanyFactualRuntimeSnapshot = {
  * the LLM prompt, conclusions, Evidence Matrix, Source Sufficiency or Challenge
  * until an explicit fact↔factual-evidence identity contract is separately
  * implemented and verified.
+ *
+ * Transport exceptions are fail-soft: legal analysis must continue without the
+ * factual snapshot rather than turning FNS availability into an Analyzer SPOF.
+ * The existing diagnostics shape is intentionally preserved; this layer cannot
+ * reliably distinguish "no row" from an RPC error because the lower adapter is
+ * already fail-closed and maps both to no evidence.
  */
 export async function loadCompanyFactualRuntimeSnapshot(input: {
   sb: SbClient;
@@ -55,11 +61,20 @@ export async function loadCompanyFactualRuntimeSnapshot(input: {
     };
   }
 
-  const evidence = await loadFnsSnrFactualEvidence({
-    sb: input.sb,
-    answers: input.answers,
-    asOfDate: input.asOfDate,
-  });
+  let evidence: CompanyFactualEvidence[];
+  try {
+    evidence = await loadFnsSnrFactualEvidence({
+      sb: input.sb,
+      answers: input.answers,
+      asOfDate: input.asOfDate,
+    });
+  } catch (error) {
+    console.warn("fns_company_factual_runtime_unavailable", {
+      requested_count: inns.length,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    evidence = [];
+  }
 
   return {
     company_factual_evidence: evidence,
