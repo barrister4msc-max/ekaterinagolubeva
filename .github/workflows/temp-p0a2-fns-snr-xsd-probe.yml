@@ -1,4 +1,4 @@
-name: TEMP P0-A2 FNS SNR XSD probe
+name: TEMP P0-A2 FNS SNR real-data dry run
 
 on:
   push:
@@ -12,23 +12,42 @@ permissions:
   contents: read
 
 jobs:
-  probe:
+  dry-run:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch official FNS SNR XSD read-only
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Synthetic parser tests
+        run: python -m unittest scripts/test_fns_open_data_snr_dry_run.py -v
+      - name: Fetch official FNS SNR XSD and real ZIP read-only
         shell: bash
         run: |
           set -euo pipefail
-          url='https://file.nalog.ru/opendata/7707329152-snr/structure-20230425.xsd'
-          curl --location --fail --silent --show-error \
-            --connect-timeout 10 --max-time 30 \
-            --dump-header /tmp/headers --output /tmp/snr.xsd "$url"
-          echo '--- HTTP ---'
-          grep -Ei '^(HTTP/|content-type:|content-length:)' /tmp/headers || true
-          echo '--- SHA256 ---'
-          sha256sum /tmp/snr.xsd
-          echo '--- XSD FIRST 260 LINES ---'
-          sed -n '1,260p' /tmp/snr.xsd
-          echo '--- SAFETY ---'
+          xsd='https://file.nalog.ru/opendata/7707329152-snr/structure-20230425.xsd'
+          zip='https://file.nalog.ru/opendata/7707329152-snr/data-20260625-structure-20230425.zip'
+          curl --location --fail --silent --show-error --connect-timeout 10 --max-time 30 \
+            --output /tmp/snr.xsd "$xsd"
+          echo "XSD_SHA256=$(sha256sum /tmp/snr.xsd | cut -d' ' -f1)"
+          curl --location --fail --silent --show-error --connect-timeout 10 --max-time 180 \
+            --max-filesize 524288000 --output /tmp/snr.zip "$zip"
+          echo "ZIP_BYTES=$(stat -c%s /tmp/snr.zip)"
+          echo "ZIP_SHA256=$(sha256sum /tmp/snr.zip | cut -d' ' -f1)"
+      - name: Parse bounded real-data sample
+        run: python scripts/fns_open_data_snr_dry_run.py --input /tmp/snr.zip --limit 25
+      - name: Assert no database capability
+        shell: bash
+        run: |
           test -z "${DATABASE_URL:-}"
           test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          ! grep -Eq 'psycopg|supabase|postgres|DATABASE_URL' scripts/fns_open_data_snr_dry_run.py
+      - name: Typecheck and diff check
+        shell: bash
+        run: |
+          curl -fsSL https://bun.sh/install | bash >/dev/null
+          export BUN_INSTALL="$HOME/.bun"
+          export PATH="$BUN_INSTALL/bin:$PATH"
+          bun install --frozen-lockfile
+          bun run typecheck
+          git diff --check
