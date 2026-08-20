@@ -41,6 +41,7 @@ describe("Company factual runtime boundary", () => {
       fact_linking_status: "not_linked",
       model_input_status: "not_injected",
       legal_source_status: "excluded",
+      runtime_status: "not_requested",
     });
   });
 
@@ -77,10 +78,11 @@ describe("Company factual runtime boundary", () => {
       fact_linking_status: "not_linked",
       model_input_status: "not_injected",
       legal_source_status: "excluded",
+      runtime_status: "available",
     });
   });
 
-  it("fails soft when the FNS transport cannot return trusted evidence", async () => {
+  it("fails soft when the FNS transport returns an error", async () => {
     const snapshot = await loadCompanyFactualRuntimeSnapshot({
       answers: { taxpayer_inn: "7701234567" },
       sb: {
@@ -97,5 +99,27 @@ describe("Company factual runtime boundary", () => {
     expect(snapshot.diagnostics.fact_linking_status).toBe("not_linked");
     expect(snapshot.diagnostics.model_input_status).toBe("not_injected");
     expect(snapshot.diagnostics.legal_source_status).toBe("excluded");
+    expect(snapshot.diagnostics.runtime_status).toBe("available");
+  });
+
+  it("fails soft when the transport throws instead of returning an error", async () => {
+    const snapshot = await loadCompanyFactualRuntimeSnapshot({
+      answers: { taxpayer_inn: "7701234567" },
+      sb: {
+        async rpc() {
+          throw new Error("network down");
+        },
+      },
+    });
+
+    expect(snapshot.company_factual_evidence).toEqual([]);
+    expect(snapshot.diagnostics.explicit_legal_entity_inns).toEqual(["7701234567"]);
+    expect(snapshot.diagnostics.requested_count).toBe(1);
+    expect(snapshot.diagnostics.loaded_count).toBe(0);
+    expect(snapshot.diagnostics.source_types).toEqual([]);
+    expect(snapshot.diagnostics.fact_linking_status).toBe("not_linked");
+    expect(snapshot.diagnostics.model_input_status).toBe("not_injected");
+    expect(snapshot.diagnostics.legal_source_status).toBe("excluded");
+    expect(snapshot.diagnostics.runtime_status).toBe("unavailable");
   });
 });
