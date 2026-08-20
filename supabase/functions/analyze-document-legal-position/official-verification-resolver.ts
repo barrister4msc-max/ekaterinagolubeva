@@ -18,7 +18,13 @@ export type OfficialContentObservation = {
   eo_number: string;
   code_id: string;
   article: string;
-  version_date: string | null;
+  /**
+   * Optional explicit binding to a Law7 version identity. This MUST only be
+   * populated when the official-content channel independently establishes the
+   * same version boundary. The current-only Law7 corpus date is not treated as
+   * an amending-act date by inference.
+   */
+  law7_version_date?: string | null;
   article_text: string;
   content_source: "documented_official_content";
   actuality_status: "verified" | "unknown";
@@ -75,7 +81,9 @@ function observationOf(candidate: PravoVerificationCandidate): OfficialContentOb
     typeof observation.article !== "string" ||
     typeof observation.article_text !== "string" ||
     typeof observation.observed_at !== "string" ||
-    (observation.version_date !== null && typeof observation.version_date !== "string") ||
+    (observation.law7_version_date !== undefined &&
+      observation.law7_version_date !== null &&
+      typeof observation.law7_version_date !== "string") ||
     (observation.actuality_status !== "verified" && observation.actuality_status !== "unknown")
   ) return null;
   return observation as OfficialContentObservation;
@@ -103,12 +111,18 @@ function candidateSafety(candidate: PravoVerificationCandidate): OfficialSourceS
  * Deterministic Pravo ↔ Law7 verification resolver.
  *
  * This resolver NEVER fetches an undocumented endpoint and NEVER infers legal
- * identity from titles or semantic similarity. It can promote a Law7 retrieval
- * source only when an upstream, documented official-content channel supplies a
- * typed OfficialContentObservation that exactly matches code/article/version,
- * official source identity, official URL, actuality and article text.
+ * identity from titles, semantic similarity or a Law7 corpus date. It can
+ * promote a Law7 retrieval source only when an upstream, documented
+ * official-content channel supplies a typed OfficialContentObservation that
+ * exactly matches code/article, official source identity, official URL,
+ * article content and verified actuality.
  *
- * Until such an observation exists, the result is fail-closed.
+ * `law7_version_date` is an optional additional exact constraint only when an
+ * official channel independently proves it. The current-only Law7 backup does
+ * not provide authoritative amendment history, so its stored version_date is
+ * not treated as an amending-act identity by itself.
+ *
+ * Until such an official content observation exists, the result is fail-closed.
  */
 export function resolveLaw7OfficialVerification(
   law7: VerifiableLaw7Source,
@@ -136,7 +150,10 @@ export function resolveLaw7OfficialVerification(
       if (observation.official_url !== candidate.official_url) return false;
       if (observation.code_id !== identity.code_id) return false;
       if (observation.article !== identity.article) return false;
-      if ((observation.version_date ?? null) !== (identity.version_date ?? null)) return false;
+      if (
+        observation.law7_version_date != null &&
+        observation.law7_version_date !== identity.version_date
+      ) return false;
       return true;
     });
 
@@ -146,7 +163,7 @@ export function resolveLaw7OfficialVerification(
       status: hasAnyObservation ? "no_identity" : "no_content",
       substantive_use_allowed: false,
       reason: hasAnyObservation
-        ? "No official content observation matches exact Law7 code/article/version identity"
+        ? "No official content observation matches exact Law7 code/article identity and any explicit version binding"
         : "No documented official content observation is available",
       official_source_id: null,
       official_url: null,
@@ -158,7 +175,7 @@ export function resolveLaw7OfficialVerification(
     return {
       status: "ambiguous",
       substantive_use_allowed: false,
-      reason: "More than one official content observation matches the exact Law7 identity",
+      reason: "More than one official content observation matches the exact Law7 norm identity",
       official_source_id: null,
       official_url: null,
       safety: null,
@@ -208,7 +225,7 @@ export function resolveLaw7OfficialVerification(
   return {
     status: "verified",
     substantive_use_allowed: safety.substantive_use_allowed,
-    reason: "Exact official identity, official article content and actuality verified",
+    reason: "Exact official norm identity, official article content and actuality verified",
     official_source_id: candidate.source_id,
     official_url: candidate.official_url,
     safety,
