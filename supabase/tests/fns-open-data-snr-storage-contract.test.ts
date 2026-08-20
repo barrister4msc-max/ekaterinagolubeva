@@ -16,16 +16,21 @@ describe("FNS Open Data SNR storage contract", () => {
     expect(sql).not.toMatch(/insert\s+into\s+fns_open_data\.company_tax_regimes/i);
   });
 
-  it("pins SNR identity and immutable provenance", () => {
+  it("pins SNR identity and immutable official provenance", () => {
     expect(sql).toContain("dataset_id = '7707329152-snr'");
     expect(sql).toContain("source_sha256 ~ '^[0-9a-f]{64}$'");
-    expect(sql).toContain("source_url like 'https://%'");
+    expect(sql).toContain("www\\.nalog\\.gov\\.ru");
+    expect(sql).toContain("data\\.nalog\\.ru");
+    expect(sql).toContain("file\\.nalog\\.ru");
+    expect(sql).not.toContain("source_url like 'https://%'");
     expect(sql).toContain("inn ~ '^[0-9]{10}$'");
   });
 
-  it("exposes only bounded service-role RPCs", () => {
+  it("exposes only bounded service-role RPCs with a hardened search_path", () => {
     expect(sql).toContain("public.fns_open_data_snr_is_available()");
     expect(sql).toContain("public.fns_open_data_get_tax_regime(");
+    expect(sql.match(/set search_path = pg_catalog/g)?.length).toBe(2);
+    expect(sql).toContain("pg_catalog.btrim(p_inn)");
     expect(sql).toContain("grant execute on function public.fns_open_data_snr_is_available() to service_role");
     expect(sql).toContain("grant execute on function public.fns_open_data_get_tax_regime(text, date) to service_role");
     expect(sql).toContain("limit 1");
