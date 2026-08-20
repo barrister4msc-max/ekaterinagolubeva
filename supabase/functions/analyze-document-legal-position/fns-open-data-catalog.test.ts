@@ -20,6 +20,19 @@ describe("FNS Open Data catalog", () => {
     }
   });
 
+  test("SNR is pinned to the verified June 2026 release", () => {
+    const snr = FNS_OPEN_DATA_DATASETS.find((dataset) => dataset.id === "7707329152-snr");
+    expect(snr).toBeDefined();
+    expect(snr?.data_url).toBe(
+      "https://file.nalog.ru/opendata/7707329152-snr/data-20260625-structure-20230425.zip",
+    );
+    expect(snr?.schema_url).toBe(
+      "https://file.nalog.ru/opendata/7707329152-snr/structure-20230425.xsd",
+    );
+    expect(snr?.data_as_of).toBe("2026-06-01");
+    expect(snr?.published_at).toBe("2026-06-25");
+  });
+
   test("dry-run plan never promotes factual data into legal authority", () => {
     for (const dataset of FNS_OPEN_DATA_DATASETS) {
       const plan = buildFnsOpenDataImportPlan(dataset);
