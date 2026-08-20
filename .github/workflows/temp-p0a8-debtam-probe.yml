@@ -1,0 +1,151 @@
+name: TEMP P0-A8 DEBTAM executable probe
+
+on:
+  push:
+    branches:
+      - feat/p0a8-debtam-freshness-audit
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download pinned official DEBTAM XSD and ZIP
+        id: download
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          mkdir -p /tmp/debtam
+          curl -fL --retry 3 --retry-delay 2 \
+            'https://file.nalog.ru/opendata/7707329152-debtam/structure-20181201.xsd' \
+            -o /tmp/debtam/structure-20181201.xsd
+          curl -fL --retry 3 --retry-delay 2 \
+            'https://file.nalog.ru/opendata/7707329152-debtam/data-20260725-structure-20181201.zip' \
+            -o /tmp/debtam/data.zip
+          test -s /tmp/debtam/structure-20181201.xsd
+          test -s /tmp/debtam/data.zip
+
+      - name: Probe schema and bounded real-data structure
+        id: probe
+        continue-on-error: true
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import hashlib, zipfile, xml.etree.ElementTree as ET, json, re
+
+          base = Path('/tmp/debtam')
+          xsd = base/'structure-20181201.xsd'
+          zfpath = base/'data.zip'
+          out = Path('.tmp-p0a8-debtam-probe-report.txt')
+
+          def sha256(p):
+              h=hashlib.sha256()
+              with p.open('rb') as f:
+                  for chunk in iter(lambda:f.read(1024*1024), b''):
+                      h.update(chunk)
+              return h.hexdigest()
+
+          lines=[]
+          lines.append(f'xsd_bytes={xsd.stat().st_size}')
+          lines.append(f'xsd_sha256={sha256(xsd)}')
+          lines.append(f'zip_bytes={zfpath.stat().st_size}')
+          lines.append(f'zip_sha256={sha256(zfpath)}')
+
+          # XSD declarations: names/types only, no guessing.
+          root=ET.parse(xsd).getroot()
+          decl=[]
+          for e in root.iter():
+              tag=e.tag.split('}')[-1]
+              if tag in {'element','attribute','complexType','simpleType'}:
+                  name=e.attrib.get('name')
+                  typ=e.attrib.get('type')
+                  if name:
+                      decl.append((tag,name,typ or ''))
+          lines.append('xsd_declarations_begin')
+          for tag,name,typ in decl:
+              lines.append(f'{tag}|{name}|{typ}')
+          lines.append('xsd_declarations_end')
+
+          with zipfile.ZipFile(zfpath) as z:
+              names=z.namelist()
+              lines.append(f'zip_member_count={len(names)}')
+              lines.append('zip_members_first20=' + json.dumps(names[:20], ensure_ascii=False))
+              xml_names=[n for n in names if n.lower().endswith('.xml')]
+              lines.append(f'xml_member_count={len(xml_names)}')
+              if not xml_names:
+                  raise SystemExit('no xml members')
+              member=xml_names[0]
+              info=z.getinfo(member)
+              lines.append(f'first_xml_member={member}')
+              lines.append(f'first_xml_uncompressed_bytes={info.file_size}')
+
+              # Read only bounded prefix for encoding declaration.
+              with z.open(member) as f:
+                  prefix=f.read(512)
+              lines.append('xml_prefix_ascii=' + repr(prefix[:200]))
+
+              # Stream first 5000 end-events. Record structural tags/attrs and value shapes,
+              # but never persist real INNs, names or monetary values.
+              tags=set(); attrs=set(); paths=set(); parent_stack=[]
+              event_count=0; candidate_shapes=[]
+              with z.open(member) as f:
+                  for event, elem in ET.iterparse(f, events=('start','end')):
+                      t=elem.tag.split('}')[-1]
+                      if event=='start':
+                          parent_stack.append(t)
+                          tags.add(t)
+                          for a in elem.attrib:
+                              attrs.add((t,a.split('}')[-1]))
+                          paths.add('/'.join(parent_stack[-5:]))
+                      else:
+                          event_count += 1
+                          txt=(elem.text or '').strip()
+                          if txt and len(candidate_shapes)<100:
+                              shape='digits' if txt.isdigit() else ('decimal' if re.fullmatch(r'-?\d+[\.,]\d+',txt) else ('date' if re.fullmatch(r'\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2}',txt) else 'text'))
+                              candidate_shapes.append((t,shape,len(txt)))
+                          if parent_stack: parent_stack.pop()
+                          elem.clear()
+                          if event_count>=5000:
+                              break
+              lines.append(f'bounded_end_events={event_count}')
+              lines.append('tags=' + json.dumps(sorted(tags), ensure_ascii=False))
+              lines.append('attributes=' + json.dumps(sorted([f'{t}@{a}' for t,a in attrs]), ensure_ascii=False))
+              lines.append('paths=' + json.dumps(sorted(paths), ensure_ascii=False))
+              lines.append('value_shapes=' + json.dumps(candidate_shapes, ensure_ascii=False))
+
+          out.write_text('\n'.join(lines)+'\n', encoding='utf-8')
+          PY
+
+      - name: Record probe outcomes
+        if: always()
+        env:
+          DOWNLOAD: ${{ steps.download.outcome }}
+          PROBE: ${{ steps.probe.outcome }}
+        run: |
+          cat > .tmp-p0a8-debtam-probe-status.txt <<EOF
+          download=$DOWNLOAD
+          probe=$PROBE
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-p0a8-debtam-probe-status.txt
+          if [ -f .tmp-p0a8-debtam-probe-report.txt ]; then git add .tmp-p0a8-debtam-probe-report.txt; fi
+          git commit -m "chore: record P0-A8 DEBTAM executable probe"
+          git push origin HEAD:feat/p0a8-debtam-freshness-audit
+
+      - name: Enforce probe success
+        if: always()
+        env:
+          DOWNLOAD: ${{ steps.download.outcome }}
+          PROBE: ${{ steps.probe.outcome }}
+        run: |
+          test "$DOWNLOAD" = success
+          test "$PROBE" = success
