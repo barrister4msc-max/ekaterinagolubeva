@@ -11,6 +11,7 @@ import {
 } from "./official-sources.ts";
 import { executeResearchProvider, type ResearchProviderDiagnostics } from "./research-provider-contract.ts";
 import { SupabaseLaw7ResearchProvider, SupabaseLaw7Transport } from "./law7-supabase-transport.ts";
+import { applyLaw7OfficialVerification } from "./official-verification-resolver.ts";
 
 export type Bucket =
   | "laws"
@@ -556,8 +557,11 @@ export async function runAllRepositories(
     searchLaw7PerIssue(),
   ]);
 
-  const localSources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals, ...law7.sources];
-  const mergedOfficial = mergeOfficialWithLocalSources(localSources, official.sources);
+  const verifiedLaw7Sources = law7.sources.map((source) =>
+  applyLaw7OfficialVerification(source, official.sources) as RawSource
+);
+const localSources = [...laws, ...court, ...fns, ...minfin, ...ek, ...manuals, ...verifiedLaw7Sources];
+const mergedOfficial = mergeOfficialWithLocalSources(localSources, official.sources);
   const sources = mergedOfficial.sources;
   const counts = {
     laws_found: laws.length,
