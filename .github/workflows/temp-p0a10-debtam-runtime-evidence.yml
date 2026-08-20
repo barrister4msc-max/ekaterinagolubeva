@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/p0a10-debtam-runtime-evidence
+  pull_request:
+    branches:
+      - feat/p0a9-debtam-storage-parser-rpc
   workflow_dispatch:
 
 permissions:
@@ -26,22 +29,18 @@ jobs:
           from pathlib import Path
           p=Path('supabase/functions/analyze-document-legal-position/index.ts')
           s=p.read_text()
-
           pair='''            company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n            company_factual_diagnostics: companyFactualRuntime.diagnostics,'''
           pair_new='''            company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n            company_factual_diagnostics: companyFactualRuntime.diagnostics,\n            company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,\n            company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,'''
           if 'company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence' not in s:
               s=s.replace(pair,pair_new,2)
-
           pair2='''          company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n          company_factual_diagnostics: companyFactualRuntime.diagnostics,'''
           pair2_new='''          company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n          company_factual_diagnostics: companyFactualRuntime.diagnostics,\n          company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,\n          company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,'''
           s=s.replace(pair2,pair2_new)
-
           final='''    parsed.company_factual_evidence = companyFactualRuntime.company_factual_evidence;\n    parsed.company_factual_diagnostics = companyFactualRuntime.diagnostics;'''
           final_new='''    parsed.company_factual_evidence = companyFactualRuntime.company_factual_evidence;\n    parsed.company_factual_diagnostics = companyFactualRuntime.diagnostics;\n    // P0-A10: DEBTAM remains a separate point-in-time factual channel.\n    // It is not passed into the SNR canonical factual matrix or legal/model paths.\n    parsed.company_tax_debt_evidence = companyFactualRuntime.company_tax_debt_evidence;\n    parsed.company_factual_dataset_diagnostics = companyFactualRuntime.dataset_diagnostics;'''
           if 'parsed.company_tax_debt_evidence = companyFactualRuntime.company_tax_debt_evidence;' not in s:
               if final not in s: raise SystemExit('final factual persistence anchor not found')
               s=s.replace(final,final_new,1)
-
           p.write_text(s)
           PY
           if ! git diff --quiet -- supabase/functions/analyze-document-legal-position/index.ts; then
