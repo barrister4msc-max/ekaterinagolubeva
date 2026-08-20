@@ -54,6 +54,7 @@ import {
 } from "./canonical-shadow-persistence.ts";
 
 import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";
+import { buildCompanyFactualEvidenceMatrix } from "./company-factual-evidence-matrix.ts";
 
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
@@ -201,6 +202,11 @@ Deno.serve(async (req) => {
       sb,
       answers,
     });
+    // P0-A7: additive factual Evidence Matrix. This is intentionally separate
+    // from the canonical FactRecord↔document Evidence Matrix below.
+    const companyFactualMatrix = buildCompanyFactualEvidenceMatrix(
+      companyFactualRuntime.company_factual_evidence,
+    );
 
     // practice_area + template title (for document-intent fallback)
     let practiceArea: string | null = null;
@@ -270,6 +276,8 @@ Deno.serve(async (req) => {
             documents_audit: { used: [], rejected: audited },
             company_factual_evidence: companyFactualRuntime.company_factual_evidence,
             company_factual_diagnostics: companyFactualRuntime.diagnostics,
+            company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
+            company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
           } as any,
           problems: ["Нет прикрепленных документов или извлеченного текста"] as any,
           source_verification_status: "no_sources",
@@ -284,6 +292,8 @@ Deno.serve(async (req) => {
             reason: "no_usable_document_text",
             company_factual_evidence: companyFactualRuntime.company_factual_evidence,
             company_factual_diagnostics: companyFactualRuntime.diagnostics,
+            company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
+            company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
             external_research: stagedExternalResearchSnapshot,
           } as any,
         })
@@ -341,6 +351,8 @@ Deno.serve(async (req) => {
           documents_rejected: rejectedDocs.length,
           company_factual_evidence: companyFactualRuntime.company_factual_evidence,
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
+          company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
+          company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
         } as any,
       })
@@ -599,6 +611,13 @@ Deno.serve(async (req) => {
     parsed.blocked_conclusions = blockedConclusions;
     parsed.provenance_index = provBuild.provenance_index;
     parsed.evidence_matrix = evidenceMatrix;
+    // P0-A7 additive factual matrix; does not mutate legal/document Evidence Matrix.
+    parsed.company_factual_evidence_matrix = companyFactualMatrix.company_factual_evidence_matrix;
+    parsed.company_factual_identity = {
+      canonical_company_facts: companyFactualMatrix.canonical_company_facts,
+      company_fact_evidence_links: companyFactualMatrix.company_fact_evidence_links,
+      diagnostics: companyFactualMatrix.diagnostics,
+    };
     parsed.source_sufficiency = sufficiency;
     parsed.research_coverage = {
       official_explanations: officialExplanationsCoverage,
@@ -666,6 +685,8 @@ Deno.serve(async (req) => {
           answers_count: Object.keys(answers).length,
           company_factual_evidence: companyFactualRuntime.company_factual_evidence,
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
+          company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
+          company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
           ...parsed.research_summary,
         } as any,
