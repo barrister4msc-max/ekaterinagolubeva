@@ -1,0 +1,161 @@
+name: TEMP P0-A9 DEBTAM storage parser
+
+on:
+  push:
+    branches:
+      - feat/p0a9-debtam-storage-parser-rpc
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
+      - name: Install
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile
+
+      - name: Parser unit tests
+        id: parser_tests
+        continue-on-error: true
+        run: python scripts/test_fns_open_data_debtam_dry_run.py
+
+      - name: Parser smoke on pinned official release
+        id: real_parser
+        continue-on-error: true
+        run: |
+          curl -fL --retry 3 --retry-delay 2 \
+            'https://file.nalog.ru/opendata/7707329152-debtam/data-20260725-structure-20181201.zip' \
+            -o /tmp/debtam.zip
+          test "$(sha256sum /tmp/debtam.zip | awk '{print $1}')" = "0bf119d728c4c6876e6aebe2331bfbfe8a9c0db87682b89d18e3b3d70a8845f5"
+          python scripts/fns_open_data_debtam_dry_run.py --input /tmp/debtam.zip --limit 25 > /tmp/debtam-summary.jsonl
+          grep -q '"dataset_id": "7707329152-debtam"' /tmp/debtam-summary.jsonl
+          grep -q '"db_writes": false' /tmp/debtam-summary.jsonl
+
+      - name: Storage contract tests
+        id: storage_tests
+        continue-on-error: true
+        run: bun test ./supabase/tests/fns-open-data-debtam-storage-contract.test.ts
+
+      - name: Disposable PostgreSQL runtime assertions
+        id: postgres
+        continue-on-error: true
+        run: |
+          docker run --name kati-p0a9-pg -e POSTGRES_PASSWORD=postgres -p 55432:5432 -d postgres:15
+          for i in $(seq 1 30); do
+            if PGPASSWORD=postgres psql -h 127.0.0.1 -p 55432 -U postgres -d postgres -c 'select 1' >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          export PGPASSWORD=postgres
+          PSQL='psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 55432 -U postgres -d postgres'
+          $PSQL -c "create role anon; create role authenticated; create role service_role;"
+          $PSQL -f supabase/migrations/20260820173000_fns_open_data_snr_company_facts.sql
+          $PSQL -f supabase/migrations/20260820214000_fns_open_data_debtam_company_facts.sql
+          $PSQL <<'SQL'
+          insert into fns_open_data.company_tax_debts
+            (inn, organization_name, tax_name, tax_debt_amount, penalty_amount, fine_amount, total_debt_amount,
+             document_id, document_date, data_as_of, debt_row_ordinal, dataset_id, source_url, source_sha256)
+          values
+            ('7701234567','ООО Тест','Налог A',100.00,2.50,0.00,102.50,'doc-1','2026-07-25','2026-07-01',1,
+             '7707329152-debtam','https://file.nalog.ru/opendata/7707329152-debtam/data-20260725-structure-20181201.zip',repeat('a',64)),
+            ('7701234567','ООО Тест','Налог B',0.00,10.00,5.00,15.00,'doc-1','2026-07-25','2026-07-01',2,
+             '7707329152-debtam','https://file.nalog.ru/opendata/7707329152-debtam/data-20260725-structure-20181201.zip',repeat('a',64));
+
+          insert into fns_open_data.sync_state
+            (dataset_id,status,source_url,source_sha256,data_as_of,published_at,records_count)
+          values
+            ('7707329152-debtam','completed','https://file.nalog.ru/opendata/7707329152-debtam/data-20260725-structure-20181201.zip',repeat('a',64),'2026-07-01','2026-07-25',2);
+
+          do $$
+          begin
+            if not public.fns_open_data_debtam_is_available() then raise exception 'availability_false'; end if;
+            if (select count(*) from public.fns_open_data_get_tax_debts('7701234567', null)) <> 2 then raise exception 'row_count_not_2'; end if;
+            if (select count(*) from public.fns_open_data_get_tax_debts('7701234567', '2026-06-30')) <> 0 then raise exception 'as_of_boundary_failed'; end if;
+            if has_function_privilege('anon','public.fns_open_data_get_tax_debts(text,date)','EXECUTE') then raise exception 'anon_rpc_access'; end if;
+            if has_function_privilege('authenticated','public.fns_open_data_get_tax_debts(text,date)','EXECUTE') then raise exception 'authenticated_rpc_access'; end if;
+            if not has_function_privilege('service_role','public.fns_open_data_get_tax_debts(text,date)','EXECUTE') then raise exception 'service_role_missing_access'; end if;
+            if has_schema_privilege('anon','fns_open_data','USAGE') then raise exception 'anon_schema_access'; end if;
+          end $$;
+          SQL
+
+      - name: Existing FNS regressions
+        id: regressions
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/fns-open-data-catalog.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-evidence-matrix.test.ts
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bun run typecheck
+
+      - name: Diff check
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check origin/feat/p0a8-debtam-freshness-audit...HEAD
+
+      - name: Record outcomes
+        if: always()
+        env:
+          BRANCH: feat/p0a9-debtam-storage-parser-rpc
+          INSTALL: ${{ steps.install.outcome }}
+          PARSER_TESTS: ${{ steps.parser_tests.outcome }}
+          REAL_PARSER: ${{ steps.real_parser.outcome }}
+          STORAGE_TESTS: ${{ steps.storage_tests.outcome }}
+          POSTGRES: ${{ steps.postgres.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          cat > .tmp-p0a9-verification-status.txt <<EOF
+          install=$INSTALL
+          parser_tests=$PARSER_TESTS
+          real_parser=$REAL_PARSER
+          storage_tests=$STORAGE_TESTS
+          postgres=$POSTGRES
+          regressions=$REGRESSIONS
+          typecheck=$TYPECHECK
+          diffcheck=$DIFFCHECK
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "4189826+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-p0a9-verification-status.txt
+          git commit -m "chore: record P0-A9 verification outcomes"
+          git push origin HEAD:"$BRANCH"
+
+      - name: Enforce GREEN
+        if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          PARSER_TESTS: ${{ steps.parser_tests.outcome }}
+          REAL_PARSER: ${{ steps.real_parser.outcome }}
+          STORAGE_TESTS: ${{ steps.storage_tests.outcome }}
+          POSTGRES: ${{ steps.postgres.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          test "$INSTALL" = success
+          test "$PARSER_TESTS" = success
+          test "$REAL_PARSER" = success
+          test "$STORAGE_TESTS" = success
+          test "$POSTGRES" = success
+          test "$REGRESSIONS" = success
+          test "$TYPECHECK" = success
+          test "$DIFFCHECK" = success
