@@ -33,6 +33,23 @@ describe("FNS Open Data catalog", () => {
     expect(snr?.published_at).toBe("2026-06-25");
   });
 
+  test("DEBTAM is refreshed to the official July 2026 release", () => {
+    const debtam = FNS_OPEN_DATA_DATASETS.find((dataset) => dataset.id === "7707329152-debtam");
+    expect(debtam).toBeDefined();
+    expect(debtam?.fact_kind).toBe("tax_debt");
+    expect(debtam?.entity_scope).toBe("legal_entity");
+    expect(debtam?.data_url).toBe(
+      "https://file.nalog.ru/opendata/7707329152-debtam/data-20260725-structure-20181201.zip",
+    );
+    expect(debtam?.schema_url).toBe(
+      "https://file.nalog.ru/opendata/7707329152-debtam/structure-20181201.xsd",
+    );
+    expect(debtam?.data_as_of).toBe("2026-07-01");
+    expect(debtam?.published_at).toBe("2026-07-25");
+    expect(debtam?.legal_authority).toBe(false);
+    expect(debtam?.substantive_use_allowed).toBe(false);
+  });
+
   test("dry-run plan never promotes factual data into legal authority", () => {
     for (const dataset of FNS_OPEN_DATA_DATASETS) {
       const plan = buildFnsOpenDataImportPlan(dataset);
