@@ -1,0 +1,88 @@
+name: TEMP P0-A6 company fact identity
+
+on:
+  push:
+    branches:
+      - feat/p0a6-canonical-company-fact-identity
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
+      - name: Install
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile
+
+      - name: P0-A6 identity tests
+        id: identity
+        continue-on-error: true
+        run: bun test ./supabase/functions/analyze-document-legal-position/company-factual-identity.test.ts
+
+      - name: FNS boundary regressions
+        id: regressions
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-orchestration.test.ts
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bun run typecheck
+
+      - name: Diff check
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check origin/feat/p0a5-fns-snr-analyzer-orchestration...HEAD
+
+      - name: Record verification outcomes
+        if: always() && github.actor != 'github-actions[bot]'
+        env:
+          BRANCH: feat/p0a6-canonical-company-fact-identity
+          INSTALL: ${{ steps.install.outcome }}
+          IDENTITY: ${{ steps.identity.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          cat > .tmp-p0a6-verification-status.txt <<EOF
+          install=$INSTALL
+          identity=$IDENTITY
+          regressions=$REGRESSIONS
+          typecheck=$TYPECHECK
+          diffcheck=$DIFFCHECK
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-p0a6-verification-status.txt
+          git commit -m "chore: record P0-A6 verification outcomes"
+          git push origin HEAD:"$BRANCH"
+
+      - name: Enforce GREEN
+        if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          IDENTITY: ${{ steps.identity.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          test "$INSTALL" = success
+          test "$IDENTITY" = success
+          test "$REGRESSIONS" = success
+          test "$TYPECHECK" = success
+          test "$DIFFCHECK" = success
