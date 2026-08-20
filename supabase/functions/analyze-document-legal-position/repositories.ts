@@ -11,6 +11,7 @@ import {
 } from "./official-sources.ts";
 import { executeResearchProvider, type ResearchProviderDiagnostics } from "./research-provider-contract.ts";
 import { SupabaseLaw7ResearchProvider, SupabaseLaw7Transport } from "./law7-supabase-transport.ts";
+import { sourceTypesForBucket } from "./source-family-contract.ts";
 
 export type Bucket =
   | "laws"
@@ -283,7 +284,7 @@ export class LawRepository {
   async search(q: ResearchQuery, area: string | null): Promise<RawSource[]> {
     const rows = await selectChunks(
       this.sb,
-      ["law_full_text", "federal_law", "law_full_text_placeholder"],
+      sourceTypesForBucket("laws"),
       area,
       30,
       q,
@@ -295,7 +296,7 @@ export class LawRepository {
 export class CourtRepository {
   constructor(private sb: SbClient) {}
   async search(q: ResearchQuery, area: string | null): Promise<RawSource[]> {
-    const rows = await selectChunks(this.sb, ["court_practice", "vs_review"], area, 24, q);
+    const rows = await selectChunks(this.sb, sourceTypesForBucket("court_practice"), area, 24, q);
     return rows.map((r) => makeChunkSource(r, "court_practice"));
   }
 }
@@ -303,7 +304,7 @@ export class CourtRepository {
 export class FNSRepository {
   constructor(private sb: SbClient) {}
   async search(q: ResearchQuery, area: string | null): Promise<RawSource[]> {
-    const rows = await selectChunks(this.sb, ["fns_letter"], area, 18, q);
+    const rows = await selectChunks(this.sb, sourceTypesForBucket("fns_letters"), area, 18, q);
     return rows.map((r) => makeChunkSource(r, "fns_letters"));
   }
 }
@@ -311,7 +312,7 @@ export class FNSRepository {
 export class MinfinRepository {
   constructor(private sb: SbClient) {}
   async search(q: ResearchQuery, area: string | null): Promise<RawSource[]> {
-    const rows = await selectChunks(this.sb, ["minfin_letter"], area, 18, q);
+    const rows = await selectChunks(this.sb, sourceTypesForBucket("minfin_letters"), area, 18, q);
     return rows.map((r) => makeChunkSource(r, "minfin_letters"));
   }
 }
