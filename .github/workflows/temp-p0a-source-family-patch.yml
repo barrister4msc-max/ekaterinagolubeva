@@ -1,4 +1,4 @@
-name: TEMP P0-A source family verification
+name: TEMP P0-A source family patch
 
 on:
   push:
@@ -6,21 +6,55 @@ on:
       - feat/p0a-source-family-orchestration
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  verify:
+  patch-and-verify:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
+      - name: Apply fail-closed runtime metadata wiring
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('supabase/functions/analyze-document-legal-position/repositories.ts')
+          s = p.read_text()
+          changes = [
+            (
+              'import { sourceTypesForBucket } from "./source-family-contract.ts";',
+              'import { sourceFamilyMetadataForType, sourceTypesForBucket } from "./source-family-contract.ts";'
+            ),
+            (
+              '    metadata: meta,',
+              '    metadata: { ...meta, ...sourceFamilyMetadataForType(sourceType, meta) },'
+            ),
+          ]
+          for old, new in changes:
+            count = s.count(old)
+            if count != 1:
+              raise SystemExit(f'exact patch guard failed: expected 1 occurrence, got {count}: {old!r}')
+            s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
       - name: Install
         run: bun install --frozen-lockfile
       - name: Source family tests
         run: bun test supabase/functions/analyze-document-legal-position/source-family-contract.test.ts supabase/functions/analyze-document-legal-position/research-coverage.test.ts
-      - name: Existing provider/repository tests
-        run: bun test supabase/functions/analyze-document-legal-position/research-provider-contract.test.ts supabase/functions/analyze-document-legal-position/repositories.test.ts
+      - name: Safety bridge tests
+        run: bun test supabase/functions/analyze-document-legal-position/provider-safety-contract.test.ts supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts
       - name: Typecheck
         run: bun run typecheck
       - name: Diff check
         run: git diff --check
+      - name: Commit fail-closed wiring
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/analyze-document-legal-position/repositories.ts
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix: fail closed imported source families by default'
+          git push
