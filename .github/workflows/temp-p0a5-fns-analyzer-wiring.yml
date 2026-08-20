@@ -1,7 +1,6 @@
 name: TEMP P0-A5 FNS Analyzer wiring
 
 on:
-  pull_request:
   push:
     branches:
       - feat/p0a5-fns-snr-analyzer-orchestration
@@ -18,101 +17,74 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Wire proven factual runtime into Analyzer
-        env:
-          BRANCH: feat/p0a5-fns-snr-analyzer-orchestration
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path('supabase/functions/analyze-document-legal-position/index.ts')
-          s = path.read_text()
-
-          import_line = 'import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";\n'
-          anchor = 'import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";\n'
-          if import_line not in s:
-              if anchor not in s:
-                  raise SystemExit('import anchor not found')
-              s = s.replace(anchor, import_line + '\n' + anchor, 1)
-
-          answers_anchor = '    for (const r of answerRows ?? []) answers[r.field_name as string] = r.field_value;\n'
-          load_block = '''\n    // P0-A5: company factual evidence is a separate audited runtime snapshot.\n    // It is deliberately not added to research sources or any model input.\n    const companyFactualRuntime = await loadCompanyFactualRuntimeSnapshot({\n      sb,\n      answers,\n    });\n'''
-          if 'const companyFactualRuntime = await loadCompanyFactualRuntimeSnapshot({' not in s:
-              if answers_anchor not in s:
-                  raise SystemExit('answers anchor not found')
-              s = s.replace(answers_anchor, answers_anchor + load_block, 1)
-
-          no_docs_ai = '''          ai_result: {\n            documents_audit: { used: [], rejected: audited },\n          } as any,'''
-          no_docs_ai_new = '''          ai_result: {\n            documents_audit: { used: [], rejected: audited },\n            company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n            company_factual_diagnostics: companyFactualRuntime.diagnostics,\n          } as any,'''
-          if no_docs_ai in s:
-              s = s.replace(no_docs_ai, no_docs_ai_new, 1)
-
-          no_docs_snapshot = '''            reason: "no_usable_document_text",\n            external_research: stagedExternalResearchSnapshot,'''
-          no_docs_snapshot_new = '''            reason: "no_usable_document_text",\n            company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n            company_factual_diagnostics: companyFactualRuntime.diagnostics,\n            external_research: stagedExternalResearchSnapshot,'''
-          if no_docs_snapshot in s:
-              s = s.replace(no_docs_snapshot, no_docs_snapshot_new, 1)
-
-          pre_model_snapshot = '''          documents_rejected: rejectedDocs.length,\n          external_research: externalResearchRunSnapshot,'''
-          pre_model_snapshot_new = '''          documents_rejected: rejectedDocs.length,\n          company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n          company_factual_diagnostics: companyFactualRuntime.diagnostics,\n          external_research: externalResearchRunSnapshot,'''
-          if pre_model_snapshot in s:
-              s = s.replace(pre_model_snapshot, pre_model_snapshot_new, 1)
-
-          parsed_anchor = '''    parsed.redaction_used = redactionUsedAny;\n    // P0-A: deterministic intent always wins over model output.'''
-          parsed_new = '''    parsed.redaction_used = redactionUsedAny;\n    // P0-A5: persisted factual snapshot only; still excluded from legal/model paths.\n    parsed.company_factual_evidence = companyFactualRuntime.company_factual_evidence;\n    parsed.company_factual_diagnostics = companyFactualRuntime.diagnostics;\n    // P0-A: deterministic intent always wins over model output.'''
-          if 'parsed.company_factual_evidence = companyFactualRuntime.company_factual_evidence;' not in s:
-              if parsed_anchor not in s:
-                  raise SystemExit('parsed anchor not found')
-              s = s.replace(parsed_anchor, parsed_new, 1)
-
-          final_snapshot = '''          answers_count: Object.keys(answers).length,\n          external_research: externalResearchRunSnapshot,'''
-          final_snapshot_new = '''          answers_count: Object.keys(answers).length,\n          company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n          company_factual_diagnostics: companyFactualRuntime.diagnostics,\n          external_research: externalResearchRunSnapshot,'''
-          if final_snapshot in s:
-              s = s.replace(final_snapshot, final_snapshot_new, 1)
-
-          path.write_text(s)
-          PY
-
-          if ! git diff --quiet -- supabase/functions/analyze-document-legal-position/index.ts; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add supabase/functions/analyze-document-legal-position/index.ts
-            git commit -m "feat: persist FNS factual runtime snapshot in Analyzer"
-            git push origin HEAD:"$BRANCH"
-          fi
-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.22
 
       - name: Install
+        id: install
+        continue-on-error: true
         run: bun install --frozen-lockfile
 
       - name: P0-A5 orchestration tests
+        id: orchestration
+        continue-on-error: true
         run: |
           bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
           bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-orchestration.test.ts
 
       - name: FNS regressions
+        id: regressions
+        continue-on-error: true
         run: |
           bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-evidence.test.ts
           bun test ./supabase/functions/analyze-document-legal-position/fns-open-data-catalog.test.ts
           bun test ./supabase/tests/fns-open-data-snr-storage-contract.test.ts
 
       - name: Typecheck
+        id: typecheck
+        continue-on-error: true
         run: bun run typecheck
 
       - name: Diff check
+        id: diffcheck
+        continue-on-error: true
         run: git diff --check origin/feat/p0a4-fns-snr-analyzer-factual-runtime...HEAD
 
-      - name: Record GREEN push verification
-        if: github.event_name == 'push'
+      - name: Record verification outcomes
+        if: always() && github.actor != 'github-actions[bot]'
         env:
           BRANCH: feat/p0a5-fns-snr-analyzer-orchestration
+          INSTALL: ${{ steps.install.outcome }}
+          ORCHESTRATION: ${{ steps.orchestration.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
         run: |
-          if [ "$(git log -1 --pretty=%s)" = "chore: P0-A5 verification passed" ]; then
-            exit 0
-          fi
+          cat > .tmp-p0a5-verification-status.txt <<EOF
+          install=$INSTALL
+          orchestration=$ORCHESTRATION
+          regressions=$REGRESSIONS
+          typecheck=$TYPECHECK
+          diffcheck=$DIFFCHECK
+          EOF
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit --allow-empty -m "chore: P0-A5 verification passed"
+          git add .tmp-p0a5-verification-status.txt
+          git commit -m "chore: record P0-A5 verification outcomes"
           git push origin HEAD:"$BRANCH"
+
+      - name: Enforce GREEN
+        if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          ORCHESTRATION: ${{ steps.orchestration.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          test "$INSTALL" = success
+          test "$ORCHESTRATION" = success
+          test "$REGRESSIONS" = success
+          test "$TYPECHECK" = success
+          test "$DIFFCHECK" = success
