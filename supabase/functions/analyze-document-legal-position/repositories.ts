@@ -11,7 +11,7 @@ import {
 } from "./official-sources.ts";
 import { executeResearchProvider, type ResearchProviderDiagnostics } from "./research-provider-contract.ts";
 import { SupabaseLaw7ResearchProvider, SupabaseLaw7Transport } from "./law7-supabase-transport.ts";
-import { sourceTypesForBucket } from "./source-family-contract.ts";
+import { sourceFamilyMetadataForType, sourceTypesForBucket } from "./source-family-contract.ts";
 
 export type Bucket =
   | "laws"
@@ -67,7 +67,7 @@ function makeChunkSource(row: any, bucket: Bucket): RawSource {
     official_url: s(meta.official_url, meta.url, meta.source_url),
     citation: s(meta.citation, meta.document_number),
     snippet: ((row.content as string) ?? "").slice(0, 1800),
-    metadata: meta,
+    metadata: { ...meta, ...sourceFamilyMetadataForType(sourceType, meta) },
     code: s(meta.code, meta.code_name),
     article: s(meta.article),
     part: s(meta.part),
