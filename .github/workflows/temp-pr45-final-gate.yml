@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/pravo-law7-canonical-verification
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
