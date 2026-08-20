@@ -229,8 +229,8 @@ describe("Canonical Source Metadata Bridge", () => {
     expect(trusted[0].provider_integration_mode).toBe("mcp");
     expect(trusted[0].provider_source_class).toBe("retrieval_intermediary");
     expect(trusted[0].authority_level).toBe("primary");
-    // Provider provenance does not self-certify official origin.
-    expect(trusted[0].official_origin_verified).toBeUndefined();
+    // Explicit false is carried as a safety fact; it does not certify authority.
+    expect(trusted[0].official_origin_verified).toBe(false);
   });
 
   test("does not query legal_source_registry again after projection was attempted", async () => {
