@@ -1,0 +1,9 @@
+xml_members_sampled=5
+documents_sampled=4504
+taxpayer_rows=4504
+debt_rows=13152
+documents_with_multiple_debt_rows=3732
+inn_length_counts={"10": 4504}
+organization_name_present=4504
+tax_name_present=13152
+money_stats={"ОбщСумНедоим": {"decimal_comma": 0, "decimal_dot": 13152, "empty": 0, "integer": 0, "max_scale": 2, "negative": 0, "other": 0, "present": 13152, "zero": 0}, "СумНедНалог": {"decimal_comma": 0, "decimal_dot": 13152, "empty": 0, "integer": 0, "max_scale": 2, "negative": 0, "other": 0, "present": 13152, "zero": 5686}, "СумПени": {"decimal_comma": 0, "decimal_dot": 13152, "empty": 0, "integer": 0, "max_scale": 2, "negative": 0, "other": 0, "present": 13152, "zero": 9382}, "СумШтраф": {"decimal_comma": 0, "decimal_dot": 13152, "empty": 0, "integer": 0, "max_scale": 2, "negative": 0, "other": 0, "present": 13152, "zero": 10612}}
