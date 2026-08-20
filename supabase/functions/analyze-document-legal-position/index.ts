@@ -276,6 +276,8 @@ Deno.serve(async (req) => {
             documents_audit: { used: [], rejected: audited },
             company_factual_evidence: companyFactualRuntime.company_factual_evidence,
             company_factual_diagnostics: companyFactualRuntime.diagnostics,
+            company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+            company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
             company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
             company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
           } as any,
@@ -292,6 +294,8 @@ Deno.serve(async (req) => {
             reason: "no_usable_document_text",
             company_factual_evidence: companyFactualRuntime.company_factual_evidence,
             company_factual_diagnostics: companyFactualRuntime.diagnostics,
+            company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+            company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
             company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
             company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
             external_research: stagedExternalResearchSnapshot,
@@ -351,6 +355,8 @@ Deno.serve(async (req) => {
           documents_rejected: rejectedDocs.length,
           company_factual_evidence: companyFactualRuntime.company_factual_evidence,
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
+          company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+          company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
           company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
           company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
@@ -637,6 +643,10 @@ Deno.serve(async (req) => {
     // P0-A5: persisted factual snapshot only; still excluded from legal/model paths.
     parsed.company_factual_evidence = companyFactualRuntime.company_factual_evidence;
     parsed.company_factual_diagnostics = companyFactualRuntime.diagnostics;
+    // P0-A10: DEBTAM remains a separate point-in-time factual channel.
+    // It is not passed into the SNR canonical factual matrix or legal/model paths.
+    parsed.company_tax_debt_evidence = companyFactualRuntime.company_tax_debt_evidence;
+    parsed.company_factual_dataset_diagnostics = companyFactualRuntime.dataset_diagnostics;
     // P0-A: deterministic intent always wins over model output.
     parsed.template_code = session.template_code;
     parsed.target_document = documentIntent.target_document;
@@ -685,6 +695,8 @@ Deno.serve(async (req) => {
           answers_count: Object.keys(answers).length,
           company_factual_evidence: companyFactualRuntime.company_factual_evidence,
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
+          company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+          company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
           company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
           company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
