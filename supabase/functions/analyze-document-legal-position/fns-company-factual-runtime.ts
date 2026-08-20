@@ -21,7 +21,6 @@ export type CompanyFactualRuntimeSnapshot = {
     fact_linking_status: "not_linked";
     model_input_status: "not_injected";
     legal_source_status: "excluded";
-    runtime_status: "available" | "unavailable" | "not_requested";
   };
 };
 
@@ -35,8 +34,11 @@ export type CompanyFactualRuntimeSnapshot = {
  * until an explicit fact↔factual-evidence identity contract is separately
  * implemented and verified.
  *
- * Transport failures are fail-soft: legal analysis must continue without the
+ * Transport exceptions are fail-soft: legal analysis must continue without the
  * factual snapshot rather than turning FNS availability into an Analyzer SPOF.
+ * The existing diagnostics shape is intentionally preserved; this layer cannot
+ * reliably distinguish "no row" from an RPC error because the lower adapter is
+ * already fail-closed and maps both to no evidence.
  */
 export async function loadCompanyFactualRuntimeSnapshot(input: {
   sb: SbClient;
@@ -55,7 +57,6 @@ export async function loadCompanyFactualRuntimeSnapshot(input: {
         fact_linking_status: "not_linked",
         model_input_status: "not_injected",
         legal_source_status: "excluded",
-        runtime_status: "not_requested",
       },
     };
   }
@@ -72,19 +73,7 @@ export async function loadCompanyFactualRuntimeSnapshot(input: {
       requested_count: inns.length,
       message: error instanceof Error ? error.message : String(error),
     });
-    return {
-      company_factual_evidence: [],
-      diagnostics: {
-        explicit_legal_entity_inns: inns,
-        requested_count: inns.length,
-        loaded_count: 0,
-        source_types: [],
-        fact_linking_status: "not_linked",
-        model_input_status: "not_injected",
-        legal_source_status: "excluded",
-        runtime_status: "unavailable",
-      },
-    };
+    evidence = [];
   }
 
   return {
@@ -97,7 +86,6 @@ export async function loadCompanyFactualRuntimeSnapshot(input: {
       fact_linking_status: "not_linked",
       model_input_status: "not_injected",
       legal_source_status: "excluded",
-      runtime_status: "available",
     },
   };
 }
