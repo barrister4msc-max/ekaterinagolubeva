@@ -1,0 +1,23 @@
+name: TEMP Pravo Law7 verification
+
+on:
+  push:
+    branches:
+      - fix/pravo-law7-canonical-verification
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install
+        run: bun install --frozen-lockfile
+      - name: Resolver tests
+        run: bun test supabase/functions/analyze-document-legal-position/official-verification-resolver.test.ts supabase/functions/analyze-document-legal-position/official-sources.test.ts
+      - name: Typecheck
+        run: bun run typecheck
