@@ -1,0 +1,149 @@
+name: TEMP P0-A7 company factual matrix
+
+on:
+  push:
+    branches:
+      - feat/p0a7-company-factual-evidence-matrix
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wire additive factual matrix into Analyzer
+        env:
+          BRANCH: feat/p0a7-company-factual-evidence-matrix
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('supabase/functions/analyze-document-legal-position/index.ts')
+          s = path.read_text()
+
+          import_line = 'import { buildCompanyFactualEvidenceMatrix } from "./company-factual-evidence-matrix.ts";\n'
+          anchor = 'import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";\n'
+          if import_line not in s:
+              if anchor not in s:
+                  raise SystemExit('runtime import anchor not found')
+              s = s.replace(anchor, anchor + import_line, 1)
+
+          runtime_block = '''    const companyFactualRuntime = await loadCompanyFactualRuntimeSnapshot({\n      sb,\n      answers,\n    });\n'''
+          matrix_block = '''    const companyFactualRuntime = await loadCompanyFactualRuntimeSnapshot({\n      sb,\n      answers,\n    });\n    // P0-A7: additive factual Evidence Matrix. This is intentionally separate\n    // from the canonical FactRecord↔document Evidence Matrix below.\n    const companyFactualMatrix = buildCompanyFactualEvidenceMatrix(\n      companyFactualRuntime.company_factual_evidence,\n    );\n'''
+          if 'const companyFactualMatrix = buildCompanyFactualEvidenceMatrix(' not in s:
+              if runtime_block not in s:
+                  raise SystemExit('runtime block anchor not found')
+              s = s.replace(runtime_block, matrix_block, 1)
+
+          no_docs = '''            company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n            company_factual_diagnostics: companyFactualRuntime.diagnostics,'''
+          no_docs_new = '''            company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n            company_factual_diagnostics: companyFactualRuntime.diagnostics,\n            company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,\n            company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,'''
+          # first two occurrences cover no-doc ai_result + no-doc input_snapshot
+          if s.count('company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix') < 2:
+              s = s.replace(no_docs, no_docs_new, 2)
+
+          pre_snapshot = '''          company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n          company_factual_diagnostics: companyFactualRuntime.diagnostics,\n          external_research: externalResearchRunSnapshot,'''
+          pre_snapshot_new = '''          company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n          company_factual_diagnostics: companyFactualRuntime.diagnostics,\n          company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,\n          company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,\n          external_research: externalResearchRunSnapshot,'''
+          if pre_snapshot in s:
+              s = s.replace(pre_snapshot, pre_snapshot_new, 1)
+
+          parsed_anchor = '''    parsed.evidence_matrix = evidenceMatrix;\n    parsed.source_sufficiency = sufficiency;'''
+          parsed_new = '''    parsed.evidence_matrix = evidenceMatrix;\n    // P0-A7 additive factual matrix; does not mutate legal/document Evidence Matrix.\n    parsed.company_factual_evidence_matrix = companyFactualMatrix.company_factual_evidence_matrix;\n    parsed.company_factual_identity = {\n      canonical_company_facts: companyFactualMatrix.canonical_company_facts,\n      company_fact_evidence_links: companyFactualMatrix.company_fact_evidence_links,\n      diagnostics: companyFactualMatrix.diagnostics,\n    };\n    parsed.source_sufficiency = sufficiency;'''
+          if 'parsed.company_factual_evidence_matrix = companyFactualMatrix.company_factual_evidence_matrix;' not in s:
+              if parsed_anchor not in s:
+                  raise SystemExit('parsed evidence matrix anchor not found')
+              s = s.replace(parsed_anchor, parsed_new, 1)
+
+          final_snapshot = '''          company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n          company_factual_diagnostics: companyFactualRuntime.diagnostics,\n          external_research: externalResearchRunSnapshot,'''
+          final_snapshot_new = '''          company_factual_evidence: companyFactualRuntime.company_factual_evidence,\n          company_factual_diagnostics: companyFactualRuntime.diagnostics,\n          company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,\n          company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,\n          external_research: externalResearchRunSnapshot,'''
+          if final_snapshot in s:
+              s = s.replace(final_snapshot, final_snapshot_new, 1)
+
+          path.write_text(s)
+          PY
+
+          if ! git diff --quiet -- supabase/functions/analyze-document-legal-position/index.ts; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add supabase/functions/analyze-document-legal-position/index.ts
+            git commit -m "feat: persist additive company factual evidence matrix"
+            git push origin HEAD:"$BRANCH"
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
+      - name: Install
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile
+
+      - name: P0-A7 matrix tests
+        id: matrix
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-evidence-matrix-orchestration.test.ts
+
+      - name: P0-A6/A5 regressions
+        id: regressions
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-orchestration.test.ts
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bun run typecheck
+
+      - name: Diff check
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check origin/feat/p0a6-canonical-company-fact-identity...HEAD
+
+      - name: Record verification outcomes
+        if: always() && github.actor != 'github-actions[bot]'
+        env:
+          BRANCH: feat/p0a7-company-factual-evidence-matrix
+          INSTALL: ${{ steps.install.outcome }}
+          MATRIX: ${{ steps.matrix.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          cat > .tmp-p0a7-verification-status.txt <<EOF
+          install=$INSTALL
+          matrix=$MATRIX
+          regressions=$REGRESSIONS
+          typecheck=$TYPECHECK
+          diffcheck=$DIFFCHECK
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-p0a7-verification-status.txt
+          git commit -m "chore: record P0-A7 verification outcomes"
+          git push origin HEAD:"$BRANCH"
+
+      - name: Enforce GREEN
+        if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          MATRIX: ${{ steps.matrix.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          test "$INSTALL" = success
+          test "$MATRIX" = success
+          test "$REGRESSIONS" = success
+          test "$TYPECHECK" = success
+          test "$DIFFCHECK" = success
