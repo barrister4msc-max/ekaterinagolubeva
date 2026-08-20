@@ -1,0 +1,31 @@
+name: TEMP P0-A2 FNS SNR XSD probe
+
+on:
+  push:
+    branches:
+      - feat/p0a-fns-open-data-intake
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch official FNS SNR XSD read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://file.nalog.ru/opendata/7707329152-snr/structure-20230425.xsd'
+          curl --location --fail --silent --show-error \
+            --connect-timeout 10 --max-time 30 \
+            --dump-header /tmp/headers --output /tmp/snr.xsd "$url"
+          echo '--- HTTP ---'
+          grep -Ei '^(HTTP/|content-type:|content-length:)' /tmp/headers || true
+          echo '--- SHA256 ---'
+          sha256sum /tmp/snr.xsd
+          echo '--- XSD FIRST 260 LINES ---'
+          sed -n '1,260p' /tmp/snr.xsd
+          echo '--- SAFETY ---'
+          test -z "${DATABASE_URL:-}"
+          test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
