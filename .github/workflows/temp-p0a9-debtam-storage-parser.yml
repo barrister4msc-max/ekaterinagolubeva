@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/p0a9-debtam-storage-parser-rpc
+  pull_request:
+    branches:
+      - feat/p0a8-debtam-freshness-audit
   workflow_dispatch:
 
 permissions:
@@ -111,7 +114,7 @@ jobs:
         run: git diff --check origin/feat/p0a8-debtam-freshness-audit...HEAD
 
       - name: Record outcomes
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         env:
           BRANCH: feat/p0a9-debtam-storage-parser-rpc
           INSTALL: ${{ steps.install.outcome }}
@@ -134,7 +137,7 @@ jobs:
           diffcheck=$DIFFCHECK
           EOF
           git config user.name "github-actions[bot]"
-          git config user.email "4189826+github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .tmp-p0a9-verification-status.txt
           git commit -m "chore: record P0-A9 verification outcomes"
           git push origin HEAD:"$BRANCH"
