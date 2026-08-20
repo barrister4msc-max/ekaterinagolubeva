@@ -1,6 +1,7 @@
 name: TEMP P0-A3 FNS SNR storage audit
 
 on:
+  pull_request:
   push:
     branches:
       - feat/p0a3-fns-snr-factual-evidence
