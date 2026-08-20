@@ -21,11 +21,12 @@ export type CompanyFactualRuntimeSnapshot = {
     fact_linking_status: "not_linked";
     model_input_status: "not_injected";
     legal_source_status: "excluded";
+    runtime_status: "available" | "unavailable" | "not_requested";
   };
 };
 
 /**
- * P0-A4 runtime boundary for company factual evidence.
+ * P0-A4/P0-A5 runtime boundary for company factual evidence.
  *
  * This loader is intentionally NOT a legal research provider. It may be called
  * by the Analyzer orchestration after answers are loaded, but the returned
@@ -33,6 +34,9 @@ export type CompanyFactualRuntimeSnapshot = {
  * the LLM prompt, conclusions, Evidence Matrix, Source Sufficiency or Challenge
  * until an explicit fact↔factual-evidence identity contract is separately
  * implemented and verified.
+ *
+ * Transport failures are fail-soft: legal analysis must continue without the
+ * factual snapshot rather than turning FNS availability into an Analyzer SPOF.
  */
 export async function loadCompanyFactualRuntimeSnapshot(input: {
   sb: SbClient;
@@ -51,15 +55,37 @@ export async function loadCompanyFactualRuntimeSnapshot(input: {
         fact_linking_status: "not_linked",
         model_input_status: "not_injected",
         legal_source_status: "excluded",
+        runtime_status: "not_requested",
       },
     };
   }
 
-  const evidence = await loadFnsSnrFactualEvidence({
-    sb: input.sb,
-    answers: input.answers,
-    asOfDate: input.asOfDate,
-  });
+  let evidence: CompanyFactualEvidence[];
+  try {
+    evidence = await loadFnsSnrFactualEvidence({
+      sb: input.sb,
+      answers: input.answers,
+      asOfDate: input.asOfDate,
+    });
+  } catch (error) {
+    console.warn("fns_company_factual_runtime_unavailable", {
+      requested_count: inns.length,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      company_factual_evidence: [],
+      diagnostics: {
+        explicit_legal_entity_inns: inns,
+        requested_count: inns.length,
+        loaded_count: 0,
+        source_types: [],
+        fact_linking_status: "not_linked",
+        model_input_status: "not_injected",
+        legal_source_status: "excluded",
+        runtime_status: "unavailable",
+      },
+    };
+  }
 
   return {
     company_factual_evidence: evidence,
@@ -71,6 +97,7 @@ export async function loadCompanyFactualRuntimeSnapshot(input: {
       fact_linking_status: "not_linked",
       model_input_status: "not_injected",
       legal_source_status: "excluded",
+      runtime_status: "available",
     },
   };
 }
