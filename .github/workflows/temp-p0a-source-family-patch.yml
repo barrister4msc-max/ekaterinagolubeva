@@ -1,4 +1,4 @@
-name: TEMP P0-A source family patch
+name: TEMP P0-A source family verification
 
 on:
   push:
@@ -6,65 +6,21 @@ on:
       - feat/p0a-source-family-orchestration
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch-and-verify:
-    if: github.actor != 'github-actions[bot]'
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
-      - name: Apply exact runtime wiring patch
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('supabase/functions/analyze-document-legal-position/repositories.ts')
-          s = p.read_text()
-          changes = [
-            (
-              'import { SupabaseLaw7ResearchProvider, SupabaseLaw7Transport } from "./law7-supabase-transport.ts";\n',
-              'import { SupabaseLaw7ResearchProvider, SupabaseLaw7Transport } from "./law7-supabase-transport.ts";\nimport { sourceTypesForBucket } from "./source-family-contract.ts";\n'
-            ),
-            (
-              '["law_full_text", "federal_law", "law_full_text_placeholder"],',
-              'sourceTypesForBucket("laws"),'
-            ),
-            (
-              'const rows = await selectChunks(this.sb, ["court_practice", "vs_review"], area, 24, q);',
-              'const rows = await selectChunks(this.sb, sourceTypesForBucket("court_practice"), area, 24, q);'
-            ),
-            (
-              'const rows = await selectChunks(this.sb, ["fns_letter"], area, 18, q);',
-              'const rows = await selectChunks(this.sb, sourceTypesForBucket("fns_letters"), area, 18, q);'
-            ),
-            (
-              'const rows = await selectChunks(this.sb, ["minfin_letter"], area, 18, q);',
-              'const rows = await selectChunks(this.sb, sourceTypesForBucket("minfin_letters"), area, 18, q);'
-            ),
-          ]
-          for old, new in changes:
-            count = s.count(old)
-            if count != 1:
-              raise SystemExit(f'exact patch guard failed: expected 1 occurrence, got {count}: {old[:80]!r}')
-            s = s.replace(old, new, 1)
-          p.write_text(s)
-          PY
       - name: Install
         run: bun install --frozen-lockfile
       - name: Source family tests
         run: bun test supabase/functions/analyze-document-legal-position/source-family-contract.test.ts supabase/functions/analyze-document-legal-position/research-coverage.test.ts
+      - name: Existing provider/repository tests
+        run: bun test supabase/functions/analyze-document-legal-position/research-provider-contract.test.ts supabase/functions/analyze-document-legal-position/repositories.test.ts
       - name: Typecheck
         run: bun run typecheck
       - name: Diff check
         run: git diff --check
-      - name: Commit runtime wiring
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add supabase/functions/analyze-document-legal-position/repositories.ts
-          git diff --cached --quiet && exit 0
-          git commit -m 'feat: route imported source families through existing repositories'
-          git push
