@@ -1,7 +1,0 @@
-install=success
-runtime_tests=success
-rpc_contract=success
-postgres=success
-regressions=success
-typecheck=success
-diffcheck=success
