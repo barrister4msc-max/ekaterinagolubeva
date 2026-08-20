@@ -53,6 +53,8 @@ import {
   persistCanonicalShadowBestEffort,
 } from "./canonical-shadow-persistence.ts";
 
+import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";
+
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
 const corsHeaders = {
@@ -193,6 +195,13 @@ Deno.serve(async (req) => {
     const answers: Record<string, unknown> = {};
     for (const r of answerRows ?? []) answers[r.field_name as string] = r.field_value;
 
+    // P0-A5: company factual evidence is a separate audited runtime snapshot.
+    // It is deliberately not added to research sources or any model input.
+    const companyFactualRuntime = await loadCompanyFactualRuntimeSnapshot({
+      sb,
+      answers,
+    });
+
     // practice_area + template title (for document-intent fallback)
     let practiceArea: string | null = null;
     let templateTitle: string | null = null;
@@ -259,6 +268,8 @@ Deno.serve(async (req) => {
           completed_at: new Date().toISOString(),
           ai_result: {
             documents_audit: { used: [], rejected: audited },
+            company_factual_evidence: companyFactualRuntime.company_factual_evidence,
+            company_factual_diagnostics: companyFactualRuntime.diagnostics,
           } as any,
           problems: ["Нет прикрепленных документов или извлеченного текста"] as any,
           source_verification_status: "no_sources",
@@ -271,6 +282,8 @@ Deno.serve(async (req) => {
             documents_used: 0,
             documents_rejected: rejectedDocs.length,
             reason: "no_usable_document_text",
+            company_factual_evidence: companyFactualRuntime.company_factual_evidence,
+            company_factual_diagnostics: companyFactualRuntime.diagnostics,
             external_research: stagedExternalResearchSnapshot,
           } as any,
         })
@@ -326,6 +339,8 @@ Deno.serve(async (req) => {
           documents_total: audited.length,
           documents_used: usedDocs.length,
           documents_rejected: rejectedDocs.length,
+          company_factual_evidence: companyFactualRuntime.company_factual_evidence,
+          company_factual_diagnostics: companyFactualRuntime.diagnostics,
           external_research: externalResearchRunSnapshot,
         } as any,
       })
@@ -600,6 +615,9 @@ Deno.serve(async (req) => {
     parsed.created_from = "analyze-document-legal-position";
     parsed.previous_analysis_run_id = prev?.id ?? null;
     parsed.redaction_used = redactionUsedAny;
+    // P0-A5: persisted factual snapshot only; still excluded from legal/model paths.
+    parsed.company_factual_evidence = companyFactualRuntime.company_factual_evidence;
+    parsed.company_factual_diagnostics = companyFactualRuntime.diagnostics;
     // P0-A: deterministic intent always wins over model output.
     parsed.template_code = session.template_code;
     parsed.target_document = documentIntent.target_document;
@@ -646,6 +664,8 @@ Deno.serve(async (req) => {
           template_code: session.template_code,
           practice_area: practiceArea,
           answers_count: Object.keys(answers).length,
+          company_factual_evidence: companyFactualRuntime.company_factual_evidence,
+          company_factual_diagnostics: companyFactualRuntime.diagnostics,
           external_research: externalResearchRunSnapshot,
           ...parsed.research_summary,
         } as any,
