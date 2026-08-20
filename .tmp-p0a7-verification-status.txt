@@ -1,5 +1,0 @@
-install=success
-matrix=success
-regressions=success
-typecheck=success
-diffcheck=success
