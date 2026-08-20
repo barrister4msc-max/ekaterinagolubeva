@@ -1,0 +1,41 @@
+name: TEMP P0-A4 FNS runtime boundary
+
+on:
+  push:
+    branches:
+      - feat/p0a4-fns-snr-analyzer-factual-runtime
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: P0-A4 factual runtime tests
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
+
+      - name: Existing FNS catalog/storage regressions
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/fns-open-data-catalog.test.ts
+          bun test ./supabase/tests/fns-open-data-snr-storage-contract.test.ts
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Diff check
+        run: git diff --check origin/feat/p0a3-fns-snr-factual-evidence...HEAD
