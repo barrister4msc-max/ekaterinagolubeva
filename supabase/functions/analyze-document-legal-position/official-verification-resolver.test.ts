@@ -20,6 +20,8 @@ function law7(overrides: Partial<VerifiableLaw7Source> = {}): VerifiableLaw7Sour
       provider_source_class: "retrieval_intermediary",
       law7_code_id: "NK_RF",
       article: "54.1",
+      // Current-only corpus metadata. This is not inferred to be the date of
+      // the amending act that introduced article 54.1.
       version_date: "2000-07-31",
       substantive_use_allowed: false,
     },
@@ -35,7 +37,6 @@ function observation(overrides: Partial<OfficialContentObservation> = {}): Offic
     eo_number: "0001201708190001",
     code_id: "NK_RF",
     article: "54.1",
-    version_date: "2000-07-31",
     article_text: "Статья 54.1. Пределы осуществления прав по исчислению налоговой базы.",
     content_source: "documented_official_content",
     actuality_status: "verified",
@@ -74,7 +75,7 @@ describe("Pravo ↔ Law7 deterministic official verification", () => {
     expect((applied.metadata.official_verification_resolution as any).status).toBe("no_content");
   });
 
-  test("mismatch remains fail-closed", () => {
+  test("content mismatch remains fail-closed", () => {
     const obs = observation({ article_text: "ДРУГОЙ ТЕКСТ" });
     const result = resolveLaw7OfficialVerification(law7(), [pravo(obs)]);
     expect(result.status).toBe("content_mismatch");
@@ -103,15 +104,30 @@ describe("Pravo ↔ Law7 deterministic official verification", () => {
     expect(result.safety?.actuality_status).toBe("unknown");
   });
 
-  test("identity mismatch remains fail-closed", () => {
+  test("norm identity mismatch remains fail-closed", () => {
     const obs = observation({ article: "88" });
     const result = resolveLaw7OfficialVerification(law7(), [pravo(obs)]);
     expect(result.status).toBe("no_identity");
     expect(result.substantive_use_allowed).toBe(false);
   });
 
-  test("exact identity + exact content + verified actuality may become substantive", () => {
+  test("explicit version binding mismatch remains fail-closed", () => {
+    const obs = observation({ law7_version_date: "2017-07-19" });
+    const result = resolveLaw7OfficialVerification(law7(), [pravo(obs)]);
+    expect(result.status).toBe("no_identity");
+    expect(result.substantive_use_allowed).toBe(false);
+  });
+
+  test("current-only Law7 corpus date is not required to equal an official act date", () => {
+    const obs = observation();
+    const result = resolveLaw7OfficialVerification(law7(), [pravo(obs)]);
+    expect(result.status).toBe("verified");
+    expect(result.substantive_use_allowed).toBe(true);
+  });
+
+  test("exact norm identity + exact content + verified actuality may become substantive", () => {
     const obs = observation({
+      law7_version_date: "2000-07-31",
       article_text: "Статья 54.1.\u00a0Пределы   осуществления прав по исчислению налоговой базы.",
     });
     const result = resolveLaw7OfficialVerification(law7(), [pravo(obs)]);
