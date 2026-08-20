@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   isSubstantiveLegalBucketType,
   sourceFamilyForType,
+  sourceFamilyMetadataForType,
   sourceTypesForBucket,
 } from "./source-family-contract.ts";
 
@@ -35,5 +36,31 @@ describe("legal research source family contract", () => {
     expect(isSubstantiveLegalBucketType("fns_bfo_public")).toBe(false);
     expect(sourceTypesForBucket("laws")).not.toContain("duma_bill");
     expect(sourceTypesForBucket("laws")).not.toContain("fns_egrul");
+  });
+
+  test("new imported source types are fail-closed even if importer tries to self-promote", () => {
+    const meta = sourceFamilyMetadataForType("ruslawod_act", {
+      substantive_use_allowed: true,
+    });
+    expect(meta.substantive_use_allowed).toBe(false);
+  });
+
+  test("new source type can become substantive only with a fully verified official safety observation", () => {
+    const meta = sourceFamilyMetadataForType("russian_law_mcp_provision", {
+      official_verification: {
+        official_origin_verified: true,
+        document_identity_verified: true,
+        content_verified: true,
+        actuality_status: "verified",
+        substantive_use_allowed: true,
+      },
+    });
+    expect(meta.substantive_use_allowed).toBe(true);
+  });
+
+  test("legacy source behavior is not changed by the new family contract", () => {
+    const meta = sourceFamilyMetadataForType("law_full_text", {});
+    expect(meta.source_family).toBe("normative_retrieval");
+    expect("substantive_use_allowed" in meta).toBe(false);
   });
 });
