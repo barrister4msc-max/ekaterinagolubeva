@@ -1,19 +1,40 @@
 import { describe, expect, it } from "bun:test";
 import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";
 
-const SHA = "a0b1c63d38569e65acd2011a72e578f2b12ebd42b1c553fe352628ed480f475a";
+const SNR_SHA = "a0b1c63d38569e65acd2011a72e578f2b12ebd42b1c553fe352628ed480f475a";
+const DEBT_SHA = "0bf119d728c4c6876e6aebe2331bfbfe8a9c0db87682b89d18e3b3d70a8845f5";
 
-function row(overrides: Record<string, unknown> = {}) {
+function snrRow(overrides: Record<string, unknown> = {}) {
   return {
     inn: "7701234567",
     organization_name: "ООО Ромашка",
     regimes: ["usn"],
-    document_id: "doc-1",
+    document_id: "snr-doc-1",
     document_date: "2026-06-25",
     data_as_of: "2026-06-01",
     dataset_id: "7707329152-snr",
     source_url: "https://file.nalog.ru/opendata/7707329152-snr/data-20260625-structure-20230425.zip",
-    source_sha256: SHA,
+    source_sha256: SNR_SHA,
+    ...overrides,
+  };
+}
+
+function debtRow(overrides: Record<string, unknown> = {}) {
+  return {
+    inn: "7701234567",
+    organization_name: "ООО Ромашка",
+    tax_name: "Налог на прибыль",
+    tax_debt_amount: "100.00",
+    penalty_amount: "2.50",
+    fine_amount: "0.00",
+    total_debt_amount: "102.50",
+    document_id: "debt-doc-1",
+    document_date: "2026-07-25",
+    data_as_of: "2026-07-01",
+    debt_row_ordinal: 1,
+    dataset_id: "7707329152-debtam",
+    source_url: "https://file.nalog.ru/opendata/7707329152-debtam/data-20260725-structure-20181201.zip",
+    source_sha256: DEBT_SHA,
     ...overrides,
   };
 }
@@ -26,13 +47,14 @@ describe("Company factual runtime boundary", () => {
       sb: {
         async rpc() {
           calls += 1;
-          return { data: [row()], error: null };
+          return { data: null, error: null };
         },
       },
     });
 
     expect(calls).toBe(0);
     expect(snapshot.company_factual_evidence).toEqual([]);
+    expect(snapshot.company_tax_debt_evidence).toEqual([]);
     expect(snapshot.diagnostics).toEqual({
       explicit_legal_entity_inns: [],
       requested_count: 0,
@@ -42,64 +64,80 @@ describe("Company factual runtime boundary", () => {
       model_input_status: "not_injected",
       legal_source_status: "excluded",
     });
+    expect(snapshot.dataset_diagnostics.debtam.evidence_rows).toBe(0);
   });
 
-  it("loads bounded factual evidence for explicit legal-entity INN answers", async () => {
+  it("loads SNR and multiple DEBTAM rows into separate factual channels", async () => {
     const calls: Array<{ fn: string; args?: Record<string, unknown> }> = [];
     const snapshot = await loadCompanyFactualRuntimeSnapshot({
       answers: { taxpayer_inn: "7701234567" },
-      asOfDate: "2026-06-15",
+      asOfDate: "2026-07-10",
       sb: {
         async rpc(fn, args) {
           calls.push({ fn, args });
-          return { data: [row()], error: null };
+          if (fn === "fns_open_data_get_tax_regime") return { data: [snrRow()], error: null };
+          if (fn === "fns_open_data_get_tax_debts_text") {
+            return {
+              data: [
+                debtRow(),
+                debtRow({ tax_name: "НДС", tax_debt_amount: "0.00", penalty_amount: "10.00", fine_amount: "5.00", total_debt_amount: "15.00", debt_row_ordinal: 2 }),
+              ],
+              error: null,
+            };
+          }
+          return { data: null, error: { message: "unexpected rpc" } };
         },
       },
     });
 
-    expect(calls).toEqual([
-      {
-        fn: "fns_open_data_get_tax_regime",
-        args: { p_inn: "7701234567", p_as_of_date: "2026-06-15" },
-      },
+    expect(calls.map((call) => call.fn).sort()).toEqual([
+      "fns_open_data_get_tax_debts_text",
+      "fns_open_data_get_tax_regime",
     ]);
     expect(snapshot.company_factual_evidence).toHaveLength(1);
-    expect(snapshot.company_factual_evidence[0]?.source_family).toBe("factual_official_data");
-    expect(snapshot.company_factual_evidence[0]?.factual_only).toBe(true);
-    expect(snapshot.company_factual_evidence[0]?.legal_authority).toBe(false);
-    expect(snapshot.company_factual_evidence[0]?.substantive_use_allowed).toBe(false);
-    expect(snapshot.company_factual_evidence[0]?.use_as_legal_source).toBe(false);
-    expect(snapshot.diagnostics).toEqual({
-      explicit_legal_entity_inns: ["7701234567"],
-      requested_count: 1,
-      loaded_count: 1,
-      source_types: ["fns_open_data"],
-      fact_linking_status: "not_linked",
-      model_input_status: "not_injected",
-      legal_source_status: "excluded",
-    });
+    expect(snapshot.company_factual_evidence[0]?.fact_kind).toBe("tax_regime");
+    expect(snapshot.company_tax_debt_evidence).toHaveLength(2);
+    expect(snapshot.company_tax_debt_evidence.every((row) => row.fact_kind === "tax_debt")).toBe(true);
+    expect(snapshot.company_tax_debt_evidence.map((row) => row.debt_row_ordinal)).toEqual([1, 2]);
+    expect(snapshot.diagnostics.loaded_count).toBe(3);
+    expect(snapshot.dataset_diagnostics.snr).toMatchObject({ loaded_count: 1, evidence_rows: 1, fact_kind: "tax_regime" });
+    expect(snapshot.dataset_diagnostics.debtam).toMatchObject({ loaded_count: 1, evidence_rows: 2, fact_kind: "tax_debt" });
   });
 
-  it("fails soft when the FNS transport returns an error", async () => {
+  it("keeps the SNR channel available if DEBTAM lookup fails", async () => {
     const snapshot = await loadCompanyFactualRuntimeSnapshot({
       answers: { taxpayer_inn: "7701234567" },
       sb: {
-        async rpc() {
-          return { data: null, error: { message: "unavailable" } };
+        async rpc(fn) {
+          if (fn === "fns_open_data_get_tax_regime") return { data: [snrRow()], error: null };
+          return { data: null, error: { message: "debtam unavailable" } };
+        },
+      },
+    });
+
+    expect(snapshot.company_factual_evidence).toHaveLength(1);
+    expect(snapshot.company_tax_debt_evidence).toEqual([]);
+    expect(snapshot.dataset_diagnostics.snr.evidence_rows).toBe(1);
+    expect(snapshot.dataset_diagnostics.debtam.evidence_rows).toBe(0);
+  });
+
+  it("keeps DEBTAM rows available if SNR lookup fails", async () => {
+    const snapshot = await loadCompanyFactualRuntimeSnapshot({
+      answers: { taxpayer_inn: "7701234567" },
+      sb: {
+        async rpc(fn) {
+          if (fn === "fns_open_data_get_tax_debts_text") return { data: [debtRow()], error: null };
+          return { data: null, error: { message: "snr unavailable" } };
         },
       },
     });
 
     expect(snapshot.company_factual_evidence).toEqual([]);
-    expect(snapshot.diagnostics.requested_count).toBe(1);
-    expect(snapshot.diagnostics.loaded_count).toBe(0);
-    expect(snapshot.diagnostics.source_types).toEqual([]);
-    expect(snapshot.diagnostics.fact_linking_status).toBe("not_linked");
-    expect(snapshot.diagnostics.model_input_status).toBe("not_injected");
-    expect(snapshot.diagnostics.legal_source_status).toBe("excluded");
+    expect(snapshot.company_tax_debt_evidence).toHaveLength(1);
+    expect(snapshot.diagnostics.source_types).toEqual(["fns_open_data"]);
   });
 
-  it("fails soft when the transport throws instead of returning an error", async () => {
+  it("fails soft for thrown transport errors without promoting factual data", async () => {
     const snapshot = await loadCompanyFactualRuntimeSnapshot({
       answers: { taxpayer_inn: "7701234567" },
       sb: {
@@ -110,14 +148,9 @@ describe("Company factual runtime boundary", () => {
     });
 
     expect(snapshot.company_factual_evidence).toEqual([]);
-    expect(snapshot.diagnostics).toEqual({
-      explicit_legal_entity_inns: ["7701234567"],
-      requested_count: 1,
-      loaded_count: 0,
-      source_types: [],
-      fact_linking_status: "not_linked",
-      model_input_status: "not_injected",
-      legal_source_status: "excluded",
-    });
+    expect(snapshot.company_tax_debt_evidence).toEqual([]);
+    expect(snapshot.diagnostics.legal_source_status).toBe("excluded");
+    expect(snapshot.dataset_diagnostics.debtam.model_input_status).toBe("not_injected");
+    expect(snapshot.dataset_diagnostics.debtam.legal_source_status).toBe("excluded");
   });
 });
