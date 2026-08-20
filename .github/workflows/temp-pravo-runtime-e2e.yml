@@ -1,0 +1,87 @@
+name: temp-pravo-runtime-e2e
+
+on:
+  push:
+    branches: [audit/pravo-runtime-e2e-20260820]
+
+permissions:
+  contents: read
+
+jobs:
+  pravo-live-probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Execute current-main Pravo provider against documented live API
+        env:
+          OFFICIAL_LEGAL_SOURCES_ENABLED: "true"
+        run: |
+          cat > /tmp/pravo-live-e2e.ts <<'TS'
+          (globalThis as any).Deno = {
+            env: { get: (name: string) => process.env[name] },
+          };
+
+          const { searchOfficialLegalSources } = await import(
+            `${process.cwd()}/supabase/functions/analyze-document-legal-position/official-sources.ts`
+          );
+
+          const query: any = {
+            facts: [],
+            dates: ["18.07.2017"],
+            amounts: [],
+            organizations: [],
+            inn: [],
+            ogrn: [],
+            contract_numbers: [],
+            case_numbers: [],
+            keywords: ["Налоговый кодекс", "статья 54.1"],
+            articles: ["ст. 54.1 НК РФ"],
+            legal_issues: [
+              "Федеральный закон от 18.07.2017 № 163-ФЗ; введение статьи 54.1 НК РФ",
+            ],
+            research_topics: ["статья 54.1 НК РФ"],
+            legal_concepts: ["пределы осуществления прав по исчислению налоговой базы"],
+            semantic_intents: ["официальный акт введения статьи 54.1 НК РФ"],
+            search_hypotheses: [],
+            metadata_terms: ["18.07.2017", "163-ФЗ"],
+            temporal_anchors: [],
+          };
+
+          const result = await searchOfficialLegalSources(query);
+          const compact = {
+            diagnostics: result.diagnostics,
+            research_plan: result.research_plan,
+            sources: result.sources.map((s: any) => ({
+              source_id: s.source_id,
+              title: s.title,
+              official_url: s.official_url,
+              citation: s.citation,
+              document_number: s.metadata?.document_number,
+              document_date: s.metadata?.document_date,
+              publication_date: s.metadata?.publication_date,
+              eo_number: s.metadata?.eo_number,
+              canonical_document_key: s.metadata?.canonical_document_key,
+              transport: s.metadata?.transport,
+              retrieval_method: s.metadata?.retrieval_method,
+              safety: s.metadata?.safety,
+            })),
+          };
+          console.log(JSON.stringify(compact, null, 2));
+
+          if (!result.diagnostics.enabled) throw new Error("provider disabled");
+          if (result.diagnostics.pravo_exact_attempted < 1) throw new Error("exact search not attempted");
+          const exact = result.sources.find((s: any) =>
+            String(s.metadata?.document_number ?? "").replace(/\s+/g, "").toUpperCase() === "163-ФЗ" &&
+            s.metadata?.document_date === "2017-07-18"
+          );
+          if (!exact) throw new Error("exact 163-ФЗ 2017-07-18 identity not found");
+          if (exact.metadata?.safety?.official_origin_verified !== true) throw new Error("official origin not verified");
+          if (exact.metadata?.safety?.document_identity_verified !== true) throw new Error("identity not verified");
+          if (exact.metadata?.safety?.content_verified !== false) throw new Error("unexpected content verification state");
+          if (exact.metadata?.safety?.substantive_use_allowed !== false) throw new Error("unexpected substantive allowance");
+          console.log("PRAVO_LIVE_PROVIDER_E2E=PASS");
+          TS
+          bun /tmp/pravo-live-e2e.ts
