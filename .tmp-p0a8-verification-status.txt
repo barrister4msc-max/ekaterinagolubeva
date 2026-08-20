@@ -1,0 +1,5 @@
+install=success
+catalog=success
+regressions=success
+typecheck=success
+diffcheck=success
