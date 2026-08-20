@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -26,7 +28,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Migration authority/provider-class contract
+      - id: migration
+        name: Migration authority/provider-class contract
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -40,34 +43,54 @@ jobs:
           print('migration-contract: PASS')
           PY
 
-      - name: Provider Safety Contract tests
+      - id: tests
+        name: Provider Safety Contract tests
         run: |
           bun test \
             supabase/functions/analyze-document-legal-position/provider-safety-contract.test.ts \
             supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts \
             supabase/functions/analyze-document-legal-position/law7-supabase-transport.test.ts
 
-      - name: Diff check
+      - id: diffcheck
+        name: Diff check
         run: git diff --check origin/main...HEAD
 
-      - name: Typecheck
+      - id: typecheck
+        name: Typecheck
         run: bunx tsc --noEmit
 
-      - name: Build
+      - id: build
+        name: Build
         run: bun run build
 
-      - name: Publish verifier status
+      - name: Publish verifier statuses
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          JOB_STATUS: ${{ job.status }}
+          MIGRATION: ${{ steps.migration.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          BUILD: ${{ steps.build.outcome }}
         shell: bash
         run: |
-          if [ "$JOB_STATUS" = "success" ]; then state=success; description='PR42 Law7 safety gate passed'; else state=failure; description='PR42 Law7 safety gate failed'; fi
-          curl --fail --silent --show-error \
-            -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
-            -d "{\"state\":\"${state}\",\"context\":\"pr42-law7-safety\",\"description\":\"${description}\"}"
+          post_status() {
+            context="$1"; outcome="$2"
+            case "$outcome" in
+              success) state=success ;;
+              failure|cancelled) state=failure ;;
+              *) state=pending ;;
+            esac
+            curl --fail --silent --show-error \
+              -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${GITHUB_SHA}" \
+              -d "{\"state\":\"${state}\",\"context\":\"${context}\",\"description\":\"${outcome}\"}"
+          }
+          post_status pr42-migration-contract "$MIGRATION"
+          post_status pr42-safety-tests "$TESTS"
+          post_status pr42-diff-check "$DIFFCHECK"
+          post_status pr42-typecheck "$TYPECHECK"
+          post_status pr42-build "$BUILD"
