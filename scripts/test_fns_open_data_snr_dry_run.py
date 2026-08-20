@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import importlib.util
 import io
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -10,6 +11,7 @@ MODULE_PATH = Path(__file__).with_name("fns_open_data_snr_dry_run.py")
 spec = importlib.util.spec_from_file_location("fns_snr", MODULE_PATH)
 assert spec and spec.loader
 fns_snr = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = fns_snr
 spec.loader.exec_module(fns_snr)
 
 VALID_XML = '''<?xml version="1.0" encoding="UTF-8"?>
