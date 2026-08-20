@@ -1,4 +1,4 @@
-name: TEMP P0-A source family patch
+name: TEMP P0-A source family verification
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  patch-and-verify:
+  verify:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -17,44 +17,23 @@ jobs:
         with:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
-      - name: Apply fail-closed runtime metadata wiring
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('supabase/functions/analyze-document-legal-position/repositories.ts')
-          s = p.read_text()
-          changes = [
-            (
-              'import { sourceTypesForBucket } from "./source-family-contract.ts";',
-              'import { sourceFamilyMetadataForType, sourceTypesForBucket } from "./source-family-contract.ts";'
-            ),
-            (
-              '    metadata: meta,',
-              '    metadata: { ...meta, ...sourceFamilyMetadataForType(sourceType, meta) },'
-            ),
-          ]
-          for old, new in changes:
-            count = s.count(old)
-            if count != 1:
-              raise SystemExit(f'exact patch guard failed: expected 1 occurrence, got {count}: {old!r}')
-            s = s.replace(old, new, 1)
-          p.write_text(s)
-          PY
       - name: Install
         run: bun install --frozen-lockfile
-      - name: Source family tests
+      - name: Source family and coverage tests
         run: bun test supabase/functions/analyze-document-legal-position/source-family-contract.test.ts supabase/functions/analyze-document-legal-position/research-coverage.test.ts
-      - name: Safety bridge tests
-        run: bun test supabase/functions/analyze-document-legal-position/provider-safety-contract.test.ts supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts
+      - name: Routing and provider regression tests
+        run: bun test supabase/functions/analyze-document-legal-position/research-provider-contract.test.ts supabase/functions/analyze-document-legal-position/research-routing.test.ts supabase/functions/analyze-document-legal-position/law7-repository-wiring.test.ts
+      - name: Safety and metadata bridge regression tests
+        run: bun test supabase/functions/analyze-document-legal-position/provider-safety-contract.test.ts supabase/functions/analyze-document-legal-position/source-metadata-bridge.test.ts supabase/functions/analyze-document-legal-position/source-metadata-merge.test.ts
+      - name: Official source regression tests
+        run: bun test supabase/functions/analyze-document-legal-position/official-sources.test.ts supabase/functions/analyze-document-legal-position/official-provider-capabilities.test.ts
       - name: Typecheck
         run: bun run typecheck
       - name: Diff check
         run: git diff --check
-      - name: Commit fail-closed wiring
+      - name: Record verified functional head
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add supabase/functions/analyze-document-legal-position/repositories.ts
-          git diff --cached --quiet && exit 0
-          git commit -m 'fix: fail closed imported source families by default'
+          git commit --allow-empty -m 'chore: P0-A source family verification passed'
           git push
