@@ -10,7 +10,7 @@ with source_pack(external_id, title, source_type, url, authority_level, jurisdic
       'Law7 TAX CORE',
       'legal_research_provider',
       null,
-      'retrieval_intermediary',
+      'secondary',
       'RU',
       'tax',
       false,
