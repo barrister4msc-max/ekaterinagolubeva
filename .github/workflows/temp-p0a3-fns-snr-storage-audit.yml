@@ -41,9 +41,9 @@ jobs:
 
       - name: Targeted FNS tests
         run: |
-          bun test supabase/functions/analyze-document-legal-position/fns-company-factual-evidence.test.ts
-          bun test supabase/tests/fns-open-data-catalog.test.ts
-          bun test supabase/tests/fns-open-data-snr-storage-contract.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-open-data-catalog.test.ts
+          bun test ./supabase/tests/fns-open-data-snr-storage-contract.test.ts
 
       - name: Execute migration on disposable PostgreSQL
         run: |
