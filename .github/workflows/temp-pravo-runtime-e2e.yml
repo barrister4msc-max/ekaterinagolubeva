@@ -3,9 +3,11 @@ name: temp-pravo-runtime-e2e
 on:
   push:
     branches: [audit/pravo-runtime-e2e-20260820]
+    paths-ignore:
+      - 'audit/pravo-runtime-e2e-result/**'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   pravo-live-probe:
@@ -29,31 +31,20 @@ jobs:
           );
 
           const query: any = {
-            facts: [],
-            dates: ["18.07.2017"],
-            amounts: [],
-            organizations: [],
-            inn: [],
-            ogrn: [],
-            contract_numbers: [],
-            case_numbers: [],
+            facts: [], dates: ["18.07.2017"], amounts: [], organizations: [], inn: [], ogrn: [],
+            contract_numbers: [], case_numbers: [],
             keywords: ["Налоговый кодекс", "статья 54.1"],
             articles: ["ст. 54.1 НК РФ"],
-            legal_issues: [
-              "Федеральный закон от 18.07.2017 № 163-ФЗ; введение статьи 54.1 НК РФ",
-            ],
+            legal_issues: ["Федеральный закон от 18.07.2017 № 163-ФЗ; введение статьи 54.1 НК РФ"],
             research_topics: ["статья 54.1 НК РФ"],
             legal_concepts: ["пределы осуществления прав по исчислению налоговой базы"],
             semantic_intents: ["официальный акт введения статьи 54.1 НК РФ"],
-            search_hypotheses: [],
-            metadata_terms: ["18.07.2017", "163-ФЗ"],
-            temporal_anchors: [],
+            search_hypotheses: [], metadata_terms: ["18.07.2017", "163-ФЗ"], temporal_anchors: [],
           };
 
           const result = await searchOfficialLegalSources(query);
-          const compact = {
+          console.log(JSON.stringify({
             diagnostics: result.diagnostics,
-            research_plan: result.research_plan,
             sources: result.sources.map((s: any) => ({
               source_id: s.source_id,
               title: s.title,
@@ -68,8 +59,7 @@ jobs:
               retrieval_method: s.metadata?.retrieval_method,
               safety: s.metadata?.safety,
             })),
-          };
-          console.log(JSON.stringify(compact, null, 2));
+          }, null, 2));
 
           if (!result.diagnostics.enabled) throw new Error("provider disabled");
           if (result.diagnostics.pravo_exact_attempted < 1) throw new Error("exact search not attempted");
@@ -85,3 +75,32 @@ jobs:
           console.log("PRAVO_LIVE_PROVIDER_E2E=PASS");
           TS
           bun /tmp/pravo-live-e2e.ts
+
+      - name: Record safe result
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          python - <<'PY'
+          import base64, json, os, subprocess
+          status = 'PASS' if os.environ['JOB_STATUS'] == 'success' else 'FAIL'
+          body = {
+            'status': status,
+            'run_id': int(os.environ['GITHUB_RUN_ID']),
+            'head': os.environ['GITHUB_SHA'],
+            'main_base': '6609067b33453e1afb154f297495f1f57a41fdef',
+            'production_write': False,
+            'supabase_write': False,
+            'lovable_write': False,
+          }
+          content = base64.b64encode((json.dumps(body) + '\n').encode()).decode()
+          path = f"audit/pravo-runtime-e2e-result/run-{os.environ['GITHUB_RUN_ID']}.json"
+          url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/contents/{path}"
+          payload = json.dumps({'message': f'audit: record Pravo live E2E {status}', 'content': content, 'branch': os.environ['GITHUB_REF_NAME']})
+          subprocess.run(['curl','--fail','--silent','--show-error','-X','PUT',url,
+                          '-H','Accept: application/vnd.github+json',
+                          '-H',f"Authorization: Bearer {os.environ['GH_TOKEN']}",
+                          '-H','X-GitHub-Api-Version: 2022-11-28',
+                          '-d',payload], check=True)
+          PY
