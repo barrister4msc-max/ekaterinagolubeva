@@ -29,41 +29,22 @@ jobs:
           import re
           p = Path('supabase/functions/analyze-document-legal-position/index.ts')
           s = p.read_text(encoding='utf-8')
-
           import_anchor = 'import { buildCompanyFinancialStatementEvidenceMatrix } from "./company-financial-statement-evidence-matrix.ts";\n'
           if 'import { buildCompanyAverageHeadcountEvidenceMatrix }' not in s:
               assert s.count(import_anchor) == 1, s.count(import_anchor)
               s = s.replace(import_anchor, import_anchor + 'import { buildCompanyAverageHeadcountEvidenceMatrix } from "./company-headcount-evidence-matrix.ts";\n', 1)
-
           if 'const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(' not in s:
-              pattern = re.compile(
-                  r'(    const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix\(\n'
-                  r'      companyFactualRuntime\.company_financial_statement_evidence,\n'
-                  r'    \);\n)'
-              )
-              addition = (
-                  r'\1'
-                  '    // P0-A22: separate SSHR2019 annual-average-headcount factual matrix.\n'
-                  '    // Audit-only: never enters legal/document evidence or model inputs.\n'
-                  '    const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(\n'
-                  '      companyFactualRuntime.company_average_headcount_evidence,\n'
-                  '    );\n'
-              )
+              pattern = re.compile(r'(    const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix\(\n      companyFactualRuntime\.company_financial_statement_evidence,\n    \);\n)')
+              addition = r'\1' + '    // P0-A22: separate SSHR2019 annual-average-headcount factual matrix.\n    // Audit-only: never enters legal/document evidence or model inputs.\n    const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(\n      companyFactualRuntime.company_average_headcount_evidence,\n    );\n'
               s, n = pattern.subn(addition, s, count=1)
               assert n == 1, n
-
           if 'company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,' not in s:
               pattern = re.compile(r'(?m)^(\s*)company_average_headcount_evidence: companyFactualRuntime\.company_average_headcount_evidence,\n')
               def repl(m):
                   ind = m.group(1)
-                  return (
-                      f'{ind}company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,\n'
-                      f'{ind}company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,\n'
-                      f'{ind}company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,\n'
-                  )
+                  return f'{ind}company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,\n{ind}company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,\n{ind}company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,\n'
               s, n = pattern.subn(repl, s)
               assert n == 4, n
-
           parsed_anchor = '    parsed.company_average_headcount_evidence = companyFactualRuntime.company_average_headcount_evidence;\n'
           if 'parsed.company_average_headcount_factual_identity = {' not in s:
               assert s.count(parsed_anchor) == 1, s.count(parsed_anchor)
@@ -79,7 +60,6 @@ jobs:
     };
 '''
               s = s.replace(parsed_anchor, parsed_add, 1)
-
           p.write_text(s, encoding='utf-8')
           PY
           git diff --check
@@ -88,12 +68,10 @@ jobs:
         id: install
         continue-on-error: true
         run: bun install --frozen-lockfile
-
       - name: P0-A22 persistence tests
         id: persistence
         continue-on-error: true
         run: bun test ./supabase/functions/analyze-document-legal-position/company-headcount-matrix-persistence.test.ts
-
       - name: SSHR2019 identity and matrix regressions
         id: headcount
         continue-on-error: true
@@ -102,7 +80,6 @@ jobs:
           bun test ./supabase/functions/analyze-document-legal-position/company-headcount-evidence-matrix.test.ts
           bun test ./supabase/functions/analyze-document-legal-position/fns-company-headcount-evidence.test.ts
           bun test ./supabase/functions/analyze-document-legal-position/company-headcount-orchestration.test.ts
-
       - name: Existing factual regressions
         id: regressions
         continue-on-error: true
@@ -112,17 +89,14 @@ jobs:
           bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-evidence-matrix.test.ts
           bun test ./supabase/functions/analyze-document-legal-position/company-tax-debt-evidence-matrix.test.ts
           bun test ./supabase/functions/analyze-document-legal-position/company-factual-evidence-matrix.test.ts
-
       - name: Typecheck
         id: typecheck
         continue-on-error: true
         run: bun run typecheck
-
       - name: Diffcheck
         id: diffcheck
         continue-on-error: true
         run: git diff --check origin/feat/p0a21-sshr2019-canonical-identity-matrix...HEAD
-
       - name: Record
         if: always()
         env:
@@ -135,7 +109,13 @@ jobs:
           DIFFCHECK: ${{ steps.diffcheck.outcome }}
         run: |
           printf 'patch=%s\ninstall=%s\npersistence=%s\nheadcount=%s\nregressions=%s\ntypecheck=%s\ndiffcheck=%s\n' "$PATCH" "$INSTALL" "$PERSISTENCE" "$HEADCOUNT" "$REGRESSIONS" "$TYPECHECK" "$DIFFCHECK" > .tmp-p0a22-verification-status.txt
-
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .tmp-p0a22-verification-status.txt
+            git commit -m "chore: record P0-A22 verification outcomes"
+            git push origin HEAD:feat/p0a22-sshr2019-matrix-persistence
+          fi
       - name: Enforce GREEN
         if: always()
         env:
