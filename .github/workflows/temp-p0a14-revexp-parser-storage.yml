@@ -143,3 +143,5 @@ jobs:
           test "$POSTGRES" = success
           test "$TYPECHECK" = success
           test "$DIFFCHECK" = success
+
+# temporary verifier only; remove after GREEN
