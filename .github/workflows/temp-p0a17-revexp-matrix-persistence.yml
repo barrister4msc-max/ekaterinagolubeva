@@ -1,0 +1,190 @@
+name: TEMP P0-A17 REVEXP matrix persistence
+
+on:
+  push:
+    branches:
+      - feat/p0a17-revexp-matrix-persistence
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0a17-revexp-matrix-persistence
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
+      - name: Patch Analyzer REVEXP matrix persistence
+        id: patch
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('supabase/functions/analyze-document-legal-position/index.ts')
+          s = p.read_text(encoding='utf-8')
+
+          imp = 'import { buildCompanyTaxDebtEvidenceMatrix } from "./company-tax-debt-evidence-matrix.ts";\n'
+          add_imp = imp + 'import { buildCompanyFinancialStatementEvidenceMatrix } from "./company-financial-statement-evidence-matrix.ts";\n'
+          assert s.count(imp) == 1, s.count(imp)
+          if 'buildCompanyFinancialStatementEvidenceMatrix' not in s:
+              s = s.replace(imp, add_imp, 1)
+
+          debt_build = '''    const companyTaxDebtFactualMatrix = buildCompanyTaxDebtEvidenceMatrix(
+              companyFactualRuntime.company_tax_debt_evidence,
+            );
+          '''
+          # normalize exact source indentation from TS file
+          debt_build = debt_build.replace('              ', '      ').replace('            );', '    );')
+          financial_build = debt_build + '''    // P0-A17: separate REVEXP annual financial-statement factual matrix.
+              // Audit-only: never enters legal/document evidence or model inputs.
+              const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(
+                companyFactualRuntime.company_financial_statement_evidence,
+              );
+          '''
+          financial_build = financial_build.replace('              ', '    ').replace('                ', '      ')
+          if 'const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(' not in s:
+              assert s.count(debt_build) == 1, s.count(debt_build)
+              s = s.replace(debt_build, financial_build, 1)
+
+          # Four object snapshot locations already persist company_financial_statement_evidence.
+          evidence_line = 'company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,\n'
+          matrix_lines = evidence_line + '''            company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
+            company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
+          '''
+          if 'company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,' not in s:
+              count = s.count(evidence_line)
+              assert count == 4, count
+              # Preserve each location's current indentation by matching leading whitespace.
+              import re
+              pattern = re.compile(r'(?m)^(\s*)company_financial_statement_evidence: companyFactualRuntime\.company_financial_statement_evidence,\n')
+              def repl(m):
+                  ind = m.group(1)
+                  return (f'{ind}company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,\n'
+                          f'{ind}company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,\n'
+                          f'{ind}company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,\n')
+              s, n = pattern.subn(repl, s)
+              assert n == 4, n
+
+          parsed_anchor = '    parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;\n'
+          parsed_add = parsed_anchor + '''    // P0-A17: REVEXP identity/matrix persistence is a separate factual audit channel.
+              parsed.company_financial_statement_factual_evidence_matrix =
+                companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix;
+              parsed.company_financial_statement_factual_identity = {
+                canonical_company_financial_statement_facts:
+                  companyFinancialStatementFactualMatrix.canonical_company_financial_statement_facts,
+                company_financial_statement_fact_evidence_links:
+                  companyFinancialStatementFactualMatrix.company_financial_statement_fact_evidence_links,
+                diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
+              };
+          '''
+          parsed_add = parsed_add.replace('              ', '    ').replace('                ', '      ').replace('                  ', '        ')
+          if 'parsed.company_financial_statement_factual_identity = {' not in s:
+              assert s.count(parsed_anchor) == 1, s.count(parsed_anchor)
+              s = s.replace(parsed_anchor, parsed_add, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/analyze-document-legal-position/index.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: persist REVEXP factual matrix in Analyzer audit"
+            git push origin HEAD:feat/p0a17-revexp-matrix-persistence
+          fi
+
+      - name: Install
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile
+
+      - name: P0-A17 orchestration tests
+        id: orchestration
+        continue-on-error: true
+        run: bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-matrix-orchestration.test.ts
+
+      - name: REVEXP matrix regressions
+        id: matrix
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-financial-statement-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-revexp-runtime.test.ts
+
+      - name: Existing factual regressions
+        id: regressions
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-tax-debt-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-tax-debt-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-evidence-matrix.test.ts
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bun run typecheck
+
+      - name: Diff check
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check origin/feat/p0a16-revexp-canonical-identity-matrix...HEAD
+
+      - name: Record outcomes
+        if: always()
+        env:
+          PATCH: ${{ steps.patch.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          ORCHESTRATION: ${{ steps.orchestration.outcome }}
+          MATRIX: ${{ steps.matrix.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          cat > .tmp-p0a17-verification-status.txt <<EOF
+          patch=$PATCH
+          install=$INSTALL
+          orchestration=$ORCHESTRATION
+          matrix=$MATRIX
+          regressions=$REGRESSIONS
+          typecheck=$TYPECHECK
+          diffcheck=$DIFFCHECK
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-p0a17-verification-status.txt
+          git commit -m "chore: record P0-A17 verification outcomes"
+          git push origin HEAD:feat/p0a17-revexp-matrix-persistence
+
+      - name: Enforce GREEN
+        if: always()
+        env:
+          PATCH: ${{ steps.patch.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          ORCHESTRATION: ${{ steps.orchestration.outcome }}
+          MATRIX: ${{ steps.matrix.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          test "$PATCH" = success
+          test "$INSTALL" = success
+          test "$ORCHESTRATION" = success
+          test "$MATRIX" = success
+          test "$REGRESSIONS" = success
+          test "$TYPECHECK" = success
+          test "$DIFFCHECK" = success
