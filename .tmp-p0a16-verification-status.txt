@@ -1,0 +1,6 @@
+install=success
+identity=success
+matrix=success
+regressions=failure
+typecheck=success
+diffcheck=success
