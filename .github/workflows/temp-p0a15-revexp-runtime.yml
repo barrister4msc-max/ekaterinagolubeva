@@ -1,0 +1,145 @@
+name: TEMP P0-A15 REVEXP runtime
+
+on:
+  push:
+    branches:
+      - feat/p0a15-revexp-runtime-factual-evidence
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0a15-revexp-runtime
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
+      - name: Patch Analyzer audit persistence
+        id: patch
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('supabase/functions/analyze-document-legal-position/index.ts')
+          s = p.read_text(encoding='utf-8')
+          anchor = '            company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,\n'
+          addition = anchor + '            company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,\n'
+          if 'company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,' not in s:
+              count = s.count(anchor)
+              assert count == 4, count
+              s = s.replace(anchor, addition)
+          parsed_anchor = '    parsed.company_tax_debt_evidence = companyFactualRuntime.company_tax_debt_evidence;\n'
+          parsed_add = parsed_anchor + '    // P0-A15: REVEXP annual accounting-statement evidence remains audit-only.\n    parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;\n'
+          if 'parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;' not in s:
+              assert s.count(parsed_anchor) == 1, s.count(parsed_anchor)
+              s = s.replace(parsed_anchor, parsed_add, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/analyze-document-legal-position/index.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: persist REVEXP factual runtime audit"
+            git push origin HEAD:feat/p0a15-revexp-runtime-factual-evidence
+          fi
+
+      - name: Install
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile
+
+      - name: REVEXP adapter tests
+        id: adapter
+        continue-on-error: true
+        run: bun test ./supabase/functions/analyze-document-legal-position/fns-company-financial-statement-evidence.test.ts
+
+      - name: REVEXP runtime tests
+        id: runtime
+        continue-on-error: true
+        run: bun test ./supabase/functions/analyze-document-legal-position/fns-company-revexp-runtime.test.ts
+
+      - name: Analyzer orchestration boundary test
+        id: orchestration
+        continue-on-error: true
+        run: bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-orchestration.test.ts
+
+      - name: Existing factual regressions
+        id: regressions
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-tax-debt-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-tax-debt-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-evidence-matrix.test.ts
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bun run typecheck
+
+      - name: Diff check
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check origin/feat/p0a14-revexp-parser-storage-rpc...HEAD
+
+      - name: Record outcomes
+        if: always()
+        env:
+          PATCH: ${{ steps.patch.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          ADAPTER: ${{ steps.adapter.outcome }}
+          RUNTIME: ${{ steps.runtime.outcome }}
+          ORCHESTRATION: ${{ steps.orchestration.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          cat > .tmp-p0a15-verification-status.txt <<EOF
+          patch=$PATCH
+          install=$INSTALL
+          adapter=$ADAPTER
+          runtime=$RUNTIME
+          orchestration=$ORCHESTRATION
+          regressions=$REGRESSIONS
+          typecheck=$TYPECHECK
+          diffcheck=$DIFFCHECK
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-p0a15-verification-status.txt
+          git commit -m "chore: record P0-A15 verification outcomes"
+          git push origin HEAD:feat/p0a15-revexp-runtime-factual-evidence
+
+      - name: Enforce GREEN
+        if: always()
+        env:
+          PATCH: ${{ steps.patch.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          ADAPTER: ${{ steps.adapter.outcome }}
+          RUNTIME: ${{ steps.runtime.outcome }}
+          ORCHESTRATION: ${{ steps.orchestration.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          test "$PATCH" = success
+          test "$INSTALL" = success
+          test "$ADAPTER" = success
+          test "$RUNTIME" = success
+          test "$ORCHESTRATION" = success
+          test "$REGRESSIONS" = success
+          test "$TYPECHECK" = success
+          test "$DIFFCHECK" = success
