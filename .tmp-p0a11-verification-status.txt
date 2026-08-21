@@ -1,5 +1,0 @@
-install=success
-debt_matrix=success
-regressions=success
-typecheck=success
-diffcheck=success
