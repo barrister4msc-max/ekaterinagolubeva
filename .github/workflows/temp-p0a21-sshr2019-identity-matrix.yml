@@ -1,0 +1,82 @@
+name: TEMP P0-A21 SSHR2019 identity matrix
+on:
+  push:
+    branches: [feat/p0a21-sshr2019-canonical-identity-matrix]
+  pull_request:
+    branches: [feat/p0a20-sshr2019-runtime-factual-evidence]
+permissions:
+  contents: write
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: 1.2.22 }
+      - name: Install
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile
+      - name: Identity tests
+        id: identity
+        continue-on-error: true
+        run: bun test ./supabase/functions/analyze-document-legal-position/company-headcount-identity.test.ts
+      - name: Matrix tests
+        id: matrix
+        continue-on-error: true
+        run: bun test ./supabase/functions/analyze-document-legal-position/company-headcount-evidence-matrix.test.ts
+      - name: Headcount regressions
+        id: headcount
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-headcount-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-headcount-orchestration.test.ts
+      - name: Existing factual regressions
+        id: regressions
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-tax-debt-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-evidence-matrix.test.ts
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bun run typecheck
+      - name: Diffcheck
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check origin/feat/p0a20-sshr2019-runtime-factual-evidence...HEAD
+      - name: Record
+        if: always() && github.event_name == 'push'
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          IDENTITY: ${{ steps.identity.outcome }}
+          MATRIX: ${{ steps.matrix.outcome }}
+          HEADCOUNT: ${{ steps.headcount.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          printf 'install=%s\nidentity=%s\nmatrix=%s\nheadcount=%s\nregressions=%s\ntypecheck=%s\ndiffcheck=%s\n' "$INSTALL" "$IDENTITY" "$MATRIX" "$HEADCOUNT" "$REGRESSIONS" "$TYPECHECK" "$DIFFCHECK" > .tmp-p0a21-verification-status.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .tmp-p0a21-verification-status.txt
+          git commit -m "chore: record P0-A21 verification outcomes" || true
+          git push origin HEAD:feat/p0a21-sshr2019-canonical-identity-matrix
+      - name: Enforce GREEN
+        if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          IDENTITY: ${{ steps.identity.outcome }}
+          MATRIX: ${{ steps.matrix.outcome }}
+          HEADCOUNT: ${{ steps.headcount.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          test "$INSTALL" = success && test "$IDENTITY" = success && test "$MATRIX" = success && test "$HEADCOUNT" = success && test "$REGRESSIONS" = success && test "$TYPECHECK" = success && test "$DIFFCHECK" = success
