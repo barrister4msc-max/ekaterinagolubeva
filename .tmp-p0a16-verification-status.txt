@@ -1,6 +1,6 @@
 install=success
 identity=success
 matrix=success
-regressions=failure
+regressions=success
 typecheck=success
 diffcheck=success
