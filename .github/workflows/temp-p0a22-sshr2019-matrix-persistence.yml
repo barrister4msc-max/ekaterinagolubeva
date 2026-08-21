@@ -4,6 +4,7 @@ on:
     branches: [feat/p0a22-sshr2019-matrix-persistence]
   pull_request:
     branches: [feat/p0a21-sshr2019-canonical-identity-matrix]
+    types: [opened, synchronize, reopened, edited]
 permissions:
   contents: write
 jobs:
@@ -82,13 +83,6 @@ jobs:
           p.write_text(s, encoding='utf-8')
           PY
           git diff --check
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add supabase/functions/analyze-document-legal-position/index.ts
-          if ! git diff --cached --quiet; then
-            git commit -m "feat: persist SSHR2019 factual matrix in Analyzer audit"
-            git push origin HEAD:feat/p0a22-sshr2019-matrix-persistence
-          fi
 
       - name: Install
         id: install
@@ -141,12 +135,6 @@ jobs:
           DIFFCHECK: ${{ steps.diffcheck.outcome }}
         run: |
           printf 'patch=%s\ninstall=%s\npersistence=%s\nheadcount=%s\nregressions=%s\ntypecheck=%s\ndiffcheck=%s\n' "$PATCH" "$INSTALL" "$PERSISTENCE" "$HEADCOUNT" "$REGRESSIONS" "$TYPECHECK" "$DIFFCHECK" > .tmp-p0a22-verification-status.txt
-          git pull --ff-only origin feat/p0a22-sshr2019-matrix-persistence
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .tmp-p0a22-verification-status.txt
-          git commit -m "chore: record P0-A22 verification outcomes"
-          git push origin HEAD:feat/p0a22-sshr2019-matrix-persistence
 
       - name: Enforce GREEN
         if: always()
