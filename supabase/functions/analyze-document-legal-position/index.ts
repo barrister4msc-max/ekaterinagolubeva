@@ -57,6 +57,7 @@ import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime
 import { buildCompanyFactualEvidenceMatrix } from "./company-factual-evidence-matrix.ts";
 import { buildCompanyTaxDebtEvidenceMatrix } from "./company-tax-debt-evidence-matrix.ts";
 import { buildCompanyFinancialStatementEvidenceMatrix } from "./company-financial-statement-evidence-matrix.ts";
+import { buildCompanyAverageHeadcountEvidenceMatrix } from "./company-headcount-evidence-matrix.ts";
 
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
@@ -197,7 +198,6 @@ Deno.serve(async (req) => {
       .eq("session_id", sessionId);
     const answers: Record<string, unknown> = {};
     for (const r of answerRows ?? []) answers[r.field_name as string] = r.field_value;
-
     // P0-A5: company factual evidence is a separate audited runtime snapshot.
     // It is deliberately not added to research sources or any model input.
     const companyFactualRuntime = await loadCompanyFactualRuntimeSnapshot({
@@ -218,6 +218,11 @@ Deno.serve(async (req) => {
     // Audit-only: never enters legal/document evidence or model inputs.
     const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(
       companyFactualRuntime.company_financial_statement_evidence,
+    );
+    // P0-A22: separate SSHR2019 annual-average-headcount factual matrix.
+    // Audit-only: never enters legal/document evidence or model inputs.
+    const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(
+      companyFactualRuntime.company_average_headcount_evidence,
     );
 
     // practice_area + template title (for document-intent fallback)
@@ -291,6 +296,8 @@ Deno.serve(async (req) => {
             company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
             company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
             company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,
+            company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,
+            company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
             company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
             company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
             company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
@@ -315,6 +322,8 @@ Deno.serve(async (req) => {
             company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
             company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
             company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,
+            company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,
+            company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
             company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
             company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
             company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
@@ -382,6 +391,8 @@ Deno.serve(async (req) => {
           company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
           company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
           company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,
+          company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,
+          company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
           company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
           company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
           company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
@@ -690,6 +701,16 @@ Deno.serve(async (req) => {
     parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;
     // P0-A20: SSHR2019 average-headcount evidence remains audit-only.
     parsed.company_average_headcount_evidence = companyFactualRuntime.company_average_headcount_evidence;
+    // P0-A22: SSHR2019 identity/matrix persistence remains a separate factual audit channel.
+    parsed.company_average_headcount_factual_evidence_matrix =
+      companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix;
+    parsed.company_average_headcount_factual_identity = {
+      canonical_company_average_headcount_facts:
+        companyAverageHeadcountFactualMatrix.canonical_company_average_headcount_facts,
+      company_headcount_fact_evidence_links:
+        companyAverageHeadcountFactualMatrix.company_headcount_fact_evidence_links,
+      diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
+    };
     // P0-A17: REVEXP identity/matrix persistence remains a separate factual audit channel.
     parsed.company_financial_statement_factual_evidence_matrix =
       companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix;
@@ -752,6 +773,8 @@ Deno.serve(async (req) => {
           company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
           company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
           company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,
+          company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,
+          company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
           company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
           company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
           company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
