@@ -1,7 +1,7 @@
 install=success
 parser=success
 real_parser=success
-storage=failure
-postgres=failure
+storage=success
+postgres=success
 typecheck=success
 diffcheck=success
