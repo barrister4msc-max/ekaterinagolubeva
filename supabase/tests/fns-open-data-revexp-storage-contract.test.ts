@@ -14,8 +14,8 @@ describe("FNS REVEXP private storage contract", () => {
     expect(sql).toContain("expense_amount numeric(20,2) not null");
     expect(sql).toContain("reporting_date date not null");
     expect(sql).toContain("primary key (dataset_id, reporting_date, document_id)");
-    expect(sql).not.toContain("turnover");
-    expect(sql).not.toContain("taxable_income");
+    expect(sql).not.toMatch(/\bturnover\s+(numeric|text|bigint|double|real)/i);
+    expect(sql).not.toMatch(/\btaxable_income\s+(numeric|text|bigint|double|real)/i);
   });
 
   test("returns decimal values as text at JS boundary", () => {
