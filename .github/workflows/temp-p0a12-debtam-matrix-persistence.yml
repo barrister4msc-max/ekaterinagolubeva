@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - feat/p0a12-debtam-matrix-persistence
-  pull_request:
-    branches:
-      - feat/p0a11-debtam-canonical-identity-matrix
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: p0a12-debtam-matrix-persistence
+  cancel-in-progress: false
 
 jobs:
   verify:
@@ -19,6 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: feat/p0a12-debtam-matrix-persistence
           fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
@@ -53,12 +55,20 @@ jobs:
               s = s.replace(duplicate, single, 1)
           assert duplicate not in s
 
-          matrix_anchor = '            company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,\n'
-          matrix_add = matrix_anchor + '''            company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,\n            company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,\n'''
           if 'company_tax_debt_factual_matrix_diagnostics:' not in s:
-              count = s.count(matrix_anchor)
-              assert count == 4, count
-              s = s.replace(matrix_anchor, matrix_add)
+              lines = s.splitlines(keepends=True)
+              out = []
+              seen = 0
+              target = 'company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,'
+              for line in lines:
+                  out.append(line)
+                  if line.strip() == target:
+                      indent = line[:len(line) - len(line.lstrip())]
+                      out.append(indent + 'company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,\n')
+                      out.append(indent + 'company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,\n')
+                      seen += 1
+              assert seen == 4, seen
+              s = ''.join(out)
 
           parsed_anchor = '''    parsed.company_factual_identity = {\n      canonical_company_facts: companyFactualMatrix.canonical_company_facts,\n      company_fact_evidence_links: companyFactualMatrix.company_fact_evidence_links,\n      diagnostics: companyFactualMatrix.diagnostics,\n    };\n'''
           parsed_add = parsed_anchor + '''    // P0-A12: DEBTAM identity/matrix persistence remains a separate factual channel.\n    parsed.company_tax_debt_factual_evidence_matrix =\n      companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix;\n    parsed.company_tax_debt_factual_identity = {\n      canonical_company_tax_debt_facts:\n        companyTaxDebtFactualMatrix.canonical_company_tax_debt_facts,\n      company_tax_debt_evidence_links:\n        companyTaxDebtFactualMatrix.company_tax_debt_evidence_links,\n      diagnostics: companyTaxDebtFactualMatrix.diagnostics,\n    };\n'''
@@ -66,17 +76,14 @@ jobs:
               assert s.count(parsed_anchor) == 1, s.count(parsed_anchor)
               s = s.replace(parsed_anchor, parsed_add, 1)
 
+          assert s.count('company_tax_debt_factual_matrix_diagnostics:') == 4
+          assert s.count('company_tax_debt_factual_evidence_matrix:') >= 4
+          assert 'parsed.company_tax_debt_factual_identity = {' in s
+          assert imp_line in s
+          assert duplicate not in s
           p.write_text(s, encoding='utf-8')
           PY
-
           git diff --check
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add supabase/functions/analyze-document-legal-position/index.ts
-          if ! git diff --cached --quiet; then
-            git commit -m "feat: persist DEBTAM factual matrix in Analyzer audit"
-            git push origin HEAD:feat/p0a12-debtam-matrix-persistence
-          fi
 
       - name: Install
         id: install
@@ -106,9 +113,9 @@ jobs:
       - name: Diff check
         id: diffcheck
         continue-on-error: true
-        run: git diff --check origin/feat/p0a11-debtam-canonical-identity-matrix...HEAD
+        run: git diff --check origin/feat/p0a11-debtam-canonical-identity-matrix...HEAD && git diff --check
 
-      - name: Record outcomes
+      - name: Record verified branch state
         if: always()
         env:
           BRANCH: feat/p0a12-debtam-matrix-persistence
@@ -129,8 +136,10 @@ jobs:
           EOF
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .tmp-p0a12-verification-status.txt
-          git commit -m "chore: record P0-A12 verification outcomes"
+          git add supabase/functions/analyze-document-legal-position/index.ts .tmp-p0a12-verification-status.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: persist and verify DEBTAM factual matrix audit"
+          fi
           git push origin HEAD:"$BRANCH"
 
       - name: Enforce GREEN
