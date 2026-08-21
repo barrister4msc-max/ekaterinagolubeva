@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/p0a12-debtam-matrix-persistence
+  pull_request:
+    branches:
+      - feat/p0a11-debtam-canonical-identity-matrix
   workflow_dispatch:
 
 permissions:
