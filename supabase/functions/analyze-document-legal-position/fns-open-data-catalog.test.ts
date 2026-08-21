@@ -20,6 +20,23 @@ describe("FNS Open Data catalog", () => {
     }
   });
 
+  test("SSHR2019 is refreshed to the verified July 2026 release for 2025 reporting year", () => {
+    const sshr = FNS_OPEN_DATA_DATASETS.find((dataset) => dataset.id === "7707329152-sshr2019");
+    expect(sshr).toBeDefined();
+    expect(sshr?.fact_kind).toBe("headcount");
+    expect(sshr?.entity_scope).toBe("legal_entity");
+    expect(sshr?.data_url).toBe(
+      "https://file.nalog.ru/opendata/7707329152-sshr2019/data-20260725-structure-20200408.zip",
+    );
+    expect(sshr?.schema_url).toBe(
+      "https://file.nalog.ru/opendata/7707329152-sshr2019/structure-20200408.xsd",
+    );
+    expect(sshr?.data_as_of).toBe("2025-12-31");
+    expect(sshr?.published_at).toBe("2026-07-25");
+    expect(sshr?.legal_authority).toBe(false);
+    expect(sshr?.substantive_use_allowed).toBe(false);
+  });
+
   test("SNR is pinned to the verified June 2026 release", () => {
     const snr = FNS_OPEN_DATA_DATASETS.find((dataset) => dataset.id === "7707329152-snr");
     expect(snr).toBeDefined();
