@@ -1,6 +1,5 @@
-patch=failure
 install=success
-orchestration=failure
+orchestration=success
 matrix=success
 regressions=success
 typecheck=success
