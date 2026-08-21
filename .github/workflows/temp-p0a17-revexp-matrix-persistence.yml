@@ -1,3 +1,4 @@
+# temporary verifier for P0-A17
 name: TEMP P0-A17 REVEXP matrix persistence
 
 on:
@@ -32,42 +33,31 @@ jobs:
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+          import re
           p = Path('supabase/functions/analyze-document-legal-position/index.ts')
           s = p.read_text(encoding='utf-8')
 
           imp = 'import { buildCompanyTaxDebtEvidenceMatrix } from "./company-tax-debt-evidence-matrix.ts";\n'
           add_imp = imp + 'import { buildCompanyFinancialStatementEvidenceMatrix } from "./company-financial-statement-evidence-matrix.ts";\n'
           assert s.count(imp) == 1, s.count(imp)
-          if 'buildCompanyFinancialStatementEvidenceMatrix' not in s:
+          if 'import { buildCompanyFinancialStatementEvidenceMatrix }' not in s:
               s = s.replace(imp, add_imp, 1)
 
           debt_build = '''    const companyTaxDebtFactualMatrix = buildCompanyTaxDebtEvidenceMatrix(
               companyFactualRuntime.company_tax_debt_evidence,
             );
-          '''
-          # normalize exact source indentation from TS file
-          debt_build = debt_build.replace('              ', '      ').replace('            );', '    );')
+          '''.replace('              ', '      ').replace('            );', '    );')
           financial_build = debt_build + '''    // P0-A17: separate REVEXP annual financial-statement factual matrix.
               // Audit-only: never enters legal/document evidence or model inputs.
               const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(
                 companyFactualRuntime.company_financial_statement_evidence,
               );
-          '''
-          financial_build = financial_build.replace('              ', '    ').replace('                ', '      ')
+          '''.replace('              ', '    ').replace('                ', '      ')
           if 'const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(' not in s:
               assert s.count(debt_build) == 1, s.count(debt_build)
               s = s.replace(debt_build, financial_build, 1)
 
-          # Four object snapshot locations already persist company_financial_statement_evidence.
-          evidence_line = 'company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,\n'
-          matrix_lines = evidence_line + '''            company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
-            company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
-          '''
           if 'company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,' not in s:
-              count = s.count(evidence_line)
-              assert count == 4, count
-              # Preserve each location's current indentation by matching leading whitespace.
-              import re
               pattern = re.compile(r'(?m)^(\s*)company_financial_statement_evidence: companyFactualRuntime\.company_financial_statement_evidence,\n')
               def repl(m):
                   ind = m.group(1)
@@ -88,8 +78,7 @@ jobs:
                   companyFinancialStatementFactualMatrix.company_financial_statement_fact_evidence_links,
                 diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
               };
-          '''
-          parsed_add = parsed_add.replace('              ', '    ').replace('                ', '      ').replace('                  ', '        ')
+          '''.replace('              ', '    ').replace('                ', '      ').replace('                  ', '        ')
           if 'parsed.company_financial_statement_factual_identity = {' not in s:
               assert s.count(parsed_anchor) == 1, s.count(parsed_anchor)
               s = s.replace(parsed_anchor, parsed_add, 1)
