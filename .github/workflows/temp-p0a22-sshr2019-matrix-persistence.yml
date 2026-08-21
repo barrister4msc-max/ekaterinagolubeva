@@ -28,24 +28,26 @@ jobs:
           s = p.read_text(encoding='utf-8')
 
           import_anchor = 'import { buildCompanyFinancialStatementEvidenceMatrix } from "./company-financial-statement-evidence-matrix.ts";\n'
-          import_add = import_anchor + 'import { buildCompanyAverageHeadcountEvidenceMatrix } from "./company-headcount-evidence-matrix.ts";\n'
           if 'import { buildCompanyAverageHeadcountEvidenceMatrix }' not in s:
               assert s.count(import_anchor) == 1, s.count(import_anchor)
-              s = s.replace(import_anchor, import_add, 1)
+              s = s.replace(import_anchor, import_anchor + 'import { buildCompanyAverageHeadcountEvidenceMatrix } from "./company-headcount-evidence-matrix.ts";\n', 1)
 
-          build_anchor = '''    const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(
-              companyFactualRuntime.company_financial_statement_evidence,
-            );
-          '''.replace('              ', '      ').replace('            );', '    );')
-          build_add = build_anchor + '''    // P0-A22: separate SSHR2019 annual-average-headcount factual matrix.
-              // Audit-only: never enters legal/document evidence or model inputs.
-              const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(
-                companyFactualRuntime.company_average_headcount_evidence,
-              );
-          '''.replace('              ', '    ').replace('                ', '      ')
           if 'const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(' not in s:
-              assert s.count(build_anchor) == 1, s.count(build_anchor)
-              s = s.replace(build_anchor, build_add, 1)
+              pattern = re.compile(
+                  r'(    const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix\(\n'
+                  r'      companyFactualRuntime\.company_financial_statement_evidence,\n'
+                  r'    \);\n)'
+              )
+              addition = (
+                  r'\1'
+                  '    // P0-A22: separate SSHR2019 annual-average-headcount factual matrix.\n'
+                  '    // Audit-only: never enters legal/document evidence or model inputs.\n'
+                  '    const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(\n'
+                  '      companyFactualRuntime.company_average_headcount_evidence,\n'
+                  '    );\n'
+              )
+              s, n = pattern.subn(addition, s, count=1)
+              assert n == 1, n
 
           if 'company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,' not in s:
               pattern = re.compile(r'(?m)^(\s*)company_average_headcount_evidence: companyFactualRuntime\.company_average_headcount_evidence,\n')
@@ -60,19 +62,19 @@ jobs:
               assert n == 4, n
 
           parsed_anchor = '    parsed.company_average_headcount_evidence = companyFactualRuntime.company_average_headcount_evidence;\n'
-          parsed_add = parsed_anchor + '''    // P0-A22: SSHR2019 identity/matrix persistence remains a separate factual audit channel.
-              parsed.company_average_headcount_factual_evidence_matrix =
-                companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix;
-              parsed.company_average_headcount_factual_identity = {
-                canonical_company_average_headcount_facts:
-                  companyAverageHeadcountFactualMatrix.canonical_company_average_headcount_facts,
-                company_headcount_fact_evidence_links:
-                  companyAverageHeadcountFactualMatrix.company_headcount_fact_evidence_links,
-                diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
-              };
-          '''.replace('              ', '    ').replace('                ', '      ').replace('                  ', '        ')
           if 'parsed.company_average_headcount_factual_identity = {' not in s:
               assert s.count(parsed_anchor) == 1, s.count(parsed_anchor)
+              parsed_add = parsed_anchor + '''    // P0-A22: SSHR2019 identity/matrix persistence remains a separate factual audit channel.
+    parsed.company_average_headcount_factual_evidence_matrix =
+      companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix;
+    parsed.company_average_headcount_factual_identity = {
+      canonical_company_average_headcount_facts:
+        companyAverageHeadcountFactualMatrix.canonical_company_average_headcount_facts,
+      company_headcount_fact_evidence_links:
+        companyAverageHeadcountFactualMatrix.company_headcount_fact_evidence_links,
+      diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
+    };
+'''
               s = s.replace(parsed_anchor, parsed_add, 1)
 
           p.write_text(s, encoding='utf-8')
