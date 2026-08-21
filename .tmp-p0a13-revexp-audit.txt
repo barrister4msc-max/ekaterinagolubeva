@@ -1,5 +1,9 @@
 download=success
 inspect=success
+install=success
+catalog=success
+typecheck=success
+diffcheck=success
 {
   "zip_sha256": "bada16ef2497084edd342c0e2f00442293ac708f28a51fb8954fa21a0941f8d8",
   "xsd_sha256": "71156f70e08072672d7cc28bb7dd8e9f03891edb72411133b23d4c1dabcd8f57",
