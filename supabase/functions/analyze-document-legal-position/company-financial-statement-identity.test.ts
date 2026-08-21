@@ -57,8 +57,7 @@ describe("Canonical REVEXP financial statement identity", () => {
     const first = toCompanyFinancialStatementEvidence(row());
     const other = toCompanyFinancialStatementEvidence(row({ inn: "7707654321", document_id: "doc-other" }));
     const facts = buildCanonicalCompanyFinancialStatementFacts([first]);
-    const links = buildCompanyFinancialStatementFactEvidenceLinks({ facts, evidence: [other] });
-    expect(links).toEqual([]);
+    expect(buildCompanyFinancialStatementFactEvidenceLinks({ facts, evidence: [other] })).toEqual([]);
   });
 
   test("fails closed when evidence id or legal safety flags conflict", () => {
@@ -74,5 +73,14 @@ describe("Canonical REVEXP financial statement identity", () => {
     malformedMoney.attributes.income_amount = "11623000.1";
     expect(buildCanonicalCompanyFinancialStatementFacts([turnoverAllowed])).toEqual([]);
     expect(buildCanonicalCompanyFinancialStatementFacts([malformedMoney])).toEqual([]);
+  });
+
+  test("rejects the whole canonical identity when duplicate exact evidence conflicts on value", () => {
+    const first = toCompanyFinancialStatementEvidence(row());
+    const conflicting = toCompanyFinancialStatementEvidence(row({ income_amount: "999.00" }));
+    expect(first.evidence_id).toBe(conflicting.evidence_id);
+    const facts = buildCanonicalCompanyFinancialStatementFacts([first, conflicting]);
+    expect(facts).toEqual([]);
+    expect(buildCompanyFinancialStatementFactEvidenceLinks({ facts, evidence: [first, conflicting] })).toEqual([]);
   });
 });
