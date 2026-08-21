@@ -1,8 +1,0 @@
-patch=success
-install=success
-adapter=success
-runtime=success
-orchestration=success
-regressions=success
-typecheck=success
-diffcheck=success
