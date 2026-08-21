@@ -35,7 +35,7 @@ export const FNS_OPEN_DATA_DATASETS: readonly FnsOpenDataDataset[] = [
     id: "7707329152-sshr2019",
     title: "Сведения о среднесписочной численности работников организации",
     landing_url: "https://www.nalog.gov.ru/opendata/7707329152-sshr2019/",
-    data_url: "https://file.nalog.ru/opendata/7707329152-sshr2019/data-20260625-structure-20200408.zip",
+    data_url: "https://file.nalog.ru/opendata/7707329152-sshr2019/data-20260725-structure-20200408.zip",
     schema_url: "https://file.nalog.ru/opendata/7707329152-sshr2019/structure-20200408.xsd",
     format: "xml_zip",
     entity_scope: "legal_entity",
@@ -45,7 +45,7 @@ export const FNS_OPEN_DATA_DATASETS: readonly FnsOpenDataDataset[] = [
     legal_authority: false,
     substantive_use_allowed: false,
     data_as_of: "2025-12-31",
-    published_at: "2026-06-25",
+    published_at: "2026-07-25",
   },
   {
     id: "7707329152-debtam",
