@@ -1,0 +1,8 @@
+parser=success
+real_parser=success
+install=success
+storage=success
+postgres=success
+regressions=success
+typecheck=success
+diffcheck=success
