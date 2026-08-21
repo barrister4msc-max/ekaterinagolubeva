@@ -34,6 +34,47 @@
     "Тлф",
     "Фамилия"
   ],
+  "xsd_selected_attribute_defs": {
+    "НаимОрг": [
+      {
+        "name": "НаимОрг",
+        "use": "required"
+      }
+    ],
+    "ИННЮЛ": [
+      {
+        "name": "ИННЮЛ",
+        "type": "ИННЮЛТип",
+        "use": "required"
+      }
+    ],
+    "КолРаб": [
+      {
+        "name": "КолРаб",
+        "use": "required"
+      }
+    ],
+    "ИдДок": [
+      {
+        "name": "ИдДок",
+        "use": "required"
+      }
+    ],
+    "ДатаДок": [
+      {
+        "name": "ДатаДок",
+        "type": "ДатаТип",
+        "use": "required"
+      }
+    ],
+    "ДатаСост": [
+      {
+        "name": "ДатаСост",
+        "type": "ДатаТип",
+        "use": "required"
+      }
+    ]
+  },
   "sample_members": [
     {
       "member": "VO_OTKRDAN_3_9965_9965_20260725_58d1987e-e38a-4b77-8fc8-d04b11f82f5b.xml",
@@ -171,5 +212,24 @@
       "9",
       "5"
     ]
+  },
+  "bounded_probe": {
+    "xml_members_sampled": 5,
+    "documents": 4500,
+    "inn_rows": 4500,
+    "unique_inns": 4500,
+    "all_inn_10_digits": true,
+    "headcount_rows": 4500,
+    "headcount_min": 0,
+    "headcount_max": 1775,
+    "headcount_zero_count": 777,
+    "headcount_negative_count": 0,
+    "document_dates": [
+      "25.07.2026"
+    ],
+    "reporting_dates": [
+      "31.12.2025"
+    ],
+    "missing_or_malformed": []
   }
 }
