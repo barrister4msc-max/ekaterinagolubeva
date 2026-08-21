@@ -1,0 +1,7 @@
+patch=failure
+install=success
+persistence=failure
+headcount=success
+regressions=success
+typecheck=success
+diffcheck=success
