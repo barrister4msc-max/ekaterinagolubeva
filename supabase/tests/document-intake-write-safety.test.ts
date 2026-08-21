@@ -57,4 +57,14 @@ describe("document intake write safety", () => {
     expect(claim).toBeGreaterThan(-1);
     expect(download).toBeGreaterThan(claim);
   });
+
+  test("client resumes and waits for an existing OCR lease", async () => {
+    const source = await Bun.file(
+      join(testsDirectory, "../../src/components/document-builder/intake-form.tsx"),
+    ).text();
+
+    expect(source).toContain('data?.extraction_status === "processing"');
+    expect(source).toContain("waitForPersistedExtraction(documentId, 190_000)");
+    expect(source).toContain('d.extraction_status === "processing"');
+  });
 });
