@@ -1,7 +1,0 @@
-install=success
-identity=success
-matrix=success
-headcount=success
-regressions=success
-typecheck=success
-diffcheck=success
