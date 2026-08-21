@@ -1,0 +1,144 @@
+name: TEMP P0-A19 SSHR2019 parser storage RPC
+on:
+  push:
+    branches: [feat/p0a19-sshr2019-parser-storage-rpc]
+  pull_request:
+    branches: [feat/p0a18-sshr2019-freshness-schema-audit]
+permissions:
+  contents: write
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: 1.2.22 }
+
+      - name: Parser unit tests
+        id: parser
+        continue-on-error: true
+        run: python scripts/test_fns_open_data_sshr2019_dry_run.py
+
+      - name: Real official parser smoke
+        id: real_parser
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 5 --retry-all-errors --connect-timeout 30 --max-time 300 \
+            -o /tmp/sshr2019.zip \
+            https://file.nalog.ru/opendata/7707329152-sshr2019/data-20260725-structure-20200408.zip
+          echo '265eca8b05a234ff629f57779ebbc647d07e42c7e43612b40e9ae84340de1464  /tmp/sshr2019.zip' | sha256sum -c -
+          python scripts/fns_open_data_sshr2019_dry_run.py --input /tmp/sshr2019.zip --limit 25 --emit-records > /tmp/sshr.out
+          tail -n 1 /tmp/sshr.out | grep '"rows_parsed": 25'
+          tail -n 1 /tmp/sshr.out | grep '"db_writes": false'
+
+      - name: Install
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile
+
+      - name: Storage contract tests
+        id: storage
+        continue-on-error: true
+        run: bun test ./supabase/tests/fns-open-data-sshr2019-storage-contract.test.ts
+
+      - name: Disposable PostgreSQL assertions
+        id: postgres
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          sudo systemctl start postgresql
+          sudo -u postgres psql -v ON_ERROR_STOP=1 <<'SQL'
+          do $$ begin
+            if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
+            if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
+            if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
+          end $$;
+          create schema if not exists fns_open_data;
+          create table if not exists fns_open_data.sync_state (
+            dataset_id text primary key,
+            status text not null,
+            records_count bigint not null default 0
+          );
+          alter table fns_open_data.sync_state drop constraint if exists fns_sync_dataset_id;
+          alter table fns_open_data.sync_state add constraint fns_sync_dataset_id check (dataset_id in ('7707329152-snr','7707329152-debtam','7707329152-revexp'));
+          SQL
+          sudo -u postgres psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260821190000_fns_open_data_sshr2019_company_facts.sql
+          sudo -u postgres psql -v ON_ERROR_STOP=1 <<'SQL'
+          insert into fns_open_data.company_average_headcount
+            (inn, organization_name, average_headcount, document_id, document_date, reporting_date, dataset_id, source_url, source_sha256)
+          values
+            ('7701234567','ООО ТЕСТ',0,'doc-2024','2025-07-25','2024-12-31','7707329152-sshr2019','https://file.nalog.ru/opendata/x','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'),
+            ('7701234567','ООО ТЕСТ',12,'doc-2025','2026-07-25','2025-12-31','7707329152-sshr2019','https://file.nalog.ru/opendata/x','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
+          insert into fns_open_data.sync_state(dataset_id,status,records_count)
+          values ('7707329152-sshr2019','completed',2)
+          on conflict (dataset_id) do update set status=excluded.status, records_count=excluded.records_count;
+
+          do $$
+          declare v bigint; c int;
+          begin
+            select average_headcount into v from public.fns_open_data_get_average_headcount('7701234567', null);
+            if v <> 12 then raise exception 'latest lookup wrong: %', v; end if;
+            select average_headcount into v from public.fns_open_data_get_average_headcount('7701234567', '2024-12-31');
+            if v <> 0 then raise exception 'zero/history lookup wrong: %', v; end if;
+            select count(*) into c from public.fns_open_data_get_average_headcount('7701234567', '2023-12-31');
+            if c <> 0 then raise exception 'pre-history lookup should be empty'; end if;
+            if not public.fns_open_data_sshr2019_is_available() then raise exception 'availability false'; end if;
+            if has_function_privilege('anon','public.fns_open_data_get_average_headcount(text,date)','EXECUTE') then raise exception 'anon execute leaked'; end if;
+            if has_function_privilege('authenticated','public.fns_open_data_get_average_headcount(text,date)','EXECUTE') then raise exception 'authenticated execute leaked'; end if;
+            if not has_function_privilege('service_role','public.fns_open_data_get_average_headcount(text,date)','EXECUTE') then raise exception 'service_role missing execute'; end if;
+          end $$;
+          SQL
+
+      - name: Existing factual storage regressions
+        id: regressions
+        continue-on-error: true
+        run: |
+          bun test ./supabase/tests/fns-open-data-revexp-storage-contract.test.ts
+          bun test ./supabase/tests/fns-open-data-debtam-storage-contract.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-open-data-catalog.test.ts
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bun run typecheck
+
+      - name: Diffcheck
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check origin/feat/p0a18-sshr2019-freshness-schema-audit...HEAD
+
+      - name: Record
+        if: always() && github.event_name == 'push'
+        env:
+          PARSER: ${{ steps.parser.outcome }}
+          REAL: ${{ steps.real_parser.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          STORAGE: ${{ steps.storage.outcome }}
+          POSTGRES: ${{ steps.postgres.outcome }}
+          REG: ${{ steps.regressions.outcome }}
+          TYPE: ${{ steps.typecheck.outcome }}
+          DIFF: ${{ steps.diffcheck.outcome }}
+        run: |
+          printf 'parser=%s\nreal_parser=%s\ninstall=%s\nstorage=%s\npostgres=%s\nregressions=%s\ntypecheck=%s\ndiffcheck=%s\n' "$PARSER" "$REAL" "$INSTALL" "$STORAGE" "$POSTGRES" "$REG" "$TYPE" "$DIFF" > .tmp-p0a19-verification-status.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .tmp-p0a19-verification-status.txt
+          git commit -m "chore: record P0-A19 verification outcomes"
+          git push origin HEAD:feat/p0a19-sshr2019-parser-storage-rpc
+
+      - name: Enforce GREEN
+        if: always()
+        env:
+          PARSER: ${{ steps.parser.outcome }}
+          REAL: ${{ steps.real_parser.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          STORAGE: ${{ steps.storage.outcome }}
+          POSTGRES: ${{ steps.postgres.outcome }}
+          REG: ${{ steps.regressions.outcome }}
+          TYPE: ${{ steps.typecheck.outcome }}
+          DIFF: ${{ steps.diffcheck.outcome }}
+        run: |
+          test "$PARSER" = success && test "$REAL" = success && test "$INSTALL" = success && test "$STORAGE" = success && test "$POSTGRES" = success && test "$REG" = success && test "$TYPE" = success && test "$DIFF" = success
