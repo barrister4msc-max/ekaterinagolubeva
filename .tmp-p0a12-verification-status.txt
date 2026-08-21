@@ -1,0 +1,6 @@
+patch=failure
+install=success
+orchestration=failure
+regressions=success
+typecheck=success
+diffcheck=success
