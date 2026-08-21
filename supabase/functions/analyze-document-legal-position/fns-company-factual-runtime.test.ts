@@ -3,6 +3,7 @@ import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime
 
 const SNR_SHA = "a0b1c63d38569e65acd2011a72e578f2b12ebd42b1c553fe352628ed480f475a";
 const DEBT_SHA = "0bf119d728c4c6876e6aebe2331bfbfe8a9c0db87682b89d18e3b3d70a8845f5";
+const HEADCOUNT_SHA = "265eca8b05a234ff629f57779ebbc647d07e42c7e43612b40e9ae84340de1464";
 
 function snrRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -39,6 +40,16 @@ function debtRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function headcountRow(overrides: Record<string, unknown> = {}) {
+  return {
+    inn: "7701234567", organization_name: "ООО Ромашка", average_headcount: 0,
+    document_id: "headcount-doc-1", document_date: "2026-07-25", reporting_date: "2025-12-31",
+    dataset_id: "7707329152-sshr2019",
+    source_url: "https://file.nalog.ru/opendata/7707329152-sshr2019/data-20260725-structure-20200408.zip",
+    source_sha256: HEADCOUNT_SHA, ...overrides,
+  };
+}
+
 describe("Company factual runtime boundary", () => {
   it("does not query FNS when no explicit INN answer field exists", async () => {
     let calls = 0;
@@ -55,6 +66,7 @@ describe("Company factual runtime boundary", () => {
     expect(calls).toBe(0);
     expect(snapshot.company_factual_evidence).toEqual([]);
     expect(snapshot.company_tax_debt_evidence).toEqual([]);
+    expect(snapshot.company_average_headcount_evidence).toEqual([]);
     expect(snapshot.diagnostics).toEqual({
       explicit_legal_entity_inns: [],
       requested_count: 0,
@@ -85,12 +97,14 @@ describe("Company factual runtime boundary", () => {
               error: null,
             };
           }
+          if (fn === "fns_open_data_get_average_headcount") return { data: [headcountRow()], error: null };
           return { data: null, error: { message: "unexpected rpc" } };
         },
       },
     });
 
     expect(calls.map((call) => call.fn).sort()).toEqual([
+      "fns_open_data_get_average_headcount",
       "fns_open_data_get_financial_statement_text",
       "fns_open_data_get_tax_debts_text",
       "fns_open_data_get_tax_regime",
@@ -100,9 +114,12 @@ describe("Company factual runtime boundary", () => {
     expect(snapshot.company_tax_debt_evidence).toHaveLength(2);
     expect(snapshot.company_tax_debt_evidence.every((row) => row.fact_kind === "tax_debt")).toBe(true);
     expect(snapshot.company_tax_debt_evidence.map((row) => row.debt_row_ordinal)).toEqual([1, 2]);
-    expect(snapshot.diagnostics.loaded_count).toBe(3);
+    expect(snapshot.company_average_headcount_evidence).toHaveLength(1);
+    expect(snapshot.company_average_headcount_evidence[0]?.attributes.average_headcount).toBe(0);
+    expect(snapshot.diagnostics.loaded_count).toBe(4);
     expect(snapshot.dataset_diagnostics.snr).toMatchObject({ loaded_count: 1, evidence_rows: 1, fact_kind: "tax_regime" });
     expect(snapshot.dataset_diagnostics.debtam).toMatchObject({ loaded_count: 1, evidence_rows: 2, fact_kind: "tax_debt" });
+    expect(snapshot.dataset_diagnostics.sshr2019).toMatchObject({ loaded_count: 1, evidence_rows: 1, fact_kind: "headcount" });
   });
 
   it("keeps the SNR channel available if DEBTAM lookup fails", async () => {
