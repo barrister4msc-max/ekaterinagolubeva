@@ -28,35 +28,44 @@ jobs:
         with:
           bun-version: 1.2.22
 
-      - name: Patch Analyzer audit persistence
+      - name: Patch Analyzer audit persistence and legacy runtime expectations
         id: patch
         continue-on-error: true
         run: |
           set -euo pipefail
           python - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path('supabase/functions/analyze-document-legal-position/index.ts')
           s = p.read_text(encoding='utf-8')
-          anchor = '            company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,\n'
-          addition = anchor + '            company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,\n'
           if 'company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,' not in s:
-              count = s.count(anchor)
-              assert count == 4, count
-              s = s.replace(anchor, addition)
+              pattern = re.compile(r'(?m)^(\s*)company_tax_debt_evidence: companyFactualRuntime\.company_tax_debt_evidence,$')
+              matches = list(pattern.finditer(s))
+              assert len(matches) == 4, len(matches)
+              s = pattern.sub(lambda m: m.group(0) + '\n' + m.group(1) + 'company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,', s)
           parsed_anchor = '    parsed.company_tax_debt_evidence = companyFactualRuntime.company_tax_debt_evidence;\n'
-          parsed_add = parsed_anchor + '    // P0-A15: REVEXP annual accounting-statement evidence remains audit-only.\n    parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;\n'
-          if 'parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;' not in s:
+          parsed_line = '    parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;\n'
+          if parsed_line not in s:
               assert s.count(parsed_anchor) == 1, s.count(parsed_anchor)
-              s = s.replace(parsed_anchor, parsed_add, 1)
+              s = s.replace(parsed_anchor, parsed_anchor + '    // P0-A15: REVEXP annual accounting-statement evidence remains audit-only.\n' + parsed_line, 1)
           p.write_text(s, encoding='utf-8')
+
+          t = Path('supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts')
+          ts = t.read_text(encoding='utf-8')
+          expected_anchor = '      "fns_open_data_get_tax_debts_text",\n      "fns_open_data_get_tax_regime",\n'
+          if '      "fns_open_data_get_financial_statement_text",\n' not in ts:
+              assert ts.count(expected_anchor) == 1, ts.count(expected_anchor)
+              ts = ts.replace(expected_anchor, '      "fns_open_data_get_financial_statement_text",\n' + expected_anchor, 1)
+          t.write_text(ts, encoding='utf-8')
           PY
           git diff --check
           if [ "${{ github.event_name }}" = "push" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add supabase/functions/analyze-document-legal-position/index.ts
+            git add supabase/functions/analyze-document-legal-position/index.ts supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
             if ! git diff --cached --quiet; then
-              git commit -m "feat: persist REVEXP factual runtime audit"
+              git commit -m "feat: wire REVEXP factual runtime audit"
               git push origin HEAD:feat/p0a15-revexp-runtime-factual-evidence
             fi
           fi
