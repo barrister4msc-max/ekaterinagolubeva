@@ -1,0 +1,145 @@
+name: TEMP P0-A14 REVEXP parser storage
+
+on:
+  push:
+    branches:
+      - feat/p0a14-revexp-parser-storage-rpc
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
+      - name: Install
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile
+
+      - name: Parser unit tests
+        id: parser
+        continue-on-error: true
+        run: |
+          cd scripts
+          python -m unittest test_fns_open_data_revexp_dry_run.py
+
+      - name: Real pinned REVEXP parser
+        id: real_parser
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-delay 2 -o /tmp/revexp.zip \
+            https://file.nalog.ru/opendata/7707329152-revexp/data-20260725-structure-20180110.zip
+          echo "bada16ef2497084edd342c0e2f00442293ac708f28a51fb8954fa21a0941f8d8  /tmp/revexp.zip" | sha256sum -c -
+          python scripts/fns_open_data_revexp_dry_run.py --input /tmp/revexp.zip --limit 25 > /tmp/revexp-parser-output.txt
+          grep -q '"dataset_id": "7707329152-revexp"' /tmp/revexp-parser-output.txt
+          grep -q '"db_writes": false' /tmp/revexp-parser-output.txt
+
+      - name: Storage contract tests
+        id: storage
+        continue-on-error: true
+        run: bun test ./supabase/tests/fns-open-data-revexp-storage-contract.test.ts
+
+      - name: Disposable PostgreSQL migration/RPC check
+        id: postgres
+        continue-on-error: true
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20260820173000_fns_open_data_snr_company_facts.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20260820214000_fns_open_data_debtam_company_facts.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20260821103000_fns_open_data_revexp_company_facts.sql
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          insert into fns_open_data.company_financial_statements
+            (inn, organization_name, income_amount, expense_amount, document_id, document_date, reporting_date, dataset_id, source_url, source_sha256)
+          values
+            ('7701234567','ООО Тест',11623000.10,10969000.20,'doc-2025','2026-07-25','2025-12-31','7707329152-revexp','https://file.nalog.ru/opendata/7707329152-revexp/data.zip',repeat('a',64)),
+            ('7701234567','ООО Тест',100.10,90.20,'doc-2024','2025-07-25','2024-12-31','7707329152-revexp','https://file.nalog.ru/opendata/7707329152-revexp/data.zip',repeat('b',64));
+          insert into fns_open_data.sync_state (dataset_id, status, records_count)
+          values ('7707329152-revexp','completed',2)
+          on conflict (dataset_id) do update set status=excluded.status, records_count=excluded.records_count;
+          SQL
+          latest=$(psql -h localhost -U postgres -d postgres -Atc "select income_amount || '|' || expense_amount || '|' || reporting_date from public.fns_open_data_get_financial_statement_text('7701234567', null);")
+          test "$latest" = "11623000.10|10969000.20|2025-12-31"
+          historical=$(psql -h localhost -U postgres -d postgres -Atc "select income_amount || '|' || reporting_date from public.fns_open_data_get_financial_statement_text('7701234567', '2024-12-31');")
+          test "$historical" = "100.10|2024-12-31"
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bun run typecheck
+
+      - name: Diff check
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check origin/feat/p0a13-revexp-freshness-schema-audit...HEAD
+
+      - name: Record outcomes
+        if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          PARSER: ${{ steps.parser.outcome }}
+          REAL_PARSER: ${{ steps.real_parser.outcome }}
+          STORAGE: ${{ steps.storage.outcome }}
+          POSTGRES: ${{ steps.postgres.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          cat > .tmp-p0a14-verification-status.txt <<EOF
+          install=$INSTALL
+          parser=$PARSER
+          real_parser=$REAL_PARSER
+          storage=$STORAGE
+          postgres=$POSTGRES
+          typecheck=$TYPECHECK
+          diffcheck=$DIFFCHECK
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-p0a14-verification-status.txt
+          git commit -m "chore: record P0-A14 verification outcomes"
+          git push origin HEAD:feat/p0a14-revexp-parser-storage-rpc
+
+      - name: Enforce GREEN
+        if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          PARSER: ${{ steps.parser.outcome }}
+          REAL_PARSER: ${{ steps.real_parser.outcome }}
+          STORAGE: ${{ steps.storage.outcome }}
+          POSTGRES: ${{ steps.postgres.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          test "$INSTALL" = success
+          test "$PARSER" = success
+          test "$REAL_PARSER" = success
+          test "$STORAGE" = success
+          test "$POSTGRES" = success
+          test "$TYPECHECK" = success
+          test "$DIFFCHECK" = success
