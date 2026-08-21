@@ -20,18 +20,23 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
+          curl -L --fail --retry 6 --retry-all-errors --connect-timeout 30 --max-time 900 \
+            -A 'Mozilla/5.0 KATI-LAWYER-source-audit' \
+            -o /tmp/sshr2019.zip \
+            'https://file.nalog.ru/opendata/7707329152-sshr2019/data-20260725-structure-20200408.zip'
+          curl -L --fail --retry 6 --retry-all-errors --connect-timeout 30 --max-time 180 \
+            -A 'Mozilla/5.0 KATI-LAWYER-source-audit' \
+            -o /tmp/sshr2019.xsd \
+            'https://file.nalog.ru/opendata/7707329152-sshr2019/structure-20200408.xsd'
           python - <<'PY'
-          import hashlib, io, urllib.request, zipfile
+          import hashlib, zipfile
           import xml.etree.ElementTree as ET
-          data_url='https://file.nalog.ru/opendata/7707329152-sshr2019/data-20260725-structure-20200408.zip'
-          xsd_url='https://file.nalog.ru/opendata/7707329152-sshr2019/structure-20200408.xsd'
-          def get(u):
-              req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 KATI-LAWYER-source-audit'})
-              with urllib.request.urlopen(req,timeout=180) as r:return r.read()
-          xsd=get(xsd_url); data=get(data_url)
+          data=open('/tmp/sshr2019.zip','rb').read(); xsd=open('/tmp/sshr2019.xsd','rb').read()
+          assert len(data)==98434553
+          assert len(xsd)==11173
           assert hashlib.sha256(data).hexdigest()=='265eca8b05a234ff629f57779ebbc647d07e42c7e43612b40e9ae84340de1464'
           assert hashlib.sha256(xsd).hexdigest()=='3c63a9447e0c0dbacaf9fe11f1888c5873137f9252f226c148303dd6dfa9d137'
-          z=zipfile.ZipFile(io.BytesIO(data)); names=[n for n in z.namelist() if n.lower().endswith('.xml')]
+          z=zipfile.ZipFile('/tmp/sshr2019.zip'); names=[n for n in z.namelist() if n.lower().endswith('.xml')]
           assert len(names)==2271
           docs=inns=counts=0; zero=False
           for n in names[:5]:
