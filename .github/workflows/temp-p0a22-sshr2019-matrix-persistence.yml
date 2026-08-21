@@ -1,0 +1,165 @@
+name: TEMP P0-A22 SSHR2019 matrix persistence
+on:
+  push:
+    branches: [feat/p0a22-sshr2019-matrix-persistence]
+  pull_request:
+    branches: [feat/p0a21-sshr2019-canonical-identity-matrix]
+permissions:
+  contents: write
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: 1.2.22 }
+
+      - name: Patch Analyzer SSHR2019 matrix persistence
+        id: patch
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('supabase/functions/analyze-document-legal-position/index.ts')
+          s = p.read_text(encoding='utf-8')
+
+          import_anchor = 'import { buildCompanyFinancialStatementEvidenceMatrix } from "./company-financial-statement-evidence-matrix.ts";\n'
+          import_add = import_anchor + 'import { buildCompanyAverageHeadcountEvidenceMatrix } from "./company-headcount-evidence-matrix.ts";\n'
+          if 'import { buildCompanyAverageHeadcountEvidenceMatrix }' not in s:
+              assert s.count(import_anchor) == 1, s.count(import_anchor)
+              s = s.replace(import_anchor, import_add, 1)
+
+          build_anchor = '''    const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(
+              companyFactualRuntime.company_financial_statement_evidence,
+            );
+          '''.replace('              ', '      ').replace('            );', '    );')
+          build_add = build_anchor + '''    // P0-A22: separate SSHR2019 annual-average-headcount factual matrix.
+              // Audit-only: never enters legal/document evidence or model inputs.
+              const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(
+                companyFactualRuntime.company_average_headcount_evidence,
+              );
+          '''.replace('              ', '    ').replace('                ', '      ')
+          if 'const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(' not in s:
+              assert s.count(build_anchor) == 1, s.count(build_anchor)
+              s = s.replace(build_anchor, build_add, 1)
+
+          if 'company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,' not in s:
+              pattern = re.compile(r'(?m)^(\s*)company_average_headcount_evidence: companyFactualRuntime\.company_average_headcount_evidence,\n')
+              def repl(m):
+                  ind = m.group(1)
+                  return (
+                      f'{ind}company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,\n'
+                      f'{ind}company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,\n'
+                      f'{ind}company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,\n'
+                  )
+              s, n = pattern.subn(repl, s)
+              assert n == 4, n
+
+          parsed_anchor = '    parsed.company_average_headcount_evidence = companyFactualRuntime.company_average_headcount_evidence;\n'
+          parsed_add = parsed_anchor + '''    // P0-A22: SSHR2019 identity/matrix persistence remains a separate factual audit channel.
+              parsed.company_average_headcount_factual_evidence_matrix =
+                companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix;
+              parsed.company_average_headcount_factual_identity = {
+                canonical_company_average_headcount_facts:
+                  companyAverageHeadcountFactualMatrix.canonical_company_average_headcount_facts,
+                company_headcount_fact_evidence_links:
+                  companyAverageHeadcountFactualMatrix.company_headcount_fact_evidence_links,
+                diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
+              };
+          '''.replace('              ', '    ').replace('                ', '      ').replace('                  ', '        ')
+          if 'parsed.company_average_headcount_factual_identity = {' not in s:
+              assert s.count(parsed_anchor) == 1, s.count(parsed_anchor)
+              s = s.replace(parsed_anchor, parsed_add, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+          git diff --check
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add supabase/functions/analyze-document-legal-position/index.ts
+            if ! git diff --cached --quiet; then
+              git commit -m "feat: persist SSHR2019 factual matrix in Analyzer audit"
+              git push origin HEAD:feat/p0a22-sshr2019-matrix-persistence
+            fi
+          fi
+
+      - name: Install
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile
+
+      - name: P0-A22 persistence tests
+        id: persistence
+        continue-on-error: true
+        run: bun test ./supabase/functions/analyze-document-legal-position/company-headcount-matrix-persistence.test.ts
+
+      - name: SSHR2019 identity and matrix regressions
+        id: headcount
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/company-headcount-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-headcount-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-headcount-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-headcount-orchestration.test.ts
+
+      - name: Existing factual regressions
+        id: regressions
+        continue-on-error: true
+        run: |
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-tax-debt-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-evidence-matrix.test.ts
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bun run typecheck
+
+      - name: Diffcheck
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check origin/feat/p0a21-sshr2019-canonical-identity-matrix...HEAD
+
+      - name: Record
+        if: always() && github.event_name == 'push'
+        env:
+          PATCH: ${{ steps.patch.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          PERSISTENCE: ${{ steps.persistence.outcome }}
+          HEADCOUNT: ${{ steps.headcount.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          printf 'patch=%s\ninstall=%s\npersistence=%s\nheadcount=%s\nregressions=%s\ntypecheck=%s\ndiffcheck=%s\n' "$PATCH" "$INSTALL" "$PERSISTENCE" "$HEADCOUNT" "$REGRESSIONS" "$TYPECHECK" "$DIFFCHECK" > .tmp-p0a22-verification-status.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-p0a22-verification-status.txt
+          git commit -m "chore: record P0-A22 verification outcomes"
+          git push origin HEAD:feat/p0a22-sshr2019-matrix-persistence
+
+      - name: Enforce GREEN
+        if: always()
+        env:
+          PATCH: ${{ steps.patch.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          PERSISTENCE: ${{ steps.persistence.outcome }}
+          HEADCOUNT: ${{ steps.headcount.outcome }}
+          REGRESSIONS: ${{ steps.regressions.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
+        run: |
+          test "$PATCH" = success
+          test "$INSTALL" = success
+          test "$PERSISTENCE" = success
+          test "$HEADCOUNT" = success
+          test "$REGRESSIONS" = success
+          test "$TYPECHECK" = success
+          test "$DIFFCHECK" = success
