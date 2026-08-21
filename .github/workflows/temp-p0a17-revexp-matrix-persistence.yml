@@ -2,6 +2,8 @@ name: TEMP P0-A17 REVEXP matrix persistence
 on:
   push:
     branches: [feat/p0a17-revexp-matrix-persistence]
+  pull_request:
+    branches: [feat/p0a16-revexp-canonical-identity-matrix]
 permissions:
   contents: write
 jobs:
@@ -56,11 +58,13 @@ jobs:
           p.write_text(s)
           PY
           git diff --check
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add supabase/functions/analyze-document-legal-position/index.ts
-          git commit -m "feat: persist REVEXP factual matrix in Analyzer audit"
-          git push origin HEAD:feat/p0a17-revexp-matrix-persistence
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git add supabase/functions/analyze-document-legal-position/index.ts
+            git commit -m "feat: persist REVEXP factual matrix in Analyzer audit"
+            git push origin HEAD:feat/p0a17-revexp-matrix-persistence
+          fi
       - name: Install
         id: install
         continue-on-error: true
@@ -95,7 +99,7 @@ jobs:
         continue-on-error: true
         run: git diff --check origin/feat/p0a16-revexp-canonical-identity-matrix...HEAD
       - name: Record
-        if: always()
+        if: always() && github.event_name == 'push'
         env:
           PATCH: ${{ steps.patch.outcome }}
           INSTALL: ${{ steps.install.outcome }}
