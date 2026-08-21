@@ -22,41 +22,36 @@ jobs:
           import re
           p=Path('supabase/functions/analyze-document-legal-position/index.ts')
           s=p.read_text()
-          old='import { buildCompanyTaxDebtEvidenceMatrix } from "./company-tax-debt-evidence-matrix.ts";\n'
-          if 'buildCompanyFinancialStatementEvidenceMatrix' not in s:
-            assert s.count(old)==1
-            s=s.replace(old,old+'import { buildCompanyFinancialStatementEvidenceMatrix } from "./company-financial-statement-evidence-matrix.ts";\n',1)
-          old='''    const companyTaxDebtFactualMatrix = buildCompanyTaxDebtEvidenceMatrix(
-              companyFactualRuntime.company_tax_debt_evidence,
-            );
-          '''
-          old=old.replace('              ','      ').replace('            );','    );')
+          if 'import { buildCompanyFinancialStatementEvidenceMatrix }' not in s:
+            s,n=re.subn(r'(import \{ buildCompanyTaxDebtEvidenceMatrix \} from "\./company-tax-debt-evidence-matrix\.ts";\n)',r'\1import { buildCompanyFinancialStatementEvidenceMatrix } from "./company-financial-statement-evidence-matrix.ts";\n',s,count=1)
+            assert n==1,n
           if 'const companyFinancialStatementFactualMatrix' not in s:
-            assert old in s
-            s=s.replace(old,old+'''    // P0-A17: separate REVEXP factual matrix; audit-only.
-              const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(
-                companyFactualRuntime.company_financial_statement_evidence,
-              );
-          '''.replace('              ','    ').replace('                ','      '),1)
+            pat=r'(    const companyTaxDebtFactualMatrix = buildCompanyTaxDebtEvidenceMatrix\(\n      companyFactualRuntime\.company_tax_debt_evidence,\n    \);\n)'
+            add=r'''\1    // P0-A17: separate REVEXP factual matrix; audit-only.
+    const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(
+      companyFactualRuntime.company_financial_statement_evidence,
+    );
+'''
+            s,n=re.subn(pat,add,s,count=1); assert n==1,n
           if 'company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,' not in s:
             pat=re.compile(r'(?m)^(\s*)company_financial_statement_evidence: companyFactualRuntime\.company_financial_statement_evidence,\n')
-            def r(m):
+            def repl(m):
               i=m.group(1)
               return f'{i}company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,\n{i}company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,\n{i}company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,\n'
-            s,n=pat.subn(r,s); assert n==4,n
-          anchor='    parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;\n'
+            s,n=pat.subn(repl,s); assert n==4,n
           if 'parsed.company_financial_statement_factual_identity = {' not in s:
-            assert s.count(anchor)==1
+            anchor='    parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;\n'
+            assert s.count(anchor)==1,s.count(anchor)
             add=anchor+'''    parsed.company_financial_statement_factual_evidence_matrix =
-              companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix;
-              parsed.company_financial_statement_factual_identity = {
-                canonical_company_financial_statement_facts:
-                  companyFinancialStatementFactualMatrix.canonical_company_financial_statement_facts,
-                company_financial_statement_fact_evidence_links:
-                  companyFinancialStatementFactualMatrix.company_financial_statement_fact_evidence_links,
-                diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
-              };
-          '''.replace('              ','    ').replace('                ','      ').replace('                  ','        ')
+      companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix;
+    parsed.company_financial_statement_factual_identity = {
+      canonical_company_financial_statement_facts:
+        companyFinancialStatementFactualMatrix.canonical_company_financial_statement_facts,
+      company_financial_statement_fact_evidence_links:
+        companyFinancialStatementFactualMatrix.company_financial_statement_fact_evidence_links,
+      diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
+    };
+'''
             s=s.replace(anchor,add,1)
           p.write_text(s)
           PY
@@ -66,8 +61,6 @@ jobs:
           git add supabase/functions/analyze-document-legal-position/index.ts
           git commit -m "feat: persist REVEXP factual matrix in Analyzer audit"
           git push origin HEAD:feat/p0a17-revexp-matrix-persistence
-      - uses: oven-sh/setup-bun@v2
-        with: { bun-version: 1.2.22 }
       - name: Install
         id: install
         continue-on-error: true
