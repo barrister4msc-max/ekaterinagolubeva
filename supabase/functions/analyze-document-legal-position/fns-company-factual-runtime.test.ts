@@ -91,6 +91,7 @@ describe("Company factual runtime boundary", () => {
     });
 
     expect(calls.map((call) => call.fn).sort()).toEqual([
+      "fns_open_data_get_financial_statement_text",
       "fns_open_data_get_tax_debts_text",
       "fns_open_data_get_tax_regime",
     ]);
