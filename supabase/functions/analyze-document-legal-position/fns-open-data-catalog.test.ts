@@ -50,6 +50,23 @@ describe("FNS Open Data catalog", () => {
     expect(debtam?.substantive_use_allowed).toBe(false);
   });
 
+  test("REVEXP is pinned to the verified July 2026 release and 2025 reporting year", () => {
+    const revexp = FNS_OPEN_DATA_DATASETS.find((dataset) => dataset.id === "7707329152-revexp");
+    expect(revexp).toBeDefined();
+    expect(revexp?.fact_kind).toBe("financial_statement");
+    expect(revexp?.entity_scope).toBe("legal_entity");
+    expect(revexp?.data_url).toBe(
+      "https://file.nalog.ru/opendata/7707329152-revexp/data-20260725-structure-20180110.zip",
+    );
+    expect(revexp?.schema_url).toBe(
+      "https://file.nalog.ru/opendata/7707329152-revexp/structure-20180110.xsd",
+    );
+    expect(revexp?.data_as_of).toBe("2025-12-31");
+    expect(revexp?.published_at).toBe("2026-07-25");
+    expect(revexp?.legal_authority).toBe(false);
+    expect(revexp?.substantive_use_allowed).toBe(false);
+  });
+
   test("dry-run plan never promotes factual data into legal authority", () => {
     for (const dataset of FNS_OPEN_DATA_DATASETS) {
       const plan = buildFnsOpenDataImportPlan(dataset);

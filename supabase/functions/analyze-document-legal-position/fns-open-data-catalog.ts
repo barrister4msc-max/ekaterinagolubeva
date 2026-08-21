@@ -97,9 +97,9 @@ export const FNS_OPEN_DATA_DATASETS: readonly FnsOpenDataDataset[] = [
   },
   {
     id: "7707329152-revexp",
-    title: "Сведения о суммах доходов и расходов по данным бухгалтерской (финансовой) отчетности организации",
+    title: "Сведения о суммах доходов и расходов по данным бухгалтерской (финансовой) отчетности организации за год, предшествующий году размещения таких сведений на сайте ФНС России",
     landing_url: "https://www.nalog.gov.ru/opendata/7707329152-revexp/",
-    data_url: "https://file.nalog.ru/opendata/7707329152-revexp/data-20260625-structure-20180110.zip",
+    data_url: "https://file.nalog.ru/opendata/7707329152-revexp/data-20260725-structure-20180110.zip",
     schema_url: "https://file.nalog.ru/opendata/7707329152-revexp/structure-20180110.xsd",
     format: "xml_zip",
     entity_scope: "legal_entity",
@@ -109,7 +109,7 @@ export const FNS_OPEN_DATA_DATASETS: readonly FnsOpenDataDataset[] = [
     legal_authority: false,
     substantive_use_allowed: false,
     data_as_of: "2025-12-31",
-    published_at: "2026-06-25",
+    published_at: "2026-07-25",
   },
 ] as const;
 
