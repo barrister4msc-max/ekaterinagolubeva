@@ -22,6 +22,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.22
+
       - name: Download official REVEXP release and schema
         id: download
         continue-on-error: true
@@ -62,10 +66,9 @@ jobs:
               names = [n for n in z.namelist() if n.lower().endswith('.xml')]
               if not names:
                   raise SystemExit('no_xml_files')
-              sample_names = names[:5]
               rows = []
               dates = set()
-              for name in sample_names:
+              for name in names[:5]:
                   with z.open(name) as f:
                       root = ET.parse(f).getroot()
                   for doc in root.iter('Документ'):
@@ -115,16 +118,44 @@ jobs:
           print(json.dumps(out, ensure_ascii=False, indent=2))
           PY
 
+      - name: Install
+        id: install
+        continue-on-error: true
+        run: bun install --frozen-lockfile
+
+      - name: Catalog tests
+        id: catalog
+        continue-on-error: true
+        run: bun test ./supabase/functions/analyze-document-legal-position/fns-open-data-catalog.test.ts
+
+      - name: Typecheck
+        id: typecheck
+        continue-on-error: true
+        run: bun run typecheck
+
+      - name: Diff check
+        id: diffcheck
+        continue-on-error: true
+        run: git diff --check origin/feat/p0a12-debtam-matrix-persistence...HEAD
+
       - name: Record audit outcome
         if: always()
         env:
           DOWNLOAD: ${{ steps.download.outcome }}
           INSPECT: ${{ steps.inspect.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          CATALOG: ${{ steps.catalog.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
         run: |
           set -euo pipefail
           {
             echo "download=$DOWNLOAD"
             echo "inspect=$INSPECT"
+            echo "install=$INSTALL"
+            echo "catalog=$CATALOG"
+            echo "typecheck=$TYPECHECK"
+            echo "diffcheck=$DIFFCHECK"
             if [ -f /tmp/revexp-audit.json ]; then
               cat /tmp/revexp-audit.json
             fi
@@ -140,6 +171,14 @@ jobs:
         env:
           DOWNLOAD: ${{ steps.download.outcome }}
           INSPECT: ${{ steps.inspect.outcome }}
+          INSTALL: ${{ steps.install.outcome }}
+          CATALOG: ${{ steps.catalog.outcome }}
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          DIFFCHECK: ${{ steps.diffcheck.outcome }}
         run: |
           test "$DOWNLOAD" = success
           test "$INSPECT" = success
+          test "$INSTALL" = success
+          test "$CATALOG" = success
+          test "$TYPECHECK" = success
+          test "$DIFFCHECK" = success
