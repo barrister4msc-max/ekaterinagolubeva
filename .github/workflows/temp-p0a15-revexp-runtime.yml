@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - feat/p0a15-revexp-runtime-factual-evidence
+  pull_request:
+    branches:
+      - feat/p0a14-revexp-parser-storage-rpc
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: p0a15-revexp-runtime
+  group: p0a15-revexp-runtime-${{ github.event_name }}
   cancel-in-progress: false
 
 jobs:
@@ -48,12 +51,14 @@ jobs:
           p.write_text(s, encoding='utf-8')
           PY
           git diff --check
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add supabase/functions/analyze-document-legal-position/index.ts
-          if ! git diff --cached --quiet; then
-            git commit -m "feat: persist REVEXP factual runtime audit"
-            git push origin HEAD:feat/p0a15-revexp-runtime-factual-evidence
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add supabase/functions/analyze-document-legal-position/index.ts
+            if ! git diff --cached --quiet; then
+              git commit -m "feat: persist REVEXP factual runtime audit"
+              git push origin HEAD:feat/p0a15-revexp-runtime-factual-evidence
+            fi
           fi
 
       - name: Install
@@ -96,7 +101,7 @@ jobs:
         run: git diff --check origin/feat/p0a14-revexp-parser-storage-rpc...HEAD
 
       - name: Record outcomes
-        if: always()
+        if: always() && github.event_name == 'push'
         env:
           PATCH: ${{ steps.patch.outcome }}
           INSTALL: ${{ steps.install.outcome }}
