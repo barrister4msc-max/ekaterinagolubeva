@@ -27,43 +27,36 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.22
-
       - name: Install
         id: install
         continue-on-error: true
         run: bun install --frozen-lockfile
-
       - name: REVEXP identity tests
         id: identity
         continue-on-error: true
         run: bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-identity.test.ts
-
       - name: REVEXP matrix tests
         id: matrix
         continue-on-error: true
         run: bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-evidence-matrix.test.ts
-
       - name: Factual regressions
         id: regressions
         continue-on-error: true
         run: |
           bun test ./supabase/functions/analyze-document-legal-position/fns-company-financial-statement-evidence.test.ts
           bun test ./supabase/functions/analyze-document-legal-position/fns-company-revexp-runtime.test.ts
-          bun test ./supabase/functions/analyze-document-legal-position/company-tax-debt-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-tax-debt-evidence.test.ts
           bun test ./supabase/functions/analyze-document-legal-position/company-tax-debt-evidence-matrix.test.ts
           bun test ./supabase/functions/analyze-document-legal-position/company-factual-identity.test.ts
           bun test ./supabase/functions/analyze-document-legal-position/company-factual-evidence-matrix.test.ts
-
       - name: Typecheck
         id: typecheck
         continue-on-error: true
         run: bun run typecheck
-
       - name: Diff check
         id: diffcheck
         continue-on-error: true
         run: git diff --check origin/feat/p0a15-revexp-runtime-factual-evidence...HEAD
-
       - name: Record outcomes
         if: always() && github.event_name == 'push'
         env:
@@ -87,7 +80,6 @@ jobs:
           git add .tmp-p0a16-verification-status.txt
           git commit -m "chore: record P0-A16 verification outcomes"
           git push origin HEAD:feat/p0a16-revexp-canonical-identity-matrix
-
       - name: Enforce GREEN
         if: always()
         env:
