@@ -47,17 +47,31 @@ The official XSD declares these core elements:
 
 Relevant structured attributes include:
 
-- `СведНП@ИННЮЛ`;
-- `СведНП@НаимОрг`;
-- `СведССЧР@КолРаб`;
-- `Документ@ИдДок`;
-- `Документ@ДатаДок`;
-- `Документ@ДатаСост`;
+- `СведНП@ИННЮЛ` — required, `ИННЮЛТип`;
+- `СведНП@НаимОрг` — required;
+- `СведССЧР@КолРаб` — required;
+- `Документ@ИдДок` — required;
+- `Документ@ДатаДок` — required, `ДатаТип`;
+- `Документ@ДатаСост` — required, `ДатаТип`;
 - root `Файл@ВерсФорм`, `Файл@ТипИнф`, `Файл@КолДок`.
 
-A bounded probe of the first five XML members found 4,500 `Документ`, 4,500 `СведНП` and 4,500 `СведССЧР` rows. The observed root format was `ВерсФорм="4.01"`, `ТипИнф="ОТКРДАННЫЕ3"`. The sampled documents had `ДатаДок="25.07.2026"` and `ДатаСост="31.12.2025"`. Observed `ИННЮЛ` values were exact 10-digit legal-entity INNs. `КолРаб` was represented as an integer-like string; observed values included `0`, `1`, `2`, `3`, `5`, `6`, `7`, `9`.
+A bounded probe of the first five XML members found:
 
-`КолРаб=0` must therefore remain a valid factual value and must not be converted into missing/unknown.
+- `4,500` `Документ` rows;
+- `4,500` `СведНП` rows;
+- `4,500` `СведССЧР` rows;
+- `4,500` unique 10-digit legal-entity INNs;
+- no missing or malformed sampled required values;
+- `ВерсФорм="4.01"` and `ТипИнф="ОТКРДАННЫЕ3"`;
+- all sampled `ДатаДок="25.07.2026"`;
+- all sampled `ДатаСост="31.12.2025"`;
+- `КолРаб` integer-like, sampled minimum `0`, sampled maximum `1775`;
+- `777` sampled rows with `КолРаб=0`;
+- no negative headcount values in this bounded probe.
+
+These last distribution statements are bounded-sample observations, not global guarantees for every file in the release. Parser validation must therefore remain schema-driven and fail closed rather than relying on the sample distribution.
+
+`КолРаб=0` is demonstrably a valid source value and must not be converted into missing/unknown.
 
 ## Semantics and canonical boundary
 
@@ -74,7 +88,7 @@ document_id = Документ@ИдДок
 document_date = Документ@ДатаДок
 ```
 
-The field should be named `average_headcount` (or an equally literal equivalent), not `employees`, `staff`, `current_employees`, `payroll`, `fte`, or another broader concept. The dataset records the published average headcount indicator; it does not establish a live employee count on the date of retrieval.
+The field should be named `average_headcount` (or an equally literal equivalent), not `employees`, `staff`, `current_employees`, `payroll`, `fte`, or another broader concept. The dataset records the published average-headcount indicator; it does not establish a live employee count on the date of retrieval.
 
 `data_as_of` remains `2025-12-31`: the official page says the release contains data for 2025, and the sampled structured records explicitly carry `ДатаСост=31.12.2025`. The landing-page `Дата актуальности=25.08.2026` is publication/catalog freshness metadata and is not substituted for the reporting date of the factual proposition.
 
@@ -95,4 +109,4 @@ SSHR2019 must not enter `RawSource`, `TrustedSource`, legal conclusions, Source 
 
 ## Next implementation boundary
 
-The next stage may add deterministic parser/private storage/service-role RPC only, with no real-data import. It should preserve `КолРаб` as a non-negative integer including zero, preserve the exact reporting date and document identity, validate format/version drift, and fail closed on malformed structured rows.
+The next stage may add deterministic parser/private storage/service-role RPC only, with no real-data import. It should preserve `КолРаб` as a non-negative integer including zero, preserve exact reporting date and document identity, validate format/version drift, and fail closed on malformed structured rows.
