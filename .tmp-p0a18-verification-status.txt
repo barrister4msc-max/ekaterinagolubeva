@@ -1,4 +1,4 @@
-official=failure
+official=success
 install=success
 catalog=success
 typecheck=success
