@@ -55,6 +55,7 @@ import {
 
 import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";
 import { buildCompanyFactualEvidenceMatrix } from "./company-factual-evidence-matrix.ts";
+import { buildCompanyTaxDebtEvidenceMatrix } from "./company-tax-debt-evidence-matrix.ts";
 
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
@@ -207,6 +208,11 @@ Deno.serve(async (req) => {
     const companyFactualMatrix = buildCompanyFactualEvidenceMatrix(
       companyFactualRuntime.company_factual_evidence,
     );
+    // P0-A12: separate DEBTAM point-in-time factual matrix. It is audit-only
+    // and never enters legal/document evidence or model inputs.
+    const companyTaxDebtFactualMatrix = buildCompanyTaxDebtEvidenceMatrix(
+      companyFactualRuntime.company_tax_debt_evidence,
+    );
 
     // practice_area + template title (for document-intent fallback)
     let practiceArea: string | null = null;
@@ -280,6 +286,8 @@ Deno.serve(async (req) => {
             company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
             company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
             company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
+            company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+            company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
           } as any,
           problems: ["Нет прикрепленных документов или извлеченного текста"] as any,
           source_verification_status: "no_sources",
@@ -298,6 +306,8 @@ Deno.serve(async (req) => {
             company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
             company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
             company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
+            company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+            company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
             external_research: stagedExternalResearchSnapshot,
           } as any,
         })
@@ -357,10 +367,10 @@ Deno.serve(async (req) => {
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
           company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
           company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
-          company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
-          company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
           company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
           company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
+          company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+          company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
         } as any,
       })
@@ -626,6 +636,16 @@ Deno.serve(async (req) => {
       company_fact_evidence_links: companyFactualMatrix.company_fact_evidence_links,
       diagnostics: companyFactualMatrix.diagnostics,
     };
+    // P0-A12: DEBTAM identity/matrix persistence remains a separate factual channel.
+    parsed.company_tax_debt_factual_evidence_matrix =
+      companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix;
+    parsed.company_tax_debt_factual_identity = {
+      canonical_company_tax_debt_facts:
+        companyTaxDebtFactualMatrix.canonical_company_tax_debt_facts,
+      company_tax_debt_evidence_links:
+        companyTaxDebtFactualMatrix.company_tax_debt_evidence_links,
+      diagnostics: companyTaxDebtFactualMatrix.diagnostics,
+    };
     parsed.source_sufficiency = sufficiency;
     parsed.research_coverage = {
       official_explanations: officialExplanationsCoverage,
@@ -699,10 +719,10 @@ Deno.serve(async (req) => {
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
           company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
           company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
-          company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
-          company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
           company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
           company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
+          company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+          company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
           ...parsed.research_summary,
         } as any,
