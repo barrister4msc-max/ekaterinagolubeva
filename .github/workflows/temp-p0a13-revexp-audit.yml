@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - feat/p0a13-revexp-freshness-schema-audit
+  pull_request:
+    branches:
+      - feat/p0a12-debtam-matrix-persistence
   workflow_dispatch:
 
 permissions:
@@ -139,7 +142,7 @@ jobs:
         run: git diff --check origin/feat/p0a12-debtam-matrix-persistence...HEAD
 
       - name: Record audit outcome
-        if: always()
+        if: always() && github.event_name == 'push'
         env:
           DOWNLOAD: ${{ steps.download.outcome }}
           INSPECT: ${{ steps.inspect.outcome }}
