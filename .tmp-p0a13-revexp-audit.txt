@@ -1,6 +1,0 @@
-download=failure
-inspect=failure
-install=success
-catalog=success
-typecheck=success
-diffcheck=success
