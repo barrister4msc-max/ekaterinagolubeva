@@ -7,12 +7,13 @@ import {
   loadFnsDebtamFactualEvidence,
   type CompanyTaxDebtEvidence,
 } from "./fns-company-tax-debt-evidence.ts";
+import {
+  loadFnsRevexpFactualEvidence,
+  type CompanyFinancialStatementEvidence,
+} from "./fns-company-financial-statement-evidence.ts";
 
 type SbClient = {
-  rpc: (
-    fn: string,
-    args?: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message?: string } | null }>;
+  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
 };
 
 type DatasetRuntimeDiagnostics = {
@@ -20,16 +21,15 @@ type DatasetRuntimeDiagnostics = {
   loaded_count: number;
   evidence_rows: number;
   source_type: "fns_open_data";
-  fact_kind: "tax_regime" | "tax_debt";
+  fact_kind: "tax_regime" | "tax_debt" | "financial_statement";
   model_input_status: "not_injected";
   legal_source_status: "excluded";
 };
 
 export type CompanyFactualRuntimeSnapshot = {
-  /** Existing SNR-only channel retained for P0-A6/P0-A7 canonical identity/matrix. */
   company_factual_evidence: CompanyFactualEvidence[];
-  /** Additive DEBTAM channel. Deliberately not fed to the SNR identity/matrix. */
   company_tax_debt_evidence: CompanyTaxDebtEvidence[];
+  company_financial_statement_evidence: CompanyFinancialStatementEvidence[];
   diagnostics: {
     explicit_legal_entity_inns: string[];
     requested_count: number;
@@ -42,11 +42,12 @@ export type CompanyFactualRuntimeSnapshot = {
   dataset_diagnostics: {
     snr: DatasetRuntimeDiagnostics;
     debtam: DatasetRuntimeDiagnostics;
+    revexp: DatasetRuntimeDiagnostics;
   };
 };
 
 function datasetDiagnostics(
-  factKind: "tax_regime" | "tax_debt",
+  factKind: "tax_regime" | "tax_debt" | "financial_statement",
   requestedCount: number,
   evidenceRows: number,
   loadedSubjects: number,
@@ -62,18 +63,7 @@ function datasetDiagnostics(
   };
 }
 
-/**
- * Runtime boundary for official company factual evidence.
- *
- * SNR and DEBTAM are separate factual channels. SNR keeps the pre-existing
- * `company_factual_evidence` contract because P0-A6/P0-A7 canonical identity
- * and factual matrix currently understand only tax_regime evidence. DEBTAM is
- * exposed additively as `company_tax_debt_evidence`; it is never passed to that
- * SNR matrix, model prompts, legal conclusions, Source Sufficiency or Challenge.
- *
- * Each transport fails soft independently so one factual dataset cannot make
- * the legal Analyzer unavailable or suppress the other factual dataset.
- */
+/** Separate fail-soft factual channels. None is injected into legal/model paths. */
 export async function loadCompanyFactualRuntimeSnapshot(input: {
   sb: SbClient;
   answers: Record<string, unknown>;
@@ -84,57 +74,48 @@ export async function loadCompanyFactualRuntimeSnapshot(input: {
     return {
       company_factual_evidence: [],
       company_tax_debt_evidence: [],
+      company_financial_statement_evidence: [],
       diagnostics: {
-        explicit_legal_entity_inns: [],
-        requested_count: 0,
-        loaded_count: 0,
-        source_types: [],
-        fact_linking_status: "not_linked",
-        model_input_status: "not_injected",
-        legal_source_status: "excluded",
+        explicit_legal_entity_inns: [], requested_count: 0, loaded_count: 0, source_types: [],
+        fact_linking_status: "not_linked", model_input_status: "not_injected", legal_source_status: "excluded",
       },
       dataset_diagnostics: {
         snr: datasetDiagnostics("tax_regime", 0, 0, 0),
         debtam: datasetDiagnostics("tax_debt", 0, 0, 0),
+        revexp: datasetDiagnostics("financial_statement", 0, 0, 0),
       },
     };
   }
 
   let snrEvidence: CompanyFactualEvidence[] = [];
-  try {
-    snrEvidence = await loadFnsSnrFactualEvidence({
-      sb: input.sb,
-      answers: input.answers,
-      asOfDate: input.asOfDate,
-    });
-  } catch (error) {
-    console.warn("fns_snr_factual_runtime_unavailable", {
-      requested_count: inns.length,
-      message: error instanceof Error ? error.message : String(error),
-    });
-  }
-
   let debtEvidence: CompanyTaxDebtEvidence[] = [];
+  let revexpEvidence: CompanyFinancialStatementEvidence[] = [];
+
   try {
-    debtEvidence = await loadFnsDebtamFactualEvidence({
-      sb: input.sb,
-      answers: input.answers,
-      asOfDate: input.asOfDate,
-    });
+    snrEvidence = await loadFnsSnrFactualEvidence({ sb: input.sb, answers: input.answers, asOfDate: input.asOfDate });
   } catch (error) {
-    console.warn("fns_debtam_factual_runtime_unavailable", {
-      requested_count: inns.length,
-      message: error instanceof Error ? error.message : String(error),
-    });
+    console.warn("fns_snr_factual_runtime_unavailable", { requested_count: inns.length, message: error instanceof Error ? error.message : String(error) });
+  }
+  try {
+    debtEvidence = await loadFnsDebtamFactualEvidence({ sb: input.sb, answers: input.answers, asOfDate: input.asOfDate });
+  } catch (error) {
+    console.warn("fns_debtam_factual_runtime_unavailable", { requested_count: inns.length, message: error instanceof Error ? error.message : String(error) });
+  }
+  try {
+    revexpEvidence = await loadFnsRevexpFactualEvidence({ sb: input.sb, answers: input.answers, asOfDate: input.asOfDate });
+  } catch (error) {
+    console.warn("fns_revexp_factual_runtime_unavailable", { requested_count: inns.length, message: error instanceof Error ? error.message : String(error) });
   }
 
-  const snrSubjects = new Set(snrEvidence.map((evidence) => evidence.subject_key.inn)).size;
-  const debtSubjects = new Set(debtEvidence.map((evidence) => evidence.subject_key.inn)).size;
-  const totalEvidenceRows = snrEvidence.length + debtEvidence.length;
+  const snrSubjects = new Set(snrEvidence.map((e) => e.subject_key.inn)).size;
+  const debtSubjects = new Set(debtEvidence.map((e) => e.subject_key.inn)).size;
+  const revexpSubjects = new Set(revexpEvidence.map((e) => e.subject_key.inn)).size;
+  const totalEvidenceRows = snrEvidence.length + debtEvidence.length + revexpEvidence.length;
 
   return {
     company_factual_evidence: snrEvidence,
     company_tax_debt_evidence: debtEvidence,
+    company_financial_statement_evidence: revexpEvidence,
     diagnostics: {
       explicit_legal_entity_inns: inns,
       requested_count: inns.length,
@@ -147,6 +128,7 @@ export async function loadCompanyFactualRuntimeSnapshot(input: {
     dataset_diagnostics: {
       snr: datasetDiagnostics("tax_regime", inns.length, snrEvidence.length, snrSubjects),
       debtam: datasetDiagnostics("tax_debt", inns.length, debtEvidence.length, debtSubjects),
+      revexp: datasetDiagnostics("financial_statement", inns.length, revexpEvidence.length, revexpSubjects),
     },
   };
 }

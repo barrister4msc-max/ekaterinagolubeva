@@ -283,6 +283,7 @@ Deno.serve(async (req) => {
             company_factual_evidence: companyFactualRuntime.company_factual_evidence,
             company_factual_diagnostics: companyFactualRuntime.diagnostics,
             company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+            company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
             company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
             company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
             company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
@@ -303,6 +304,7 @@ Deno.serve(async (req) => {
             company_factual_evidence: companyFactualRuntime.company_factual_evidence,
             company_factual_diagnostics: companyFactualRuntime.diagnostics,
             company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+            company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
             company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
             company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
             company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
@@ -366,6 +368,7 @@ Deno.serve(async (req) => {
           company_factual_evidence: companyFactualRuntime.company_factual_evidence,
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
           company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+          company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
           company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
           company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
           company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
@@ -668,6 +671,8 @@ Deno.serve(async (req) => {
     // P0-A10: DEBTAM remains a separate point-in-time factual channel.
     // It is not passed into the SNR canonical factual matrix or legal/model paths.
     parsed.company_tax_debt_evidence = companyFactualRuntime.company_tax_debt_evidence;
+    // P0-A15: REVEXP annual accounting-statement evidence remains audit-only.
+    parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;
     parsed.company_factual_dataset_diagnostics = companyFactualRuntime.dataset_diagnostics;
     // P0-A: deterministic intent always wins over model output.
     parsed.template_code = session.template_code;
@@ -718,6 +723,7 @@ Deno.serve(async (req) => {
           company_factual_evidence: companyFactualRuntime.company_factual_evidence,
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
           company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+          company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
           company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
           company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
           company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
