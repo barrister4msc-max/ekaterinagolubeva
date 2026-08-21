@@ -1,0 +1,145 @@
+name: TEMP P0-A13 REVEXP audit
+
+on:
+  push:
+    branches:
+      - feat/p0a13-revexp-freshness-schema-audit
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: p0a13-revexp-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download official REVEXP release and schema
+        id: download
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-delay 2 \
+            -o /tmp/revexp.zip \
+            https://file.nalog.ru/opendata/7707329152-revexp/data-20260725-structure-20180110.zip
+          curl --fail --location --retry 3 --retry-delay 2 \
+            -o /tmp/revexp.xsd \
+            https://file.nalog.ru/opendata/7707329152-revexp/structure-20180110.xsd
+          test -s /tmp/revexp.zip
+          test -s /tmp/revexp.xsd
+          sha256sum /tmp/revexp.zip /tmp/revexp.xsd
+
+      - name: Inspect XSD and bounded real XML sample
+        id: inspect
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib, json, re, zipfile
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          zpath = Path('/tmp/revexp.zip')
+          xpath = Path('/tmp/revexp.xsd')
+          zsha = hashlib.sha256(zpath.read_bytes()).hexdigest()
+          xsha = hashlib.sha256(xpath.read_bytes()).hexdigest()
+          xsd = xpath.read_text(encoding='utf-8-sig', errors='replace')
+
+          required_tokens = ['СведНП', 'ИННЮЛ', 'НаимОрг', 'СведДохРасх', 'СумДоход', 'СумРасход', 'ДатаСост', 'ИдДок']
+          missing = [t for t in required_tokens if t not in xsd]
+          if missing:
+              raise SystemExit(f'missing_xsd_tokens:{missing}')
+
+          with zipfile.ZipFile(zpath) as z:
+              names = [n for n in z.namelist() if n.lower().endswith('.xml')]
+              if not names:
+                  raise SystemExit('no_xml_files')
+              sample_names = names[:5]
+              rows = []
+              dates = set()
+              for name in sample_names:
+                  with z.open(name) as f:
+                      root = ET.parse(f).getroot()
+                  for doc in root.iter('Документ'):
+                      np = doc.find('СведНП')
+                      de = doc.find('СведДохРасх')
+                      if np is None or de is None:
+                          continue
+                      row = {
+                          'inn': np.attrib.get('ИННЮЛ'),
+                          'name': np.attrib.get('НаимОрг'),
+                          'income': de.attrib.get('СумДоход'),
+                          'expense': de.attrib.get('СумРасход'),
+                          'document_id': doc.attrib.get('ИдДок'),
+                          'document_date': doc.attrib.get('ДатаДок'),
+                          'statement_date': doc.attrib.get('ДатаСост'),
+                      }
+                      if row['statement_date']:
+                          dates.add(row['statement_date'])
+                      rows.append(row)
+                      if len(rows) >= 25:
+                          break
+                  if len(rows) >= 25:
+                      break
+
+          if not rows:
+              raise SystemExit('no_sample_rows')
+          for r in rows:
+              if not (r['inn'] and re.fullmatch(r'\d{10}', r['inn'])):
+                  raise SystemExit(f'invalid_inn:{r}')
+              for k in ('income','expense'):
+                  if r[k] is None or not re.fullmatch(r'-?\d+(?:\.\d{1,2})?', r[k]):
+                      raise SystemExit(f'invalid_money:{k}:{r}')
+
+          out = {
+              'zip_sha256': zsha,
+              'xsd_sha256': xsha,
+              'zip_bytes': zpath.stat().st_size,
+              'xsd_bytes': xpath.stat().st_size,
+              'xml_files': len(names),
+              'sample_rows': len(rows),
+              'sample_unique_inns': len({r['inn'] for r in rows}),
+              'statement_dates': sorted(dates),
+              'sample': rows[:3],
+              'xsd_required_tokens_present': True,
+          }
+          Path('/tmp/revexp-audit.json').write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding='utf-8')
+          print(json.dumps(out, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Record audit outcome
+        if: always()
+        env:
+          DOWNLOAD: ${{ steps.download.outcome }}
+          INSPECT: ${{ steps.inspect.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo "download=$DOWNLOAD"
+            echo "inspect=$INSPECT"
+            if [ -f /tmp/revexp-audit.json ]; then
+              cat /tmp/revexp-audit.json
+            fi
+          } > .tmp-p0a13-revexp-audit.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .tmp-p0a13-revexp-audit.txt
+          git commit -m "chore: record P0-A13 REVEXP audit"
+          git push origin HEAD:feat/p0a13-revexp-freshness-schema-audit
+
+      - name: Enforce GREEN
+        if: always()
+        env:
+          DOWNLOAD: ${{ steps.download.outcome }}
+          INSPECT: ${{ steps.inspect.outcome }}
+        run: |
+          test "$DOWNLOAD" = success
+          test "$INSPECT" = success
