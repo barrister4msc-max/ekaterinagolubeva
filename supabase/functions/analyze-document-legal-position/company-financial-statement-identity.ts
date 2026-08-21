@@ -2,10 +2,7 @@ import type { CompanyFinancialStatementEvidence } from "./fns-company-financial-
 
 export type CanonicalCompanyFinancialStatementFact = {
   company_financial_statement_fact_id: string;
-  subject: {
-    subject_type: "legal_entity";
-    inn: string;
-  };
+  subject: { subject_type: "legal_entity"; inn: string };
   fact_kind: "financial_statement";
   fact_value: {
     organization_name: string;
@@ -44,17 +41,8 @@ export function makeCompanyFinancialStatementFactId(input: {
   document_id: string;
 }): string | null {
   const documentId = input.document_id.trim();
-  if (!INN_RE.test(input.inn)) return null;
-  if (!DATE_RE.test(input.reporting_date)) return null;
-  if (!documentId) return null;
-  return [
-    "company_fact",
-    "legal_entity",
-    input.inn,
-    "financial_statement",
-    input.reporting_date,
-    safeIdPart(documentId),
-  ].join(":");
+  if (!INN_RE.test(input.inn) || !DATE_RE.test(input.reporting_date) || !documentId) return null;
+  return ["company_fact", "legal_entity", input.inn, "financial_statement", input.reporting_date, safeIdPart(documentId)].join(":");
 }
 
 function isExactSafeFinancialStatementEvidence(item: CompanyFinancialStatementEvidence): boolean {
@@ -70,11 +58,19 @@ function isExactSafeFinancialStatementEvidence(item: CompanyFinancialStatementEv
   return MONEY_RE.test(item.attributes.income_amount) && MONEY_RE.test(item.attributes.expense_amount);
 }
 
+function valueSignature(item: CompanyFinancialStatementEvidence): string {
+  return JSON.stringify({
+    organization_name: normalizeOrganizationName(item.attributes.organization_name),
+    income_amount: item.attributes.income_amount,
+    expense_amount: item.attributes.expense_amount,
+    reporting_scope: item.attributes.reporting_scope,
+  });
+}
+
 export function buildCanonicalCompanyFinancialStatementFacts(
   evidence: CompanyFinancialStatementEvidence[],
 ): CanonicalCompanyFinancialStatementFact[] {
-  const out: CanonicalCompanyFinancialStatementFact[] = [];
-  const seenIds = new Set<string>();
+  const candidates = new Map<string, CompanyFinancialStatementEvidence[]>();
 
   for (const item of evidence) {
     if (!isExactSafeFinancialStatementEvidence(item)) continue;
@@ -83,12 +79,19 @@ export function buildCanonicalCompanyFinancialStatementFacts(
       reporting_date: item.reporting_date,
       document_id: item.document_id,
     });
-    if (!factId || seenIds.has(factId)) continue;
-
+    if (!factId) continue;
     const expectedEvidenceId = `fns_revexp:${item.subject_key.inn}:${item.reporting_date}:${item.document_id}`;
     if (item.evidence_id !== expectedEvidenceId) continue;
+    const bucket = candidates.get(factId) ?? [];
+    bucket.push(item);
+    candidates.set(factId, bucket);
+  }
 
-    seenIds.add(factId);
+  const out: CanonicalCompanyFinancialStatementFact[] = [];
+  for (const [factId, bucket] of candidates) {
+    const signatures = new Set(bucket.map(valueSignature));
+    if (signatures.size !== 1) continue;
+    const item = bucket[0]!;
     out.push({
       company_financial_statement_fact_id: factId,
       subject: { subject_type: "legal_entity", inn: item.subject_key.inn },
@@ -114,36 +117,27 @@ export function buildCompanyFinancialStatementFactEvidenceLinks(input: {
   evidence: CompanyFinancialStatementEvidence[];
 }): CompanyFinancialStatementFactEvidenceLink[] {
   const factsById = new Map(input.facts.map((fact) => [fact.company_financial_statement_fact_id, fact]));
-  const links: CompanyFinancialStatementFactEvidenceLink[] = [];
+  const links = new Map<string, CompanyFinancialStatementFactEvidenceLink>();
 
   for (const item of input.evidence) {
     if (!isExactSafeFinancialStatementEvidence(item)) continue;
-    const factId = makeCompanyFinancialStatementFactId({
-      inn: item.subject_key.inn,
-      reporting_date: item.reporting_date,
-      document_id: item.document_id,
-    });
+    const factId = makeCompanyFinancialStatementFactId({ inn: item.subject_key.inn, reporting_date: item.reporting_date, document_id: item.document_id });
     if (!factId) continue;
     const fact = factsById.get(factId);
     if (!fact || fact.evidence_id !== item.evidence_id) continue;
-
-    const sameValue =
-      fact.subject.inn === item.subject_key.inn &&
-      fact.reporting_date === item.reporting_date &&
-      fact.document_id === item.document_id &&
-      fact.fact_value.organization_name === normalizeOrganizationName(item.attributes.organization_name) &&
-      fact.fact_value.income_amount === item.attributes.income_amount &&
-      fact.fact_value.expense_amount === item.attributes.expense_amount &&
-      fact.fact_value.reporting_scope === item.attributes.reporting_scope;
+    const sameValue = fact.fact_value.organization_name === normalizeOrganizationName(item.attributes.organization_name)
+      && fact.fact_value.income_amount === item.attributes.income_amount
+      && fact.fact_value.expense_amount === item.attributes.expense_amount
+      && fact.fact_value.reporting_scope === item.attributes.reporting_scope;
     if (!sameValue) continue;
-
-    links.push({
+    const link = {
       company_financial_statement_fact_id: factId,
       evidence_id: item.evidence_id,
-      relation: "DIRECTLY_RECORDS",
-      identity_match: "exact",
-    });
+      relation: "DIRECTLY_RECORDS" as const,
+      identity_match: "exact" as const,
+    };
+    links.set(`${factId}:${item.evidence_id}`, link);
   }
 
-  return links.sort((a, b) => `${a.company_financial_statement_fact_id}:${a.evidence_id}`.localeCompare(`${b.company_financial_statement_fact_id}:${b.evidence_id}`));
+  return [...links.values()].sort((a, b) => `${a.company_financial_statement_fact_id}:${a.evidence_id}`.localeCompare(`${b.company_financial_statement_fact_id}:${b.evidence_id}`));
 }
