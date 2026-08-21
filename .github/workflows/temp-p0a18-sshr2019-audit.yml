@@ -26,9 +26,16 @@ jobs:
           ns={'xs':'http://www.w3.org/2001/XMLSchema'}
           elements=sorted({e.get('name') for e in xroot.findall('.//xs:element',ns) if e.get('name')})
           attrs=sorted({a.get('name') for a in xroot.findall('.//xs:attribute',ns) if a.get('name')})
+          xsd_attr_defs={}
+          for a in xroot.findall('.//xs:attribute',ns):
+              name=a.get('name')
+              if name in {'КолРаб','ИННЮЛ','ДатаДок','ДатаСост','ИдДок','НаимОрг'}:
+                  xsd_attr_defs.setdefault(name,[]).append({k:v for k,v in a.attrib.items()})
           z=zipfile.ZipFile(io.BytesIO(data))
           names=[n for n in z.namelist() if n.lower().endswith('.xml')]
           sample=[]; tag_counts={}; attr_values={}
+          inns=[]; counts=[]; document_dates=[]; reporting_dates=[]; missing=[]
+          docs=0
           for n in names[:5]:
               root=ET.fromstring(z.read(n))
               for elem in root.iter():
@@ -38,14 +45,36 @@ jobs:
                       kk=f'{tag}@{k.split("}")[-1]}'
                       vals=attr_values.setdefault(kk,[])
                       if len(vals)<8 and v not in vals: vals.append(v)
+                  if tag=='Документ':
+                      docs += 1
+                      document_dates.append(elem.attrib.get('ДатаДок'))
+                      reporting_dates.append(elem.attrib.get('ДатаСост'))
+                  elif tag=='СведНП':
+                      inns.append(elem.attrib.get('ИННЮЛ'))
+                      if not elem.attrib.get('НаимОрг'): missing.append('НаимОрг')
+                  elif tag=='СведССЧР':
+                      raw=elem.attrib.get('КолРаб')
+                      if raw is None: missing.append('КолРаб')
+                      else:
+                          try: counts.append(int(raw))
+                          except: missing.append(f'non_integer:{raw}')
               sample.append({'member':n,'root':root.tag.split('}')[-1],'root_attrs':root.attrib})
           report={
             'data_url':data_url,'xsd_url':xsd_url,
             'zip_bytes':len(data),'zip_sha256':hashlib.sha256(data).hexdigest(),
             'xsd_bytes':len(xsd),'xsd_sha256':hashlib.sha256(xsd).hexdigest(),
             'zip_members':len(z.namelist()),'xml_members':len(names),
-            'xsd_elements':elements,'xsd_attributes':attrs,
+            'xsd_elements':elements,'xsd_attributes':attrs,'xsd_selected_attribute_defs':xsd_attr_defs,
             'sample_members':sample,'sample_tag_counts':tag_counts,'sample_attribute_values':attr_values,
+            'bounded_probe':{
+              'xml_members_sampled':min(5,len(names)), 'documents':docs,
+              'inn_rows':len(inns),'unique_inns':len(set(inns)),
+              'all_inn_10_digits':all(isinstance(x,str) and len(x)==10 and x.isdigit() for x in inns),
+              'headcount_rows':len(counts),'headcount_min':min(counts) if counts else None,'headcount_max':max(counts) if counts else None,
+              'headcount_zero_count':sum(x==0 for x in counts),'headcount_negative_count':sum(x<0 for x in counts),
+              'document_dates':sorted(set(document_dates)),'reporting_dates':sorted(set(reporting_dates)),
+              'missing_or_malformed':missing[:20],
+            }
           }
           open('.tmp-p0a18-sshr2019-audit.json','w',encoding='utf-8').write(json.dumps(report,ensure_ascii=False,indent=2))
           PY
@@ -53,5 +82,5 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add .tmp-p0a18-sshr2019-audit.json
-          git commit -m "chore: record SSHR2019 official release audit"
+          git commit -m "chore: record deeper SSHR2019 official release audit"
           git push origin HEAD:feat/p0a18-sshr2019-freshness-schema-audit
