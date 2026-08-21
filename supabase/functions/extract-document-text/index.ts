@@ -466,7 +466,20 @@ Deno.serve(async (req) => {
   const detected = detect(doc.mime_type || "", doc.file_name || "");
   const existingMeta = (doc.metadata || {}) as Record<string, any>;
 
-  
+  const { data: claim, error: claimError } = await supabase.rpc("claim_document_text_extraction", {
+    p_document_id: documentId,
+    p_lease_seconds: 180,
+  });
+  if (claimError) return json({ error: "extraction_claim_failed" }, 500);
+  if (claim?.claimed !== true) {
+    if (claim?.status === "not_found") return json({ error: "not_found" }, 404);
+    return json({
+      ok: true,
+      extraction_status: claim?.status ?? "processing",
+      text_length: Number(claim?.text_length ?? 0),
+      reused: true,
+    });
+  }
 
   const downloaded = await downloadFile(supabase, doc.storage_path);
   if (!downloaded) {
@@ -477,6 +490,7 @@ Deno.serve(async (req) => {
       extracted_at: new Date().toISOString(),
       text_length: 0,
       extraction_error: "file_not_found_in_storage",
+      extraction_lease_until: null,
     };
     await supabase
       .from("documents")
@@ -539,8 +553,8 @@ Deno.serve(async (req) => {
 
   const shouldUseGeminiFallback =
     downloaded?.buf &&
-    (detected.kind === "image" || detected.kind === "pdf" ||
-      (text.length === 0 && !["spreadsheet", "presentation", "unknown"].includes(detected.kind)));
+    (detected.kind === "image" || detected.kind === "pdf" || text.length === 0) &&
+    !(text.length === 0 && ["spreadsheet", "presentation", "unknown"].includes(detected.kind));
 
   if (shouldUseGeminiFallback) {
     const fallback = await extractWithGeminiFallback({
@@ -597,6 +611,8 @@ Deno.serve(async (req) => {
     extracted_at: new Date().toISOString(),
     text_length: textLength,
     extraction_error: extractionError,
+    extraction_lease_until: null,
+    extraction_completed_at: new Date().toISOString(),
   };
 
   const update: Record<string, any> = {

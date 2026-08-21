@@ -796,7 +796,7 @@ const reloadAnswersFromSession = useCallback(async () => {
 
       let fillResult: any = null;
       let lastFillError = "AI не вернул подтверждённые поля";
-      for (let technicalAttempt = 0; technicalAttempt < 2; technicalAttempt += 1) {
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
         const { data, error } = await supabase.functions.invoke("document-intake-ai-fill", {
           body: {
             session_id: intakeSessionId,
@@ -821,8 +821,8 @@ const reloadAnswersFromSession = useCallback(async () => {
           status >= 500 ||
           /network|fetch|timeout|temporar/i.test(error?.message ?? "")
         );
-        if (!transient || technicalAttempt === 1) break;
-        await waitBeforeRetry(1);
+        if (!transient || attempt === 3) break;
+        await waitBeforeRetry(attempt);
       }
       if (!fillResult) throw new Error(lastFillError);
 

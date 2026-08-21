@@ -5,6 +5,11 @@ import {
   buildModelFacingDocumentText,
   prepareSafeAiFillDocuments,
 } from "./redaction-safety.ts";
+import {
+  AI_OWNED_VALUE_SOURCES,
+  mayReplaceAnswerWithAi,
+  type ExistingIntakeAnswer,
+} from "./answer-write-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -223,36 +228,86 @@ serve(async (req) => {
       return true;
     });
 
+    const candidateFieldNames = allowedAnswers
+      .map((answer) => String(answer.field_name ?? ""))
+      .filter(Boolean);
+    const existingByField = new Map<string, ExistingIntakeAnswer>();
+
+    if (candidateFieldNames.length > 0) {
+      const { data: existingAnswers, error: existingAnswersError } = await supabase
+        .from("document_intake_answers")
+        .select("id, field_name, value_source, is_verified")
+        .eq("session_id", session_id)
+        .in("field_name", candidateFieldNames);
+
+      if (existingAnswersError) throw existingAnswersError;
+      for (const existing of existingAnswers ?? []) {
+        existingByField.set(existing.field_name, existing);
+      }
+    }
+
     let inserted = 0;
+    let preserved = 0;
 
     for (const answer of allowedAnswers) {
       if (!answer.field_name || answer.value === undefined || answer.value === null) {
         continue;
       }
 
-      await supabase.from("document_intake_answers").upsert(
-        {
-          session_id,
-          field_name: answer.field_name,
-          field_label: answer.field_label ?? answer.field_name,
-          field_value: answer.value,
-          value_source: "ai_document",
-          confidence: answer.confidence ?? 0.7,
-          source_document_id:
-            typeof answer.source_document_id === "string" &&
-            allowedDocumentIds.has(answer.source_document_id)
-              ? answer.source_document_id
-              : primaryDocument.id,
-          source_quote: answer.source_quote ?? null,
-          source_page: answer.source_page ?? null,
-          needs_review: true,
-          is_verified: false,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "session_id,field_name",
-        },
-      );
+      const fieldName = String(answer.field_name);
+      const existing = existingByField.get(fieldName);
+      if (!mayReplaceAnswerWithAi(existing)) {
+        preserved++;
+        continue;
+      }
+
+      const answerRow = {
+        session_id,
+        field_name: fieldName,
+        field_label: answer.field_label ?? fieldName,
+        field_value: answer.value,
+        value_source: "ai_document",
+        confidence: answer.confidence ?? 0.7,
+        source_document_id:
+          typeof answer.source_document_id === "string" &&
+          allowedDocumentIds.has(answer.source_document_id)
+            ? answer.source_document_id
+            : primaryDocument.id,
+        source_quote: answer.source_quote ?? null,
+        source_page: answer.source_page ?? null,
+        needs_review: true,
+        is_verified: false,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existing) {
+        // Re-check ownership in the UPDATE so a concurrent lawyer edit wins.
+        const { data: updated, error: updateError } = await supabase
+          .from("document_intake_answers")
+          .update(answerRow)
+          .eq("id", existing.id)
+          .eq("is_verified", false)
+          .in("value_source", [...AI_OWNED_VALUE_SOURCES])
+          .select("id")
+          .maybeSingle();
+
+        if (updateError) throw updateError;
+        if (!updated) {
+          preserved++;
+          continue;
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from("document_intake_answers")
+          .insert(answerRow);
+
+        // A concurrent manual save wins the unique-key race.
+        if (insertError?.code === "23505") {
+          preserved++;
+          continue;
+        }
+        if (insertError) throw insertError;
+      }
 
       inserted++;
     }
@@ -285,6 +340,7 @@ serve(async (req) => {
       document_id: primaryDocument.id,
       document_ids: readyDocuments.map((item) => item.document.id),
       filled_fields: inserted,
+      preserved_fields: preserved,
       total_candidate_fields: fields.length,
       summary: aiResult.summary ?? null,
       answers: allowedAnswers,
