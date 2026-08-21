@@ -56,6 +56,7 @@ import {
 import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";
 import { buildCompanyFactualEvidenceMatrix } from "./company-factual-evidence-matrix.ts";
 import { buildCompanyTaxDebtEvidenceMatrix } from "./company-tax-debt-evidence-matrix.ts";
+import { buildCompanyFinancialStatementEvidenceMatrix } from "./company-financial-statement-evidence-matrix.ts";
 
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 
@@ -213,6 +214,11 @@ Deno.serve(async (req) => {
     const companyTaxDebtFactualMatrix = buildCompanyTaxDebtEvidenceMatrix(
       companyFactualRuntime.company_tax_debt_evidence,
     );
+    // P0-A17: separate REVEXP annual financial-statement factual matrix.
+    // Audit-only: never enters legal/document evidence or model inputs.
+    const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(
+      companyFactualRuntime.company_financial_statement_evidence,
+    );
 
     // practice_area + template title (for document-intent fallback)
     let practiceArea: string | null = null;
@@ -284,6 +290,8 @@ Deno.serve(async (req) => {
             company_factual_diagnostics: companyFactualRuntime.diagnostics,
             company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
             company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
+            company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
+            company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
             company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
             company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
             company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
@@ -305,6 +313,8 @@ Deno.serve(async (req) => {
             company_factual_diagnostics: companyFactualRuntime.diagnostics,
             company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
             company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
+            company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
+            company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
             company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
             company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
             company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
@@ -369,6 +379,8 @@ Deno.serve(async (req) => {
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
           company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
           company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
+          company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
+          company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
           company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
           company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
           company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
@@ -673,6 +685,16 @@ Deno.serve(async (req) => {
     parsed.company_tax_debt_evidence = companyFactualRuntime.company_tax_debt_evidence;
     // P0-A15: REVEXP annual accounting-statement evidence remains audit-only.
     parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;
+    // P0-A17: REVEXP identity/matrix persistence remains a separate factual audit channel.
+    parsed.company_financial_statement_factual_evidence_matrix =
+      companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix;
+    parsed.company_financial_statement_factual_identity = {
+      canonical_company_financial_statement_facts:
+        companyFinancialStatementFactualMatrix.canonical_company_financial_statement_facts,
+      company_financial_statement_fact_evidence_links:
+        companyFinancialStatementFactualMatrix.company_financial_statement_fact_evidence_links,
+      diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
+    };
     parsed.company_factual_dataset_diagnostics = companyFactualRuntime.dataset_diagnostics;
     // P0-A: deterministic intent always wins over model output.
     parsed.template_code = session.template_code;
@@ -724,6 +746,8 @@ Deno.serve(async (req) => {
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
           company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
           company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
+          company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
+          company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
           company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
           company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
           company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
