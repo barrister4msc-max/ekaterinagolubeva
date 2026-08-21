@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 const source = readFileSync(join(import.meta.dir, "index.ts"), "utf8");
 
-describe("P0-A20 SSHR2019 factual Analyzer boundary", () => {
+describe("SSHR2019 factual Analyzer boundary", () => {
   test("persists raw headcount evidence only as separate audit data", () => {
     const field = /company_average_headcount_evidence:\s*companyFactualRuntime\.company_average_headcount_evidence/g;
     expect(source.match(field)?.length ?? 0).toBe(4);
@@ -23,8 +23,10 @@ describe("P0-A20 SSHR2019 factual Analyzer boundary", () => {
     expect(source).not.toContain("trusted.push(...companyFactualRuntime.company_average_headcount_evidence");
   });
 
-  test("does not create canonical headcount identity or matrix at this stage", () => {
-    expect(source).not.toContain("company_average_headcount_factual_evidence_matrix");
-    expect(source).not.toContain("company_average_headcount_factual_identity");
+  test("keeps the P0-A22 canonical matrix as a separate audit-only channel", () => {
+    expect(source).toContain("const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(");
+    expect(source).toContain("companyFactualRuntime.company_average_headcount_evidence,");
+    expect(source).toContain("parsed.company_average_headcount_factual_evidence_matrix =");
+    expect(source).toContain("parsed.company_average_headcount_factual_identity = {");
   });
 });
