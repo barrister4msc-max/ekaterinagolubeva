@@ -54,6 +54,7 @@ import {
 } from "./canonical-shadow-persistence.ts";
 
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
+import { authorizeAnalyzerRequest } from "./auth-boundary.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,6 +114,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
+  const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+  const authResult = await authorizeAnalyzerRequest(req, sb);
+  if (!authResult.ok) return json({ error: authResult.error }, authResult.status);
+
   let body: any;
   try {
     body = await req.json();
@@ -124,8 +129,6 @@ Deno.serve(async (req) => {
   if (!sessionId) return json({ error: "session_id required" }, 400);
 
   const canonicalRelationsEnabled = readCanonicalRelationsFeatureFlags().enabled;
-
-  const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
   const { data: runRow, error: runInsertErr } = await sb
     .from("document_intake_ai_runs")
