@@ -12,7 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
+          ref: feat/p0a22-sshr2019-matrix-persistence
       - uses: oven-sh/setup-bun@v2
         with: { bun-version: 1.2.22 }
 
@@ -80,14 +82,12 @@ jobs:
           p.write_text(s, encoding='utf-8')
           PY
           git diff --check
-          if [ "${{ github.event_name }}" = "push" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add supabase/functions/analyze-document-legal-position/index.ts
-            if ! git diff --cached --quiet; then
-              git commit -m "feat: persist SSHR2019 factual matrix in Analyzer audit"
-              git push origin HEAD:feat/p0a22-sshr2019-matrix-persistence
-            fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/analyze-document-legal-position/index.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "feat: persist SSHR2019 factual matrix in Analyzer audit"
+            git push origin HEAD:feat/p0a22-sshr2019-matrix-persistence
           fi
 
       - name: Install
@@ -130,7 +130,7 @@ jobs:
         run: git diff --check origin/feat/p0a21-sshr2019-canonical-identity-matrix...HEAD
 
       - name: Record
-        if: always() && github.event_name == 'push'
+        if: always()
         env:
           PATCH: ${{ steps.patch.outcome }}
           INSTALL: ${{ steps.install.outcome }}
@@ -141,6 +141,7 @@ jobs:
           DIFFCHECK: ${{ steps.diffcheck.outcome }}
         run: |
           printf 'patch=%s\ninstall=%s\npersistence=%s\nheadcount=%s\nregressions=%s\ntypecheck=%s\ndiffcheck=%s\n' "$PATCH" "$INSTALL" "$PERSISTENCE" "$HEADCOUNT" "$REGRESSIONS" "$TYPECHECK" "$DIFFCHECK" > .tmp-p0a22-verification-status.txt
+          git pull --ff-only origin feat/p0a22-sshr2019-matrix-persistence
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .tmp-p0a22-verification-status.txt
