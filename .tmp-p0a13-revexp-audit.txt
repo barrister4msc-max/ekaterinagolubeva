@@ -1,48 +1,6 @@
-download=success
-inspect=success
+download=failure
+inspect=failure
 install=success
 catalog=success
 typecheck=success
 diffcheck=success
-{
-  "zip_sha256": "bada16ef2497084edd342c0e2f00442293ac708f28a51fb8954fa21a0941f8d8",
-  "xsd_sha256": "71156f70e08072672d7cc28bb7dd8e9f03891edb72411133b23d4c1dabcd8f57",
-  "zip_bytes": 104365902,
-  "xsd_bytes": 11651,
-  "xml_files": 2114,
-  "sample_rows": 25,
-  "sample_unique_inns": 25,
-  "statement_dates": [
-    "31.12.2025"
-  ],
-  "sample": [
-    {
-      "inn": "1841078335",
-      "name": "ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ \"НИХАТ\"",
-      "income": "11623000.00",
-      "expense": "10969000.00",
-      "document_id": "af0fde14-7bd9-49b0-94e5-5662cccf7f45",
-      "document_date": "25.07.2026",
-      "statement_date": "31.12.2025"
-    },
-    {
-      "inn": "9709030361",
-      "name": "ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ \"РЕМЭКС\"",
-      "income": "9890000.00",
-      "expense": "13210000.00",
-      "document_id": "f4b7b0b0-7633-4f45-9b16-b583d3fa6dd9",
-      "document_date": "25.07.2026",
-      "statement_date": "31.12.2025"
-    },
-    {
-      "inn": "7203446749",
-      "name": "ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ \"БЕТА ЛАЙН\"",
-      "income": "83000.00",
-      "expense": "52000.00",
-      "document_id": "646e8697-5967-45a0-9087-f41d180c2cb8",
-      "document_date": "25.07.2026",
-      "statement_date": "31.12.2025"
-    }
-  ],
-  "xsd_required_tokens_present": true
-}
