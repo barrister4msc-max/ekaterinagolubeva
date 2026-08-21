@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: p0a14-revexp-parser-storage
+  cancel-in-progress: false
+
 jobs:
   verify:
     if: github.actor != 'github-actions[bot]'
@@ -71,6 +75,13 @@ jobs:
           PGPASSWORD: postgres
         run: |
           set -euo pipefail
+          psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          do $$ begin
+            if not exists (select 1 from pg_roles where rolname='anon') then create role anon; end if;
+            if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated; end if;
+            if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role; end if;
+          end $$;
+          SQL
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20260820173000_fns_open_data_snr_company_facts.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20260820214000_fns_open_data_debtam_company_facts.sql
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20260821103000_fns_open_data_revexp_company_facts.sql
@@ -80,14 +91,24 @@ jobs:
           values
             ('7701234567','ООО Тест',11623000.10,10969000.20,'doc-2025','2026-07-25','2025-12-31','7707329152-revexp','https://file.nalog.ru/opendata/7707329152-revexp/data.zip',repeat('a',64)),
             ('7701234567','ООО Тест',100.10,90.20,'doc-2024','2025-07-25','2024-12-31','7707329152-revexp','https://file.nalog.ru/opendata/7707329152-revexp/data.zip',repeat('b',64));
-          insert into fns_open_data.sync_state (dataset_id, status, records_count)
-          values ('7707329152-revexp','completed',2)
-          on conflict (dataset_id) do update set status=excluded.status, records_count=excluded.records_count;
+          insert into fns_open_data.sync_state
+            (dataset_id, status, source_url, source_sha256, data_as_of, published_at, records_count)
+          values
+            ('7707329152-revexp','completed','https://file.nalog.ru/opendata/7707329152-revexp/data.zip',repeat('c',64),'2025-12-31','2026-07-25',2)
+          on conflict (dataset_id) do update set
+            status=excluded.status,
+            source_url=excluded.source_url,
+            source_sha256=excluded.source_sha256,
+            data_as_of=excluded.data_as_of,
+            published_at=excluded.published_at,
+            records_count=excluded.records_count;
           SQL
           latest=$(psql -h localhost -U postgres -d postgres -Atc "select income_amount || '|' || expense_amount || '|' || reporting_date from public.fns_open_data_get_financial_statement_text('7701234567', null);")
           test "$latest" = "11623000.10|10969000.20|2025-12-31"
           historical=$(psql -h localhost -U postgres -d postgres -Atc "select income_amount || '|' || reporting_date from public.fns_open_data_get_financial_statement_text('7701234567', '2024-12-31');")
           test "$historical" = "100.10|2024-12-31"
+          available=$(psql -h localhost -U postgres -d postgres -Atc "select public.fns_open_data_revexp_is_available();")
+          test "$available" = "t"
 
       - name: Typecheck
         id: typecheck
@@ -123,6 +144,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .tmp-p0a14-verification-status.txt
           git commit -m "chore: record P0-A14 verification outcomes"
+          git pull --rebase origin feat/p0a14-revexp-parser-storage-rpc
           git push origin HEAD:feat/p0a14-revexp-parser-storage-rpc
 
       - name: Enforce GREEN
@@ -143,5 +165,3 @@ jobs:
           test "$POSTGRES" = success
           test "$TYPECHECK" = success
           test "$DIFFCHECK" = success
-
-# temporary verifier only; remove after GREEN
