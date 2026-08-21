@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - feat/p0a16-revexp-canonical-identity-matrix
+  pull_request:
+    branches:
+      - feat/p0a15-revexp-runtime-factual-evidence
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: p0a16-revexp-identity-matrix
+  group: p0a16-revexp-identity-matrix-${{ github.event_name }}
   cancel-in-progress: false
 
 jobs:
@@ -62,7 +65,7 @@ jobs:
         run: git diff --check origin/feat/p0a15-revexp-runtime-factual-evidence...HEAD
 
       - name: Record outcomes
-        if: always()
+        if: always() && github.event_name == 'push'
         env:
           INSTALL: ${{ steps.install.outcome }}
           IDENTITY: ${{ steps.identity.outcome }}
