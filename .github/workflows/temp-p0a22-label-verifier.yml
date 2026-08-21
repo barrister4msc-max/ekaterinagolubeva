@@ -1,0 +1,30 @@
+name: TEMP P0-A22 exact label verification
+on:
+  pull_request:
+    branches: [feat/p0a21-sshr2019-canonical-identity-matrix]
+    types: [labeled]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: feat/p0a22-sshr2019-matrix-persistence
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: 1.2.22 }
+      - run: bun install --frozen-lockfile
+      - run: bun test ./supabase/functions/analyze-document-legal-position/company-headcount-matrix-persistence.test.ts
+      - run: |
+          bun test ./supabase/functions/analyze-document-legal-position/company-headcount-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-headcount-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-headcount-evidence.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-headcount-orchestration.test.ts
+      - run: |
+          bun test ./supabase/functions/analyze-document-legal-position/fns-company-factual-runtime.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-identity.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-financial-statement-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-tax-debt-evidence-matrix.test.ts
+          bun test ./supabase/functions/analyze-document-legal-position/company-factual-evidence-matrix.test.ts
+      - run: bun run typecheck
+      - run: git diff --check origin/feat/p0a21-sshr2019-canonical-identity-matrix...HEAD
