@@ -140,6 +140,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Download the exact URLs published in the official FNS card",
     )
+    parser.add_argument(
+        "--save-dir",
+        type=Path,
+        help="Keep downloaded ZIP/XSD in this directory instead of deleting temporary files",
+    )
     return parser.parse_args(argv)
 
 
@@ -151,7 +156,9 @@ def main(argv: list[str]) -> int:
         raise SystemExit("--download cannot be combined with local paths")
 
     with tempfile.TemporaryDirectory(prefix="kati-taxoffence-probe-") as temporary:
-        root = Path(temporary)
+        root = args.save_dir if args.save_dir is not None else Path(temporary)
+        if args.save_dir is not None:
+            root.mkdir(parents=True, exist_ok=True)
         archive_path = args.archive
         xsd_path = args.xsd
         if args.download:
