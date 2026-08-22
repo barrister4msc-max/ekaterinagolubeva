@@ -5,6 +5,11 @@ import {
   buildModelFacingDocumentText,
   prepareSafeAiFillDocuments,
 } from "./redaction-safety.ts";
+import {
+  AI_OWNED_VALUE_SOURCES,
+  mayReplaceAnswerWithAi,
+  type ExistingIntakeAnswer,
+} from "./answer-write-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +20,9 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  let releaseSessionId: string | null = null;
+  let releaseRequestId: string | null = null;
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -51,7 +59,7 @@ serve(async (req) => {
       return json({ success: false, error: "Forbidden" }, 403);
     }
 
-    const { session_id, document_id, document_ids } = await req.json();
+    const { session_id, document_id, document_ids, request_id } = await req.json();
     const requestedDocumentIds = Array.from(
       new Set(
         (Array.isArray(document_ids) ? document_ids : [document_id])
@@ -59,15 +67,18 @@ serve(async (req) => {
       ),
     );
 
-    if (!session_id || requestedDocumentIds.length === 0) {
+    if (!session_id || requestedDocumentIds.length === 0 || typeof request_id !== "string" || request_id.trim().length < 8 || request_id.length > 128) {
       return json(
         {
           success: false,
-          error: "session_id and document_id or document_ids are required",
+          error: "session_id, document_id or document_ids, and request_id are required",
         },
         400,
       );
     }
+
+    releaseSessionId = session_id;
+    releaseRequestId = request_id;
 
     const { data: session, error: sessionError } = await supabase
       .from("document_intake_sessions")
@@ -138,6 +149,24 @@ serve(async (req) => {
 
     const caseIntelligenceMatrix =
       ((session.metadata ?? {}) as Record<string, any>)?.case_intelligence_matrix ?? null;
+
+    const idempotencyClaim = await supabase.rpc("claim_document_intake_ai_fill", {
+      p_session_id: session_id,
+      p_request_id: request_id,
+    });
+    if (idempotencyClaim.error) throw idempotencyClaim.error;
+    if (idempotencyClaim.data?.status === "invalid_request_id") {
+      return json({ success: false, error: "invalid_request_id" }, 400);
+    }
+    if (idempotencyClaim.data?.status === "not_found") {
+      return json({ success: false, error: "Intake session not found" }, 404);
+    }
+    if (idempotencyClaim.data?.status === "completed") {
+      return json(idempotencyClaim.data.result ?? { success: true, session_id, request_id });
+    }
+    if (idempotencyClaim.data?.status === "processing") {
+      return json({ success: false, error: "request_in_progress", request_id }, 202);
+    }
 
     const aiResult = await extractAnswersWithGemini({
       apiKey: geminiApiKey,
@@ -223,36 +252,86 @@ serve(async (req) => {
       return true;
     });
 
+    const candidateFieldNames = allowedAnswers
+      .map((answer) => String(answer.field_name ?? ""))
+      .filter(Boolean);
+    const existingByField = new Map<string, ExistingIntakeAnswer>();
+
+    if (candidateFieldNames.length > 0) {
+      const { data: existingAnswers, error: existingAnswersError } = await supabase
+        .from("document_intake_answers")
+        .select("id, field_name, value_source, is_verified, confidence")
+        .eq("session_id", session_id)
+        .in("field_name", candidateFieldNames);
+
+      if (existingAnswersError) throw existingAnswersError;
+      for (const existing of existingAnswers ?? []) {
+        existingByField.set(existing.field_name, existing);
+      }
+    }
+
     let inserted = 0;
+    let preserved = 0;
 
     for (const answer of allowedAnswers) {
       if (!answer.field_name || answer.value === undefined || answer.value === null) {
         continue;
       }
 
-      await supabase.from("document_intake_answers").upsert(
-        {
-          session_id,
-          field_name: answer.field_name,
-          field_label: answer.field_label ?? answer.field_name,
-          field_value: answer.value,
-          value_source: "ai_document",
-          confidence: answer.confidence ?? 0.7,
-          source_document_id:
-            typeof answer.source_document_id === "string" &&
-            allowedDocumentIds.has(answer.source_document_id)
-              ? answer.source_document_id
-              : primaryDocument.id,
-          source_quote: answer.source_quote ?? null,
-          source_page: answer.source_page ?? null,
-          needs_review: true,
-          is_verified: false,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "session_id,field_name",
-        },
-      );
+      const fieldName = String(answer.field_name);
+      const existing = existingByField.get(fieldName);
+      if (!mayReplaceAnswerWithAi(existing, { confidence: Number(answer.confidence ?? 0) })) {
+        preserved++;
+        continue;
+      }
+
+      const answerRow = {
+        session_id,
+        field_name: fieldName,
+        field_label: answer.field_label ?? fieldName,
+        field_value: answer.value,
+        value_source: "ai_document",
+        confidence: answer.confidence ?? 0.7,
+        source_document_id:
+          typeof answer.source_document_id === "string" &&
+          allowedDocumentIds.has(answer.source_document_id)
+            ? answer.source_document_id
+            : primaryDocument.id,
+        source_quote: answer.source_quote ?? null,
+        source_page: answer.source_page ?? null,
+        needs_review: true,
+        is_verified: false,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existing) {
+        // Re-check ownership in the UPDATE so a concurrent lawyer edit wins.
+        const { data: updated, error: updateError } = await supabase
+          .from("document_intake_answers")
+          .update(answerRow)
+          .eq("id", existing.id)
+          .eq("is_verified", false)
+          .in("value_source", [...AI_OWNED_VALUE_SOURCES])
+          .select("id")
+          .maybeSingle();
+
+        if (updateError) throw updateError;
+        if (!updated) {
+          preserved++;
+          continue;
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from("document_intake_answers")
+          .insert(answerRow);
+
+        // A concurrent manual save wins the unique-key race.
+        if (insertError?.code === "23505") {
+          preserved++;
+          continue;
+        }
+        if (insertError) throw insertError;
+      }
 
       inserted++;
     }
@@ -279,18 +358,43 @@ serve(async (req) => {
       })
       .eq("id", session_id);
 
-    return json({
+    const responsePayload = {
       success: true,
       session_id,
+      request_id,
       document_id: primaryDocument.id,
       document_ids: readyDocuments.map((item) => item.document.id),
       filled_fields: inserted,
+      preserved_fields: preserved,
       total_candidate_fields: fields.length,
       summary: aiResult.summary ?? null,
       answers: allowedAnswers,
+    };
+    const completion = await supabase.rpc("complete_document_intake_ai_fill", {
+      p_session_id: session_id,
+      p_request_id: request_id,
+      p_result: responsePayload,
     });
+    if (completion.error) throw completion.error;
+    return json(responsePayload);
   } catch (error) {
     console.error("document-intake-ai-fill error:", error);
+
+    if (releaseSessionId && releaseRequestId) {
+      try {
+        const releaseClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        await releaseClient.rpc("release_document_intake_ai_fill", {
+          p_session_id: releaseSessionId,
+          p_request_id: releaseRequestId,
+          p_error: error instanceof Error ? error.message : String(error),
+        });
+      } catch (releaseError) {
+        console.error("document-intake-ai-fill release error:", releaseError);
+      }
+    }
 
     return json(
       {

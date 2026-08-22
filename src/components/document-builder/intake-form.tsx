@@ -475,8 +475,32 @@ const reloadAnswersFromSession = useCallback(async () => {
             attempts: attempt,
           };
         }
-        lastError = error?.message || data?.error ||
-          `Извлечение завершилось со статусом ${data?.extraction_status ?? "failed"}`;
+
+        if (!error && data?.extraction_status === "processing") {
+          // Another request already owns the OCR lease. Keep observing the
+          // persisted row instead of burning the retry budget on duplicate
+          // invocations that will immediately return `reused: true`.
+          const persisted = await waitForPersistedExtraction(documentId, 190_000);
+          if (persisted.extractionStatus === "completed" && persisted.textLength > 0) {
+            return {
+              extractionStatus: "completed",
+              textLength: persisted.textLength,
+              attempts: attempt,
+            };
+          }
+          lastError = persisted.error || lastError;
+          if (persisted.extractionStatus === "failed") {
+            return {
+              extractionStatus: "failed",
+              textLength: 0,
+              attempts: attempt,
+              error: lastError,
+            };
+          }
+        } else {
+          lastError = error?.message || data?.error ||
+            `Извлечение завершилось со статусом ${data?.extraction_status ?? "failed"}`;
+        }
       } else {
         // Do not start a duplicate Gemini request while the first invocation is
         // still running. The function persists its result before responding,
@@ -512,7 +536,7 @@ const reloadAnswersFromSession = useCallback(async () => {
   // Resume staged documents after reload/navigation; no saved file may remain silently unprocessed.
   useEffect(() => {
     if (!intakeSessionId) return;
-    const pending = sessionDocuments.filter((d) => !hasExtractedDocumentText(d.ocr_text) && (d.extraction_status === null || d.extraction_status === "pending") && !processingDocumentIdsRef.current.has(d.id)).map((d) => ({ id:d.id, fileName:d.file_name ?? d.title ?? d.id }));
+    const pending = sessionDocuments.filter((d) => !hasExtractedDocumentText(d.ocr_text) && (d.extraction_status === null || d.extraction_status === "pending" || d.extraction_status === "processing") && !processingDocumentIdsRef.current.has(d.id)).map((d) => ({ id:d.id, fileName:d.file_name ?? d.title ?? d.id }));
     if (!pending.length) return;
     void runBackgroundExtraction(pending, async (doc) => { const r=await runExtractionWithRetry(doc.id); return { ok:r.extractionStatus === "completed" && r.textLength > 0 }; }, {
       isProcessing:(id)=>processingDocumentIdsRef.current.has(id), onStart:(ids)=>addProcessingDocuments(ids),
@@ -795,17 +819,19 @@ const reloadAnswersFromSession = useCallback(async () => {
       await buildCaseIntelligenceIfReady("before_ai_fill", readyDocs);
 
       let fillResult: any = null;
+      const aiFillRequestId = crypto.randomUUID();
       let lastFillError = "AI не вернул подтверждённые поля";
-      for (let technicalAttempt = 0; technicalAttempt < 2; technicalAttempt += 1) {
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
         const { data, error } = await supabase.functions.invoke("document-intake-ai-fill", {
           body: {
             session_id: intakeSessionId,
+            request_id: aiFillRequestId,
             document_ids: readyDocs.map((document) => document.id),
           },
         });
 
         const filledFields = Number(data?.filled_fields ?? 0);
-        if (!error && data?.success === true && filledFields > 0) {
+        if (!error && data?.success === true && (filledFields > 0 || Number(data?.preserved_fields ?? 0) > 0)) {
           fillResult = data;
           break;
         }
@@ -821,8 +847,8 @@ const reloadAnswersFromSession = useCallback(async () => {
           status >= 500 ||
           /network|fetch|timeout|temporar/i.test(error?.message ?? "")
         );
-        if (!transient || technicalAttempt === 1) break;
-        await waitBeforeRetry(1);
+        if (!transient || attempt === 3) break;
+        await waitBeforeRetry(attempt);
       }
       if (!fillResult) throw new Error(lastFillError);
 

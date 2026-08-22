@@ -391,9 +391,38 @@ Deno.serve(async (req) => {
     if (loadErr) return json({ error: loadErr.message }, 500);
     if (!item) return json({ error: "not_found" }, 404);
 
+    const archiveClaim = await supabase.rpc("claim_archive_item_text_extraction", {
+      p_item_id: item.id,
+      p_lease_seconds: 180,
+    });
+    if (archiveClaim.error) return json({ error: "extraction_claim_failed" }, 500);
+    if (archiveClaim.data?.claimed !== true) {
+      if (archiveClaim.data?.status === "not_found") return json({ error: "not_found" }, 404);
+      return json({
+        ok: true,
+        extraction_status: archiveClaim.data?.status ?? "processing",
+        text_length: Number(archiveClaim.data?.text_length ?? 0),
+        reused: true,
+      });
+    }
+
     const md = (item.metadata || {}) as Record<string, any>;
     const storagePath = body.storage_path || item.storage_path;
-    if (!storagePath) return json({ error: "no_storage_path" }, 400);
+    if (!storagePath) {
+      await supabase
+        .from("lawyer_archive_items")
+        .update({
+          metadata: {
+            ...md,
+            text_extraction_status: "ocr_failed",
+            ocr_error: "no_storage_path",
+            text_extraction_lease_until: null,
+            ocr_last_attempt_at: new Date().toISOString(),
+          },
+        })
+        .eq("id", item.id);
+      return json({ error: "no_storage_path" }, 400);
+    }
     const fileName = body.file_name || md.original_filename || item.title || "document";
     const mime = normalizeOcrMimeType(body.mime_type || md.mime_type, fileName, storagePath);
 
@@ -404,7 +433,7 @@ Deno.serve(async (req) => {
     }
     if (!downloaded) downloaded = await downloadFile(supabase, storagePath);
     if (!downloaded) {
-      const newMd = { ...md, text_extraction_status: "ocr_failed", ocr_error: "file_not_found_in_storage", ocr_last_attempt_at: new Date().toISOString() };
+      const newMd = { ...md, text_extraction_status: "ocr_failed", ocr_error: "file_not_found_in_storage", ocr_last_attempt_at: new Date().toISOString(), text_extraction_lease_until: null };
       await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
       return json({ error: "file_not_found_in_storage" }, 404);
     }
@@ -426,6 +455,7 @@ Deno.serve(async (req) => {
         ocr_error: unsupportedTiff ? "ocr_format_unsupported" : (GEMINI_API_KEY ? "ocr_empty" : "GEMINI_API_KEY missing"),
         ocr_debug: result.debug,
         ocr_last_attempt_at: new Date().toISOString(),
+        text_extraction_lease_until: null,
       };
       await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
       return json({ ok: false, error: unsupportedTiff ? "ocr_format_unsupported" : "ocr_empty", ocr_debug: result.debug }, 200);
@@ -440,6 +470,7 @@ Deno.serve(async (req) => {
       ocr_text: text,
       ocr_debug: result.debug,
       requires_ocr: false,
+      text_extraction_lease_until: null,
     };
     delete newMd.text_extraction_error;
     delete newMd.ocr_error;
@@ -466,7 +497,20 @@ Deno.serve(async (req) => {
   const detected = detect(doc.mime_type || "", doc.file_name || "");
   const existingMeta = (doc.metadata || {}) as Record<string, any>;
 
-  
+  const { data: claim, error: claimError } = await supabase.rpc("claim_document_text_extraction", {
+    p_document_id: documentId,
+    p_lease_seconds: 180,
+  });
+  if (claimError) return json({ error: "extraction_claim_failed" }, 500);
+  if (claim?.claimed !== true) {
+    if (claim?.status === "not_found") return json({ error: "not_found" }, 404);
+    return json({
+      ok: true,
+      extraction_status: claim?.status ?? "processing",
+      text_length: Number(claim?.text_length ?? 0),
+      reused: true,
+    });
+  }
 
   const downloaded = await downloadFile(supabase, doc.storage_path);
   if (!downloaded) {
@@ -477,6 +521,7 @@ Deno.serve(async (req) => {
       extracted_at: new Date().toISOString(),
       text_length: 0,
       extraction_error: "file_not_found_in_storage",
+      extraction_lease_until: null,
     };
     await supabase
       .from("documents")
@@ -539,8 +584,8 @@ Deno.serve(async (req) => {
 
   const shouldUseGeminiFallback =
     downloaded?.buf &&
-    (detected.kind === "image" || detected.kind === "pdf" ||
-      (text.length === 0 && !["spreadsheet", "presentation", "unknown"].includes(detected.kind)));
+    (detected.kind === "image" || detected.kind === "pdf" || text.length === 0) &&
+    !(text.length === 0 && ["spreadsheet", "presentation", "unknown"].includes(detected.kind));
 
   if (shouldUseGeminiFallback) {
     const fallback = await extractWithGeminiFallback({
@@ -597,6 +642,8 @@ Deno.serve(async (req) => {
     extracted_at: new Date().toISOString(),
     text_length: textLength,
     extraction_error: extractionError,
+    extraction_lease_until: null,
+    extraction_completed_at: new Date().toISOString(),
   };
 
   const update: Record<string, any> = {

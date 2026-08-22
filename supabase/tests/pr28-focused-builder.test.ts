@@ -29,7 +29,7 @@ describe("PR28 focused document builder", () => {
 
   it("uses ready docs immediately and retries only transient transport failures", () => {
     expect(intake).toContain("if (readyDocs.length === 0 && documentsWithoutText.length > 0)");
-    expect(intake).toContain("technicalAttempt < 2");
+    expect(intake).toContain("attempt <= 3");
     expect(intake).toContain("status === 429");
     expect(intake).toContain("status >= 500");
   });
