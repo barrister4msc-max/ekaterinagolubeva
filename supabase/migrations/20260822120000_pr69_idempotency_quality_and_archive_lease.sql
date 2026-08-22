@@ -83,6 +83,35 @@ begin
 end;
 $$;
 
+create or replace function public.release_document_intake_ai_fill(
+  p_session_id uuid,
+  p_request_id text,
+  p_error text default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  update public.document_intake_sessions
+     set metadata = jsonb_set(
+       coalesce(metadata, '{}'::jsonb),
+       array['ai_fill_idempotency', p_request_id],
+       jsonb_build_object(
+         'status', 'failed',
+         'failed_at', clock_timestamp(),
+         'error', left(coalesce(p_error, 'ai_fill_failed'), 500)
+       ),
+       true
+     ),
+     updated_at = clock_timestamp()
+   where id = p_session_id
+     and metadata -> 'ai_fill_idempotency' -> p_request_id ->> 'status' = 'processing';
+  return found;
+end;
+$;
+
 create or replace function public.claim_archive_item_text_extraction(
   p_item_id uuid,
   p_lease_seconds integer default 180
@@ -136,6 +165,8 @@ $$;
 
 revoke all on function public.claim_document_intake_ai_fill(uuid, text) from public, anon, authenticated;
 revoke all on function public.complete_document_intake_ai_fill(uuid, text, jsonb) from public, anon, authenticated;
+revoke all on function public.release_document_intake_ai_fill(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.release_document_intake_ai_fill(uuid, text, text) to service_role;
 revoke all on function public.claim_archive_item_text_extraction(uuid, integer) from public, anon, authenticated;
 grant execute on function public.claim_document_intake_ai_fill(uuid, text) to service_role;
 grant execute on function public.complete_document_intake_ai_fill(uuid, text, jsonb) to service_role;
