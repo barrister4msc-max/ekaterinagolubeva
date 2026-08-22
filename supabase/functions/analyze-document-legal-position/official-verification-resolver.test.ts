@@ -24,6 +24,7 @@ function law7(overrides: Partial<VerifiableLaw7Source> = {}): VerifiableLaw7Sour
       // the amending act that introduced article 54.1.
       version_date: "2000-07-31",
       substantive_use_allowed: false,
+      article_text: "Статья 54.1. Пределы осуществления прав по исчислению налоговой базы.",
     },
     ...overrides,
   };
