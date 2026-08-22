@@ -33,6 +33,7 @@ MAX_ZIP_MEMBERS = 10_000
 MAX_TOTAL_UNCOMPRESSED_BYTES = 5_000_000_000
 MAX_MEMBER_UNCOMPRESSED_BYTES = 1_500_000_000
 MAX_COMPRESSION_RATIO = 250
+MAX_XSD_DECLARATIONS = 500
 
 
 def sha256_file(path: Path) -> str:
@@ -72,9 +73,20 @@ def validate_xsd(path: Path) -> dict[str, object]:
     root_name = local_name(root.tag)
     if root_name != "schema":
         raise ValueError(f"unexpected_xsd_root:{root_name}")
+
+    declarations: list[dict[str, str]] = []
+    for node in root.iter():
+        name = node.attrib.get("name")
+        kind = local_name(node.tag)
+        if name and kind in {"element", "attribute", "complexType", "simpleType"}:
+            declarations.append({"kind": kind, "name": name})
+            if len(declarations) > MAX_XSD_DECLARATIONS:
+                raise ValueError("xsd_has_too_many_declarations")
+
     return {
         "root": root_name,
         "target_namespace": root.attrib.get("targetNamespace"),
+        "declarations": declarations,
     }
 
 
