@@ -70,4 +70,3 @@ $$;
 
 revoke all on function public.claim_document_text_extraction(uuid, integer) from public, anon, authenticated;
 grant execute on function public.claim_document_text_extraction(uuid, integer) to service_role;
-
