@@ -56,7 +56,7 @@ serve(async (req) => {
       return json({ success: false, error: "Forbidden" }, 403);
     }
 
-    const { session_id, document_id, document_ids } = await req.json();
+    const { session_id, document_id, document_ids, request_id } = await req.json();
     const requestedDocumentIds = Array.from(
       new Set(
         (Array.isArray(document_ids) ? document_ids : [document_id])
@@ -64,11 +64,11 @@ serve(async (req) => {
       ),
     );
 
-    if (!session_id || requestedDocumentIds.length === 0) {
+    if (!session_id || requestedDocumentIds.length === 0 || typeof request_id !== "string" || request_id.trim().length < 8 || request_id.length > 128) {
       return json(
         {
           success: false,
-          error: "session_id and document_id or document_ids are required",
+          error: "session_id, document_id or document_ids, and request_id are required",
         },
         400,
       );
@@ -143,6 +143,24 @@ serve(async (req) => {
 
     const caseIntelligenceMatrix =
       ((session.metadata ?? {}) as Record<string, any>)?.case_intelligence_matrix ?? null;
+
+    const idempotencyClaim = await supabase.rpc("claim_document_intake_ai_fill", {
+      p_session_id: session_id,
+      p_request_id: request_id,
+    });
+    if (idempotencyClaim.error) throw idempotencyClaim.error;
+    if (idempotencyClaim.data?.status === "invalid_request_id") {
+      return json({ success: false, error: "invalid_request_id" }, 400);
+    }
+    if (idempotencyClaim.data?.status === "not_found") {
+      return json({ success: false, error: "Intake session not found" }, 404);
+    }
+    if (idempotencyClaim.data?.status === "completed") {
+      return json(idempotencyClaim.data.result ?? { success: true, session_id, request_id });
+    }
+    if (idempotencyClaim.data?.status === "processing") {
+      return json({ success: false, error: "request_in_progress", request_id }, 202);
+    }
 
     const aiResult = await extractAnswersWithGemini({
       apiKey: geminiApiKey,
@@ -236,7 +254,7 @@ serve(async (req) => {
     if (candidateFieldNames.length > 0) {
       const { data: existingAnswers, error: existingAnswersError } = await supabase
         .from("document_intake_answers")
-        .select("id, field_name, value_source, is_verified")
+        .select("id, field_name, value_source, is_verified, confidence")
         .eq("session_id", session_id)
         .in("field_name", candidateFieldNames);
 
@@ -256,7 +274,7 @@ serve(async (req) => {
 
       const fieldName = String(answer.field_name);
       const existing = existingByField.get(fieldName);
-      if (!mayReplaceAnswerWithAi(existing)) {
+      if (!mayReplaceAnswerWithAi(existing, { confidence: Number(answer.confidence ?? 0) })) {
         preserved++;
         continue;
       }
@@ -334,9 +352,10 @@ serve(async (req) => {
       })
       .eq("id", session_id);
 
-    return json({
+    const responsePayload = {
       success: true,
       session_id,
+      request_id,
       document_id: primaryDocument.id,
       document_ids: readyDocuments.map((item) => item.document.id),
       filled_fields: inserted,
@@ -344,7 +363,14 @@ serve(async (req) => {
       total_candidate_fields: fields.length,
       summary: aiResult.summary ?? null,
       answers: allowedAnswers,
+    };
+    const completion = await supabase.rpc("complete_document_intake_ai_fill", {
+      p_session_id: session_id,
+      p_request_id: request_id,
+      p_result: responsePayload,
     });
+    if (completion.error) throw completion.error;
+    return json(responsePayload);
   } catch (error) {
     console.error("document-intake-ai-fill error:", error);
 
