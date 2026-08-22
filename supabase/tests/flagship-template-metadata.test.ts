@@ -36,9 +36,13 @@ const flagships = [
   },
 ] as const;
 
+async function readMigration(): Promise<string> {
+  return (await Bun.file(migrationPath).text()).replace(/\r\n/g, "\n");
+}
+
 describe("T0-C flagship template metadata migration", () => {
   test("guards all five exact codes before the update", async () => {
-    const sql = await Bun.file(migrationPath).text();
+    const sql = await readMigration();
     const guardEnd = sql.indexOf("$guard$;");
     const updateStart = sql.indexOf("UPDATE public.legal_document_templates AS template");
 
@@ -55,7 +59,7 @@ describe("T0-C flagship template metadata migration", () => {
   });
 
   test("uses the approved titles and exact ranks for sort order", async () => {
-    const sql = await Bun.file(migrationPath).text();
+    const sql = await readMigration();
     for (const { code, title, rank } of flagships) {
       expect(sql).toContain(`('${code}', '${title}', ${rank})`);
     }
@@ -63,7 +67,7 @@ describe("T0-C flagship template metadata migration", () => {
   });
 
   test("merges flagship metadata without replacing existing keys", async () => {
-    const sql = await Bun.file(migrationPath).text();
+    const sql = await readMigration();
     expect(sql).toContain("COALESCE(template.metadata, '{}'::jsonb) || jsonb_build_object(");
     expect(sql).toContain("'flagship', true");
     expect(sql).toContain("'flagship_rank', flagship.flagship_rank");
@@ -71,7 +75,7 @@ describe("T0-C flagship template metadata migration", () => {
   });
 
   test("is limited to the canonical registry and makes no destructive changes", async () => {
-    const sql = await Bun.file(migrationPath).text();
+    const sql = await readMigration();
     expect(sql).not.toMatch(/\bDELETE\b|\bTRUNCATE\b|\bINSERT\b/i);
     expect(sql).not.toMatch(/UPDATE\s+public\.document_templates\b/i);
     expect(sql).not.toMatch(/\bis_active\s*=/i);
