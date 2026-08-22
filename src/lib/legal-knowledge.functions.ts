@@ -322,6 +322,12 @@ function trustLevelOf(url: string | null | undefined): "high" | "medium" | "low"
   }
 }
 
+async function sha256Hex(value: string | Uint8Array): Promise<string> {
+  const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function chunkText(input: string, target = 1800): string[] {
   const clean = input.replace(/\r\n/g, "\n").trim();
   if (!clean) return [];
@@ -367,6 +373,8 @@ export const lkCreateManualSource = createServerFn({ method: "POST" })
     if (chunks.length === 0) throw new Error("Пустой текст источника");
 
     const trust = trustLevelOf(data.source_url);
+    const contentHashSha256 = await sha256Hex(data.text_content);
+    const provenanceCapturedAt = new Date().toISOString();
     const baseMeta = {
       source_group_id: groupId,
       source_type: data.source_type,
@@ -381,6 +389,9 @@ export const lkCreateManualSource = createServerFn({ method: "POST" })
       import_status: "pending" as const,
       trust_level: trust,
       ingest_mode: "manual_text",
+      provenance_schema_version: 1,
+      content_hash_sha256: contentHashSha256,
+      provenance_captured_at: provenanceCapturedAt,
       notes: data.notes ?? null,
       uploaded_by: userId,
       uploaded_at: new Date().toISOString(),
@@ -410,6 +421,7 @@ export const lkCreateUrlSource = createServerFn({ method: "POST" })
     if (!data.source_url) throw new Error("URL обязателен");
 
     const groupId = crypto.randomUUID();
+    const contentHashSha256 = await sha256Hex(bytes);
     const trust = trustLevelOf(data.source_url);
     const metadata = {
       source_group_id: groupId,
@@ -425,6 +437,9 @@ export const lkCreateUrlSource = createServerFn({ method: "POST" })
       import_status: "pending",
       trust_level: trust,
       ingest_mode: "url_only",
+      provenance_schema_version: 1,
+      content_hash_sha256: null,
+      provenance_captured_at: new Date().toISOString(),
       notes: data.notes ?? null,
       chunk_index: 0,
       is_source_head: true,
@@ -484,6 +499,9 @@ export const lkUploadFileSource = createServerFn({ method: "POST" })
       import_status: "pending",
       trust_level: trust,
       ingest_mode: "file_upload",
+      provenance_schema_version: 1,
+      content_hash_sha256: contentHashSha256,
+      provenance_captured_at: new Date().toISOString(),
       file_path: path,
       file_name: data.file_name,
       file_mime: data.file_mime,
@@ -703,7 +721,8 @@ export const lkBulkCreateSources = createServerFn({ method: "POST" })
     const uploadedAt = new Date().toISOString();
     const total = data.items.length;
 
-    const rows = data.items.map((it, idx) => {
+    const rows = await Promise.all(data.items.map(async (it, idx) => {
+      const contentHashSha256 = await sha256Hex(it.content);
       const trust = trustLevelOf(it.source_url ?? null);
       return {
         title: it.title,
@@ -726,6 +745,9 @@ export const lkBulkCreateSources = createServerFn({ method: "POST" })
           official_status: "unverified",
           trust_level: trust,
           ingest_mode: "batch_json",
+          provenance_schema_version: 1,
+          content_hash_sha256: contentHashSha256,
+          provenance_captured_at: uploadedAt,
           chunk_index: idx,
           chunks_total: total,
           is_source_head: true,
@@ -733,7 +755,7 @@ export const lkBulkCreateSources = createServerFn({ method: "POST" })
           uploaded_by: userId,
         },
       };
-    });
+    }));
 
     const { error } = await supabaseAdmin.from("legal_knowledge_chunks").insert(rows);
     if (error) throw new Error(error.message);
