@@ -401,7 +401,10 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
   const officialUrl = buildPravoDocumentUrl(eoNumber);
   if (!isOfficialLegalUrl(officialUrl)) return null;
   const detail = await getPravoDetails(eoNumber);
-  const documentText = searchMode === "exact" ? await getPravoDocumentText(eoNumber) : null;
+  const documentText =
+    searchMode === "exact" || searchMode === "context"
+      ? await getPravoDocumentText(eoNumber)
+      : null;
   const documentTextHash = documentText ? await sha256HexText(documentText) : null;
   const source = detail ?? item;
   const title = asText(source?.complexName) ?? asText(source?.name) ?? asText(source?.title) ?? "Правовой акт";
@@ -462,6 +465,8 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
       document_text_sha256: documentTextHash,
       document_text_retrieved_at: documentText ? new Date().toISOString() : null,
       content_verification_status: "not_verified",
+      content_retrieval_stage:
+        searchMode === "exact" ? "exact_candidate" : "bounded_context_candidate",
     },
   };
 }
@@ -501,7 +506,7 @@ async function searchPravoByContext(text: string): Promise<OfficialSourceResult[
   });
   const data = await fetchJson(`${pravoApiBase()}/Documents?${params.toString()}`);
   const items = Array.isArray(data?.items) ? data.items : [];
-  const mapped = await Promise.all(items.slice(0, 5).map((item: any) => mapPravoItem(item, false, "context")));
+  const mapped = await Promise.all(items.slice(0, 3).map((item: any) => mapPravoItem(item, false, "context")));
   return mapped.filter(Boolean) as OfficialSourceResult[];
 }
 
