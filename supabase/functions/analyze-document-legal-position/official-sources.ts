@@ -354,6 +354,25 @@ async function fetchJson(url: string, timeoutMs = 12000): Promise<any> {
   }
 }
 
+export async function getPravoDocumentText(eoNumber: string): Promise<string | null> {
+  const normalized = eoNumber.trim();
+  if (!/^\\d{16}$/.test(normalized)) return null;
+  try {
+    const payload = await fetchJson(
+      pravoApiBase() + "/DocumentText?eonumber=" + encodeURIComponent(normalized),
+    );
+    if (typeof payload === "string") return payload.trim() || null;
+    if (payload && typeof payload === "object") {
+      const value = payload as Record<string, unknown>;
+      for (const key of ["text", "documentText", "content"]) {
+        if (typeof value[key] === "string" && value[key].trim()) return value[key].trim();
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 async function getPravoDetails(eoNumber: string): Promise<any | null> {
   try {
     return await fetchJson(`${pravoApiBase()}/Document?eoNumber=${encodeURIComponent(eoNumber)}`);
