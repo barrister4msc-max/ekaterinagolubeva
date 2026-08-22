@@ -354,6 +354,31 @@ async function fetchJson(url: string, timeoutMs = 12000): Promise<any> {
   }
 }
 
+async function sha256HexText(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function getPravoDocumentText(eoNumber: string): Promise<string | null> {
+  const normalized = eoNumber.trim();
+  if (!/^\\d{16}$/.test(normalized)) return null;
+  try {
+    const payload = await fetchJson(
+      pravoApiBase() + "/DocumentText?eonumber=" + encodeURIComponent(normalized),
+    );
+    if (typeof payload === "string") return payload.trim() || null;
+    if (payload && typeof payload === "object") {
+      const value = payload as Record<string, unknown>;
+      for (const key of ["text", "documentText", "content"]) {
+        if (typeof value[key] === "string" && value[key].trim()) return value[key].trim();
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 async function getPravoDetails(eoNumber: string): Promise<any | null> {
   try {
     return await fetchJson(`${pravoApiBase()}/Document?eoNumber=${encodeURIComponent(eoNumber)}`);
@@ -376,6 +401,11 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
   const officialUrl = buildPravoDocumentUrl(eoNumber);
   if (!isOfficialLegalUrl(officialUrl)) return null;
   const detail = await getPravoDetails(eoNumber);
+  const documentText =
+    searchMode === "exact" || searchMode === "context"
+      ? await getPravoDocumentText(eoNumber)
+      : null;
+  const documentTextHash = documentText ? await sha256HexText(documentText) : null;
   const source = detail ?? item;
   const title = asText(source?.complexName) ?? asText(source?.name) ?? asText(source?.title) ?? "Правовой акт";
   const documentNumber = asText(source?.number);
@@ -430,6 +460,13 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
       safety,
       verification_status: safety.verification_level,
       substantive_use_allowed: safety.substantive_use_allowed,
+      document_text_retrieved: Boolean(documentText),
+      document_text_length: documentText?.length ?? 0,
+      document_text_sha256: documentTextHash,
+      document_text_retrieved_at: documentText ? new Date().toISOString() : null,
+      content_verification_status: "not_verified",
+      content_retrieval_stage:
+        searchMode === "exact" ? "exact_candidate" : "bounded_context_candidate",
     },
   };
 }
@@ -469,7 +506,7 @@ async function searchPravoByContext(text: string): Promise<OfficialSourceResult[
   });
   const data = await fetchJson(`${pravoApiBase()}/Documents?${params.toString()}`);
   const items = Array.isArray(data?.items) ? data.items : [];
-  const mapped = await Promise.all(items.slice(0, 5).map((item: any) => mapPravoItem(item, false, "context")));
+  const mapped = await Promise.all(items.slice(0, 3).map((item: any) => mapPravoItem(item, false, "context")));
   return mapped.filter(Boolean) as OfficialSourceResult[];
 }
 
