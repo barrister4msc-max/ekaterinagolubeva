@@ -126,6 +126,20 @@ describe("Pravo ↔ Law7 deterministic official verification", () => {
     expect(result.substantive_use_allowed).toBe(true);
   });
 
+
+
+  test("does not promote a Law7 title-only snippet as verified content", () => {
+    const source = law7();
+    const metadata = { ...source.metadata };
+    delete metadata.article_text;
+    const result = resolveLaw7OfficialVerification(
+      { ...source, metadata },
+      [pravo(observation())],
+    );
+    expect(result.status).toBe("no_content");
+    expect(result.substantive_use_allowed).toBe(false);
+  });
+
   test("exact norm identity + exact content + verified actuality may become substantive", () => {
     const obs = observation({
       law7_version_date: "2000-07-31",
