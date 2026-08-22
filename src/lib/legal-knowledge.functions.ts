@@ -417,7 +417,6 @@ export const lkCreateUrlSource = createServerFn({ method: "POST" })
     if (!data.source_url) throw new Error("URL обязателен");
 
     const groupId = crypto.randomUUID();
-    const contentHashSha256 = await sha256Hex(bytes);
     const trust = trustLevelOf(data.source_url);
     const metadata = {
       source_group_id: groupId,
@@ -475,6 +474,7 @@ export const lkUploadFileSource = createServerFn({ method: "POST" })
     const path = `legal-sources/${groupId}/${safeName}`;
 
     const bytes = Uint8Array.from(atob(data.file_base64), (c) => c.charCodeAt(0));
+    const contentHashSha256 = await sha256Hex(bytes);
     const { error: upErr } = await supabaseAdmin.storage
       .from("communication-attachments")
       .upload(path, bytes, { contentType: data.file_mime, upsert: false });
