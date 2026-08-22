@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sha256Hex } from "@/lib/source-provenance";
 
 
 async function assertAdmin(supabase: any, userId: string) {
@@ -322,11 +323,6 @@ function trustLevelOf(url: string | null | undefined): "high" | "medium" | "low"
   }
 }
 
-async function sha256Hex(value: string | Uint8Array): Promise<string> {
-  const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
 
 function chunkText(input: string, target = 1800): string[] {
   const clean = input.replace(/\r\n/g, "\n").trim();
