@@ -408,7 +408,21 @@ Deno.serve(async (req) => {
 
     const md = (item.metadata || {}) as Record<string, any>;
     const storagePath = body.storage_path || item.storage_path;
-    if (!storagePath) return json({ error: "no_storage_path" }, 400);
+    if (!storagePath) {
+      await supabase
+        .from("lawyer_archive_items")
+        .update({
+          metadata: {
+            ...md,
+            text_extraction_status: "ocr_failed",
+            ocr_error: "no_storage_path",
+            text_extraction_lease_until: null,
+            ocr_last_attempt_at: new Date().toISOString(),
+          },
+        })
+        .eq("id", item.id);
+      return json({ error: "no_storage_path" }, 400);
+    }
     const fileName = body.file_name || md.original_filename || item.title || "document";
     const mime = normalizeOcrMimeType(body.mime_type || md.mime_type, fileName, storagePath);
 
