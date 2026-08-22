@@ -21,6 +21,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let releaseSessionId: string | null = null;
+  let releaseRequestId: string | null = null;
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -73,6 +76,9 @@ serve(async (req) => {
         400,
       );
     }
+
+    releaseSessionId = session_id;
+    releaseRequestId = request_id;
 
     const { data: session, error: sessionError } = await supabase
       .from("document_intake_sessions")
@@ -373,6 +379,22 @@ serve(async (req) => {
     return json(responsePayload);
   } catch (error) {
     console.error("document-intake-ai-fill error:", error);
+
+    if (releaseSessionId && releaseRequestId) {
+      try {
+        const releaseClient = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+        );
+        await releaseClient.rpc("release_document_intake_ai_fill", {
+          p_session_id: releaseSessionId,
+          p_request_id: releaseRequestId,
+          p_error: error instanceof Error ? error.message : String(error),
+        });
+      } catch (releaseError) {
+        console.error("document-intake-ai-fill release error:", releaseError);
+      }
+    }
 
     return json(
       {
