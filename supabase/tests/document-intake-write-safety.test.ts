@@ -67,7 +67,12 @@ describe("document intake write safety", () => {
     expect(migration).toContain("to service_role");
     expect(followUpMigration).toContain("claim_document_intake_ai_fill");
     expect(followUpMigration).toContain("complete_document_intake_ai_fill");
+    expect(followUpMigration).toContain("release_document_intake_ai_fill");
     expect(followUpMigration).toContain("claim_archive_item_text_extraction");
+    const aiFillSource = await Bun.file(
+      join(testsDirectory, "../functions/document-intake-ai-fill/index.ts"),
+    ).text();
+    expect(aiFillSource).toContain('rpc("release_document_intake_ai_fill"');
 
     const claim = source.indexOf('rpc("claim_document_text_extraction"');
     const archiveClaim = source.indexOf('rpc("claim_archive_item_text_extraction"');
