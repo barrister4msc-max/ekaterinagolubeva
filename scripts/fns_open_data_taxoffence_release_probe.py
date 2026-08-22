@@ -105,9 +105,10 @@ def validate_archive(path: Path) -> dict[str, object]:
             raise ValueError("zip_has_no_xml_members")
 
         with archive.open(xml_members[0], "r") as stream:
-            root_event, root_element = next(
-                event for event, element in ET.iterparse(stream, events=("start",))
-                for root_event, root_element in [(event, element)]
+            root_element = next(
+                element
+                for event, element in ET.iterparse(stream, events=("start",))
+                if event == "start"
             )
 
     return {
