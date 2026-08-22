@@ -53,6 +53,12 @@ import {
   persistCanonicalShadowBestEffort,
 } from "./canonical-shadow-persistence.ts";
 
+import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";
+import { buildCompanyFactualEvidenceMatrix } from "./company-factual-evidence-matrix.ts";
+import { buildCompanyTaxDebtEvidenceMatrix } from "./company-tax-debt-evidence-matrix.ts";
+import { buildCompanyFinancialStatementEvidenceMatrix } from "./company-financial-statement-evidence-matrix.ts";
+import { buildCompanyAverageHeadcountEvidenceMatrix } from "./company-headcount-evidence-matrix.ts";
+
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 import { authorizeAnalyzerRequest } from "./auth-boundary.ts";
 
@@ -195,6 +201,32 @@ Deno.serve(async (req) => {
       .eq("session_id", sessionId);
     const answers: Record<string, unknown> = {};
     for (const r of answerRows ?? []) answers[r.field_name as string] = r.field_value;
+    // P0-A5: company factual evidence is a separate audited runtime snapshot.
+    // It is deliberately not added to research sources or any model input.
+    const companyFactualRuntime = await loadCompanyFactualRuntimeSnapshot({
+      sb,
+      answers,
+    });
+    // P0-A7: additive factual Evidence Matrix. This is intentionally separate
+    // from the canonical FactRecord↔document Evidence Matrix below.
+    const companyFactualMatrix = buildCompanyFactualEvidenceMatrix(
+      companyFactualRuntime.company_factual_evidence,
+    );
+    // P0-A12: separate DEBTAM point-in-time factual matrix. It is audit-only
+    // and never enters legal/document evidence or model inputs.
+    const companyTaxDebtFactualMatrix = buildCompanyTaxDebtEvidenceMatrix(
+      companyFactualRuntime.company_tax_debt_evidence,
+    );
+    // P0-A17: separate REVEXP annual financial-statement factual matrix.
+    // Audit-only: never enters legal/document evidence or model inputs.
+    const companyFinancialStatementFactualMatrix = buildCompanyFinancialStatementEvidenceMatrix(
+      companyFactualRuntime.company_financial_statement_evidence,
+    );
+    // P0-A22: separate SSHR2019 annual-average-headcount factual matrix.
+    // Audit-only: never enters legal/document evidence or model inputs.
+    const companyAverageHeadcountFactualMatrix = buildCompanyAverageHeadcountEvidenceMatrix(
+      companyFactualRuntime.company_average_headcount_evidence,
+    );
 
     // practice_area + template title (for document-intent fallback)
     let practiceArea: string | null = null;
@@ -262,6 +294,20 @@ Deno.serve(async (req) => {
           completed_at: new Date().toISOString(),
           ai_result: {
             documents_audit: { used: [], rejected: audited },
+            company_factual_evidence: companyFactualRuntime.company_factual_evidence,
+            company_factual_diagnostics: companyFactualRuntime.diagnostics,
+            company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+            company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
+            company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,
+            company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,
+            company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
+            company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
+            company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
+            company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
+            company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
+            company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
+            company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+            company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
           } as any,
           problems: ["Нет прикрепленных документов или извлеченного текста"] as any,
           source_verification_status: "no_sources",
@@ -274,6 +320,20 @@ Deno.serve(async (req) => {
             documents_used: 0,
             documents_rejected: rejectedDocs.length,
             reason: "no_usable_document_text",
+            company_factual_evidence: companyFactualRuntime.company_factual_evidence,
+            company_factual_diagnostics: companyFactualRuntime.diagnostics,
+            company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+            company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
+            company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,
+            company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,
+            company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
+            company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
+            company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
+            company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
+            company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
+            company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
+            company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+            company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
             external_research: stagedExternalResearchSnapshot,
           } as any,
         })
@@ -329,6 +389,20 @@ Deno.serve(async (req) => {
           documents_total: audited.length,
           documents_used: usedDocs.length,
           documents_rejected: rejectedDocs.length,
+          company_factual_evidence: companyFactualRuntime.company_factual_evidence,
+          company_factual_diagnostics: companyFactualRuntime.diagnostics,
+          company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+          company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
+          company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,
+          company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,
+          company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
+          company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
+          company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
+          company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
+          company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
+          company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
+          company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+          company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
         } as any,
       })
@@ -587,6 +661,23 @@ Deno.serve(async (req) => {
     parsed.blocked_conclusions = blockedConclusions;
     parsed.provenance_index = provBuild.provenance_index;
     parsed.evidence_matrix = evidenceMatrix;
+    // P0-A7 additive factual matrix; does not mutate legal/document Evidence Matrix.
+    parsed.company_factual_evidence_matrix = companyFactualMatrix.company_factual_evidence_matrix;
+    parsed.company_factual_identity = {
+      canonical_company_facts: companyFactualMatrix.canonical_company_facts,
+      company_fact_evidence_links: companyFactualMatrix.company_fact_evidence_links,
+      diagnostics: companyFactualMatrix.diagnostics,
+    };
+    // P0-A12: DEBTAM identity/matrix persistence remains a separate factual channel.
+    parsed.company_tax_debt_factual_evidence_matrix =
+      companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix;
+    parsed.company_tax_debt_factual_identity = {
+      canonical_company_tax_debt_facts:
+        companyTaxDebtFactualMatrix.canonical_company_tax_debt_facts,
+      company_tax_debt_evidence_links:
+        companyTaxDebtFactualMatrix.company_tax_debt_evidence_links,
+      diagnostics: companyTaxDebtFactualMatrix.diagnostics,
+    };
     parsed.source_sufficiency = sufficiency;
     parsed.research_coverage = {
       official_explanations: officialExplanationsCoverage,
@@ -603,6 +694,37 @@ Deno.serve(async (req) => {
     parsed.created_from = "analyze-document-legal-position";
     parsed.previous_analysis_run_id = prev?.id ?? null;
     parsed.redaction_used = redactionUsedAny;
+    // P0-A5: persisted factual snapshot only; still excluded from legal/model paths.
+    parsed.company_factual_evidence = companyFactualRuntime.company_factual_evidence;
+    parsed.company_factual_diagnostics = companyFactualRuntime.diagnostics;
+    // P0-A10: DEBTAM remains a separate point-in-time factual channel.
+    // It is not passed into the SNR canonical factual matrix or legal/model paths.
+    parsed.company_tax_debt_evidence = companyFactualRuntime.company_tax_debt_evidence;
+    // P0-A15: REVEXP annual accounting-statement evidence remains audit-only.
+    parsed.company_financial_statement_evidence = companyFactualRuntime.company_financial_statement_evidence;
+    // P0-A20: SSHR2019 average-headcount evidence remains audit-only.
+    parsed.company_average_headcount_evidence = companyFactualRuntime.company_average_headcount_evidence;
+    // P0-A22: SSHR2019 identity/matrix persistence remains a separate factual audit channel.
+    parsed.company_average_headcount_factual_evidence_matrix =
+      companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix;
+    parsed.company_average_headcount_factual_identity = {
+      canonical_company_average_headcount_facts:
+        companyAverageHeadcountFactualMatrix.canonical_company_average_headcount_facts,
+      company_headcount_fact_evidence_links:
+        companyAverageHeadcountFactualMatrix.company_headcount_fact_evidence_links,
+      diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
+    };
+    // P0-A17: REVEXP identity/matrix persistence remains a separate factual audit channel.
+    parsed.company_financial_statement_factual_evidence_matrix =
+      companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix;
+    parsed.company_financial_statement_factual_identity = {
+      canonical_company_financial_statement_facts:
+        companyFinancialStatementFactualMatrix.canonical_company_financial_statement_facts,
+      company_financial_statement_fact_evidence_links:
+        companyFinancialStatementFactualMatrix.company_financial_statement_fact_evidence_links,
+      diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
+    };
+    parsed.company_factual_dataset_diagnostics = companyFactualRuntime.dataset_diagnostics;
     // P0-A: deterministic intent always wins over model output.
     parsed.template_code = session.template_code;
     parsed.target_document = documentIntent.target_document;
@@ -649,6 +771,20 @@ Deno.serve(async (req) => {
           template_code: session.template_code,
           practice_area: practiceArea,
           answers_count: Object.keys(answers).length,
+          company_factual_evidence: companyFactualRuntime.company_factual_evidence,
+          company_factual_diagnostics: companyFactualRuntime.diagnostics,
+          company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
+          company_financial_statement_evidence: companyFactualRuntime.company_financial_statement_evidence,
+          company_average_headcount_evidence: companyFactualRuntime.company_average_headcount_evidence,
+          company_average_headcount_factual_evidence_matrix: companyAverageHeadcountFactualMatrix.company_average_headcount_evidence_matrix,
+          company_average_headcount_factual_matrix_diagnostics: companyAverageHeadcountFactualMatrix.diagnostics,
+          company_financial_statement_factual_evidence_matrix: companyFinancialStatementFactualMatrix.company_financial_statement_evidence_matrix,
+          company_financial_statement_factual_matrix_diagnostics: companyFinancialStatementFactualMatrix.diagnostics,
+          company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
+          company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
+          company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
+          company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+          company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
           ...parsed.research_summary,
         } as any,
