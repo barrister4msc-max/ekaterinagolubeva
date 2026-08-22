@@ -199,7 +199,24 @@ export function resolveLaw7OfficialVerification(
     };
   }
 
-  if (normalizeText(observation.article_text) !== normalizeText(law7.snippet)) {
+  const law7ArticleText = text(law7.metadata?.article_text);
+  if (!law7ArticleText) {
+    return {
+      status: "no_content",
+      substantive_use_allowed: false,
+      reason: "Law7 source does not contain the full article text required for deterministic content verification",
+      official_source_id: candidate.source_id,
+      official_url: candidate.official_url,
+      safety: evaluateOfficialSourceSafety({
+        officialUrl: candidate.official_url,
+        identityVerified: true,
+        contentVerified: false,
+        actualityStatus: "verified",
+      }),
+    };
+  }
+
+  if (normalizeText(observation.article_text) !== normalizeText(law7ArticleText)) {
     return {
       status: "content_mismatch",
       substantive_use_allowed: false,
