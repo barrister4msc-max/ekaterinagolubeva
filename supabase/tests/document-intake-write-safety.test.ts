@@ -71,6 +71,8 @@ describe("document intake write safety", () => {
 
     const claim = source.indexOf('rpc("claim_document_text_extraction"');
     const archiveClaim = source.indexOf('rpc("claim_archive_item_text_extraction"');
+    expect(source).toContain('text_extraction_lease_until: null');
+    expect(source).toContain('ocr_error: "no_storage_path"');
     const download = source.indexOf("downloadFile(supabase, doc.storage_path)");
     expect(claim).toBeGreaterThan(-1);
     expect(archiveClaim).toBeGreaterThan(-1);
