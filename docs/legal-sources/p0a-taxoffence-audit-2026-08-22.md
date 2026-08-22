@@ -16,9 +16,44 @@
 - поле «дата актуальности» карточки: 01.12.2026;
 - версия методических рекомендаций: 4.0.
 
-Карточка ФНС обновлена 22.08.2026. Поле «дата актуальности» нельзя автоматически считать датой фактического обновления архива: перед parser/storage-этапом нужно проверить доступность и содержимое именно URL архива и XSD, а также их SHA-256.
+Карточка ФНС обновлена 22.08.2026. Поле «дата актуальности» нельзя автоматически считать датой фактического обновления архива.
 
-На дату этой проверки URL доступны в официальной карточке, но SHA-256 архива и XSD ещё не зафиксированы исполняемым probe. До такого probe релиз считается неподтверждённым для импорта.
+## Исполняемое подтверждение релиза
+
+Официальный archive/XSD probe выполнен локально:
+
+- ZIP bytes: `4,878,806`;
+- ZIP SHA-256: `1a388022e0db361dc1cc78d65b4eb6f5f08a1d1fc59a9c6d035e1e8b4b4e384b`;
+- XSD bytes: `11,214`;
+- XSD SHA-256: `33aeb64fcedb2cbd63f5e752e2a406bcce3901347128664fa0d48b689ac5b441`;
+- XML members: `111`;
+- uncompressed bytes: `36,319,157`;
+- first XML root: `Файл`;
+- format version in parsed sample: `4.01`.
+
+XSD declarations подтверждают контракт:
+
+`Документ`, `СведНП`, `СведНаруш`, `ИННЮЛ`, `НаимОрг`, `СумШтраф`, `ИдДок`, `ДатаДок`, `ДатаСост`, `ВерсФорм`.
+
+## Реальный parser dry-run
+
+Детерминированный parser выполнен на официальном ZIP:
+
+- bounded sample: 25 записей;
+- unique INN: 25;
+- `data_as_of`: `2024-12-31`;
+- total fine amount в sample: `331728.91`;
+- синтетические тесты: `3 pass`;
+- DB writes: `false`.
+
+Parser читает ZIP потоково, не извлекает XML-файлы на диск, проверяет ZIP safety, ИНН, даты, идентификатор документа и Decimal-сумму штрафа.
+
+Все записи остаются:
+
+- `factual_only=true`;
+- `legal_authority=false`;
+- `substantive_use_allowed=false`;
+- `use_as_legal_source=false`.
 
 ## Временная семантика
 
@@ -34,25 +69,19 @@
 - сведения не являются текстом нормы права и не могут становиться legal authority;
 - набор не должен автоматически поддерживать вывод о составе правонарушения, виновности, применимой статье или размере будущей санкции.
 
-## Предлагаемый безопасный контур
+## Следующий безопасный контур
 
 Следующий отдельный PR должен включать только:
 
-1. исполняемую проверку доступности HTTPS-архива и XSD;
-2. фиксацию SHA-256, размера, формата XML и версии/даты набора;
-3. bounded schema/sample probe с проверкой обязательных идентификаторов организации и денежных полей;
-4. детерминированный read-only parser с fail-closed поведением при drift;
-5. private factual storage с provenance и датами `data_as_of` / `published_at`;
-6. service-role-only availability и bounded INN lookup;
-7. регрессионные проверки, что результат остаётся:
-   - `factual_only=true`;
-   - `legal_authority=false`;
-   - `substantive_use_allowed=false`;
-   - `use_as_legal_source=false`.
+1. private factual storage с provenance и датами `data_as_of` / `published_at`;
+2. точную денежную модель без потери Decimal-значений;
+3. service-role-only availability и bounded INN lookup;
+4. миграционные и PostgreSQL security-тесты;
+5. сохранение factual-only границы.
 
 До отдельного identity-contract этапа результат не подключается к `RawSource`, `TrustedSource`, Gemini prompt, выводам, Evidence Matrix, Source Sufficiency, Challenge или генератору.
 
-## Запрещено на этом этапе
+## Запрещено
 
 - импортировать реальные строки в Production или Preview;
 - считать отсутствие строки «чистой историей»;
@@ -61,4 +90,4 @@
 - делать hidden scraping или придумывать API;
 - менять PR №40, VPS/RU transport или Production.
 
-Статус: Draft audit only. Следующий gate — executable release/schema probe.
+Статус: release/schema/parser gate GREEN. Следующий gate — Draft storage/RPC contract.
