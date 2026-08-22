@@ -819,17 +819,19 @@ const reloadAnswersFromSession = useCallback(async () => {
       await buildCaseIntelligenceIfReady("before_ai_fill", readyDocs);
 
       let fillResult: any = null;
+      const aiFillRequestId = crypto.randomUUID();
       let lastFillError = "AI не вернул подтверждённые поля";
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         const { data, error } = await supabase.functions.invoke("document-intake-ai-fill", {
           body: {
             session_id: intakeSessionId,
+            request_id: aiFillRequestId,
             document_ids: readyDocs.map((document) => document.id),
           },
         });
 
         const filledFields = Number(data?.filled_fields ?? 0);
-        if (!error && data?.success === true && filledFields > 0) {
+        if (!error && data?.success === true && (filledFields > 0 || Number(data?.preserved_fields ?? 0) > 0)) {
           fillResult = data;
           break;
         }
