@@ -1,0 +1,69 @@
+name: PR Quality Gate
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feat/p0a-taxoffence-runtime
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-quality-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Linux quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install JavaScript dependencies
+        run: bun install --frozen-lockfile
+
+      # Linux is intentional: the local Windows Bun 1.3.14 full-suite crash
+      # must not be confused with a project test failure.
+      - name: Run full JavaScript test suite
+        run: bun test
+
+      - name: Run TypeScript typecheck
+        run: bun run typecheck
+
+      - name: Run production build
+        run: bun run build
+
+      - name: Run FNS contract tests when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -f scripts/test_fns_open_data_taxoffence_storage.py ]]; then
+            python scripts/test_fns_open_data_taxoffence_storage.py
+          fi
+          if [[ -f scripts/test_fns_open_data_taxoffence_import_manifest.py ]]; then
+            python scripts/test_fns_open_data_taxoffence_import_manifest.py
+          fi
+          if [[ -f scripts/test_fns_open_data_taxoffence_dry_run.py ]]; then
+            python scripts/test_fns_open_data_taxoffence_dry_run.py --help
+          fi
+
+      - name: Verify repository has no accidental generated changes
+        run: git diff --exit-code
