@@ -40,7 +40,7 @@ function debtRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function headcountRow(overrides: Record<string, unknown> = {}) {
+function taxOffenceRow(overrides: Record<string, unknown> = {}) {\n  return {\n    inn: "7701234567", organization_name: "ООО Ромашка", fine_amount: "250.00",\n    document_id: "offence-doc-1", document_date: "2025-12-02", data_as_of: "2024-12-31",\n    format_version: "4.01", dataset_id: "7707329152-taxoffence",\n    source_url: "https://data.nalog.ru/opendata/7707329152-taxoffence/data-20251201-structure-20191201.zip",\n    source_sha256: "1a388022e0db361dc1cc78d65b4eb6f5f08a1d1fc59a9c6d035e1e8b4b4e384b",\n    ...overrides,\n  };\n}\n\nfunction headcountRow(overrides: Record<string, unknown> = {}) {
   return {
     inn: "7701234567", organization_name: "ООО Ромашка", average_headcount: 0,
     document_id: "headcount-doc-1", document_date: "2026-07-25", reporting_date: "2025-12-31",
@@ -66,7 +66,7 @@ describe("Company factual runtime boundary", () => {
     expect(calls).toBe(0);
     expect(snapshot.company_factual_evidence).toEqual([]);
     expect(snapshot.company_tax_debt_evidence).toEqual([]);
-    expect(snapshot.company_average_headcount_evidence).toEqual([]);
+    expect(snapshot.company_average_headcount_evidence).toEqual([]);\n    expect(snapshot.company_tax_offence_evidence).toEqual([]);
     expect(snapshot.diagnostics).toEqual({
       explicit_legal_entity_inns: [],
       requested_count: 0,
@@ -97,7 +97,7 @@ describe("Company factual runtime boundary", () => {
               error: null,
             };
           }
-          if (fn === "fns_open_data_get_average_headcount") return { data: [headcountRow()], error: null };
+          if (fn === "fns_open_data_get_average_headcount") return { data: [headcountRow()], error: null };\n          if (fn === "fns_open_data_get_tax_offences") return { data: [taxOffenceRow()], error: null };
           return { data: null, error: { message: "unexpected rpc" } };
         },
       },
@@ -107,19 +107,19 @@ describe("Company factual runtime boundary", () => {
       "fns_open_data_get_average_headcount",
       "fns_open_data_get_financial_statement_text",
       "fns_open_data_get_tax_debts_text",
-      "fns_open_data_get_tax_regime",
+      "fns_open_data_get_tax_offences",\n      "fns_open_data_get_tax_regime",
     ]);
     expect(snapshot.company_factual_evidence).toHaveLength(1);
     expect(snapshot.company_factual_evidence[0]?.fact_kind).toBe("tax_regime");
     expect(snapshot.company_tax_debt_evidence).toHaveLength(2);
     expect(snapshot.company_tax_debt_evidence.every((row) => row.fact_kind === "tax_debt")).toBe(true);
     expect(snapshot.company_tax_debt_evidence.map((row) => row.debt_row_ordinal)).toEqual([1, 2]);
-    expect(snapshot.company_average_headcount_evidence).toHaveLength(1);
+    expect(snapshot.company_average_headcount_evidence).toHaveLength(1);\n    expect(snapshot.company_tax_offence_evidence).toHaveLength(1);\n    expect(snapshot.company_tax_offence_evidence[0]?.fact_kind).toBe("tax_offence_record");\n    expect(snapshot.company_tax_offence_evidence[0]?.current_liability_claim_allowed).toBe(false);
     expect(snapshot.company_average_headcount_evidence[0]?.attributes.average_headcount).toBe(0);
     expect(snapshot.diagnostics.loaded_count).toBe(4);
     expect(snapshot.dataset_diagnostics.snr).toMatchObject({ loaded_count: 1, evidence_rows: 1, fact_kind: "tax_regime" });
     expect(snapshot.dataset_diagnostics.debtam).toMatchObject({ loaded_count: 1, evidence_rows: 2, fact_kind: "tax_debt" });
-    expect(snapshot.dataset_diagnostics.sshr2019).toMatchObject({ loaded_count: 1, evidence_rows: 1, fact_kind: "headcount" });
+    expect(snapshot.dataset_diagnostics.sshr2019).toMatchObject({ loaded_count: 1, evidence_rows: 1, fact_kind: "headcount" });\n    expect(snapshot.dataset_diagnostics.taxoffence).toMatchObject({ loaded_count: 1, evidence_rows: 1, fact_kind: "tax_offence_record" });
   });
 
   it("keeps the SNR channel available if DEBTAM lookup fails", async () => {
