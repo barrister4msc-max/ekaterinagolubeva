@@ -18,7 +18,7 @@ describe("extract-document-text short text files", () => {
     const source = (await Bun.file(functionPath).text()).replace(/\r\n/g, "\n");
     expect(source).toContain("sanitizeExtractedText");
     expect(source).toContain('.replace(/\\u0000/g, "")');
-    expect(source).toContain('detected.kind === "image" || detected.kind === "pdf" || text.length === 0');
+    expect(source).toMatch(/detected\.kind === "image"\s*\|\|\s*detected\.kind === "pdf"\s*\|\|\s*\(?\s*text\.length === 0/);
     expect(source).toContain("const fallbackText = sanitizeExtractedText(fallback.text)");
     expect(source).toContain("isUsablePdfTextLayer");
     expect(source).toContain("readable / value.length >= 0.82 && words >= 10");
