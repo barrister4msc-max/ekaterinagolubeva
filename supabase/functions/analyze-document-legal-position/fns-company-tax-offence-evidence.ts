@@ -6,9 +6,9 @@ type SbClient = {
 
 const TAXOFFENCE_DATASET_ID = "7707329152-taxoffence" as const;
 const OFFICIAL_FNS_URL_RE = /^https:\/\/(?:www\.)?(?:nalog\.gov\.ru|data\.nalog\.ru|file\.nalog\.ru)\//i;
-const ISO_DATE_RE = /^\\d{4}-\\d{2}-\\d{2}$/;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const SHA256_RE = /^[0-9a-f]{64}$/;
-const MONEY_RE = /^\\d+(?:\\.\\d{1,2})?$/;
+const MONEY_RE = /^\d+(?:\.\d{1,2})?$/;
 
 export type FnsTaxOffenceRow = {
   inn: string;
