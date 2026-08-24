@@ -15,7 +15,7 @@ const expectedFunctions = new Map([
 
 describe("flagship Preview function configuration", () => {
   test("declares the complete intake, generation, and review flow", async () => {
-    const config = await Bun.file(configPath).text();
+    const config = (await Bun.file(configPath).text()).replace(/\r\n/g, "\n");
 
     for (const [name, verifyJwt] of expectedFunctions) {
       expect(config).toContain(`[functions.${name}]`);
@@ -24,7 +24,7 @@ describe("flagship Preview function configuration", () => {
   });
 
   test("does not place secrets in config.toml", async () => {
-    const config = await Bun.file(configPath).text();
+    const config = (await Bun.file(configPath).text()).replace(/\r\n/g, "\n");
 
     expect(config).not.toMatch(/GEMINI_API_KEY|LOVABLE_API_KEY|SERVICE_ROLE_KEY/);
   });

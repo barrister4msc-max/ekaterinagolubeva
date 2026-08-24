@@ -7,7 +7,7 @@ const intakePath = join(testsDirectory, "../../src/components/document-builder/i
 
 describe("document intake retry flow", () => {
   test("retries extraction without creating another document row", async () => {
-    const source = await Bun.file(intakePath).text();
+    const source = (await Bun.file(intakePath).text()).replace(/\r\n/g, "\n");
     expect(source).toContain("runExtractionWithRetry");
     expect(source).toContain("waitForPersistedExtraction");
     expect(source).toContain('kind: "timeout"');
@@ -16,9 +16,9 @@ describe("document intake retry flow", () => {
     expect(source).toContain("await runExtractionWithRetry(document.id)");
   });
 
-  test("retries AI fill three times and treats an empty fill as unsuccessful", async () => {
-    const source = await Bun.file(intakePath).text();
-    expect(source).toContain("attempt <= 3");
+  test("retries AI fill up to its configured maximum and treats an empty fill as unsuccessful", async () => {
+    const source = (await Bun.file(intakePath).text()).replace(/\r\n/g, "\n");
+    expect(source).toContain("attempt <= maxAttempts");
     expect(source).toContain("filledFields > 0");
     expect(source).toContain('"Повторить AI-заполнение"');
     expect(source).toContain("уже сохранённые ответы не потеряются");
