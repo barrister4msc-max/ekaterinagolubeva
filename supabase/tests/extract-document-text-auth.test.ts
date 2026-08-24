@@ -7,7 +7,7 @@ const functionPath = join(testsDirectory, "../functions/extract-document-text/in
 
 describe("extract-document-text authorization boundary", () => {
   test("requires either the exact service-role token or an authenticated admin", async () => {
-    const source = await Bun.file(functionPath).text();
+    const source = (await Bun.file(functionPath).text()).replace(/\r\n/g, "\n");
 
     expect(source).toContain("async function authorizeRequest");
     expect(source).toContain("accessToken === SERVICE_ROLE");
@@ -18,7 +18,7 @@ describe("extract-document-text authorization boundary", () => {
   });
 
   test("authorizes before either document or archive lookup", async () => {
-    const source = await Bun.file(functionPath).text();
+    const source = (await Bun.file(functionPath).text()).replace(/\r\n/g, "\n");
     const authIndex = source.indexOf("await authorizeRequest(req, supabase)");
     const bodyIndex = source.indexOf("await req.json()");
     const archiveIndex = source.indexOf("if (body.archive_item_id)");
