@@ -116,7 +116,7 @@ describe("Company factual runtime boundary", () => {
     expect(snapshot.company_tax_debt_evidence.map((row) => row.debt_row_ordinal)).toEqual([1, 2]);
     expect(snapshot.company_average_headcount_evidence).toHaveLength(1);\n    expect(snapshot.company_tax_offence_evidence).toHaveLength(1);\n    expect(snapshot.company_tax_offence_evidence[0]?.fact_kind).toBe("tax_offence_record");\n    expect(snapshot.company_tax_offence_evidence[0]?.current_liability_claim_allowed).toBe(false);
     expect(snapshot.company_average_headcount_evidence[0]?.attributes.average_headcount).toBe(0);
-    expect(snapshot.diagnostics.loaded_count).toBe(4);
+    expect(snapshot.diagnostics.loaded_count).toBe(5);
     expect(snapshot.dataset_diagnostics.snr).toMatchObject({ loaded_count: 1, evidence_rows: 1, fact_kind: "tax_regime" });
     expect(snapshot.dataset_diagnostics.debtam).toMatchObject({ loaded_count: 1, evidence_rows: 2, fact_kind: "tax_debt" });
     expect(snapshot.dataset_diagnostics.sshr2019).toMatchObject({ loaded_count: 1, evidence_rows: 1, fact_kind: "headcount" });\n    expect(snapshot.dataset_diagnostics.taxoffence).toMatchObject({ loaded_count: 1, evidence_rows: 1, fact_kind: "tax_offence_record" });
