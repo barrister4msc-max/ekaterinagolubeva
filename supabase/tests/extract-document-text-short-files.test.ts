@@ -7,7 +7,7 @@ const functionPath = join(testsDirectory, "../functions/extract-document-text/in
 
 describe("extract-document-text short text files", () => {
   test("does not reject a non-empty DOCX by an arbitrary 50-character threshold", async () => {
-    const source = await Bun.file(functionPath).text();
+    const source = (await Bun.file(functionPath).text()).replace(/\r\n/g, "\n");
     expect(source).toContain("text.length === 0");
     expect(source).toContain('detected.kind === "image" || detected.kind === "pdf"');
     expect(source).toContain("else if (textLength > 0)");
@@ -15,7 +15,7 @@ describe("extract-document-text short text files", () => {
   });
 
   test("sanitizes binary PDF control bytes and always prefers the OCR fallback for PDFs", async () => {
-    const source = await Bun.file(functionPath).text();
+    const source = (await Bun.file(functionPath).text()).replace(/\r\n/g, "\n");
     expect(source).toContain("sanitizeExtractedText");
     expect(source).toContain('.replace(/\\u0000/g, "")');
     expect(source).toContain('detected.kind === "image" || detected.kind === "pdf" || text.length === 0');
