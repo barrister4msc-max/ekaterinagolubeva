@@ -39,6 +39,8 @@ jobs:
       - name: Install JavaScript dependencies
         run: bun install --frozen-lockfile
 
+      # Linux is intentional: the local Windows Bun 1.3.14 full-suite crash
+      # must not be confused with a project test failure.
       - name: Run full JavaScript test suite
         run: bun test
 
