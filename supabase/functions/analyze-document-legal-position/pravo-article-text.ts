@@ -33,6 +33,11 @@ export function extractExactArticleText(documentText: string, article: string): 
   const nextMatch = next.exec(source);
   const endIndex = nextMatch?.index ?? source.length;
   const extracted = source.slice(contentStart, endIndex).trim();
+  const headingLength = starts[0][0].length;
+  const body = source
+    .slice(startIndex + headingLength, endIndex)
+    .trim();
 
-  return extracted.length >= 40 ? extracted : null;
+  // The minimum-content guard applies to the article body, not its heading.
+  return body.length >= 40 ? extracted : null;
 }
