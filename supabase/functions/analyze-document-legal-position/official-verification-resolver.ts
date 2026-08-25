@@ -93,11 +93,13 @@ function law7Identity(source: VerifiableLaw7Source): {
   code_id: string | null;
   article: string | null;
   version_date: string | null;
+  requested_as_of_date: string | null;
 } {
   return {
     code_id: text(source.metadata?.law7_code_id),
     article: text(source.article) ?? text(source.metadata?.article),
     version_date: text(source.metadata?.version_date),
+    requested_as_of_date: text(source.metadata?.requested_as_of_date),
   };
 }
 
@@ -140,6 +142,8 @@ export function resolveLaw7OfficialVerification(
     };
   }
 
+  const requiresHistoricalVersionBinding = Boolean(identity.requested_as_of_date);
+
   const exact = pravoCandidates
     .map((candidate) => ({ candidate, observation: observationOf(candidate) }))
     .filter(({ candidate, observation }) => {
@@ -150,7 +154,12 @@ export function resolveLaw7OfficialVerification(
       if (observation.official_url !== candidate.official_url) return false;
       if (observation.code_id !== identity.code_id) return false;
       if (observation.article !== identity.article) return false;
-      if (
+      if (requiresHistoricalVersionBinding) {
+        // Historical/as-of Law7 results are never promoted without an explicit
+        // observation binding to the exact applicable Law7 version boundary.
+        if (!observation.law7_version_date || !identity.version_date) return false;
+        if (observation.law7_version_date !== identity.version_date) return false;
+      } else if (
         observation.law7_version_date != null &&
         observation.law7_version_date !== identity.version_date
       ) return false;
@@ -163,7 +172,7 @@ export function resolveLaw7OfficialVerification(
       status: hasAnyObservation ? "no_identity" : "no_content",
       substantive_use_allowed: false,
       reason: hasAnyObservation
-        ? "No official content observation matches exact Law7 code/article identity and any explicit version binding"
+        ? "No official content observation matches exact Law7 code/article identity and required version binding"
         : "No documented official content observation is available",
       official_source_id: null,
       official_url: null,
