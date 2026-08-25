@@ -439,7 +439,6 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
       contentObservation = null;
     }
   }
-  const source = detail ?? item;
   const title = asText(source?.complexName) ?? asText(source?.name) ?? asText(source?.title) ?? "Правовой акт";
   const documentNumber = asText(source?.number);
   const documentDate = normalizeDate(asText(source?.documentDate));
