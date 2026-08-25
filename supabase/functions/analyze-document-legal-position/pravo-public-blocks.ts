@@ -13,7 +13,7 @@ function resolveBaseUrl(raw?: string): string {
   try {
     const url = new URL(candidate);
     if (url.protocol !== "https:") return DEFAULT_PRAVO_API_BASE;
-    return candidate.replace(/\\/+$/, "");
+    return candidate.replace(/\/+$/, "");
   } catch {
     return DEFAULT_PRAVO_API_BASE;
   }
