@@ -51,8 +51,7 @@ const EMPTY_DRAFT: DraftFields = {
 };
 
 function issueIds(value: string): string[] {
-  return [...new Set(value.split(/[
-,;]+/).map((item) => item.trim()).filter(Boolean))].slice(0, 20);
+  return [...new Set(value.split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean))].slice(0, 20);
 }
 
 function hasReference(draft: DraftFields): boolean {
