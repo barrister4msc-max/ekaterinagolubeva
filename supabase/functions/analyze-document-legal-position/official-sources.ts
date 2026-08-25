@@ -404,6 +404,7 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
   const officialUrl = buildPravoDocumentUrl(eoNumber);
   if (!isOfficialLegalUrl(officialUrl)) return null;
   const detail = await getPravoDetails(eoNumber);
+  const source = detail ?? item;
   const documentText =
     searchMode === "exact" || searchMode === "context"
       ? await getPravoDocumentText(eoNumber)
@@ -419,13 +420,21 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
         baseUrl: pravoApiBase(),
         relayToken: env("PRAVO_RELAY_TOKEN") ?? null,
       });
-      contentObservation = toOfficialContentObservation(publicBlocks, {
-        eoNumber,
-        officialSourceId: `pravo:${eoNumber}`,
-        officialUrl,
-        codeId: asText(source?.codeId) ?? asText(source?.code) ?? "unknown",
-        article: asText(source?.article) ?? "unknown",
-      });
+      const blockRecord =
+        publicBlocks && typeof publicBlocks === "object"
+          ? publicBlocks as Record<string, unknown>
+          : null;
+      const observedCode = asText(blockRecord?.code_id) ?? asText(blockRecord?.codeId);
+      const observedArticle = asText(blockRecord?.article);
+      if (observedCode && observedArticle) {
+        contentObservation = toOfficialContentObservation(publicBlocks, {
+          eoNumber,
+          officialSourceId: `pravo:${eoNumber}`,
+          officialUrl,
+          codeId: observedCode,
+          article: observedArticle,
+        });
+      }
     } catch {
       contentObservation = null;
     }
