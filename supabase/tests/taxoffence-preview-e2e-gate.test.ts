@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   SupabaseFnsTaxOffenceTransport,
   toCompanyTaxOffenceEvidence,
-} from "./analyze-document-legal-position/fns-company-tax-offence-evidence.ts";
+} from "../functions/analyze-document-legal-position/fns-company-tax-offence-evidence.ts";
 
 const SYNTHETIC_ROW = {
   inn: "7701234567",
