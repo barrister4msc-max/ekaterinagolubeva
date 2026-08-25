@@ -31,7 +31,7 @@ export async function fetchPravoPublicBlocks(
   options: PravoPublicBlocksTransportOptions = {},
 ): Promise<PravoPublicBlocksResponse> {
   const normalized = eoNumber.trim();
-  if (!/^\\d{16}$/.test(normalized)) {
+  if (!/^\d{16}$/.test(normalized)) {
     throw new Error("Invalid Pravo eoNumber");
   }
 
