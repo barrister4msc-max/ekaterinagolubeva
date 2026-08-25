@@ -5,6 +5,7 @@ describe("Pravo PublicBlocks transport", () => {
   test("requests the documented endpoint and keeps the upstream payload opaque", async () => {
     let requestedUrl = "";
     const result = await fetchPravoPublicBlocks("0001201708190001", {
+      baseUrl: "https://publication.pravo.gov.ru/api/",
       fetchImpl: async (input) => {
         requestedUrl = String(input);
         return new Response(JSON.stringify({ blocks: [{ id: "b1" }] }), {
