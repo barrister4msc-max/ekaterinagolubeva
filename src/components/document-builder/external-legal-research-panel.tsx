@@ -18,7 +18,7 @@ const PROVIDER_LABELS: Record<ExternalLegalResearchProvider, string> = {
   strizh: "Стриж",
   garant: "Гарант",
   consultant: "КонсультантПлюс",
-  other: "Другой источник",
+  other: "Другой источник",\n  kad: "КАД — ручной импорт",
 };
 
 type DraftFields = {
