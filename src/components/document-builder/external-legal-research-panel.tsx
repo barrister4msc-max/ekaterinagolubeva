@@ -18,7 +18,8 @@ const PROVIDER_LABELS: Record<ExternalLegalResearchProvider, string> = {
   strizh: "Стриж",
   garant: "Гарант",
   consultant: "КонсультантПлюс",
-  other: "Другой источник",\n  kad: "КАД — ручной импорт",
+  other: "Другой источник",
+  kad: "КАД — ручной импорт",
 };
 
 type DraftFields = {
@@ -50,7 +51,8 @@ const EMPTY_DRAFT: DraftFields = {
 };
 
 function issueIds(value: string): string[] {
-  return [...new Set(value.split(/[\n,;]+/).map((item) => item.trim()).filter(Boolean))].slice(0, 20);
+  return [...new Set(value.split(/[
+,;]+/).map((item) => item.trim()).filter(Boolean))].slice(0, 20);
 }
 
 function hasReference(draft: DraftFields): boolean {
