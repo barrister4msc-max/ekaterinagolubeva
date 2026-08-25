@@ -157,6 +157,7 @@ function sourceFromToolResult(
   const asOfDate = typeof call.arguments.as_of_date === "string" ? call.arguments.as_of_date : null;
   const versionDate = lineValue(output, "Version Date");
   const sourceAmendment = lineValue(output, "Source Amendment");
+  const articleText = fullTextSection(output);
   const sourceId = `law7:${call.name}:${codeId ?? "document"}:${article ?? "search"}:${asOfDate ?? versionDate ?? "current"}`;
 
   return {
@@ -169,7 +170,7 @@ function sourceFromToolResult(
       : `Law7: ${question.issue}`,
     official_url: null,
     citation: codeId && article ? `${codeId} ст. ${article}` : null,
-    snippet: fullTextSection(output),
+    snippet: articleText,
     metadata: {
       provider_id: "law7",
       provider_type: "research",
@@ -184,6 +185,8 @@ function sourceFromToolResult(
       article,
       requested_as_of_date: asOfDate,
       version_date: versionDate,
+      // Preserve the exact Law7 article body for deterministic official-content comparison.
+      article_text: articleText,
       amendment_external_id: sourceAmendment,
       // Law7 is an intermediary. Its text must be canonicalized/verified before
       // becoming an official substantive source in KATI.
