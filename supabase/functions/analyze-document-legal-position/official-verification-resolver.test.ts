@@ -126,6 +126,33 @@ describe("Pravo ↔ Law7 deterministic official verification", () => {
     expect(result.substantive_use_allowed).toBe(true);
   });
 
+  test("historical/as-of Law7 results require an explicit version binding", () => {
+    const historical = law7({
+      metadata: {
+        ...law7().metadata,
+        requested_as_of_date: "2020-01-01",
+      },
+    });
+    const result = resolveLaw7OfficialVerification(historical, [pravo(observation())]);
+    expect(result.status).toBe("no_identity");
+    expect(result.substantive_use_allowed).toBe(false);
+  });
+
+  test("historical/as-of Law7 results accept only the exact bound version", () => {
+    const historical = law7({
+      metadata: {
+        ...law7().metadata,
+        requested_as_of_date: "2020-01-01",
+      },
+    });
+    const result = resolveLaw7OfficialVerification(
+      historical,
+      [pravo(observation({ law7_version_date: "2000-07-31" }))],
+    );
+    expect(result.status).toBe("verified");
+    expect(result.substantive_use_allowed).toBe(true);
+  });
+
 
 
   test("does not promote a Law7 title-only snippet as verified content", () => {
