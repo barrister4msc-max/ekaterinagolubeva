@@ -1,3 +1,4 @@
+-- Supabase Preview rebuild trigger after JSONB idempotency fix.
 -- Supabase Git preview trigger: no schema or runtime change.
 -- PR69 follow-up: idempotency for AI-fill and OCR serialization for archive items.
 create or replace function public.claim_document_intake_ai_fill(
