@@ -1,0 +1,32 @@
+name: Supabase Migration Contract
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/migrations_legacy/**"
+      - "scripts/check_supabase_migration_contract.py"
+      - ".github/workflows/supabase-migration-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migration-contract:
+    name: Active migration contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Validate active migration path
+        run: python scripts/check_supabase_migration_contract.py
