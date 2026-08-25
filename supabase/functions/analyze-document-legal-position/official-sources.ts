@@ -1,4 +1,6 @@
 import type { ResearchQuery } from "./fact-extraction.ts";
+import { fetchPravoPublicBlocks } from "./pravo-public-blocks.ts";
+import { toOfficialContentObservation } from "./pravo-content-observation.ts";
 
 export type OfficialProviderId = "pravo" | "fns" | "minfin" | "vsrf" | "kad" | "kremlin";
 
@@ -407,6 +409,27 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
       ? await getPravoDocumentText(eoNumber)
       : null;
   const documentTextHash = documentText ? await sha256HexText(documentText) : null;
+  // Only exact, uniquely identified candidates may request the documented
+  // PublicBlocks content envelope. Context/discovery results stay cheap and
+  // discovery-only; they can never become substantive by this path.
+  let contentObservation: ReturnType<typeof toOfficialContentObservation> = null;
+  if (identityVerified) {
+    try {
+      const publicBlocks = await fetchPravoPublicBlocks(eoNumber, {
+        baseUrl: pravoApiBase(),
+        relayToken: env("PRAVO_RELAY_TOKEN") ?? null,
+      });
+      contentObservation = toOfficialContentObservation(publicBlocks, {
+        eoNumber,
+        officialSourceId: `pravo:${eoNumber}`,
+        officialUrl,
+        codeId: asText(source?.codeId) ?? asText(source?.code) ?? "unknown",
+        article: asText(source?.article) ?? "unknown",
+      });
+    } catch {
+      contentObservation = null;
+    }
+  }
   const source = detail ?? item;
   const title = asText(source?.complexName) ?? asText(source?.name) ?? asText(source?.title) ?? "Правовой акт";
   const documentNumber = asText(source?.number);
@@ -465,7 +488,8 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
       document_text_length: documentText?.length ?? 0,
       document_text_sha256: documentTextHash,
       document_text_retrieved_at: documentText ? new Date().toISOString() : null,
-      content_verification_status: "not_verified",
+      content_verification_status: contentObservation ? "observed" : "not_verified",
+      ...(contentObservation ? { content_observation: contentObservation } : {}),
       content_retrieval_stage:
         searchMode === "exact" ? "exact_candidate" : "bounded_context_candidate",
     },
