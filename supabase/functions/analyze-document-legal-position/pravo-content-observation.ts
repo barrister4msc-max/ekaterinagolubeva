@@ -29,7 +29,7 @@ export function toOfficialContentObservation(
     typeof articleText !== "string" ||
     !articleText.trim() ||
     (actualityStatus !== "verified" && actualityStatus !== "unknown") ||
-    !/^\\d{16}$/.test(context.eoNumber) ||
+    !/^\d{16}$/.test(context.eoNumber) ||
     !context.officialSourceId.trim() ||
     !context.officialUrl.trim() ||
     !context.codeId.trim() ||
