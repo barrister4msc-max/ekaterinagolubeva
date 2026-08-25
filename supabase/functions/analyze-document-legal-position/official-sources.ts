@@ -362,7 +362,7 @@ async function sha256HexText(value: string): Promise<string> {
 
 export async function getPravoDocumentText(eoNumber: string): Promise<string | null> {
   const normalized = eoNumber.trim();
-  if (!/^\\d{16}$/.test(normalized)) return null;
+  if (!/^\d{16}$/.test(normalized)) return null;
   try {
     const payload = await fetchJson(
       pravoApiBase() + "/DocumentText?eonumber=" + encodeURIComponent(normalized),
