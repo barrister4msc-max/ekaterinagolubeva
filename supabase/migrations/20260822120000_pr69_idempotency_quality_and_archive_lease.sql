@@ -43,7 +43,9 @@ begin
 
   update public.document_intake_sessions
      set metadata = jsonb_set(
-       coalesce(metadata, '{}'::jsonb),
+       coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+         'ai_fill_idempotency', coalesce(metadata -> 'ai_fill_idempotency', '{}'::jsonb)
+       ),
        array['ai_fill_idempotency', p_request_id],
        jsonb_build_object('status', 'processing', 'started_at', v_now),
        true
@@ -68,7 +70,9 @@ as $$
 begin
   update public.document_intake_sessions
      set metadata = jsonb_set(
-       coalesce(metadata, '{}'::jsonb),
+       coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+         'ai_fill_idempotency', coalesce(metadata -> 'ai_fill_idempotency', '{}'::jsonb)
+       ),
        array['ai_fill_idempotency', p_request_id],
        jsonb_build_object(
          'status', 'completed',
@@ -97,7 +101,9 @@ as $$
 begin
   update public.document_intake_sessions
      set metadata = jsonb_set(
-       coalesce(metadata, '{}'::jsonb),
+       coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+         'ai_fill_idempotency', coalesce(metadata -> 'ai_fill_idempotency', '{}'::jsonb)
+       ),
        array['ai_fill_idempotency', p_request_id],
        jsonb_build_object(
          'status', 'failed',
