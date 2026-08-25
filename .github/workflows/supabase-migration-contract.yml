@@ -18,7 +18,7 @@ jobs:
   migration-contract:
     name: Active migration contract
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,3 +30,21 @@ jobs:
 
       - name: Validate active migration path
         run: python scripts/check_supabase_migration_contract.py
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        run: supabase db start
+
+      - name: Replay all active migrations on a clean database
+        run: supabase db reset --local
+
+      - name: Verify migration history
+        run: supabase migration list --local
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: supabase stop --no-backup
