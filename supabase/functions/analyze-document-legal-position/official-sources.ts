@@ -406,7 +406,7 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
   const detail = await getPravoDetails(eoNumber);
   const source = detail ?? item;
   const documentText =
-    searchMode === "exact" || searchMode === "context"
+    searchMode === "exact"
       ? await getPravoDocumentText(eoNumber)
       : null;
   const documentTextHash = documentText ? await sha256HexText(documentText) : null;
