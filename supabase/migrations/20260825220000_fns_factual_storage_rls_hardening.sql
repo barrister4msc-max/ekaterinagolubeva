@@ -4,7 +4,7 @@
 
 do $$
 declare
-  relation_name text;
+  relation_name text[];
   relation_schema text;
   relation_table text;
   factual_relations constant text[][] := array[
@@ -16,7 +16,7 @@ declare
     array['fns_open_data', 'company_tax_offences']
   ];
 begin
-  foreach relation_name in array factual_relations loop
+  foreach relation_name slice 1 in array factual_relations loop
     relation_schema := relation_name[1];
     relation_table := relation_name[2];
 
