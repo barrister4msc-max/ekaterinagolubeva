@@ -92,7 +92,7 @@ returns boolean
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   update public.document_intake_sessions
      set metadata = jsonb_set(
@@ -110,7 +110,7 @@ begin
      and metadata -> 'ai_fill_idempotency' -> p_request_id ->> 'status' = 'processing';
   return found;
 end;
-$;
+$$;
 
 create or replace function public.claim_archive_item_text_extraction(
   p_item_id uuid,
