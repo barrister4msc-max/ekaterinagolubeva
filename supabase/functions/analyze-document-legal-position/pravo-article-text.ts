@@ -31,7 +31,8 @@ export function extractExactArticleText(documentText: string, article: string): 
   const next = /\n\s*Статья\s+\d+(?:\.\d+)*\b/giu;
   next.lastIndex = starts[0].index + starts[0][0].length;
   const nextMatch = next.exec(source);
-  const endIndex = nextMatch?.index ?? source.length;
+  if (!nextMatch) return null;
+  const endIndex = nextMatch.index;
   const extracted = source.slice(contentStart, endIndex).trim();
 
   return extracted.length >= 40 ? extracted : null;
