@@ -10,16 +10,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ACTIVE = ROOT / "supabase" / "migrations"
 LEGACY = ROOT / "supabase" / "migrations_legacy"
+SYSTEM_SCHEMAS = {"auth", "storage", "realtime", "graphql", "vault"}
 
 VERSION_RE = re.compile(r"^(\d{14})_[^/]+\.sql$")
 CREATE_TABLE_RE = re.compile(
     r"create\s+table\s+(?:if\s+not\s+exists\s+)?"
-    r"(?:(?:public|private|auth)\.)?([a-zA-Z_][\w$]*)",
+    r"(?:(?P<schema>public|private|auth)\.)?(?P<table>[a-zA-Z_][\w$]*)",
     re.I,
 )
 POLICY_RE = re.compile(
     r"create\s+policy\s+[^;]+?\s+on\s+"
-    r"(?:(?:public|private|auth)\.)?([a-zA-Z_][\w$]*)",
+    r"(?:(?P<schema>[a-zA-Z_][\w$]*)\.)?(?P<table>[a-zA-Z_][\w$]*)",
     re.I | re.S,
 )
 
@@ -47,17 +48,22 @@ def main() -> None:
     if "migrations_legacy" in active_text.lower():
         fail("active migration references migrations_legacy")
 
-    known_relations: set[str] = set()
+    known_relations: set[tuple[str, str]] = set()
     for path in files:
         text = path.read_text(encoding="utf-8")
-        for name in CREATE_TABLE_RE.findall(text):
-            known_relations.add(name.lower())
-        for relation in POLICY_RE.findall(text):
-            relation = relation.lower()
-            if relation not in known_relations:
+        for match in CREATE_TABLE_RE.finditer(text):
+            schema = (match.group("schema") or "public").lower()
+            known_relations.add((schema, match.group("table").lower()))
+
+        for match in POLICY_RE.finditer(text):
+            schema = (match.group("schema") or "public").lower()
+            table = match.group("table").lower()
+            if schema in SYSTEM_SCHEMAS:
+                continue
+            if (schema, table) not in known_relations:
                 fail(
-                    f"{path.name}: policy targets {relation!r} before an active "
-                    "CREATE TABLE for that relation"
+                    f"{path.name}: policy targets {schema}.{table!r} before an "
+                    "active CREATE TABLE for that relation"
                 )
 
     legacy_sql = list(LEGACY.glob("*.sql")) if LEGACY.is_dir() else []
