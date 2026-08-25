@@ -1,1 +1,38 @@
-function escapeRegex(value: string): string {\n  return value.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\\\$&");\n}\n\nfunction normalizeDocumentText(value: string): string {\n  return value\n    .replace(/\\r\\n?/g, "\\n")\n    .replace(/[ \\t]+/g, " ")\n    .replace(/\\n{3,}/g, "\\n\\n")\n    .trim();\n}\n\n/**\n * Extracts one article only when clear legal-article boundaries exist.\n * Ambiguous or title-only input returns null.\n */\nexport function extractExactArticleText(documentText: string, article: string): string | null {\n  const source = normalizeDocumentText(documentText);\n  const articlePattern = escapeRegex(article.trim());\n  if (!source || !articlePattern) return null;\n\n  const start = new RegExp(\n    `(?:^|\\n)\\s*Статья\\s+${articlePattern}(?:\\s*[.:-])?\\s*[^\\n]*`,\n    "giu",\n  );\n  const starts = [...source.matchAll(start)];\n  if (starts.length !== 1 || starts[0].index == null) return null;\n\n  const startIndex = starts[0].index;\n  const contentStart = startIndex === 0 ? 0 : startIndex + 1;\n  const next = /\\n\\s*Статья\\s+\\d+(?:\\.\\d+)*\\b/giu;\n  next.lastIndex = starts[0].index + starts[0][0].length;\n  const nextMatch = next.exec(source);\n  const endIndex = nextMatch?.index ?? source.length;\n  const extracted = source.slice(contentStart, endIndex).trim();\n\n  return extracted.length >= 40 ? extracted : null;\n}\n
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizeDocumentText(value: string): string {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Extracts one article only when clear legal-article boundaries exist.
+ * Ambiguous or title-only input returns null.
+ */
+export function extractExactArticleText(documentText: string, article: string): string | null {
+  const source = normalizeDocumentText(documentText);
+  const articlePattern = escapeRegex(article.trim());
+  if (!source || !articlePattern) return null;
+
+  const start = new RegExp(
+    "(?:^|\\n)\\s*Статья\\s+" + articlePattern + "(?:\\s*[.:-])?\\s*[^\\n]*",
+    "giu",
+  );
+  const starts = [...source.matchAll(start)];
+  if (starts.length !== 1 || starts[0].index == null) return null;
+
+  const startIndex = starts[0].index;
+  const contentStart = startIndex === 0 ? 0 : startIndex + 1;
+  const next = /\n\s*Статья\s+\d+(?:\.\d+)*\b/giu;
+  next.lastIndex = starts[0].index + starts[0][0].length;
+  const nextMatch = next.exec(source);
+  const endIndex = nextMatch?.index ?? source.length;
+  const extracted = source.slice(contentStart, endIndex).trim();
+
+  return extracted.length >= 40 ? extracted : null;
+}
