@@ -20,7 +20,7 @@ export function extractExactArticleText(documentText: string, article: string): 
   if (!source || !articlePattern) return null;
 
   const start = new RegExp(
-    `(?:^|\n)\s*Статья\s+${articlePattern}(?:\s*[.:-])?\s*[^\n]*`,
+    `(?:^|\\n)\\s*Статья\\s+${articlePattern}(?:\\s*[.:-])?\\s*[^\\n]*`,
     "giu",
   );
   const starts = [...source.matchAll(start)];
