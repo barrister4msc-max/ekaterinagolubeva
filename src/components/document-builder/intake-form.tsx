@@ -203,8 +203,12 @@ const reloadAnswersFromSession = useCallback(async () => {
   }, [validation]);
 
   const setAnswer = (key: string, value: unknown) => {
+    // Manual lawyer edits always win over extracted values and must keep the
+    // token↔canonical mapping consistent instead of destroying it.
+    setRedactionMapping((prev) => (prev ? applyManualFieldEdit(prev, key, value) : prev));
     onChange({ ...state, answers: { ...state.answers, [key]: value } });
   };
+
   const setMode = (mode: IntakeState["generationMode"]) =>
     onChange({ ...state, generationMode: mode });
   const setInstructions = (v: string) => onChange({ ...state, specialInstructions: v });
