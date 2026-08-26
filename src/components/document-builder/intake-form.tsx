@@ -142,7 +142,12 @@ const isProcessingDocuments = processingDocumentIds.length > 0;
 
 const [isAiFilling, setIsAiFilling] = useState(false);
 const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
+const [aiFillRunId, setAiFillRunId] = useState<string | null>(null);
+const [autoFillStage, setAutoFillStage] = useState<import("@/lib/auto-ai-fill").AutoAiFillStage>("idle");
+const lastAutoFingerprintRef = useRef<string | null>(null);
+const aiFillInFlightRef = useRef(false);
 const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null);
+
   const [isBuildingCaseIntelligence, setIsBuildingCaseIntelligence] = useState(false);
 const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
 // PR27 — one automatic registry verification per newly discovered INN.
