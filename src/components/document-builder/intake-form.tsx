@@ -501,11 +501,15 @@ const reloadAnswersFromSession = useCallback(async () => {
         if (extractionStatus === "completed" && textLength > 0) {
           return { extractionStatus: "completed", textLength };
         }
-        if (extractionStatus === "failed") {
+        if (extractionStatus === "failed" || extractionStatus === "ocr_required") {
           return {
-            extractionStatus: "failed",
+            extractionStatus,
             textLength: 0,
-            error: extractionError || "Извлечение текста завершилось с ошибкой",
+            error: extractionError || (
+              extractionStatus === "ocr_required"
+                ? "Для этого PDF требуется отдельный OCR-режим"
+                : "Извлечение текста завершилось с ошибкой"
+            ),
           };
         }
         lastError = extractionError;
@@ -550,6 +554,18 @@ const reloadAnswersFromSession = useCallback(async () => {
             extractionStatus: "completed",
             textLength: Number(data.text_length),
             attempts: attempt,
+          };
+        }
+        if (!error && (data?.extraction_status === "failed" || data?.extraction_status === "ocr_required")) {
+          return {
+            extractionStatus: data.extraction_status,
+            textLength: 0,
+            attempts: attempt,
+            error: data?.error || (
+              data.extraction_status === "ocr_required"
+                ? "Для этого PDF требуется отдельный OCR-режим"
+                : "Извлечение текста завершилось с ошибкой"
+            ),
           };
         }
         lastError = error?.message || data?.error ||
