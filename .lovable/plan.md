@@ -1,139 +1,90 @@
-# Legal Research Engine — Этап 2
+# PR #88 — Matter-scoped Entity Registry для обезличивания
 
-Расширяем edge function `analyze-document-legal-position` (без изменений других функций и схемы БД). Чтобы остаться обозримым, разбиваем монолитный `index.ts` на модули внутри той же папки функции — Deno подтягивает их относительными import'ами.
+Цель: несколько организаций и связанных сторон в одном деле никогда не смешиваются между документами. Один субъект = один стабильный токен ([ORG_001], [AUTH_001], [PERSON_001]) во всех документах дела; слияние только по надёжным реквизитам; финальная подстановка — детерминированный server-side резолвер.
 
-## Новая структура каталога функции
+## Что уже есть (проверено в коде)
 
-```text
-supabase/functions/analyze-document-legal-position/
-  index.ts             — оркестратор (handler)
-  fact-extraction.ts   — Layer 1: OCR → ResearchQuery (Gemini Flash)
-  repositories.ts      — Layer 2: Law/Court/FNS/Minfin/Practice/Manual repositories
-  ranking.ts           — Layer 3: scoring (semantic/keyword/priority/relevance/final)
-  dedupe.ts            — Layer 4: объединение норм/актов из разных таблиц
-  prompt.ts            — Layer 5: построение prompt для Gemini Pro
-  merge.ts             — Layer 6: пост-обработка ответа модели + URL из реестра
-```
+- `src/lib/legal-redaction.ts` — извлечение сущностей из текста документа, нумерация per-document (`[COMPANY_1]`, счётчики в `redactLegalDocument`), whitelist госорганов (ФНС/суды) — они сейчас НЕ обезличиваются вовсе.
+- `src/lib/redaction-field-mapping.ts` — session-scoped карта `token → canonical_value` для полей анкеты (`version: 1`, `tokens`, `fields`), fail-closed восстановление `restoreCanonicalAnswers`, страж `assertNoRedactionTokens`.
+- `src/lib/document-intake-storage.ts` — карта и флаг живут в `document_intake_sessions.metadata.intake_redaction`; run_id — в `metadata.intake_ai_fill.run_id` (`saveGenerationContext` / `loadGenerationContext`).
+- `src/lib/generate-legal-document.ts` — перед генерацией восстанавливает канонические значения и падает при отсутствии карты.
+- `src/lib/company-registry.ts` — нормализация ИНН/ОГРН/наименования/адреса, `detectCompanyConflicts`, verified-профиль DaData.
+- `src/components/document-builder/intake-form.tsx` — авто AI-fill, режим обезличивания, ручные правки через `applyManualFieldEdit`.
 
-## Слои
+Пробел: нумерация токенов существует отдельно для текста каждого документа и отдельно для полей анкеты; общей идентичности субъекта на уровне дела нет.
 
-### 1. Fact Extraction Layer (`fact-extraction.ts`)
-Между OCR-документами и Research. Один быстрый вызов Gemini-2.5-Flash с low temperature на конкатенированном OCR + ответах опросника. Возвращает `ResearchQuery`:
+## Модель (versioned metadata bridge, без DDL)
 
-```ts
-type ResearchQuery = {
-  practice_area: string | null;
-  subcategory: string | null;
-  document_type: string | null;
-  facts: string[];
-  parties: string[];
-  amounts: string[];
-  dates: string[];
-  legal_issues: string[];      // "уменьшение УК", "оспаривание решения ФНС", ...
-  research_topics: string[];   // ключевые слова для поиска
-  keywords: string[];          // расширенные синонимы
-};
-```
-
-ResearchQuery идёт во все репозитории и сохраняется в `ai_result.research_query`.
-
-Опционально (если есть `LOVABLE_API_KEY`) считается query embedding через Lovable AI Gateway (`google/gemini-embedding-001`, 3072) — используется потом для semantic scoring.
-
-### 2. Repository Layer (`repositories.ts`)
-Каждый репозиторий — отдельный класс с единым интерфейсом `search(query, opts) → RawSource[]`. Сохраняем уже работающий каскад из этапа 1, но теперь источники инкапсулированы:
-
-- `LawRepository`        — `legal_knowledge_chunks` (`law_full_text`, `federal_law`, `law_full_text_placeholder`)
-- `CourtRepository`      — `legal_knowledge_chunks` (`court_practice`, `vs_review`)
-- `FNSRepository`        — `legal_knowledge_chunks` (`fns_letter`)
-- `MinfinRepository`     — `legal_knowledge_chunks` (`minfin_letter`)
-- `PracticeRepository`   — `legal_knowledge_chunks` (`ekaterina_practice`) + `practice_document_legal_analysis` + `practice_legal_analysis_sources`
-- `ManualRepository`     — `legal_knowledge_chunks` (`manual`, `manual_seed`, `template`)
-
-Все шесть запускаются `Promise.all`. Каждый возвращает однородный `RawSource` (плюс служебные поля для дальнейшего scoring/dedupe).
-
-### 3. Ranking Engine (`ranking.ts`)
-Для каждого `RawSource` считает:
-
-```ts
-{
-  semantic_score: number,   // cos(query_embedding, chunk_embedding) ∈ [0..1], 0 если embedding нет
-  keyword_score:  number,   // доля terms из ResearchQuery.legal_issues+research_topics+keywords, найденных в title+content
-  priority_score: number,   // metadata.priority: critical=1.0, high=0.75, medium=0.5, low=0.3
-  relevance_score: number,  // bucket weight: laws=1.0, court=0.9, ekaterina=0.85, fns=0.8, minfin=0.8, manuals=0.6
-  final_score:    number    // 0.45*semantic + 0.25*keyword + 0.15*priority + 0.15*relevance
-}
-```
-
-Semantic_score берём через RPC `match_legal_knowledge(query_embedding, match_count=50, category_filter=practice_area)` — она уже есть в БД и возвращает similarity. Маппим её обратно по `id` на наши `RawSource`. Если эмбеддингов нет (`LOVABLE_API_KEY` пуст), semantic=0 и веса автоматически перераспределяются в пользу keyword/priority/relevance.
-
-После scoring каждый bucket сортируется по `final_score` desc и обрезается до лимита (laws=10, court=8, fns=6, minfin=6, ekaterina=8, manuals=4).
-
-### 4. Deduplicate Engine (`dedupe.ts`)
-Объединяет одинаковые сущности, найденные в разных репозиториях / таблицах:
-
-- `laws`: ключ = `${code}|${article}|${part ?? ''}` (нормализовано) — например, «НК РФ 54.1» из `legal_knowledge_chunks` и из практики Екатерины слипаются в одну запись.
-- `court_practice`: ключ = нормализованный номер дела (`metadata.case_number` или regex `А\d+-\d+/\d+` по title).
-- `fns_letters` / `minfin_letters`: ключ = `number|date`.
-- `ekaterina` / `manuals`: ключ = `source_id` (уже уникален).
-
-Победителем становится запись с максимальным `final_score`; в неё добавляются поля `merged_from: [{ source_table, source_id }]` и `appearances: N` — это даёт реальный буст уверенности для норм, всплывших в нескольких источниках.
-
-### 5. Prompt + Merge (`prompt.ts`, `merge.ts`)
-Перенос текущего `buildPrompt` + `mergeModelSourcesWithRegistry` без изменений контракта. Дополнено:
-
-- prompt передаёт модели готовый `ResearchQuery` (вместо сырых ответов опросника + всего OCR).
-- prompt требует для каждого использованного документа массив `used_for` из закрытого набора: `facts | legal_qualification | taxpayer_position | court_practice | risks | recommendations | generation`.
-- merge применяет ответ модели поверх `documents_audit.used[].used_for` — если модель не указала, оставляем `["facts"]` по умолчанию.
-
-### 6. Index / orchestrator (`index.ts`)
-Последовательность:
+Новый модуль `src/lib/entity-registry.ts` (чистые функции, без БД):
 
 ```text
-load session + answers + documents
-   │
-   ▼
-classify documents → used / rejected
-   │ (если used = 0 → fail no_documents, как сейчас)
-   ▼
-FactExtraction(used docs + answers)  →  ResearchQuery (+ query_embedding)
-   │
-   ▼
-Promise.all(
-  LawRepo, CourtRepo, FNSRepo, MinfinRepo, PracticeRepo, ManualRepo
-).search(query)
-   │
-   ▼
-RankingEngine.score(all sources, query, query_embedding)
-   │
-   ▼
-DedupEngine.merge(scored sources)
-   │
-   ▼
-Gemini-2.5-Pro (prompt с ResearchQuery + ранжированными источниками)
-   │
-   ▼
-Merge(model output ↔ registry: URL и verification из БД)
-   │
-   ▼
-documents_audit.used[].used_for  ←  из ответа модели
-   │
-   ▼
-document_intake_ai_runs.update({ status='completed', ai_result, used_sources, metrics, input_snapshot })
+EntityRegistry v1  (хранится в document_intake_sessions.metadata.entity_registry)
+├─ entities[]   entity_id (ORG_001…), entity_type (ORGANIZATION|PERSON|TAX_AUTHORITY|BANK),
+│               canonical { name, inn, ogrn, kpp, address }, status: verified|unverified|needs_review
+├─ mentions[]   entity_id, document_id, locator (поле анкеты или span-индекс), model_safe_mention
+├─ roles[]      entity_id, document_id|null (matter-scope), role: taxpayer|counterparty|supplier|
+│               claimant|respondent|tax_authority|bank
+├─ relations[]  from_entity_id, type (HAS_COUNTERPARTY|ISSUED_DOCUMENT|PAID), to_entity_id,
+│               provenance { document_id }, confidence
+└─ conflicts[]  entity_ids[], reason (similar_name|inn_mismatch), status: needs_review
 ```
 
-`ai_result` получает два новых опциональных поля поверх этапа 1:
-- `research_query: ResearchQuery`
-- каждый объект в `sources` получает `scores: { semantic, keyword, priority, relevance, final }`, `merged_from`, `appearances`
-- `documents_audit.used[].used_for: string[]`
+Правила идентичности (`resolveEntityIdentity`):
+- совпадение нормализованного ИНН или ОГРН → та же entity (merge);
+- нормализованное имя + подтверждённый реквизит (ИНН/ОГРН/КПП) → merge;
+- только имя, только адрес, любая нечёткость → НЕ merge; создаётся отдельная entity + запись в `conflicts` со `status: needs_review`;
+- госорган (whitelist из `legal-redaction.ts`) → `TAX_AUTHORITY`, никогда не получает роль `taxpayer`.
+
+Реальные значения (наименование, ИНН, ОГРН, КПП, адрес) остаются только в `canonical` внутри session metadata; в модель уходит проекция `buildModelFacingEntityContext()` — только `entity_id`, `entity_type`, роли, ссылки на relations, confidence/status.
+
+## Data-flow
+
+```text
+upload → OCR (original OCR остаётся server-side, как сейчас)
+      → redactLegalDocument(text)                  [существующий детектор сущностей]
+      → registerEntitiesFromDocument(registry, entities, document_id)
+            ├─ identity match по ИНН/ОГРН/имя+реквизит
+            └─ выдача стабильного entity_id/token
+      → повторная подстановка: placeholder документа → token реестра ([ORG_002])
+      → AI-fill / analyze-document-legal-position получают только model-facing проекцию
+      → анкета: redaction-field-mapping использует entity token там, где поле ссылается
+        на известную entity (иначе прежнее поведение [PERSON_1] сохраняется)
+      → save в document_intake_sessions.metadata.entity_registry (рядом с intake_redaction)
+      → generation: resolveEntityTokens() → канонические значения только для
+        verified / lawyer-approved; needs_review/unresolved → блок по текущей политике
+        (RedactionMappingError, как сейчас)
+```
+
+## Изменяемые файлы
+
+- `src/lib/entity-registry.ts` — новый: типы, идентичность, слияние, конфликты, токены, model-facing проекция, детерминированный резолвер.
+- `src/lib/legal-redaction.ts` — минимальная точка расширения: опциональный аргумент «внешний нумератор токенов», чтобы документные placeholders брались из реестра. Существующее поведение без реестра не меняется.
+- `src/lib/redaction-field-mapping.ts` — учитывать entity-токены при построении карты полей; `restoreCanonicalAnswers` умеет резолвить и entity-токены (тот же fail-closed).
+- `src/lib/document-intake-storage.ts` — чтение/запись `metadata.entity_registry` (versioned reader: отсутствие ключа = legacy-режим).
+- `src/lib/generate-legal-document.ts` — резолв entity-токенов перед генерацией; блок/предупреждение при `needs_review`.
+- `src/components/document-builder/intake-form.tsx` — прокинуть реестр в существующий контур обезличивания; при необходимости краткий индикатор конфликтов.
+- `src/routes/workspace.document-builder.tsx` — передать реестр из `loadGenerationContext` в `prepareAndGenerate`.
+- `supabase/tests/pr88-entity-registry.test.ts` — новый набор тестов.
+
+DDL/миграция не планируется: `document_intake_sessions.metadata` уже используется как versioned-хранилище этого контура, RLS на сессии уже действует. Если на этапе реализации выяснится, что нужен матерь-скоуп шире сессии, вынесу это отдельным решением, а не молчаливым DDL.
+
+## Тесты
+
+- две похожие организации → два токена + `conflicts.needs_review`;
+- одна организация в двух документах → один токен;
+- одна организация в разных ролях → один `entity_id`, разные `roles`;
+- точное совпадение ИНН → merge;
+- совпадение только по имени → нет merge;
+- налоговый орган не получает роль `taxpayer`;
+- mentions/relations хранят `document_id`;
+- model-facing payload не содержит названий/ИНН/адресов;
+- резолвер подставляет корректные значения для ORG_001 vs ORG_002;
+- `needs_review`/unresolved блокирует генерацию;
+- регрессия: весь текущий `bun test` (в т.ч. pr22/pr24/pr25/pr27/pr32).
 
 ## Что НЕ меняется
 
-- `generate-legal-document-v2/*` — не открывается
-- `review-generated-legal-document/*` — не открывается
-- `document-intake-ai-fill` — не трогается
-- Схема БД, RLS, миграции — без изменений
-- Frontend (`legal-analysis.ts`, `legal-analysis-panel.tsx`) получит только мелкое расширение типов (опциональные `scores`, `merged_from`, `appearances`, `research_query`) и опциональный показ `used_for` рядом с использованными документами
-
-## После реализации
-
-Покажу новую архитектурную схему (Mermaid) + список добавленных модулей и функций.
+- legacy `legal_analysis` остаётся authoritative; canonical facts/evidence, Evidence Matrix, Argument Map, Reasoning Engine, Challenge, `working_strategy`, `generation_conclusions`, `blocked_conclusions` — без изменений.
+- PR #40, PR #81, TAXOFFENCE, любые edge functions, кроме перечисленных выше файлов, не трогаются.
+- Контракт `run_id`, `document_local`, приватность исходного OCR, поведение авто AI-fill из PR #88 сохраняются.
+- Никакого нового анализатора, движка или параллельного реестра; никакого merge/deploy — PR #88 остаётся Draft.
