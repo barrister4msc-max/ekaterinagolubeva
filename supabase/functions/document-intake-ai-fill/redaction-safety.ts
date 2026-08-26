@@ -60,7 +60,19 @@ export function selectSafeAiFillText(document: AiFillDocument): string {
         "AI fill blocked: residual redaction scan is missing.",
       );
     }
-    if (remaining.length > 0) {
+    const blockingResiduals = remaining.filter((entity) => {
+      const item = asRecord(entity);
+      const type = typeof item.type === "string" ? item.type : "";
+      const reason = typeof item.reason === "string" ? item.reason : "";
+      const severity = typeof item.severity === "string" ? item.severity : "";
+      const legalContextOnly =
+        type === "DATE" ||
+        type === "DOCUMENT_NUMBER" ||
+        type === "SIGNATURE" ||
+        (type === "COMPANY" && reason.includes("company marker"));
+      return !legalContextOnly && (severity === "high" || type === "COMPANY");
+    });
+    if (blockingResiduals.length > 0) {
       throw new AiFillRedactionError(
         "AI fill blocked: residual protected entities remain after redaction.",
       );
