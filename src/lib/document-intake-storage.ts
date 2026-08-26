@@ -170,12 +170,16 @@ export function intakeStateFromSession(params: {
 // ---------------------------------------------------------------------------
 
 import type { RedactionFieldMapping } from "@/lib/redaction-field-mapping";
+import { readEntityRegistry, type EntityRegistry } from "@/lib/entity-registry";
 
 export type IntakeGenerationContext = {
   intakeAiFillRunId: string | null;
   redactionMapping: RedactionFieldMapping | null;
   redactionModeEnabled: boolean;
+  /** PR #88 — matter-scoped entity registry; `null` for legacy sessions. */
+  entityRegistry: EntityRegistry | null;
 };
+
 
 async function readSessionMetadata(sessionId: string): Promise<Record<string, any>> {
   const { data, error } = await supabase
