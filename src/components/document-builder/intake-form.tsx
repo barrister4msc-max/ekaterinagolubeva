@@ -228,6 +228,46 @@ const reloadAnswersFromSession = useCallback(async () => {
     onChange({ ...state, answers: { ...state.answers, [key]: value } });
   };
 
+  const toggleRedactionMode = async (next: boolean) => {
+    if (!intakeSessionId) {
+      alert("Сначала создайте сессию (загрузите документы)");
+      return;
+    }
+    try {
+      if (next) {
+        const mapping = buildFieldRedactionMapping({
+          sessionId: intakeSessionId,
+          answers: state.answers as Record<string, unknown>,
+          previous: redactionMapping,
+        });
+        setRedactionMapping(mapping);
+        setRedactionMode(true);
+        onChange({
+          ...state,
+          answers: applyFieldRedaction(state.answers as Record<string, unknown>, mapping) as typeof state.answers,
+        });
+        await saveSessionRedactionState({ sessionId: intakeSessionId, enabled: true, mapping });
+      } else {
+        const canonical = restoreCanonicalAnswers(
+          state.answers as Record<string, unknown>,
+          redactionMapping,
+        );
+        setRedactionMode(false);
+        onChange({ ...state, answers: canonical as typeof state.answers });
+        await saveSessionRedactionState({
+          sessionId: intakeSessionId,
+          enabled: false,
+          mapping: redactionMapping,
+        });
+      }
+    } catch (error) {
+      console.error("redaction toggle failed", error);
+      alert(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+
+
   const setMode = (mode: IntakeState["generationMode"]) =>
     onChange({ ...state, generationMode: mode });
   const setInstructions = (v: string) => onChange({ ...state, specialInstructions: v });
