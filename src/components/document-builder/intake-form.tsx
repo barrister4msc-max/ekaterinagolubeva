@@ -854,6 +854,8 @@ const reloadAnswersFromSession = useCallback(async () => {
       setIsAiFilling(true);
       setAutoFillStage("ai_filling");
       setAiFillFailure(null);
+      // The raw-text offer is valid only for the current redaction failure.
+      setAllowUnredactedAiFill(false);
 
 
       let currentDocuments = await refreshSessionDocuments(intakeSessionId);
@@ -1012,6 +1014,8 @@ const reloadAnswersFromSession = useCallback(async () => {
       setAiFillFailure(message);
       if (!options.allowUnredactedText && /redaction|обезлич/i.test(message)) {
         setAllowUnredactedAiFill(true);
+      } else {
+        setAllowUnredactedAiFill(false);
       }
       setAutoFillStage("failed");
     } finally {
