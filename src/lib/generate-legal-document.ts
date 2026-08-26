@@ -427,6 +427,8 @@ export async function prepareAndGenerate(
       snapshot,
       runId,
       payload,
+      intakeAiFillRunId: opts.intakeAiFillRunId ?? null,
+      redactionModeEnabled: Boolean(opts.redactionModeEnabled),
     });
   } catch (e) {
     console.error("[PROVENANCE ERROR]", {
@@ -444,7 +446,9 @@ export async function prepareAndGenerate(
     generated_document_id: generatedDocumentId,
     matter_snapshot: snapshot,
     legal_analysis_run_id: runId,
+    intake_ai_fill_run_id: opts.intakeAiFillRunId ?? null,
   };
+
 }
 
 async function writeGenerationProvenance(input: {
