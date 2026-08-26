@@ -261,6 +261,7 @@ function DocumentBuilderPage() {
         intakeAiFillRunId: null as string | null,
         redactionMapping: null as import("@/lib/redaction-field-mapping").RedactionFieldMapping | null,
         redactionModeEnabled: false,
+        entityRegistry: null as import("@/lib/entity-registry").EntityRegistry | null,
       };
       if (sessionId) {
         const { loadIntakeGenerationContext } = await import("@/lib/document-intake-storage");
@@ -275,7 +276,9 @@ function DocumentBuilderPage() {
         intakeAiFillRunId: genContext.intakeAiFillRunId,
         redactionMapping: genContext.redactionMapping,
         redactionModeEnabled: genContext.redactionModeEnabled,
+        entityRegistry: genContext.entityRegistry,
       });
+
 
       setGenerated(result);
       setSubmitted(true);
