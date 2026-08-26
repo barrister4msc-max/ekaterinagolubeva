@@ -456,8 +456,11 @@ async function writeGenerationProvenance(input: {
   snapshot: MatterSnapshot | null;
   runId: string | null;
   payload: GenerateLegalDocumentRequest;
+  intakeAiFillRunId?: string | null;
+  redactionModeEnabled?: boolean;
 }): Promise<void> {
   const { generatedDocumentId, snapshot, runId, payload } = input;
+
   if (!generatedDocumentId) {
     throw new Error("writeGenerationProvenance: missing generatedDocumentId");
   }
