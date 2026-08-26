@@ -1067,7 +1067,7 @@ const reloadAnswersFromSession = useCallback(async () => {
               <button
                 type="button"
                 className="db-cta"
-                onClick={handleAiFillFromDocument}
+                onClick={() => handleAiFillFromDocument({ trigger: "manual" })}
                 disabled={
                   isAiFilling ||
                   sessionDocuments.length === 0
@@ -1080,10 +1080,23 @@ const reloadAnswersFromSession = useCallback(async () => {
                     ? "AI заполняет…"
                     : aiFillFailure
                       ? "Повторить AI-заполнение"
-                      : readyDocuments.length === 0
-                        ? "Извлечь текст и заполнить"
-                        : "AI заполнить поля"}
+                      : autoFillStage === "done"
+                        ? "Повторить AI-заполнение"
+                        : readyDocuments.length === 0
+                          ? "Извлечь текст и заполнить"
+                          : "AI заполнить поля"}
               </button>
+
+              <button
+                type="button"
+                className="db-ghost"
+                onClick={() => void toggleRedactionMode(!redactionMode)}
+                disabled={!intakeSessionId || isAiFilling}
+                title="Показывать обезличенные значения в анкете. В финальном документе будут реальные значения."
+              >
+                {redactionMode ? "Показать реальные значения" : "Обезличить анкету"}
+              </button>
+
 
               {lastUploadBatch && (
                 <span className="text-xs text-muted-foreground">
