@@ -483,7 +483,7 @@ const reloadAnswersFromSession = useCallback(async () => {
         .from("documents")
         .select("ocr_text, metadata")
         .eq("id", documentId)
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         const metadata = (data.metadata ?? {}) as Record<string, unknown>;
@@ -510,6 +510,12 @@ const reloadAnswersFromSession = useCallback(async () => {
         lastError = extractionError;
       } else if (error) {
         lastError = error.message;
+      } else if (!data) {
+        return {
+          extractionStatus: "failed",
+          textLength: 0,
+          error: "Документ удалён или больше не найден в комплекте",
+        };
       }
 
       await new Promise((resolve) => window.setTimeout(resolve, 2_500));
@@ -767,6 +773,8 @@ const reloadAnswersFromSession = useCallback(async () => {
   const handleDeleteDocument = async (documentId: string) => {
     if (!confirm("Удалить этот документ из комплекта?")) return;
     try {
+      removeProcessingDocument(documentId);
+      if (retryingDocumentId === documentId) setRetryingDocumentId(null);
       const { error } = await supabase.from("documents").delete().eq("id", documentId);
       if (error) throw error;
       await refreshSessionDocuments(intakeSessionId);
@@ -894,19 +902,38 @@ const reloadAnswersFromSession = useCallback(async () => {
         );
       }
 
-      // Redaction is an internal preparation step: the user does not need
-      // to click a second button. Original OCR is retained server-side and
-      // the AI-fill function receives only the accepted redacted text.
+      // Redaction is an internal preparation step. It is decoupled from
+      // the fill action, but raw OCR is never sent to AI. Each document is
+      // prepared independently so one unsafe document cannot abort filling
+      // from the other safe documents.
+      const redactionIssues: string[] = [];
       for (const document of readyDocs) {
-        if (document.redaction_status !== "accepted" && document.redaction_status !== "not_required") {
-          await suggestRedaction(document.id);
-          await acceptRedaction(document.id, {});
+        try {
+          if (document.redaction_status === "accepted" || document.redaction_status === "not_required") continue;
+          if (document.redacted_text && document.redaction_quality !== "unsafe") {
+            await acceptRedaction(document.id, {});
+          } else {
+            await suggestRedaction(document.id);
+            await acceptRedaction(document.id, {});
+          }
+        } catch (error) {
+          const name = document.file_name ?? document.title ?? document.id;
+          redactionIssues.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
       currentDocuments = await refreshSessionDocuments(intakeSessionId);
-      readyDocs = currentDocuments.filter((document) =>
-        hasExtractedDocumentText(document.ocr_text),
-      );
+      readyDocs = currentDocuments.filter((document) => {
+        if (!hasExtractedDocumentText(document.ocr_text)) return false;
+        if (document.redaction_status === "not_required") return true;
+        return document.redaction_status === "accepted" && typeof document.redacted_text === "string";
+      });
+      if (readyDocs.length === 0) {
+        throw new Error(
+          redactionIssues.length > 0
+            ? `Не удалось безопасно подготовить документы для AI: ${redactionIssues.join("; ")}`
+            : "Нет документов, безопасных для AI-заполнения.",
+        );
+      }
 
       await buildCaseIntelligenceIfReady("before_ai_fill", readyDocs);
 
