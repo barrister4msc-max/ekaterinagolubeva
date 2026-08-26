@@ -490,6 +490,9 @@ async function writeGenerationProvenance(input: {
   const provenance: Record<string, unknown> = {
     generated_from_legal_analysis: Boolean(runId && snapshot),
     legal_analysis_run_id: runId,
+    intake_ai_fill_run_id: input.intakeAiFillRunId ?? null,
+    intake_redaction_mode: Boolean(input.redactionModeEnabled),
+
     legal_analysis_created_at: snapshot?.legal_analysis_created_at ?? null,
     analysis_version: snapshot?.analysis_version ?? null,
     matter_snapshot: snapshot,
