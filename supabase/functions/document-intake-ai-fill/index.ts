@@ -308,12 +308,37 @@ serve(async (req) => {
       .in("id", readyDocuments.map((item) => item.document.id));
 
     await supabase
+      .from("document_intake_ai_runs")
+      .update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        ai_result: {
+          filled_fields: inserted,
+          total_candidate_fields: fields.length,
+          summary: aiResult.summary ?? null,
+          answers: allowedAnswers,
+        },
+      })
+      .eq("id", aiFillRunId);
+
+    const sessionMetadata = ((session.metadata ?? {}) as Record<string, unknown>) ?? {};
+
+    await supabase
       .from("document_intake_sessions")
       .update({
         document_id: primaryDocument.id,
         ai_summary: aiResult.summary ?? null,
         ai_risk_level: aiResult.risk_level ?? null,
         ai_recommended_action: aiResult.recommended_action ?? null,
+        metadata: {
+          ...sessionMetadata,
+          intake_ai_fill: {
+            run_id: aiFillRunId,
+            document_ids: readyDocuments.map((item) => item.document.id),
+            filled_fields: inserted,
+            completed_at: new Date().toISOString(),
+          },
+        },
         updated_at: new Date().toISOString(),
       })
       .eq("id", session_id);
@@ -321,6 +346,7 @@ serve(async (req) => {
     return json({
       success: true,
       session_id,
+      run_id: aiFillRunId,
       document_id: primaryDocument.id,
       document_ids: readyDocuments.map((item) => item.document.id),
       filled_fields: inserted,
@@ -328,6 +354,7 @@ serve(async (req) => {
       summary: aiResult.summary ?? null,
       answers: allowedAnswers,
     });
+
   } catch (error) {
     console.error("document-intake-ai-fill error:", error);
 
