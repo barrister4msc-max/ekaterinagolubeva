@@ -1051,6 +1051,30 @@ const reloadAnswersFromSession = useCallback(async () => {
               </div>
             </div>
 
+            {autoFillStage !== "idle" && (
+              <div
+                className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+                  autoFillStage === "failed"
+                    ? "border-red-300 bg-red-50 text-red-800"
+                    : autoFillStage === "done"
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                      : "border-amber-300 bg-amber-50 text-amber-800"
+                }`}
+              >
+                {(autoFillStage === "extracting" || autoFillStage === "ai_filling") && (
+                  <Loader2 size={12} className="animate-spin" />
+                )}
+                <span>
+                  Документы загружены → Распознаём → AI заполняет анкету → Готово
+                </span>
+                <span className="font-semibold">{describeAutoAiFillStage(autoFillStage)}</span>
+                {redactionMode && <span>· анкета показана обезличенно</span>}
+                {aiFillRunId && <span className="opacity-70">· run {aiFillRunId.slice(0, 8)}</span>}
+              </div>
+            )}
+
+
+
             <div className="flex flex-wrap items-center gap-2">
               <label className="db-ghost cursor-pointer">
                 <Upload size={14} />
