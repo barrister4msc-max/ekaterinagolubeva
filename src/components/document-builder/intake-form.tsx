@@ -33,9 +33,11 @@ import {
 } from "@/lib/document-generation-preflight";
 import { buildCaseIntelligenceForSession } from "@/lib/case-intelligence";
 import {
+  DOCUMENT_UPLOAD_ACCEPT,
   DocumentPackageError,
   expandSelectedDocumentFiles,
 } from "@/lib/document-package-files";
+
 import {
   runBackgroundExtraction,
   stageDocuments,
@@ -1082,10 +1084,12 @@ const reloadAnswersFromSession = useCallback(async () => {
                 <input
                   type="file"
                   multiple
+                  accept={DOCUMENT_UPLOAD_ACCEPT}
                   className="hidden"
                   onChange={handleUploadDocument}
                   disabled={isUploadingDocument || isAiFilling || isBuildingCaseIntelligence}
                 />
+
               </label>
 
               <button

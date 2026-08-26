@@ -1,8 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, it, test } from "bun:test";
 import JSZip from "jszip";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  DOCUMENT_UPLOAD_ACCEPT,
   DocumentPackageError,
   expandSelectedDocumentFiles,
   expandZipPackage,
@@ -11,6 +12,7 @@ import {
   isZipFile,
   packageEntryFileName,
   PACKAGE_LIMITS,
+  SUPPORTED_PACKAGE_EXTENSIONS,
 } from "../../src/lib/document-package-files";
 
 const testsDirectory = dirname(fileURLToPath(import.meta.url));
@@ -138,5 +140,15 @@ describe("PR23 wiring regression", () => {
     const uploadAt = source.indexOf("stageSingleFile(file, session.id, uploadBatchId)");
     expect(expandAt).toBeGreaterThan(-1);
     expect(uploadAt).toBeGreaterThan(expandAt);
+  });
+});
+
+describe("PR23 — file input accept", () => {
+  it("accepts .zip alongside every supported document extension", () => {
+    for (const ext of SUPPORTED_PACKAGE_EXTENSIONS) {
+      expect(DOCUMENT_UPLOAD_ACCEPT).toContain(`.${ext}`);
+    }
+    expect(DOCUMENT_UPLOAD_ACCEPT).toContain(".zip");
+    expect(DOCUMENT_UPLOAD_ACCEPT).toContain("application/zip");
   });
 });
