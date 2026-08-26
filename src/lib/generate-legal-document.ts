@@ -277,6 +277,9 @@ export type PrepareAndGenerateOptions = {
   redactionModeEnabled?: boolean;
   /** Token → canonical value map for the current session. */
   redactionMapping?: RedactionFieldMapping | null;
+  /** Matter/session-scoped entity registry (PR #88). Optional for legacy sessions. */
+  entityRegistry?: EntityRegistry | null;
+
   /**
    * Explicit `document_intake_ai_runs.id` of the AI-fill run whose answers are
    * being generated from. Never resolved by "latest run for session".
