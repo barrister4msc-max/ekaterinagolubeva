@@ -256,13 +256,27 @@ function DocumentBuilderPage() {
     setSubmitting(true);
     try {
       const { prepareAndGenerate, MatterGateError } = await import("@/lib/generate-legal-document");
+      // Explicit AI-fill run identity + redaction mapping for this session.
+      let genContext = {
+        intakeAiFillRunId: null as string | null,
+        redactionMapping: null as import("@/lib/redaction-field-mapping").RedactionFieldMapping | null,
+        redactionModeEnabled: false,
+      };
+      if (sessionId) {
+        const { loadIntakeGenerationContext } = await import("@/lib/document-intake-storage");
+        genContext = await loadIntakeGenerationContext(sessionId);
+      }
       const result = await prepareAndGenerate({
         template: selected,
         state: safeState,
         schema: intakeSchemaQuery.data,
         sessionId: sessionId ?? null,
         purpose: "draft",
+        intakeAiFillRunId: genContext.intakeAiFillRunId,
+        redactionMapping: genContext.redactionMapping,
+        redactionModeEnabled: genContext.redactionModeEnabled,
       });
+
       setGenerated(result);
       setSubmitted(true);
     } catch (e) {

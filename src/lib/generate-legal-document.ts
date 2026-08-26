@@ -243,6 +243,15 @@ import { ensureMatterAnalysis } from "./matter-analysis";
 import { assertMatterGate, isComplexTemplate, MatterGateError } from "./quality-gate";
 import type { MatterSnapshot } from "./matter-snapshot";
 
+import {
+  assertNoRedactionTokens,
+  RedactionMappingError,
+  restoreCanonicalAnswers,
+  type RedactionFieldMapping,
+} from "./redaction-field-mapping";
+
+export { RedactionMappingError } from "./redaction-field-mapping";
+
 export type PrepareAndGenerateOptions = {
   template: DocumentTemplate;
   state: IntakeState;
@@ -256,19 +265,43 @@ export type PrepareAndGenerateOptions = {
   ocrReady?: boolean;
   /** Phase B correction — draft (default) is lenient, final is strict. */
   purpose?: "draft" | "final";
+  /** True when the lawyer switched the intake form into anonymized display. */
+  redactionModeEnabled?: boolean;
+  /** Token → canonical value map for the current session. */
+  redactionMapping?: RedactionFieldMapping | null;
+  /**
+   * Explicit `document_intake_ai_runs.id` of the AI-fill run whose answers are
+   * being generated from. Never resolved by "latest run for session".
+   */
+  intakeAiFillRunId?: string | null;
 };
 
 export type PrepareAndGenerateResult = GeneratedDocumentResult & {
   matter_snapshot: MatterSnapshot | null;
   legal_analysis_run_id: string | null;
+  intake_ai_fill_run_id: string | null;
 };
+
 
 export { MatterGateError } from "./quality-gate";
 
 export async function prepareAndGenerate(
   opts: PrepareAndGenerateOptions,
 ): Promise<PrepareAndGenerateResult> {
-  const { template, state, schema, sessionId } = opts;
+  const { template, schema, sessionId } = opts;
+
+  // 0. Redaction contract — the generator always receives canonical values.
+  // Fail closed when the form is anonymized but the mapping is missing.
+  if (opts.redactionModeEnabled && !opts.redactionMapping) {
+    throw new RedactionMappingError(
+      "Генерация остановлена: включено обезличивание, но карта соответствия токенов отсутствует.",
+    );
+  }
+  const state: IntakeState = {
+    ...opts.state,
+    answers: restoreCanonicalAnswers(opts.state.answers, opts.redactionMapping) as IntakeState["answers"],
+  };
+
 
   // 1. For complex templates require fresh matter analysis.
   let snapshot: MatterSnapshot | null = null;
@@ -337,6 +370,7 @@ export async function prepareAndGenerate(
   const payload: GenerateLegalDocumentRequest & {
     session_id?: string | null;
     intake_session_id?: string | null;
+    intake_ai_fill_run_id?: string | null;
   } = {
     ...buildGenerateRequest(template, state, schema, {
       intakeSessionId: sessionId ?? null,
@@ -346,10 +380,17 @@ export async function prepareAndGenerate(
     }),
     session_id: sessionId ?? null,
     intake_session_id: sessionId ?? null,
+    intake_ai_fill_run_id: opts.intakeAiFillRunId ?? null,
   };
+
+  // 3b. Fail closed: no redaction token may ever reach the generator through
+  // the structured intake slots or the lawyer's free-text instructions.
+  assertNoRedactionTokens("анкета", payload.intake);
+  assertNoRedactionTokens("особые указания", payload.special_instructions);
 
   // 4. Invoke generator (existing edge function, unmodified).
   const result = await invokeGenerateLegalDocument(payload);
+
 
   // Edge function may return the id under different keys depending on version.
   const generatedDocumentId =
@@ -386,6 +427,8 @@ export async function prepareAndGenerate(
       snapshot,
       runId,
       payload,
+      intakeAiFillRunId: opts.intakeAiFillRunId ?? null,
+      redactionModeEnabled: Boolean(opts.redactionModeEnabled),
     });
   } catch (e) {
     console.error("[PROVENANCE ERROR]", {
@@ -403,7 +446,9 @@ export async function prepareAndGenerate(
     generated_document_id: generatedDocumentId,
     matter_snapshot: snapshot,
     legal_analysis_run_id: runId,
+    intake_ai_fill_run_id: opts.intakeAiFillRunId ?? null,
   };
+
 }
 
 async function writeGenerationProvenance(input: {
@@ -411,8 +456,11 @@ async function writeGenerationProvenance(input: {
   snapshot: MatterSnapshot | null;
   runId: string | null;
   payload: GenerateLegalDocumentRequest;
+  intakeAiFillRunId?: string | null;
+  redactionModeEnabled?: boolean;
 }): Promise<void> {
   const { generatedDocumentId, snapshot, runId, payload } = input;
+
   if (!generatedDocumentId) {
     throw new Error("writeGenerationProvenance: missing generatedDocumentId");
   }
@@ -442,6 +490,9 @@ async function writeGenerationProvenance(input: {
   const provenance: Record<string, unknown> = {
     generated_from_legal_analysis: Boolean(runId && snapshot),
     legal_analysis_run_id: runId,
+    intake_ai_fill_run_id: input.intakeAiFillRunId ?? null,
+    intake_redaction_mode: Boolean(input.redactionModeEnabled),
+
     legal_analysis_created_at: snapshot?.legal_analysis_created_at ?? null,
     analysis_version: snapshot?.analysis_version ?? null,
     matter_snapshot: snapshot,

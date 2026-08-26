@@ -1,0 +1,119 @@
+/**
+ * Auto AI-fill orchestration contract.
+ *
+ * Pure decision layer used by the intake form so that AI-fill starts by itself
+ * exactly once per document set, after every uploaded document has finished its
+ * OCR/extraction lifecycle. No network calls happen here.
+ */
+
+export type AutoAiFillDocument = {
+  id: string;
+  extraction_status: string | null;
+  ocr_text_length: number;
+};
+
+export type AutoAiFillStage =
+  | "idle"
+  | "uploaded"
+  | "extracting"
+  | "ai_filling"
+  | "done"
+  | "failed";
+
+export type AutoAiFillDecision =
+  | { action: "wait"; reason: string; fingerprint: string }
+  | { action: "skip"; reason: string; fingerprint: string }
+  | { action: "blocked"; reason: string; fingerprint: string }
+  | { action: "run"; reason: string; fingerprint: string; documentIds: string[] };
+
+const READY_STATUSES = new Set(["completed", "extracted", "ready"]);
+const FAILED_STATUSES = new Set(["failed", "error", "unsupported"]);
+
+export function isExtractionSettled(doc: AutoAiFillDocument): boolean {
+  const status = (doc.extraction_status ?? "").toLowerCase();
+  if (FAILED_STATUSES.has(status)) return true;
+  if (READY_STATUSES.has(status)) return true;
+  // No status recorded but text already present → treat as settled.
+  return doc.ocr_text_length > 0;
+}
+
+export function isExtractionUsable(doc: AutoAiFillDocument): boolean {
+  const status = (doc.extraction_status ?? "").toLowerCase();
+  if (FAILED_STATUSES.has(status)) return false;
+  return doc.ocr_text_length > 0;
+}
+
+/**
+ * Stable identity of the current document set. A new document, a removed
+ * document or a changed extraction length produces a new fingerprint, which is
+ * what makes "run exactly once per document set" enforceable across re-renders,
+ * polling and reloads.
+ */
+export function computeDocumentSetFingerprint(documents: AutoAiFillDocument[]): string {
+  return documents
+    .map((d) => `${d.id}:${d.ocr_text_length}:${(d.extraction_status ?? "none").toLowerCase()}`)
+    .sort()
+    .join("|");
+}
+
+export function evaluateAutoAiFill(input: {
+  sessionId: string | null | undefined;
+  documents: AutoAiFillDocument[];
+  /** Fingerprint of the document set that already triggered an auto run. */
+  lastFingerprint: string | null;
+  /** True while an AI-fill request (auto or manual) is in flight. */
+  inFlight: boolean;
+  /** True while staging/extraction workers are still running. */
+  processing: boolean;
+  /** Lawyer explicitly disabled automatic filling for this session. */
+  disabled?: boolean;
+}): AutoAiFillDecision {
+  const fingerprint = computeDocumentSetFingerprint(input.documents);
+
+  if (!input.sessionId) return { action: "wait", reason: "no_session", fingerprint };
+  if (input.disabled) return { action: "skip", reason: "disabled", fingerprint };
+  if (input.documents.length === 0) return { action: "wait", reason: "no_documents", fingerprint };
+  if (input.inFlight) return { action: "skip", reason: "in_flight", fingerprint };
+  if (input.processing) return { action: "wait", reason: "processing", fingerprint };
+
+  if (!input.documents.every(isExtractionSettled)) {
+    return { action: "wait", reason: "extraction_pending", fingerprint };
+  }
+
+  if (input.lastFingerprint === fingerprint) {
+    return { action: "skip", reason: "already_ran", fingerprint };
+  }
+
+  const usable = input.documents.filter(isExtractionUsable);
+  if (usable.length === 0) {
+    return { action: "blocked", reason: "no_extracted_text", fingerprint };
+  }
+  if (usable.length !== input.documents.length) {
+    // Partial OCR failure must not be reported as a successful fill.
+    return { action: "blocked", reason: "partial_extraction", fingerprint };
+  }
+
+  return {
+    action: "run",
+    reason: "ready",
+    fingerprint,
+    documentIds: usable.map((d) => d.id),
+  };
+}
+
+export function describeAutoAiFillStage(stage: AutoAiFillStage): string {
+  switch (stage) {
+    case "uploaded":
+      return "Документы загружены";
+    case "extracting":
+      return "Распознаём документы";
+    case "ai_filling":
+      return "AI заполняет анкету";
+    case "done":
+      return "AI-заполнение завершено";
+    case "failed":
+      return "AI-заполнение не завершено";
+    default:
+      return "";
+  }
+}

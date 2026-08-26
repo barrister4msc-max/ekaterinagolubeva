@@ -51,7 +51,7 @@ serve(async (req) => {
       return json({ success: false, error: "Forbidden" }, 403);
     }
 
-    const { session_id, document_id, document_ids } = await req.json();
+    const { session_id, document_id, document_ids, trigger } = await req.json();
     const requestedDocumentIds = Array.from(
       new Set(
         (Array.isArray(document_ids) ? document_ids : [document_id])
@@ -136,16 +136,55 @@ serve(async (req) => {
 
     const fields = extractFields(schema.schema_json);
 
+    // Explicit run identity. Every AI-fill (auto or manual) owns one
+    // document_intake_ai_runs row; consumers must reference this id directly
+    // instead of resolving "the latest run for the session".
+    const { data: runRow, error: runError } = await supabase
+      .from("document_intake_ai_runs")
+      .insert({
+        session_id,
+        run_type: "intake_ai_fill",
+        status: "running",
+        input_snapshot: {
+          document_ids: readyDocuments.map((item) => item.document.id),
+          template_code: session.template_code,
+          trigger: typeof trigger === "string" ? trigger : "manual",
+        },
+        model_name: "gemini",
+      })
+      .select("id")
+      .single();
+
+    if (runError || !runRow) {
+      throw new Error("Unable to create intake AI run");
+    }
+
+    const aiFillRunId: string = runRow.id;
+
     const caseIntelligenceMatrix =
       ((session.metadata ?? {}) as Record<string, any>)?.case_intelligence_matrix ?? null;
 
-    const aiResult = await extractAnswersWithGemini({
-      apiKey: geminiApiKey,
-      documentText: documentTextForAiFill,
-      caseIntelligenceMatrix,
-      fields,
-      templateCode: session.template_code,
-    });
+    let aiResult;
+    try {
+      aiResult = await extractAnswersWithGemini({
+        apiKey: geminiApiKey,
+        documentText: documentTextForAiFill,
+        caseIntelligenceMatrix,
+        fields,
+        templateCode: session.template_code,
+      });
+    } catch (error) {
+      await supabase
+        .from("document_intake_ai_runs")
+        .update({
+          status: "failed",
+          error_message: error instanceof Error ? error.message : String(error),
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", aiFillRunId);
+      throw error;
+    }
+
 
     const rawAnswers = Array.isArray(aiResult.answers) ? aiResult.answers : [];
 
@@ -269,12 +308,37 @@ serve(async (req) => {
       .in("id", readyDocuments.map((item) => item.document.id));
 
     await supabase
+      .from("document_intake_ai_runs")
+      .update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        ai_result: {
+          filled_fields: inserted,
+          total_candidate_fields: fields.length,
+          summary: aiResult.summary ?? null,
+          answers: allowedAnswers,
+        },
+      })
+      .eq("id", aiFillRunId);
+
+    const sessionMetadata = ((session.metadata ?? {}) as Record<string, unknown>) ?? {};
+
+    await supabase
       .from("document_intake_sessions")
       .update({
         document_id: primaryDocument.id,
         ai_summary: aiResult.summary ?? null,
         ai_risk_level: aiResult.risk_level ?? null,
         ai_recommended_action: aiResult.recommended_action ?? null,
+        metadata: {
+          ...sessionMetadata,
+          intake_ai_fill: {
+            run_id: aiFillRunId,
+            document_ids: readyDocuments.map((item) => item.document.id),
+            filled_fields: inserted,
+            completed_at: new Date().toISOString(),
+          },
+        },
         updated_at: new Date().toISOString(),
       })
       .eq("id", session_id);
@@ -282,6 +346,7 @@ serve(async (req) => {
     return json({
       success: true,
       session_id,
+      run_id: aiFillRunId,
       document_id: primaryDocument.id,
       document_ids: readyDocuments.map((item) => item.document.id),
       filled_fields: inserted,
@@ -289,6 +354,7 @@ serve(async (req) => {
       summary: aiResult.summary ?? null,
       answers: allowedAnswers,
     });
+
   } catch (error) {
     console.error("document-intake-ai-fill error:", error);
 

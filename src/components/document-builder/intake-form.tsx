@@ -47,6 +47,20 @@ import {
   hasExtractedDocumentText,
   suggestTemplatesForPackage,
 } from "@/lib/document-template-suggestions";
+
+import {
+  describeAutoAiFillStage,
+  evaluateAutoAiFill,
+} from "@/lib/auto-ai-fill";
+import {
+  applyFieldRedaction,
+  applyManualFieldEdit,
+  buildFieldRedactionMapping,
+  restoreCanonicalAnswers,
+  type RedactionFieldMapping,
+} from "@/lib/redaction-field-mapping";
+import { saveSessionRedactionState } from "@/lib/document-intake-storage";
+
 type IntakeContext = {
   matterId?: string | null;
   clientId?: string | null;
@@ -142,7 +156,17 @@ const isProcessingDocuments = processingDocumentIds.length > 0;
 
 const [isAiFilling, setIsAiFilling] = useState(false);
 const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
+const [aiFillRunId, setAiFillRunId] = useState<string | null>(null);
+const [autoFillStage, setAutoFillStage] = useState<import("@/lib/auto-ai-fill").AutoAiFillStage>("idle");
+const lastAutoFingerprintRef = useRef<string | null>(null);
+const aiFillInFlightRef = useRef(false);
 const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null);
+// Anonymized display layer. Canonical values stay in `redactionMapping`.
+const [redactionMode, setRedactionMode] = useState(false);
+const [redactionMapping, setRedactionMapping] = useState<RedactionFieldMapping | null>(null);
+
+
+
   const [isBuildingCaseIntelligence, setIsBuildingCaseIntelligence] = useState(false);
 const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
 // PR27 — one automatic registry verification per newly discovered INN.
@@ -198,8 +222,52 @@ const reloadAnswersFromSession = useCallback(async () => {
   }, [validation]);
 
   const setAnswer = (key: string, value: unknown) => {
+    // Manual lawyer edits always win over extracted values and must keep the
+    // token↔canonical mapping consistent instead of destroying it.
+    setRedactionMapping((prev) => (prev ? applyManualFieldEdit(prev, key, value) : prev));
     onChange({ ...state, answers: { ...state.answers, [key]: value } });
   };
+
+  const toggleRedactionMode = async (next: boolean) => {
+    if (!intakeSessionId) {
+      alert("Сначала создайте сессию (загрузите документы)");
+      return;
+    }
+    try {
+      if (next) {
+        const mapping = buildFieldRedactionMapping({
+          sessionId: intakeSessionId,
+          answers: state.answers as Record<string, unknown>,
+          previous: redactionMapping,
+        });
+        setRedactionMapping(mapping);
+        setRedactionMode(true);
+        onChange({
+          ...state,
+          answers: applyFieldRedaction(state.answers as Record<string, unknown>, mapping) as typeof state.answers,
+        });
+        await saveSessionRedactionState({ sessionId: intakeSessionId, enabled: true, mapping });
+      } else {
+        const canonical = restoreCanonicalAnswers(
+          state.answers as Record<string, unknown>,
+          redactionMapping,
+        );
+        setRedactionMode(false);
+        onChange({ ...state, answers: canonical as typeof state.answers });
+        await saveSessionRedactionState({
+          sessionId: intakeSessionId,
+          enabled: false,
+          mapping: redactionMapping,
+        });
+      }
+    } catch (error) {
+      console.error("redaction toggle failed", error);
+      alert(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+
+
   const setMode = (mode: IntakeState["generationMode"]) =>
     onChange({ ...state, generationMode: mode });
   const setInstructions = (v: string) => onChange({ ...state, specialInstructions: v });
@@ -747,14 +815,21 @@ const reloadAnswersFromSession = useCallback(async () => {
       setIsBuildingCaseIntelligence(false);
     }
   };  
-  const handleAiFillFromDocument = async () => {
+  const handleAiFillFromDocument = async (
+    options: { trigger?: "manual" | "auto"; silent?: boolean } = {},
+  ) => {
     if (!intakeSessionId) {
       alert("Сначала загрузите документы");
       return;
     }
+    if (aiFillInFlightRef.current) return;
+    aiFillInFlightRef.current = true;
+    const trigger = options.trigger ?? "manual";
     try {
       setIsAiFilling(true);
+      setAutoFillStage("ai_filling");
       setAiFillFailure(null);
+
 
       let currentDocuments = await refreshSessionDocuments(intakeSessionId);
       let readyDocs = currentDocuments.filter((document) =>
@@ -801,6 +876,7 @@ const reloadAnswersFromSession = useCallback(async () => {
           body: {
             session_id: intakeSessionId,
             document_ids: readyDocs.map((document) => document.id),
+            trigger,
           },
         });
 
@@ -826,6 +902,9 @@ const reloadAnswersFromSession = useCallback(async () => {
       }
       if (!fillResult) throw new Error(lastFillError);
 
+      // Explicit run identity — never resolved as "latest run for session".
+      if (typeof fillResult.run_id === "string") setAiFillRunId(fillResult.run_id);
+
       const { data: answers, error: answersError } = await supabase
         .from("document_intake_answers")
         .select("field_name, field_value")
@@ -844,18 +923,63 @@ const reloadAnswersFromSession = useCallback(async () => {
       }
 
       setAiFillFailure(null);
-      alert(
-        `AI заполнил ${fillResult.filled_fields} полей из комплекта. Проверьте значения и цитаты.`,
-      );
+      setAutoFillStage("done");
+      if (!options.silent) {
+        alert(
+          `AI заполнил ${fillResult.filled_fields} полей из комплекта. Проверьте значения и цитаты.`,
+        );
+      }
     } catch (e) {
       console.error("AI fill failed", e);
       const message = e instanceof Error ? e.message : String(e);
       setAiFillFailure(message);
+      setAutoFillStage("failed");
     } finally {
+      aiFillInFlightRef.current = false;
       setIsAiFilling(false);
       setRetryingDocumentId(null);
     }
   };
+
+  // Auto AI-fill: runs exactly once per settled document set. Re-renders,
+  // polling and reloads are de-duplicated by the document-set fingerprint.
+  useEffect(() => {
+    const decision = evaluateAutoAiFill({
+      sessionId: intakeSessionId,
+      documents: sessionDocuments.map((d) => ({
+        id: d.id,
+        extraction_status: d.extraction_status,
+        ocr_text_length: d.ocr_text_length,
+      })),
+      lastFingerprint: lastAutoFingerprintRef.current,
+      inFlight: aiFillInFlightRef.current || isAiFilling,
+      processing: isProcessingDocuments || isUploadingDocument,
+    });
+
+    if (decision.action === "wait") {
+      if (sessionDocuments.length > 0 && autoFillStage === "idle") setAutoFillStage("uploaded");
+      if (decision.reason === "extraction_pending" || decision.reason === "processing") {
+        setAutoFillStage((prev) => (prev === "done" ? prev : "extracting"));
+      }
+      return;
+    }
+    if (decision.action === "blocked") {
+      lastAutoFingerprintRef.current = decision.fingerprint;
+      setAutoFillStage("failed");
+      setAiFillFailure(
+        decision.reason === "partial_extraction"
+          ? "Не все документы распознаны. Повторите извлечение и запустите AI-заполнение."
+          : "Ни из одного файла не удалось извлечь текст. Повторите извлечение.",
+      );
+      return;
+    }
+    if (decision.action !== "run") return;
+
+    lastAutoFingerprintRef.current = decision.fingerprint;
+    void handleAiFillFromDocument({ trigger: "auto", silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intakeSessionId, sessionDocuments, isProcessingDocuments, isUploadingDocument, isAiFilling]);
+
 
   const handleSuggestedTemplate = async (templateCode: string) => {
     if (!intakeSessionId || !onSuggestedTemplateSelect) return;
@@ -927,6 +1051,30 @@ const reloadAnswersFromSession = useCallback(async () => {
               </div>
             </div>
 
+            {autoFillStage !== "idle" && (
+              <div
+                className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
+                  autoFillStage === "failed"
+                    ? "border-red-300 bg-red-50 text-red-800"
+                    : autoFillStage === "done"
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                      : "border-amber-300 bg-amber-50 text-amber-800"
+                }`}
+              >
+                {(autoFillStage === "extracting" || autoFillStage === "ai_filling") && (
+                  <Loader2 size={12} className="animate-spin" />
+                )}
+                <span>
+                  Документы загружены → Распознаём → AI заполняет анкету → Готово
+                </span>
+                <span className="font-semibold">{describeAutoAiFillStage(autoFillStage)}</span>
+                {redactionMode && <span>· анкета показана обезличенно</span>}
+                {aiFillRunId && <span className="opacity-70">· run {aiFillRunId.slice(0, 8)}</span>}
+              </div>
+            )}
+
+
+
             <div className="flex flex-wrap items-center gap-2">
               <label className="db-ghost cursor-pointer">
                 <Upload size={14} />
@@ -943,7 +1091,7 @@ const reloadAnswersFromSession = useCallback(async () => {
               <button
                 type="button"
                 className="db-cta"
-                onClick={handleAiFillFromDocument}
+                onClick={() => handleAiFillFromDocument({ trigger: "manual" })}
                 disabled={
                   isAiFilling ||
                   sessionDocuments.length === 0
@@ -956,10 +1104,23 @@ const reloadAnswersFromSession = useCallback(async () => {
                     ? "AI заполняет…"
                     : aiFillFailure
                       ? "Повторить AI-заполнение"
-                      : readyDocuments.length === 0
-                        ? "Извлечь текст и заполнить"
-                        : "AI заполнить поля"}
+                      : autoFillStage === "done"
+                        ? "Повторить AI-заполнение"
+                        : readyDocuments.length === 0
+                          ? "Извлечь текст и заполнить"
+                          : "AI заполнить поля"}
               </button>
+
+              <button
+                type="button"
+                className="db-ghost"
+                onClick={() => void toggleRedactionMode(!redactionMode)}
+                disabled={!intakeSessionId || isAiFilling}
+                title="Показывать обезличенные значения в анкете. В финальном документе будут реальные значения."
+              >
+                {redactionMode ? "Показать реальные значения" : "Обезличить анкету"}
+              </button>
+
 
               {lastUploadBatch && (
                 <span className="text-xs text-muted-foreground">
