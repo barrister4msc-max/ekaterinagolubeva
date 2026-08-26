@@ -33,11 +33,9 @@ import {
 } from "@/lib/document-generation-preflight";
 import { buildCaseIntelligenceForSession } from "@/lib/case-intelligence";
 import {
-  DOCUMENT_UPLOAD_ACCEPT,
   DocumentPackageError,
   expandSelectedDocumentFiles,
 } from "@/lib/document-package-files";
-
 import {
   runBackgroundExtraction,
   stageDocuments,
@@ -49,20 +47,6 @@ import {
   hasExtractedDocumentText,
   suggestTemplatesForPackage,
 } from "@/lib/document-template-suggestions";
-
-import {
-  describeAutoAiFillStage,
-  evaluateAutoAiFill,
-} from "@/lib/auto-ai-fill";
-import {
-  applyFieldRedaction,
-  applyManualFieldEdit,
-  buildFieldRedactionMapping,
-  restoreCanonicalAnswers,
-  type RedactionFieldMapping,
-} from "@/lib/redaction-field-mapping";
-import { saveSessionRedactionState } from "@/lib/document-intake-storage";
-
 type IntakeContext = {
   matterId?: string | null;
   clientId?: string | null;
@@ -158,17 +142,8 @@ const isProcessingDocuments = processingDocumentIds.length > 0;
 
 const [isAiFilling, setIsAiFilling] = useState(false);
 const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
-const [aiFillRunId, setAiFillRunId] = useState<string | null>(null);
-const [autoFillStage, setAutoFillStage] = useState<import("@/lib/auto-ai-fill").AutoAiFillStage>("idle");
-const lastAutoFingerprintRef = useRef<string | null>(null);
-const aiFillInFlightRef = useRef(false);
+const [allowUnredactedAiFill, setAllowUnredactedAiFill] = useState(false);
 const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null);
-// Anonymized display layer. Canonical values stay in `redactionMapping`.
-const [redactionMode, setRedactionMode] = useState(false);
-const [redactionMapping, setRedactionMapping] = useState<RedactionFieldMapping | null>(null);
-
-
-
   const [isBuildingCaseIntelligence, setIsBuildingCaseIntelligence] = useState(false);
 const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
 // PR27 — one automatic registry verification per newly discovered INN.
@@ -224,52 +199,8 @@ const reloadAnswersFromSession = useCallback(async () => {
   }, [validation]);
 
   const setAnswer = (key: string, value: unknown) => {
-    // Manual lawyer edits always win over extracted values and must keep the
-    // token↔canonical mapping consistent instead of destroying it.
-    setRedactionMapping((prev) => (prev ? applyManualFieldEdit(prev, key, value) : prev));
     onChange({ ...state, answers: { ...state.answers, [key]: value } });
   };
-
-  const toggleRedactionMode = async (next: boolean) => {
-    if (!intakeSessionId) {
-      alert("Сначала создайте сессию (загрузите документы)");
-      return;
-    }
-    try {
-      if (next) {
-        const mapping = buildFieldRedactionMapping({
-          sessionId: intakeSessionId,
-          answers: state.answers as Record<string, unknown>,
-          previous: redactionMapping,
-        });
-        setRedactionMapping(mapping);
-        setRedactionMode(true);
-        onChange({
-          ...state,
-          answers: applyFieldRedaction(state.answers as Record<string, unknown>, mapping) as typeof state.answers,
-        });
-        await saveSessionRedactionState({ sessionId: intakeSessionId, enabled: true, mapping });
-      } else {
-        const canonical = restoreCanonicalAnswers(
-          state.answers as Record<string, unknown>,
-          redactionMapping,
-        );
-        setRedactionMode(false);
-        onChange({ ...state, answers: canonical as typeof state.answers });
-        await saveSessionRedactionState({
-          sessionId: intakeSessionId,
-          enabled: false,
-          mapping: redactionMapping,
-        });
-      }
-    } catch (error) {
-      console.error("redaction toggle failed", error);
-      alert(error instanceof Error ? error.message : String(error));
-    }
-  };
-
-
-
   const setMode = (mode: IntakeState["generationMode"]) =>
     onChange({ ...state, generationMode: mode });
   const setInstructions = (v: string) => onChange({ ...state, specialInstructions: v });
@@ -483,7 +414,7 @@ const reloadAnswersFromSession = useCallback(async () => {
         .from("documents")
         .select("ocr_text, metadata")
         .eq("id", documentId)
-        .maybeSingle();
+        .single();
 
       if (!error && data) {
         const metadata = (data.metadata ?? {}) as Record<string, unknown>;
@@ -510,12 +441,6 @@ const reloadAnswersFromSession = useCallback(async () => {
         lastError = extractionError;
       } else if (error) {
         lastError = error.message;
-      } else if (!data) {
-        return {
-          extractionStatus: "failed",
-          textLength: 0,
-          error: "Документ удалён или больше не найден в комплекте",
-        };
       }
 
       await new Promise((resolve) => window.setTimeout(resolve, 2_500));
@@ -551,8 +476,32 @@ const reloadAnswersFromSession = useCallback(async () => {
             attempts: attempt,
           };
         }
-        lastError = error?.message || data?.error ||
-          `Извлечение завершилось со статусом ${data?.extraction_status ?? "failed"}`;
+
+        if (!error && data?.extraction_status === "processing") {
+          // Another request already owns the OCR lease. Keep observing the
+          // persisted row instead of burning the retry budget on duplicate
+          // invocations that will immediately return `reused: true`.
+          const persisted = await waitForPersistedExtraction(documentId, 190_000);
+          if (persisted.extractionStatus === "completed" && persisted.textLength > 0) {
+            return {
+              extractionStatus: "completed",
+              textLength: persisted.textLength,
+              attempts: attempt,
+            };
+          }
+          lastError = persisted.error || lastError;
+          if (persisted.extractionStatus === "failed") {
+            return {
+              extractionStatus: "failed",
+              textLength: 0,
+              attempts: attempt,
+              error: lastError,
+            };
+          }
+        } else {
+          lastError = error?.message || data?.error ||
+            `Извлечение завершилось со статусом ${data?.extraction_status ?? "failed"}`;
+        }
       } else {
         // Do not start a duplicate Gemini request while the first invocation is
         // still running. The function persists its result before responding,
@@ -588,7 +537,7 @@ const reloadAnswersFromSession = useCallback(async () => {
   // Resume staged documents after reload/navigation; no saved file may remain silently unprocessed.
   useEffect(() => {
     if (!intakeSessionId) return;
-    const pending = sessionDocuments.filter((d) => !hasExtractedDocumentText(d.ocr_text) && (d.extraction_status === null || d.extraction_status === "pending") && !processingDocumentIdsRef.current.has(d.id)).map((d) => ({ id:d.id, fileName:d.file_name ?? d.title ?? d.id }));
+    const pending = sessionDocuments.filter((d) => !hasExtractedDocumentText(d.ocr_text) && (d.extraction_status === null || d.extraction_status === "pending" || d.extraction_status === "processing") && !processingDocumentIdsRef.current.has(d.id)).map((d) => ({ id:d.id, fileName:d.file_name ?? d.title ?? d.id }));
     if (!pending.length) return;
     void runBackgroundExtraction(pending, async (doc) => { const r=await runExtractionWithRetry(doc.id); return { ok:r.extractionStatus === "completed" && r.textLength > 0 }; }, {
       isProcessing:(id)=>processingDocumentIdsRef.current.has(id), onStart:(ids)=>addProcessingDocuments(ids),
@@ -773,10 +722,9 @@ const reloadAnswersFromSession = useCallback(async () => {
   const handleDeleteDocument = async (documentId: string) => {
     if (!confirm("Удалить этот документ из комплекта?")) return;
     try {
-      removeProcessingDocument(documentId);
-      if (retryingDocumentId === documentId) setRetryingDocumentId(null);
       const { error } = await supabase.from("documents").delete().eq("id", documentId);
       if (error) throw error;
+      removeProcessingDocument(documentId);
       await refreshSessionDocuments(intakeSessionId);
       try {
         window.dispatchEvent(new CustomEvent("intake-documents-updated"));
@@ -825,34 +773,14 @@ const reloadAnswersFromSession = useCallback(async () => {
       setIsBuildingCaseIntelligence(false);
     }
   };  
-  const readFunctionErrorBody = async (error: any): Promise<Record<string, any> | null> => {
-    const context = error?.context;
-    if (context && typeof context.json === "function") {
-      try {
-        const body = await context.json();
-        return body && typeof body === "object" ? body : null;
-      } catch {
-        // The response body may already have been consumed by supabase-js.
-      }
-    }
-    return null;
-  };
-
-  const handleAiFillFromDocument = async (
-    options: { trigger?: "manual" | "auto"; silent?: boolean } = {},
-  ) => {
+  const handleAiFillFromDocument = async (allowUnredactedText = allowUnredactedAiFill) => {
     if (!intakeSessionId) {
       alert("Сначала загрузите документы");
       return;
     }
-    if (aiFillInFlightRef.current) return;
-    aiFillInFlightRef.current = true;
-    const trigger = options.trigger ?? "manual";
     try {
       setIsAiFilling(true);
-      setAutoFillStage("ai_filling");
       setAiFillFailure(null);
-
 
       let currentDocuments = await refreshSessionDocuments(intakeSessionId);
       let readyDocs = currentDocuments.filter((document) =>
@@ -862,21 +790,17 @@ const reloadAnswersFromSession = useCallback(async () => {
         (document) => !hasExtractedDocumentText(document.ocr_text),
       );
 
-      // AI-fill is batch-scoped: never send a partial package while another
-      // document is still extracting. Partial runs caused 409 redaction/readiness
-      // conflicts and produced misleading generic "non-2xx" errors in the UI.
-      if (readyDocs.length > 0 && documentsWithoutText.length > 0) {
-        const pendingNames = documentsWithoutText
-          .map((document) => document.file_name ?? document.title ?? document.id)
-          .join(", ");
-        throw new Error(
-          `AI-заполнение ожидает завершения OCR всех файлов. Ещё обрабатываются: ${pendingNames}`,
+      // Never send a partial package. A legal conclusion can change when a
+      // later act, response, table, or attachment arrives.
+      if (documentsWithoutText.length > 0) {
+        const alreadyProcessing = documentsWithoutText.filter((document) =>
+          processingDocumentIdsRef.current.has(document.id),
         );
-      }
-
-      // If at least one document is ready, start AI-fill immediately. Remaining OCR jobs
-      // keep using the normal background queue. Only an all-pending package waits once.
-      if (readyDocs.length === 0 && documentsWithoutText.length > 0) {
+        if (alreadyProcessing.length > 0) {
+          throw new Error(
+            `Ожидается извлечение текста из ${alreadyProcessing.length} документа(ов). Дождитесь завершения OCR и повторите заполнение.`,
+          );
+        }
         await runBackgroundExtraction(
           documentsWithoutText.map((document) => ({
             id: document.id,
@@ -896,42 +820,10 @@ const reloadAnswersFromSession = useCallback(async () => {
         readyDocs = currentDocuments.filter((document) => hasExtractedDocumentText(document.ocr_text));
       }
 
-      if (readyDocs.length === 0) {
+      const failedDocuments = currentDocuments.filter((document) => !hasExtractedDocumentText(document.ocr_text));
+      if (failedDocuments.length > 0 || readyDocs.length !== currentDocuments.length) {
         throw new Error(
-          "Ни из одного файла не удалось извлечь текст. Используйте «Повторить извлечение» у файла.",
-        );
-      }
-
-      // Redaction is an internal preparation step. It is decoupled from
-      // the fill action, but raw OCR is never sent to AI. Each document is
-      // prepared independently so one unsafe document cannot abort filling
-      // from the other safe documents.
-      const redactionIssues: string[] = [];
-      for (const document of readyDocs) {
-        try {
-          if (document.redaction_status === "accepted" || document.redaction_status === "not_required") continue;
-          if (document.redacted_text && document.redaction_quality !== "unsafe") {
-            await acceptRedaction(document.id, {});
-          } else {
-            await suggestRedaction(document.id);
-            await acceptRedaction(document.id, {});
-          }
-        } catch (error) {
-          const name = document.file_name ?? document.title ?? document.id;
-          redactionIssues.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-      currentDocuments = await refreshSessionDocuments(intakeSessionId);
-      readyDocs = currentDocuments.filter((document) => {
-        if (!hasExtractedDocumentText(document.ocr_text)) return false;
-        if (document.redaction_status === "not_required") return true;
-        return document.redaction_status === "accepted" && typeof document.redacted_text === "string";
-      });
-      if (readyDocs.length === 0) {
-        throw new Error(
-          redactionIssues.length > 0
-            ? `Не удалось безопасно подготовить документы для AI: ${redactionIssues.join("; ")}`
-            : "Нет документов, безопасных для AI-заполнения.",
+          `Комплект не готов: текст не извлечён из ${failedDocuments.map((document) => document.file_name ?? document.title ?? document.id).join(", ")}. Используйте «Повторить извлечение» или удалите этот файл из комплекта.`,
         );
       }
 
@@ -939,12 +831,12 @@ const reloadAnswersFromSession = useCallback(async () => {
 
       let fillResult: any = null;
       let lastFillError = "AI не вернул подтверждённые поля";
-      for (let technicalAttempt = 0; technicalAttempt < 2; technicalAttempt += 1) {
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
         const { data, error } = await supabase.functions.invoke("document-intake-ai-fill", {
           body: {
             session_id: intakeSessionId,
             document_ids: readyDocs.map((document) => document.id),
-            trigger,
+            allow_unredacted_text: allowUnredactedText,
           },
         });
 
@@ -954,8 +846,7 @@ const reloadAnswersFromSession = useCallback(async () => {
           break;
         }
 
-        const functionErrorBody = await readFunctionErrorBody(error);
-        lastFillError = functionErrorBody?.error || error?.message || data?.error ||
+        lastFillError = error?.message || data?.error ||
           (data?.success === true
             ? "AI не нашёл полей с достаточной уверенностью и цитатами"
             : "AI-заполнение завершилось без результата");
@@ -966,13 +857,10 @@ const reloadAnswersFromSession = useCallback(async () => {
           status >= 500 ||
           /network|fetch|timeout|temporar/i.test(error?.message ?? "")
         );
-        if (!transient || technicalAttempt === 1) break;
-        await waitBeforeRetry(1);
+        if (!transient || attempt === 3) break;
+        await waitBeforeRetry(attempt);
       }
       if (!fillResult) throw new Error(lastFillError);
-
-      // Explicit run identity — never resolved as "latest run for session".
-      if (typeof fillResult.run_id === "string") setAiFillRunId(fillResult.run_id);
 
       const { data: answers, error: answersError } = await supabase
         .from("document_intake_answers")
@@ -992,63 +880,18 @@ const reloadAnswersFromSession = useCallback(async () => {
       }
 
       setAiFillFailure(null);
-      setAutoFillStage("done");
-      if (!options.silent) {
-        alert(
-          `AI заполнил ${fillResult.filled_fields} полей из комплекта. Проверьте значения и цитаты.`,
-        );
-      }
+      alert(
+        `AI заполнил ${fillResult.filled_fields} полей из комплекта. Проверьте значения и цитаты.`,
+      );
     } catch (e) {
       console.error("AI fill failed", e);
       const message = e instanceof Error ? e.message : String(e);
       setAiFillFailure(message);
-      setAutoFillStage("failed");
     } finally {
-      aiFillInFlightRef.current = false;
       setIsAiFilling(false);
       setRetryingDocumentId(null);
     }
   };
-
-  // Auto AI-fill: runs exactly once per settled document set. Re-renders,
-  // polling and reloads are de-duplicated by the document-set fingerprint.
-  useEffect(() => {
-    const decision = evaluateAutoAiFill({
-      sessionId: intakeSessionId,
-      documents: sessionDocuments.map((d) => ({
-        id: d.id,
-        extraction_status: d.extraction_status,
-        ocr_text_length: d.ocr_text_length,
-      })),
-      lastFingerprint: lastAutoFingerprintRef.current,
-      inFlight: aiFillInFlightRef.current || isAiFilling,
-      processing: isProcessingDocuments || isUploadingDocument,
-    });
-
-    if (decision.action === "wait") {
-      if (sessionDocuments.length > 0 && autoFillStage === "idle") setAutoFillStage("uploaded");
-      if (decision.reason === "extraction_pending" || decision.reason === "processing") {
-        setAutoFillStage((prev) => (prev === "done" ? prev : "extracting"));
-      }
-      return;
-    }
-    if (decision.action === "blocked") {
-      lastAutoFingerprintRef.current = decision.fingerprint;
-      setAutoFillStage("failed");
-      setAiFillFailure(
-        decision.reason === "partial_extraction"
-          ? "Не все документы распознаны. Повторите извлечение и запустите AI-заполнение."
-          : "Ни из одного файла не удалось извлечь текст. Повторите извлечение.",
-      );
-      return;
-    }
-    if (decision.action !== "run") return;
-
-    lastAutoFingerprintRef.current = decision.fingerprint;
-    void handleAiFillFromDocument({ trigger: "auto", silent: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intakeSessionId, sessionDocuments, isProcessingDocuments, isUploadingDocument, isAiFilling]);
-
 
   const handleSuggestedTemplate = async (templateCode: string) => {
     if (!intakeSessionId || !onSuggestedTemplateSelect) return;
@@ -1120,30 +963,6 @@ const reloadAnswersFromSession = useCallback(async () => {
               </div>
             </div>
 
-            {autoFillStage !== "idle" && (
-              <div
-                className={`flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs ${
-                  autoFillStage === "failed"
-                    ? "border-red-300 bg-red-50 text-red-800"
-                    : autoFillStage === "done"
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                      : "border-amber-300 bg-amber-50 text-amber-800"
-                }`}
-              >
-                {(autoFillStage === "extracting" || autoFillStage === "ai_filling") && (
-                  <Loader2 size={12} className="animate-spin" />
-                )}
-                <span>
-                  Документы загружены → Распознаём → AI заполняет анкету → Готово
-                </span>
-                <span className="font-semibold">{describeAutoAiFillStage(autoFillStage)}</span>
-                {redactionMode && <span>· анкета показана обезличенно</span>}
-                {aiFillRunId && <span className="opacity-70">· run {aiFillRunId.slice(0, 8)}</span>}
-              </div>
-            )}
-
-
-
             <div className="flex flex-wrap items-center gap-2">
               <label className="db-ghost cursor-pointer">
                 <Upload size={14} />
@@ -1151,21 +970,18 @@ const reloadAnswersFromSession = useCallback(async () => {
                 <input
                   type="file"
                   multiple
-                  accept={DOCUMENT_UPLOAD_ACCEPT}
                   className="hidden"
                   onChange={handleUploadDocument}
                   disabled={isUploadingDocument || isAiFilling || isBuildingCaseIntelligence}
                 />
-
               </label>
 
               <button
                 type="button"
                 className="db-cta"
-                onClick={() => handleAiFillFromDocument({ trigger: "manual" })}
+                onClick={() => void handleAiFillFromDocument()}
                 disabled={
                   isAiFilling ||
-                  isProcessingDocuments ||
                   sessionDocuments.length === 0
                 }
               >
@@ -1176,23 +992,10 @@ const reloadAnswersFromSession = useCallback(async () => {
                     ? "AI заполняет…"
                     : aiFillFailure
                       ? "Повторить AI-заполнение"
-                      : autoFillStage === "done"
-                        ? "Повторить AI-заполнение"
-                        : readyDocuments.length === 0
-                          ? "Извлечь текст и заполнить"
-                          : "AI заполнить поля"}
+                      : readyDocuments.length === 0
+                        ? "Извлечь текст и заполнить"
+                        : "AI заполнить поля"}
               </button>
-
-              <button
-                type="button"
-                className="db-ghost"
-                onClick={() => void toggleRedactionMode(!redactionMode)}
-                disabled={!intakeSessionId || isAiFilling}
-                title="Показывать обезличенные значения в анкете. В финальном документе будут реальные значения."
-              >
-                {redactionMode ? "Показать реальные значения" : "Обезличить анкету"}
-              </button>
-
 
               {lastUploadBatch && (
                 <span className="text-xs text-muted-foreground">
@@ -1220,6 +1023,20 @@ const reloadAnswersFromSession = useCallback(async () => {
                 <div className="mt-1 text-muted-foreground">
                   Можно нажать «Повторить AI-заполнение»: комплект и уже сохранённые ответы не потеряются.
                 </div>
+                {/обезлич|redaction|protected entities/i.test(aiFillFailure) && (
+                  <button
+                    type="button"
+                    className="mt-2 rounded-md border border-rose-700/40 px-2 py-1 font-medium hover:bg-rose-500/10"
+                    onClick={() => {
+                      if (!confirm("Разрешить передачу исходного OCR-текста в AI для этого заполнения? Это действие передаст потенциальные персональные данные и не выполняется автоматически.")) return;
+                      setAllowUnredactedAiFill(true);
+                      void handleAiFillFromDocument(true);
+                    }}
+                    disabled={isAiFilling || isProcessingDocuments}
+                  >
+                    Разрешить исходный текст для AI
+                  </button>
+                )}
               </div>
             )}
 
@@ -2602,3 +2419,4 @@ function RedactionDialog({
     </div>
   );
 }
+
