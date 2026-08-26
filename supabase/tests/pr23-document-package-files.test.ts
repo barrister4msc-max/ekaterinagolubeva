@@ -140,3 +140,13 @@ describe("PR23 wiring regression", () => {
     expect(uploadAt).toBeGreaterThan(expandAt);
   });
 });
+
+describe("PR23 — file input accept", () => {
+  it("accepts .zip alongside every supported document extension", () => {
+    for (const ext of SUPPORTED_PACKAGE_EXTENSIONS) {
+      expect(DOCUMENT_UPLOAD_ACCEPT).toContain(`.${ext}`);
+    }
+    expect(DOCUMENT_UPLOAD_ACCEPT).toContain(".zip");
+    expect(DOCUMENT_UPLOAD_ACCEPT).toContain("application/zip");
+  });
+});
