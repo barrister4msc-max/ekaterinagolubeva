@@ -563,7 +563,7 @@ Deno.serve(async (req) => {
         break;
       case "pdf": {
         const pdfTimeout = new Promise<string>((_, reject) =>
-          setTimeout(() => reject(new Error("pdf_text_extraction_timeout")), 90_000),
+          setTimeout(() => reject(new Error("pdf_text_extraction_timeout")), 30_000),
         );
         text = await Promise.race([
           extractPdfTextLayer(downloaded.buf),
