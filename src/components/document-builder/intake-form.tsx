@@ -46,10 +46,8 @@ import { isValidInn } from "@/lib/company-registry";
 import {
   hasExtractedDocumentText,
   suggestTemplatesForPackage,
-import {
-  hasExtractedDocumentText,
-  suggestTemplatesForPackage,
 } from "@/lib/document-template-suggestions";
+
 import {
   describeAutoAiFillStage,
   evaluateAutoAiFill,
