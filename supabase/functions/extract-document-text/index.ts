@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 // @ts-ignore esm.sh JSZip runtime exposes default; declaration omits it
 import JSZip from "https://esm.sh/jszip@3.10.1";
+import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
 import { extractXlsxText } from "../_shared/xlsx-text.ts";
 
 const corsHeaders = {
@@ -153,35 +154,65 @@ function extractHtml(buf: ArrayBuffer): string {
     .trim();
 }
 
-async function extractPdfTextLayer(buf: ArrayBuffer): Promise<string> {
+async function extractPdfTextLayer(
+  buf: ArrayBuffer,
+  timeoutMs = 30_000,
+): Promise<string> {
+  let loadingTask: any = null;
+  let timeoutId: number | null = null;
   try {
     // @ts-ignore pdfjs legacy build is runtime-compatible with Deno Edge.
     const pdfjs = await import("https://esm.sh/pdfjs-dist@4.10.38/legacy/build/pdf.mjs");
-    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf), disableWorker: true, useSystemFonts: false });
-    const pdf = await loadingTask.promise;
-    const pages: string[] = new Array(pdf.numPages).fill("");
-    const batchSize = 8;
-    for (let start = 1; start <= pdf.numPages; start += batchSize) {
-      const pageNumbers = Array.from(
-        { length: Math.min(batchSize, pdf.numPages - start + 1) },
-        (_, offset) => start + offset,
-      );
-      await Promise.all(pageNumbers.map(async (pageNumber) => {
-        const page = await pdf.getPage(pageNumber);
-        const content = await page.getTextContent();
-        pages[pageNumber - 1] = (content.items ?? [])
-          .map((item: any) => typeof item?.str === "string" ? item.str : "")
-          .filter(Boolean)
-          .join(" ");
-        page.cleanup?.();
-      }));
-    }
-    return pages.join("\\n\\n").replace(/[ \\t]+\\n/g, "\\n").replace(/\\n{3,}/g, "\\n\\n").trim();
+    loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(buf),
+      disableWorker: true,
+      useSystemFonts: false,
+    });
+    const extraction = (async () => {
+      const pdf = await loadingTask.promise;
+      const pages: string[] = new Array(pdf.numPages).fill("");
+      const batchSize = 8;
+      for (let start = 1; start <= pdf.numPages; start += batchSize) {
+        const pageNumbers = Array.from(
+          { length: Math.min(batchSize, pdf.numPages - start + 1) },
+          (_, offset) => start + offset,
+        );
+        await Promise.all(pageNumbers.map(async (pageNumber) => {
+          const page = await pdf.getPage(pageNumber);
+          const content = await page.getTextContent();
+          pages[pageNumber - 1] = (content.items ?? [])
+            .map((item: any) => typeof item?.str === "string" ? item.str : "")
+            .filter(Boolean)
+            .join(" ");
+          page.cleanup?.();
+        }));
+      }
+      return pages.join("\\n\\n")
+        .replace(/[ \\t]+\\n/g, "\\n")
+        .replace(/\\n{3,}/g, "\\n\\n")
+        .trim();
+    })();
+
+    const deadline = new Promise<string>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error("pdf_text_extraction_timeout")),
+        timeoutMs,
+      ) as unknown as number;
+    });
+    return await Promise.race([extraction, deadline]);
   } catch (error) {
     console.error("[extract-document-text] PDF text-layer extraction failed", error);
-    return "";
+    throw error;
+  } finally {
+    if (timeoutId !== null) clearTimeout(timeoutId);
+    try {
+      await loadingTask?.destroy?.();
+    } catch (error) {
+      console.warn("[extract-document-text] PDF.js destroy failed", error);
+    }
   }
 }
+
 function sanitizeExtractedText(value: string): string {
   // PostgreSQL text/JSON cannot store NUL. Minimal PDF probes can surface
   // binary control bytes from compressed streams, so strip those before an
@@ -215,6 +246,7 @@ async function extractWithGeminiFallback(params: {
   buf: ArrayBuffer;
   mimeType: string;
   fileName: string;
+  signal?: AbortSignal;
 }): Promise<{ text: string; debug: Record<string, unknown> }> {
   if (!GEMINI_API_KEY) {
   console.error("[extract-document-text] GEMINI_API_KEY is missing");
@@ -245,6 +277,7 @@ async function extractWithGeminiFallback(params: {
       headers: {
         "Content-Type": "application/json",
       },
+      signal: params.signal ?? AbortSignal.timeout(90_000),
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: {
@@ -277,6 +310,70 @@ async function extractWithGeminiFallback(params: {
 
   return { text, debug };
 }
+async function extractPdfWithChunkedGemini(
+  buf: ArrayBuffer,
+  fileName: string,
+): Promise<{ text: string }> {
+  const controller = new AbortController();
+  const deadlineId = setTimeout(() => controller.abort(), 105_000);
+  try {
+    const source = await PDFDocument.load(buf, { ignoreEncryption: true });
+    const pageCount = source.getPageCount();
+    const chunkSize = 6;
+    const chunks: Array<{ start: number; end: number; buf: ArrayBuffer }> = [];
+
+    for (let start = 0; start < pageCount; start += chunkSize) {
+      const end = Math.min(start + chunkSize, pageCount);
+      const part = await PDFDocument.create();
+      const pages = await part.copyPages(
+        source,
+        Array.from({ length: end - start }, (_, offset) => start + offset),
+      );
+      pages.forEach((page) => part.addPage(page));
+      const bytes = await part.save({ useObjectStreams: false });
+      chunks.push({
+        start,
+        end,
+        buf: bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength,
+        ) as ArrayBuffer,
+      });
+    }
+
+    const results: string[] = new Array(chunks.length).fill("");
+    let cursor = 0;
+    const worker = async () => {
+      while (true) {
+        const index = cursor++;
+        if (index >= chunks.length) return;
+        const chunk = chunks[index];
+        const result = await extractWithGeminiFallback({
+          buf: chunk.buf,
+          mimeType: "application/pdf",
+          fileName: `${fileName}.pages-${chunk.start + 1}-${chunk.end}.pdf`,
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || result.debug?.error || !result.text.trim()) {
+          throw new Error(`pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}`);
+        }
+        results[index] = result.text.trim();
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(3, chunks.length) }, () => worker()),
+    );
+    if (results.some((text) => !text)) {
+      throw new Error("pdf_ocr_incomplete_chunks");
+    }
+    return { text: results.join("\n\n") };
+  } finally {
+    clearTimeout(deadlineId);
+    controller.abort();
+  }
+}
+
 type Detected = {
   method: ExtractionMethod;
   kind:
@@ -512,10 +609,9 @@ Deno.serve(async (req) => {
       case "html":
         text = extractHtml(downloaded.buf);
         break;
-      case "pdf": {
+      case "pdf":
         text = await extractPdfTextLayer(downloaded.buf);
         break;
-      }
       case "image":
         text = "";
         break;
@@ -534,26 +630,34 @@ Deno.serve(async (req) => {
     }
     } catch (e) {
     console.error("[extract-document-text] extraction error", e);
-    status = "failed";
     extractionError = e instanceof Error ? e.message : "extraction_failed";
     text = "";
+    // A PDF text-layer failure is recoverable through chunked OCR below.
+    // Keep the pipeline alive long enough to persist the OCR result/status.
+    status = detected.kind === "pdf" ? "completed" : "failed";
   }
 
   text = sanitizeExtractedText(text);
 
   const shouldUseGeminiFallback =
     downloaded?.buf &&
+    status !== "failed" &&
     (detected.kind === "image" || detected.kind === "pdf" || text.length === 0) &&
     (detected.kind !== "pdf" || !isUsablePdfTextLayer(text));
 
   if (shouldUseGeminiFallback) {
     let fallback: { text: string };
     try {
-      fallback = await extractWithGeminiFallback({
-        buf: downloaded.buf,
-        mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
-        fileName: doc.file_name || "document",
-      });
+      fallback = detected.kind === "pdf"
+        ? await extractPdfWithChunkedGemini(
+            downloaded.buf,
+            doc.file_name || "document",
+          )
+        : await extractWithGeminiFallback({
+            buf: downloaded.buf,
+            mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
+            fileName: doc.file_name || "document",
+          });
     } catch (error) {
       console.error("[extract-document-text] OCR provider fallback failed", error);
       fallback = { text: "" };

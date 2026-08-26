@@ -501,11 +501,15 @@ const reloadAnswersFromSession = useCallback(async () => {
         if (extractionStatus === "completed" && textLength > 0) {
           return { extractionStatus: "completed", textLength };
         }
-        if (extractionStatus === "failed") {
+        if (extractionStatus === "failed" || extractionStatus === "ocr_required") {
           return {
-            extractionStatus: "failed",
+            extractionStatus,
             textLength: 0,
-            error: extractionError || "Извлечение текста завершилось с ошибкой",
+            error: extractionError || (
+              extractionStatus === "ocr_required"
+                ? "Для этого PDF требуется отдельный OCR-режим"
+                : "Извлечение текста завершилось с ошибкой"
+            ),
           };
         }
         lastError = extractionError;
@@ -552,6 +556,18 @@ const reloadAnswersFromSession = useCallback(async () => {
             attempts: attempt,
           };
         }
+        if (!error && (data?.extraction_status === "failed" || data?.extraction_status === "ocr_required")) {
+          return {
+            extractionStatus: data.extraction_status,
+            textLength: 0,
+            attempts: attempt,
+            error: data?.error || (
+              data.extraction_status === "ocr_required"
+                ? "Для этого PDF требуется отдельный OCR-режим"
+                : "Извлечение текста завершилось с ошибкой"
+            ),
+          };
+        }
         lastError = error?.message || data?.error ||
           `Извлечение завершилось со статусом ${data?.extraction_status ?? "failed"}`;
       } else {
@@ -562,11 +578,16 @@ const reloadAnswersFromSession = useCallback(async () => {
           console.warn("[extract-document-text] late invocation error", error);
         });
         const persisted = await waitForPersistedExtraction(documentId);
-        if (persisted.extractionStatus === "completed" && persisted.textLength > 0) {
+        if (
+          (persisted.extractionStatus === "completed" && persisted.textLength > 0) ||
+          persisted.extractionStatus === "failed" ||
+          persisted.extractionStatus === "ocr_required"
+        ) {
           return {
-            extractionStatus: "completed",
+            extractionStatus: persisted.extractionStatus,
             textLength: persisted.textLength,
             attempts: attempt,
+            error: persisted.error,
           };
         }
         lastError = persisted.error || lastError;
