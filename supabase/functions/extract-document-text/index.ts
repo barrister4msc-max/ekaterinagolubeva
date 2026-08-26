@@ -159,14 +159,24 @@ async function extractPdfTextLayer(buf: ArrayBuffer): Promise<string> {
     const pdfjs = await import("https://esm.sh/pdfjs-dist@4.10.38/legacy/build/pdf.mjs");
     const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf), disableWorker: true, useSystemFonts: false });
     const pdf = await loadingTask.promise;
-    const pages: string[] = [];
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      pages.push((content.items ?? []).map((item: any) => typeof item?.str === "string" ? item.str : "").filter(Boolean).join(" "));
-      page.cleanup?.();
+    const pages: string[] = new Array(pdf.numPages).fill("");
+    const batchSize = 8;
+    for (let start = 1; start <= pdf.numPages; start += batchSize) {
+      const pageNumbers = Array.from(
+        { length: Math.min(batchSize, pdf.numPages - start + 1) },
+        (_, offset) => start + offset,
+      );
+      await Promise.all(pageNumbers.map(async (pageNumber) => {
+        const page = await pdf.getPage(pageNumber);
+        const content = await page.getTextContent();
+        pages[pageNumber - 1] = (content.items ?? [])
+          .map((item: any) => typeof item?.str === "string" ? item.str : "")
+          .filter(Boolean)
+          .join(" ");
+        page.cleanup?.();
+      }));
     }
-    return pages.join("\n\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    return pages.join("\\n\\n").replace(/[ \\t]+\\n/g, "\\n").replace(/\\n{3,}/g, "\\n\\n").trim();
   } catch (error) {
     console.error("[extract-document-text] PDF text-layer extraction failed", error);
     return "";

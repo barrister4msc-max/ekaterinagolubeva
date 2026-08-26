@@ -302,6 +302,10 @@ serve(async (req) => {
 
       const role = aiResult?.document_role ?? {};
       const policy = fieldPolicy[fieldName] ?? "fact";
+      // A multi-document packet has no single document role. In that mode,
+      // source_document_id + source_quote are the authority; the model's
+      // aggregate role must not discard facts from other documents.
+      const enforceAggregateRole = readyDocuments.length === 1;
 
       if (isEmptyLike) return false;
       if (confidence < 0.75) return false;
@@ -309,10 +313,10 @@ serve(async (req) => {
       if (readyDocuments.length > 1 && !allowedDocumentIds.has(sourceDocumentId)) return false;
       if (templateDerived) return false;
 
-      if (policy === "identity" && role.can_fill_identity !== true) return false;
-      if (policy === "authority" && role.can_fill_authority !== true) return false;
-      if (policy === "fact" && role.can_fill_facts !== true) return false;
-      if (policy === "legal" && role.can_fill_legal_position !== true) return false;
+      if (enforceAggregateRole && policy === "identity" && role.can_fill_identity !== true) return false;
+      if (enforceAggregateRole && policy === "authority" && role.can_fill_authority !== true) return false;
+      if (enforceAggregateRole && policy === "fact" && role.can_fill_facts !== true) return false;
+      if (enforceAggregateRole && policy === "legal" && role.can_fill_legal_position !== true) return false;
 
       return true;
     });
@@ -478,6 +482,10 @@ async function extractAnswersWithGemini({
 15. Не путай total_shares и voting_shares.
 16. Если передан комплект документов, анализируй его как единое целое, устраняй противоречия и не выбирай значение произвольно.
 17. Для каждого ответа верни source_document_id из заголовка того документа, где находится source_quote.
+
+18. Не ограничивай заполнение одной общей ролью комплекта: у каждого документа своя роль, а каждый ответ подтверждается своей source_quote и source_document_id.
+19. Пройди по каждому полю опросника и верни все поля, которые прямо подтверждены хотя бы одним документом; не останавливайся после первого найденного поля.
+20. Если данные о налогоплательщике, инспекции, акте, периоде, суммах, контрагентах или приложениях встречаются в разных документах, свяжи их по цитатам и не заменяй конкретные значения общими словами.
 
 Правило для корпоративной структуры:
 Если документ содержит:
