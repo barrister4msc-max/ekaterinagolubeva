@@ -243,6 +243,15 @@ import { ensureMatterAnalysis } from "./matter-analysis";
 import { assertMatterGate, isComplexTemplate, MatterGateError } from "./quality-gate";
 import type { MatterSnapshot } from "./matter-snapshot";
 
+import {
+  assertNoRedactionTokens,
+  RedactionMappingError,
+  restoreCanonicalAnswers,
+  type RedactionFieldMapping,
+} from "./redaction-field-mapping";
+
+export { RedactionMappingError } from "./redaction-field-mapping";
+
 export type PrepareAndGenerateOptions = {
   template: DocumentTemplate;
   state: IntakeState;
@@ -256,12 +265,23 @@ export type PrepareAndGenerateOptions = {
   ocrReady?: boolean;
   /** Phase B correction — draft (default) is lenient, final is strict. */
   purpose?: "draft" | "final";
+  /** True when the lawyer switched the intake form into anonymized display. */
+  redactionModeEnabled?: boolean;
+  /** Token → canonical value map for the current session. */
+  redactionMapping?: RedactionFieldMapping | null;
+  /**
+   * Explicit `document_intake_ai_runs.id` of the AI-fill run whose answers are
+   * being generated from. Never resolved by "latest run for session".
+   */
+  intakeAiFillRunId?: string | null;
 };
 
 export type PrepareAndGenerateResult = GeneratedDocumentResult & {
   matter_snapshot: MatterSnapshot | null;
   legal_analysis_run_id: string | null;
+  intake_ai_fill_run_id: string | null;
 };
+
 
 export { MatterGateError } from "./quality-gate";
 
