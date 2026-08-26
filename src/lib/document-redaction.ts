@@ -11,6 +11,7 @@ import { anonymize, type FoundEntity } from "./anonymization";
 import {
   redactLegalDocument,
   reviewRedactedText,
+  isBlockingRemainingEntity,
   LEGAL_REDACTION_VERSION,
   type LegalEntity,
   type LegalRedactionResult,
@@ -302,7 +303,8 @@ export async function acceptRedaction(
   }
   const baseStats = (metadata.redaction_stats as RedactionStats | null) ?? undefined;
   const review = reviewRedactedText(redacted, baseStats);
-  if (review.quality === "unsafe" || review.remaining_entities.length > 0 || review.stats.coverage_percent < 95) {
+  const blockingResiduals = review.remaining_entities.filter(isBlockingRemainingEntity);
+  if (review.quality === "unsafe" || blockingResiduals.length > 0 || review.stats.coverage_percent < 95) {
     throw new Error("Требуется дополнительное обезличивание перед принятием.");
   }
   const original =
