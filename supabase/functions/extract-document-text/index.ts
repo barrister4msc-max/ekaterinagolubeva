@@ -154,62 +154,34 @@ function extractHtml(buf: ArrayBuffer): string {
 }
 
 async function extractPdfTextLayer(buf: ArrayBuffer): Promise<string> {
-  // Prefer a real PDF text extractor. The previous BT/ET regex only worked
-  // for uncompressed toy PDFs; production PDFs (including the supplied
-  // 54-page акт) store page content in Flate streams and were reported as
-  // OCR: 0 even though pdftotext can read them.
   try {
+    // @ts-ignore pdfjs legacy build is runtime-compatible with Deno Edge.
     const pdfjs = await import("https://esm.sh/pdfjs-dist@4.10.38/legacy/build/pdf.mjs");
-    const loadingTask = pdfjs.getDocument({
-      data: new Uint8Array(buf),
-      disableWorker: true,
-      useSystemFonts: false,
-      isEvalSupported: false,
-    });
+    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf), disableWorker: true, useSystemFonts: false });
     const pdf = await loadingTask.promise;
-    const pages: string[] = [];
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      const page = await pdf.getPage(pageNumber);
-      const content = await page.getTextContent();
-      const pageText = (content.items ?? [])
-        .map((item: any) => typeof item?.str === "string" ? item.str : "")
-        .filter(Boolean)
-        .join(" ")
-        .trim();
-      if (pageText) pages.push(`\n[Страница ${pageNumber}]\n${pageText}`);
-      page.cleanup?.();
+    const pages: string[] = new Array(pdf.numPages).fill("");
+    const batchSize = 8;
+    for (let start = 1; start <= pdf.numPages; start += batchSize) {
+      const pageNumbers = Array.from(
+        { length: Math.min(batchSize, pdf.numPages - start + 1) },
+        (_, offset) => start + offset,
+      );
+      await Promise.all(pageNumbers.map(async (pageNumber) => {
+        const page = await pdf.getPage(pageNumber);
+        const content = await page.getTextContent();
+        pages[pageNumber - 1] = (content.items ?? [])
+          .map((item: any) => typeof item?.str === "string" ? item.str : "")
+          .filter(Boolean)
+          .join(" ");
+        page.cleanup?.();
+      }));
     }
-    const extracted = pages.join("\n").replace(/\s+/g, " ").trim();
-    if (extracted) return extracted;
+    return pages.join("\\n\\n").replace(/[ \\t]+\\n/g, "\\n").replace(/\\n{3,}/g, "\\n\\n").trim();
   } catch (error) {
-    console.warn("[extract-document-text] pdfjs text extraction failed; using probe", error);
+    console.error("[extract-document-text] PDF text-layer extraction failed", error);
+    return "";
   }
-
-  // Compatibility probe for environments where the PDF parser cannot load.
-  // If pdf has no embedded text (scan), this returns a short result and OCR
-  // fallback is attempted below.
-  const raw = new TextDecoder("latin1").decode(buf);
-  const out: string[] = [];
-  const btEt = raw.match(/BT[\s\S]*?ET/g) || [];
-  for (const block of btEt) {
-    const strs = block.match(/\(((?:\\.|[^\\()])*)\)/g) || [];
-    for (const s of strs) {
-      const inner = s.slice(1, -1).replace(/\\([()\\])/g, "$1");
-      out.push(inner);
-    }
-    const hex = block.match(/<([0-9A-Fa-f\s]+)>/g) || [];
-    for (const h of hex) {
-      const clean = h.slice(1, -1).replace(/\s+/g, "");
-      let txt = "";
-      for (let i = 0; i + 1 < clean.length; i += 2) {
-        txt += String.fromCharCode(parseInt(clean.slice(i, i + 2), 16));
-      }
-      out.push(txt);
-    }
-  }
-  return out.join(" ").replace(/\s+/g, " ").trim();
 }
-
 function sanitizeExtractedText(value: string): string {
   // PostgreSQL text/JSON cannot store NUL. Minimal PDF probes can surface
   // binary control bytes from compressed streams, so strip those before an
@@ -498,20 +470,7 @@ Deno.serve(async (req) => {
   const detected = detect(doc.mime_type || "", doc.file_name || "");
   const existingMeta = (doc.metadata || {}) as Record<string, any>;
 
-  const { data: claim, error: claimError } = await supabase.rpc("claim_document_text_extraction", {
-    p_document_id: documentId,
-    p_lease_seconds: 180,
-  });
-  if (claimError) return json({ error: "extraction_claim_failed" }, 500);
-  if (claim?.claimed !== true) {
-    if (claim?.status === "not_found") return json({ error: "not_found" }, 404);
-    return json({
-      ok: true,
-      extraction_status: claim?.status ?? "processing",
-      text_length: Number(claim?.text_length ?? 0),
-      reused: true,
-    });
-  }
+  
 
   const downloaded = await downloadFile(supabase, doc.storage_path);
   if (!downloaded) {
@@ -522,7 +481,6 @@ Deno.serve(async (req) => {
       extracted_at: new Date().toISOString(),
       text_length: 0,
       extraction_error: "file_not_found_in_storage",
-      extraction_lease_until: null,
     };
     await supabase
       .from("documents")
@@ -585,11 +543,12 @@ Deno.serve(async (req) => {
 
   const shouldUseGeminiFallback =
     downloaded?.buf &&
-    (detected.kind === "image" || detected.kind === "pdf" || text.length === 0) &&
-    !(text.length === 0 && ["spreadsheet", "presentation", "unknown"].includes(detected.kind));
+    (detected.kind === "image" ||
+      (detected.kind === "pdf" && !isUsablePdfTextLayer(text)) ||
+      (text.length === 0 && !["spreadsheet", "presentation", "unknown"].includes(detected.kind)));
 
   if (shouldUseGeminiFallback) {
-    let fallback: { text: string; debug: Record<string, unknown> };
+    let fallback: { text: string };
     try {
       fallback = await extractWithGeminiFallback({
         buf: downloaded.buf,
@@ -597,17 +556,8 @@ Deno.serve(async (req) => {
         fileName: doc.file_name || "document",
       });
     } catch (error) {
-      // Always release the lease and persist a retryable terminal state. A
-      // provider timeout must not leave the UI stuck at “Извлекаю…” forever.
-      fallback = {
-        text: "",
-        debug: {
-          error: error instanceof Error ? error.message : "ocr_provider_failed",
-          model: GEMINI_MODEL,
-          byteLength: downloaded.buf.byteLength,
-        },
-      };
-      extractionError = "ocr_provider_failed";
+      console.error("[extract-document-text] OCR provider fallback failed", error);
+      fallback = { text: "" };
     }
 
     const fallbackText = sanitizeExtractedText(fallback.text);
@@ -658,8 +608,6 @@ Deno.serve(async (req) => {
     extracted_at: new Date().toISOString(),
     text_length: textLength,
     extraction_error: extractionError,
-    extraction_lease_until: null,
-    extraction_completed_at: new Date().toISOString(),
   };
 
   const update: Record<string, any> = {
@@ -686,4 +634,3 @@ Deno.serve(async (req) => {
     review_status: reviewStatus,
   });
 });
-
