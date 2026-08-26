@@ -752,14 +752,21 @@ const reloadAnswersFromSession = useCallback(async () => {
       setIsBuildingCaseIntelligence(false);
     }
   };  
-  const handleAiFillFromDocument = async () => {
+  const handleAiFillFromDocument = async (
+    options: { trigger?: "manual" | "auto"; silent?: boolean } = {},
+  ) => {
     if (!intakeSessionId) {
       alert("Сначала загрузите документы");
       return;
     }
+    if (aiFillInFlightRef.current) return;
+    aiFillInFlightRef.current = true;
+    const trigger = options.trigger ?? "manual";
     try {
       setIsAiFilling(true);
+      setAutoFillStage("ai_filling");
       setAiFillFailure(null);
+
 
       let currentDocuments = await refreshSessionDocuments(intakeSessionId);
       let readyDocs = currentDocuments.filter((document) =>
