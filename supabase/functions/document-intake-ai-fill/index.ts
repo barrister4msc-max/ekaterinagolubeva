@@ -302,6 +302,10 @@ serve(async (req) => {
 
       const role = aiResult?.document_role ?? {};
       const policy = fieldPolicy[fieldName] ?? "fact";
+      // A multi-document packet has no single document role. In that mode,
+      // source_document_id + source_quote are the authority; the model's
+      // aggregate role must not discard facts from other documents.
+      const enforceAggregateRole = readyDocuments.length === 1;
 
       if (isEmptyLike) return false;
       if (confidence < 0.75) return false;
