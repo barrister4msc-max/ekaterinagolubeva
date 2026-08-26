@@ -221,14 +221,20 @@ export function prepareSafeAiFillDocuments<T extends AiFillDocument>(
 export function buildModelFacingDocumentText(
   documents: SafeAiFillDocument[],
 ): string {
+  const perDocumentBudget = Math.max(8_000, Math.floor(120_000 / Math.max(documents.length, 1)));
   return documents
-    .map(({ document, text, modelLabel }) =>
-      [
+    .map(({ document, text, modelLabel }) => {
+      const headBudget = Math.ceil(perDocumentBudget * 0.75);
+      const tailBudget = Math.max(0, perDocumentBudget - headBudget);
+      const excerpt = text.length <= perDocumentBudget
+        ? text
+        : `${text.slice(0, headBudget)}\n...[середина документа сокращена]...\n${text.slice(-tailBudget)}`;
+      return [
         `=== ${modelLabel} ===`,
         `document_id: ${document.id}`,
-        text.slice(0, 45_000),
-      ].join("\n"),
-    )
+        excerpt,
+      ].join("\n");
+    })
     .join("\n\n")
     .slice(0, 120_000);
 }
