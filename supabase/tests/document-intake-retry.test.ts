@@ -23,4 +23,19 @@ describe("document intake retry flow", () => {
     expect(source).toContain('"Повторить AI-заполнение"');
     expect(source).toContain("уже сохранённые ответы не потеряются");
   });
+
+  test("does not send a partial document package to AI fill", async () => {
+    const source = await Bun.file(intakePath).text();
+    expect(source).toContain("Never send a partial package");
+    expect(source).toContain("readyDocs.length !== currentDocuments.length");
+    expect(source).toContain("allow_unredacted_text: allowUnredactedText");
+  });
+
+  test("requires explicit confirmation before using unredacted OCR", async () => {
+    const source = await Bun.file(intakePath).text();
+    expect(source).toContain("Разрешить передачу исходного OCR-текста в AI");
+    expect(source).toContain("setAllowUnredactedAiFill(true)");
+    expect(source).toContain("allow_unredacted_text");
+  });
 });
+
