@@ -153,9 +153,41 @@ function extractHtml(buf: ArrayBuffer): string {
     .trim();
 }
 
-function extractPdfTextLayer(buf: ArrayBuffer): string {
-  // Minimal text-layer probe: try to pull strings from BT...ET blocks.
-  // If pdf has no embedded text (scan), this returns < 100 chars and triggers OCR-required.
+async function extractPdfTextLayer(buf: ArrayBuffer): Promise<string> {
+  // Prefer a real PDF text extractor. The previous BT/ET regex only worked
+  // for uncompressed toy PDFs; production PDFs (including the supplied
+  // 54-page акт) store page content in Flate streams and were reported as
+  // OCR: 0 even though pdftotext can read them.
+  try {
+    const pdfjs = await import("https://esm.sh/pdfjs-dist@4.10.38/legacy/build/pdf.mjs");
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(buf),
+      disableWorker: true,
+      useSystemFonts: false,
+      isEvalSupported: false,
+    });
+    const pdf = await loadingTask.promise;
+    const pages: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const pageText = (content.items ?? [])
+        .map((item: any) => typeof item?.str === "string" ? item.str : "")
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      if (pageText) pages.push(`\n[Страница ${pageNumber}]\n${pageText}`);
+      page.cleanup?.();
+    }
+    const extracted = pages.join("\n").replace(/\s+/g, " ").trim();
+    if (extracted) return extracted;
+  } catch (error) {
+    console.warn("[extract-document-text] pdfjs text extraction failed; using probe", error);
+  }
+
+  // Compatibility probe for environments where the PDF parser cannot load.
+  // If pdf has no embedded text (scan), this returns a short result and OCR
+  // fallback is attempted below.
   const raw = new TextDecoder("latin1").decode(buf);
   const out: string[] = [];
   const btEt = raw.match(/BT[\s\S]*?ET/g) || [];
@@ -523,7 +555,7 @@ Deno.serve(async (req) => {
         text = extractHtml(downloaded.buf);
         break;
       case "pdf": {
-        text = extractPdfTextLayer(downloaded.buf);
+        text = await extractPdfTextLayer(downloaded.buf);
         break;
       }
       case "image":
@@ -557,11 +589,26 @@ Deno.serve(async (req) => {
     !(text.length === 0 && ["spreadsheet", "presentation", "unknown"].includes(detected.kind));
 
   if (shouldUseGeminiFallback) {
-    const fallback = await extractWithGeminiFallback({
-      buf: downloaded.buf,
-      mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
-      fileName: doc.file_name || "document",
-    });
+    let fallback: { text: string; debug: Record<string, unknown> };
+    try {
+      fallback = await extractWithGeminiFallback({
+        buf: downloaded.buf,
+        mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
+        fileName: doc.file_name || "document",
+      });
+    } catch (error) {
+      // Always release the lease and persist a retryable terminal state. A
+      // provider timeout must not leave the UI stuck at “Извлекаю…” forever.
+      fallback = {
+        text: "",
+        debug: {
+          error: error instanceof Error ? error.message : "ocr_provider_failed",
+          model: GEMINI_MODEL,
+          byteLength: downloaded.buf.byteLength,
+        },
+      };
+      extractionError = "ocr_provider_failed";
+    }
 
     const fallbackText = sanitizeExtractedText(fallback.text);
 
@@ -639,3 +686,4 @@ Deno.serve(async (req) => {
     review_status: reviewStatus,
   });
 });
+
