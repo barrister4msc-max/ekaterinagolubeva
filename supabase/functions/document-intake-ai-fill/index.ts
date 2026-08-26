@@ -3,9 +3,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import {
   AiFillRedactionError,
   buildModelFacingDocumentText,
-  extractProtectedAnswerCandidates,
   prepareSafeAiFillDocuments,
 } from "./redaction-safety.ts";
+import {
+  AI_OWNED_VALUE_SOURCES,
+  mayReplaceAnswerWithAi,
+  type ExistingIntakeAnswer,
+} from "./answer-write-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,7 +56,7 @@ serve(async (req) => {
       return json({ success: false, error: "Forbidden" }, 403);
     }
 
-    const { session_id, document_id, document_ids, trigger } = await req.json();
+    const { session_id, document_id, document_ids, allow_unredacted_text } = await req.json();
     const requestedDocumentIds = Array.from(
       new Set(
         (Array.isArray(document_ids) ? document_ids : [document_id])
@@ -98,7 +102,9 @@ serve(async (req) => {
 
     let readyDocuments;
     try {
-      readyDocuments = prepareSafeAiFillDocuments(documents);
+      readyDocuments = prepareSafeAiFillDocuments(documents, {
+        allowUnredactedText: allow_unredacted_text === true,
+      });
     } catch (error) {
       if (error instanceof AiFillRedactionError) {
         return json({ success: false, error: error.message }, 409);
@@ -137,105 +143,16 @@ serve(async (req) => {
 
     const fields = extractFields(schema.schema_json);
 
-    const { data: existingAnswers, error: existingAnswersError } = await supabase
-      .from("document_intake_answers")
-      .select("field_name, value_source")
-      .eq("session_id", session_id);
-
-    if (existingAnswersError) {
-      throw existingAnswersError;
-    }
-
-    const existingAnswerSources = new Map(
-      (existingAnswers ?? []).map((answer) => [
-        String(answer.field_name),
-        String(answer.value_source ?? ""),
-      ]),
-    );
-    const protectedAnswerCandidates = extractProtectedAnswerCandidates(documents, fields);
-    const protectedFieldNames = new Set(
-      protectedAnswerCandidates.map((candidate) => candidate.field_name),
-    );
-
-    let protectedInserted = 0;
-    for (const candidate of protectedAnswerCandidates) {
-      const existingSource = existingAnswerSources.get(candidate.field_name);
-      if (existingSource && existingSource !== "ai_document") {
-        continue;
-      }
-
-      const { error } = await supabase.from("document_intake_answers").upsert(
-        {
-          session_id,
-          field_name: candidate.field_name,
-          field_label: candidate.field_label,
-          field_value: candidate.value,
-          value_source: "document_local",
-          confidence: 0.98,
-          source_document_id: candidate.source_document_id,
-          source_quote: "[извлечено локально из исходного OCR; оригинал не передавался модели]",
-          needs_review: true,
-          is_verified: false,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "session_id,field_name" },
-      );
-
-      if (error) {
-        throw error;
-      }
-      protectedInserted += 1;
-    }
-
-    // Explicit run identity. Every AI-fill (auto or manual) owns one
-    // document_intake_ai_runs row; consumers must reference this id directly
-    // instead of resolving "the latest run for the session".
-    const { data: runRow, error: runError } = await supabase
-      .from("document_intake_ai_runs")
-      .insert({
-        session_id,
-        run_type: "intake_ai_fill",
-        status: "running",
-        input_snapshot: {
-          document_ids: readyDocuments.map((item) => item.document.id),
-          template_code: session.template_code,
-          trigger: typeof trigger === "string" ? trigger : "manual",
-        },
-        model_name: "gemini",
-      })
-      .select("id")
-      .single();
-
-    if (runError || !runRow) {
-      throw new Error("Unable to create intake AI run");
-    }
-
-    const aiFillRunId: string = runRow.id;
-
     const caseIntelligenceMatrix =
       ((session.metadata ?? {}) as Record<string, any>)?.case_intelligence_matrix ?? null;
 
-    let aiResult;
-    try {
-      aiResult = await extractAnswersWithGemini({
-        apiKey: geminiApiKey,
-        documentText: documentTextForAiFill,
-        caseIntelligenceMatrix,
-        fields,
-        templateCode: session.template_code,
-      });
-    } catch (error) {
-      await supabase
-        .from("document_intake_ai_runs")
-        .update({
-          status: "failed",
-          error_message: error instanceof Error ? error.message : String(error),
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", aiFillRunId);
-      throw error;
-    }
-
+    const aiResult = await extractAnswersWithGemini({
+      apiKey: geminiApiKey,
+      documentText: documentTextForAiFill,
+      caseIntelligenceMatrix,
+      fields,
+      templateCode: session.template_code,
+    });
 
     const rawAnswers = Array.isArray(aiResult.answers) ? aiResult.answers : [];
 
@@ -278,10 +195,6 @@ serve(async (req) => {
       const value = answer.value;
       const fieldName = String(answer.field_name ?? "");
 
-      // Canonical locally extracted/manual values must never be overwritten by
-      // a model placeholder or a lower-fidelity interpretation.
-      if (protectedFieldNames.has(fieldName)) return false;
-
       const quote = typeof answer.source_quote === "string" ? answer.source_quote.trim() : "";
       const sourceDocumentId =
         typeof answer.source_document_id === "string" ? answer.source_document_id : "";
@@ -302,10 +215,6 @@ serve(async (req) => {
 
       const role = aiResult?.document_role ?? {};
       const policy = fieldPolicy[fieldName] ?? "fact";
-      // A multi-document packet has no single document role. In that mode,
-      // source_document_id + source_quote are the authority; the model's
-      // aggregate role must not discard facts from other documents.
-      const enforceAggregateRole = readyDocuments.length === 1;
 
       if (isEmptyLike) return false;
       if (confidence < 0.75) return false;
@@ -313,44 +222,94 @@ serve(async (req) => {
       if (readyDocuments.length > 1 && !allowedDocumentIds.has(sourceDocumentId)) return false;
       if (templateDerived) return false;
 
-      if (enforceAggregateRole && policy === "identity" && role.can_fill_identity !== true) return false;
-      if (enforceAggregateRole && policy === "authority" && role.can_fill_authority !== true) return false;
-      if (enforceAggregateRole && policy === "fact" && role.can_fill_facts !== true) return false;
-      if (enforceAggregateRole && policy === "legal" && role.can_fill_legal_position !== true) return false;
+      if (policy === "identity" && role.can_fill_identity !== true) return false;
+      if (policy === "authority" && role.can_fill_authority !== true) return false;
+      if (policy === "fact" && role.can_fill_facts !== true) return false;
+      if (policy === "legal" && role.can_fill_legal_position !== true) return false;
 
       return true;
     });
 
-    let inserted = protectedInserted;
+    const candidateFieldNames = allowedAnswers
+      .map((answer) => String(answer.field_name ?? ""))
+      .filter(Boolean);
+    const existingByField = new Map<string, ExistingIntakeAnswer>();
+
+    if (candidateFieldNames.length > 0) {
+      const { data: existingAnswers, error: existingAnswersError } = await supabase
+        .from("document_intake_answers")
+        .select("id, field_name, value_source, is_verified")
+        .eq("session_id", session_id)
+        .in("field_name", candidateFieldNames);
+
+      if (existingAnswersError) throw existingAnswersError;
+      for (const existing of existingAnswers ?? []) {
+        existingByField.set(existing.field_name, existing);
+      }
+    }
+
+    let inserted = 0;
+    let preserved = 0;
 
     for (const answer of allowedAnswers) {
       if (!answer.field_name || answer.value === undefined || answer.value === null) {
         continue;
       }
 
-      await supabase.from("document_intake_answers").upsert(
-        {
-          session_id,
-          field_name: answer.field_name,
-          field_label: answer.field_label ?? answer.field_name,
-          field_value: answer.value,
-          value_source: "ai_document",
-          confidence: answer.confidence ?? 0.7,
-          source_document_id:
-            typeof answer.source_document_id === "string" &&
-            allowedDocumentIds.has(answer.source_document_id)
-              ? answer.source_document_id
-              : primaryDocument.id,
-          source_quote: answer.source_quote ?? null,
-          source_page: answer.source_page ?? null,
-          needs_review: true,
-          is_verified: false,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "session_id,field_name",
-        },
-      );
+      const fieldName = String(answer.field_name);
+      const existing = existingByField.get(fieldName);
+      if (!mayReplaceAnswerWithAi(existing)) {
+        preserved++;
+        continue;
+      }
+
+      const answerRow = {
+        session_id,
+        field_name: fieldName,
+        field_label: answer.field_label ?? fieldName,
+        field_value: answer.value,
+        value_source: "ai_document",
+        confidence: answer.confidence ?? 0.7,
+        source_document_id:
+          typeof answer.source_document_id === "string" &&
+          allowedDocumentIds.has(answer.source_document_id)
+            ? answer.source_document_id
+            : primaryDocument.id,
+        source_quote: answer.source_quote ?? null,
+        source_page: answer.source_page ?? null,
+        needs_review: true,
+        is_verified: false,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existing) {
+        // Re-check ownership in the UPDATE so a concurrent lawyer edit wins.
+        const { data: updated, error: updateError } = await supabase
+          .from("document_intake_answers")
+          .update(answerRow)
+          .eq("id", existing.id)
+          .eq("is_verified", false)
+          .in("value_source", [...AI_OWNED_VALUE_SOURCES])
+          .select("id")
+          .maybeSingle();
+
+        if (updateError) throw updateError;
+        if (!updated) {
+          preserved++;
+          continue;
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from("document_intake_answers")
+          .insert(answerRow);
+
+        // A concurrent manual save wins the unique-key race.
+        if (insertError?.code === "23505") {
+          preserved++;
+          continue;
+        }
+        if (insertError) throw insertError;
+      }
 
       inserted++;
     }
@@ -367,38 +326,12 @@ serve(async (req) => {
       .in("id", readyDocuments.map((item) => item.document.id));
 
     await supabase
-      .from("document_intake_ai_runs")
-      .update({
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        ai_result: {
-          filled_fields: inserted,
-          total_candidate_fields: fields.length,
-          summary: aiResult.summary ?? null,
-          answers: allowedAnswers,
-          protected_fields: protectedInserted,
-        },
-      })
-      .eq("id", aiFillRunId);
-
-    const sessionMetadata = ((session.metadata ?? {}) as Record<string, unknown>) ?? {};
-
-    await supabase
       .from("document_intake_sessions")
       .update({
         document_id: primaryDocument.id,
         ai_summary: aiResult.summary ?? null,
         ai_risk_level: aiResult.risk_level ?? null,
         ai_recommended_action: aiResult.recommended_action ?? null,
-        metadata: {
-          ...sessionMetadata,
-          intake_ai_fill: {
-            run_id: aiFillRunId,
-            document_ids: readyDocuments.map((item) => item.document.id),
-            filled_fields: inserted,
-            completed_at: new Date().toISOString(),
-          },
-        },
         updated_at: new Date().toISOString(),
       })
       .eq("id", session_id);
@@ -406,15 +339,14 @@ serve(async (req) => {
     return json({
       success: true,
       session_id,
-      run_id: aiFillRunId,
       document_id: primaryDocument.id,
       document_ids: readyDocuments.map((item) => item.document.id),
       filled_fields: inserted,
+      preserved_fields: preserved,
       total_candidate_fields: fields.length,
       summary: aiResult.summary ?? null,
       answers: allowedAnswers,
     });
-
   } catch (error) {
     console.error("document-intake-ai-fill error:", error);
 
@@ -482,10 +414,6 @@ async function extractAnswersWithGemini({
 15. Не путай total_shares и voting_shares.
 16. Если передан комплект документов, анализируй его как единое целое, устраняй противоречия и не выбирай значение произвольно.
 17. Для каждого ответа верни source_document_id из заголовка того документа, где находится source_quote.
-
-18. Не ограничивай заполнение одной общей ролью комплекта: у каждого документа своя роль, а каждый ответ подтверждается своей source_quote и source_document_id.
-19. Пройди по каждому полю опросника и верни все поля, которые прямо подтверждены хотя бы одним документом; не останавливайся после первого найденного поля.
-20. Если данные о налогоплательщике, инспекции, акте, периоде, суммах, контрагентах или приложениях встречаются в разных документах, свяжи их по цитатам и не заменяй конкретные значения общими словами.
 
 Правило для корпоративной структуры:
 Если документ содержит:
@@ -700,3 +628,4 @@ function json(payload: unknown, status = 200) {
     },
   });
 }
+
