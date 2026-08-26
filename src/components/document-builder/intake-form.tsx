@@ -158,6 +158,7 @@ const isProcessingDocuments = processingDocumentIds.length > 0;
 
 const [isAiFilling, setIsAiFilling] = useState(false);
 const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
+const [allowUnredactedAiFill, setAllowUnredactedAiFill] = useState(false);
 const [aiFillRunId, setAiFillRunId] = useState<string | null>(null);
 const [autoFillStage, setAutoFillStage] = useState<import("@/lib/auto-ai-fill").AutoAiFillStage>("idle");
 const lastAutoFingerprintRef = useRef<string | null>(null);
@@ -839,7 +840,7 @@ const reloadAnswersFromSession = useCallback(async () => {
   };
 
   const handleAiFillFromDocument = async (
-    options: { trigger?: "manual" | "auto"; silent?: boolean } = {},
+    options: { trigger?: "manual" | "auto"; silent?: boolean; allowUnredactedText?: boolean } = {},
   ) => {
     if (!intakeSessionId) {
       alert("Сначала загрузите документы");
@@ -848,10 +849,13 @@ const reloadAnswersFromSession = useCallback(async () => {
     if (aiFillInFlightRef.current) return;
     aiFillInFlightRef.current = true;
     const trigger = options.trigger ?? "manual";
+    const allowUnredactedText = options.allowUnredactedText === true;
     try {
       setIsAiFilling(true);
       setAutoFillStage("ai_filling");
       setAiFillFailure(null);
+      // The raw-text offer is valid only for the current redaction failure.
+      setAllowUnredactedAiFill(false);
 
 
       let currentDocuments = await refreshSessionDocuments(intakeSessionId);
@@ -908,6 +912,7 @@ const reloadAnswersFromSession = useCallback(async () => {
       // from the other safe documents.
       const redactionIssues: string[] = [];
       for (const document of readyDocs) {
+        if (allowUnredactedText) continue;
         try {
           if (document.redaction_status === "accepted" || document.redaction_status === "not_required") continue;
           if (document.redacted_text && document.redaction_quality !== "unsafe") {
@@ -924,6 +929,7 @@ const reloadAnswersFromSession = useCallback(async () => {
       currentDocuments = await refreshSessionDocuments(intakeSessionId);
       readyDocs = currentDocuments.filter((document) => {
         if (!hasExtractedDocumentText(document.ocr_text)) return false;
+        if (allowUnredactedText) return true;
         if (document.redaction_status === "not_required") return true;
         return document.redaction_status === "accepted" && typeof document.redacted_text === "string";
       });
@@ -939,12 +945,16 @@ const reloadAnswersFromSession = useCallback(async () => {
 
       let fillResult: any = null;
       let lastFillError = "AI не вернул подтверждённые поля";
-      for (let technicalAttempt = 0; technicalAttempt < 2; technicalAttempt += 1) {
+      const maxAttempts = 3;
+      // technicalAttempt < 2 was the former two-attempt limit; keep the
+      // retry counter explicit while allowing one more bounded recovery try.
+      for (let technicalAttempt = 0; technicalAttempt < maxAttempts; technicalAttempt += 1) {
         const { data, error } = await supabase.functions.invoke("document-intake-ai-fill", {
           body: {
             session_id: intakeSessionId,
             document_ids: readyDocs.map((document) => document.id),
             trigger,
+            allow_unredacted_text: allowUnredactedText,
           },
         });
 
@@ -966,8 +976,8 @@ const reloadAnswersFromSession = useCallback(async () => {
           status >= 500 ||
           /network|fetch|timeout|temporar/i.test(error?.message ?? "")
         );
-        if (!transient || technicalAttempt === 1) break;
-        await waitBeforeRetry(1);
+        if (!transient || technicalAttempt === maxAttempts - 1) break;
+        await waitBeforeRetry(technicalAttempt + 1);
       }
       if (!fillResult) throw new Error(lastFillError);
 
@@ -1002,6 +1012,11 @@ const reloadAnswersFromSession = useCallback(async () => {
       console.error("AI fill failed", e);
       const message = e instanceof Error ? e.message : String(e);
       setAiFillFailure(message);
+      if (!options.allowUnredactedText && /redaction|обезлич/i.test(message)) {
+        setAllowUnredactedAiFill(true);
+      } else {
+        setAllowUnredactedAiFill(false);
+      }
       setAutoFillStage("failed");
     } finally {
       aiFillInFlightRef.current = false;
@@ -1220,6 +1235,19 @@ const reloadAnswersFromSession = useCallback(async () => {
                 <div className="mt-1 text-muted-foreground">
                   Можно нажать «Повторить AI-заполнение»: комплект и уже сохранённые ответы не потеряются.
                 </div>
+                {allowUnredactedAiFill && (
+                  <button
+                    type="button"
+                    className="mt-2 rounded-md border border-rose-400 px-3 py-1.5 font-medium"
+                    onClick={() => {
+                      setAllowUnredactedAiFill(false);
+                      void handleAiFillFromDocument({ trigger: "manual", allowUnredactedText: true });
+                    }}
+                    disabled={isAiFilling || isProcessingDocuments}
+                  >
+                    Разрешить исходный текст для AI
+                  </button>
+                )}
               </div>
             )}
 

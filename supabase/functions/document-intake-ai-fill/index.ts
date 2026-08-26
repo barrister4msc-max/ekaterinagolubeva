@@ -52,7 +52,7 @@ serve(async (req) => {
       return json({ success: false, error: "Forbidden" }, 403);
     }
 
-    const { session_id, document_id, document_ids, trigger } = await req.json();
+    const { session_id, document_id, document_ids, trigger, allow_unredacted_text } = await req.json();
     const requestedDocumentIds = Array.from(
       new Set(
         (Array.isArray(document_ids) ? document_ids : [document_id])
@@ -98,7 +98,9 @@ serve(async (req) => {
 
     let readyDocuments;
     try {
-      readyDocuments = prepareSafeAiFillDocuments(documents);
+      readyDocuments = allow_unredacted_text === true
+        ? prepareSafeAiFillDocuments(documents, { allowUnredactedText: true })
+        : prepareSafeAiFillDocuments(documents);
     } catch (error) {
       if (error instanceof AiFillRedactionError) {
         return json({ success: false, error: error.message }, 409);

@@ -10,6 +10,10 @@ export type SafeAiFillDocument<T extends AiFillDocument = AiFillDocument> = {
   modelLabel: string;
 };
 
+export type AiFillTextOptions = {
+  allowUnredactedText?: boolean;
+};
+
 export class AiFillRedactionError extends Error {
   constructor(message: string) {
     super(message);
@@ -23,7 +27,22 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-export function selectSafeAiFillText(document: AiFillDocument): string {
+export function selectSafeAiFillText(
+  document: AiFillDocument,
+  options: AiFillTextOptions = {},
+): string {
+  if (options.allowUnredactedText === true) {
+    const metadata = asRecord(document.metadata);
+    const originalText = typeof metadata.original_ocr_text === "string"
+      ? metadata.original_ocr_text.trim()
+      : "";
+    const currentText = typeof document.ocr_text === "string"
+      ? document.ocr_text.trim()
+      : "";
+    const text = originalText || currentText;
+    if (!text) throw new AiFillRedactionError("AI fill blocked: document has no extracted text.");
+    return text;
+  }
   const metadata = asRecord(document.metadata);
   const status = typeof metadata.redaction_status === "string"
     ? metadata.redaction_status
@@ -210,10 +229,11 @@ export function extractProtectedAnswerCandidates(
 
 export function prepareSafeAiFillDocuments<T extends AiFillDocument>(
   documents: T[],
+  options: AiFillTextOptions = {},
 ): SafeAiFillDocument<T>[] {
   return documents.map((document, index) => ({
     document,
-    text: selectSafeAiFillText(document),
+    text: selectSafeAiFillText(document, options),
     modelLabel: `DOCUMENT_${index + 1}`,
   }));
 }

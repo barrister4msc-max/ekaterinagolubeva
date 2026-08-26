@@ -543,16 +543,21 @@ Deno.serve(async (req) => {
 
   const shouldUseGeminiFallback =
     downloaded?.buf &&
-    (detected.kind === "image" ||
-      (detected.kind === "pdf" && !isUsablePdfTextLayer(text)) ||
-      (text.length === 0 && !["spreadsheet", "presentation", "unknown"].includes(detected.kind)));
+    (detected.kind === "image" || detected.kind === "pdf" || text.length === 0) &&
+    (detected.kind !== "pdf" || !isUsablePdfTextLayer(text));
 
   if (shouldUseGeminiFallback) {
-    const fallback = await extractWithGeminiFallback({
-      buf: downloaded.buf,
-      mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
-      fileName: doc.file_name || "document",
-    });
+    let fallback: { text: string };
+    try {
+      fallback = await extractWithGeminiFallback({
+        buf: downloaded.buf,
+        mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
+        fileName: doc.file_name || "document",
+      });
+    } catch (error) {
+      console.error("[extract-document-text] OCR provider fallback failed", error);
+      fallback = { text: "" };
+    }
 
     const fallbackText = sanitizeExtractedText(fallback.text);
 
