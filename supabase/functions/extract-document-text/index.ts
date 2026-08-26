@@ -543,10 +543,8 @@ Deno.serve(async (req) => {
 
   const shouldUseGeminiFallback =
     downloaded?.buf &&
-    (detected.kind === "image" ||
-      (detected.kind === "pdf" && !isUsablePdfTextLayer(text)) ||
-      text.length === 0 ||
-      (text.length === 0 && !["spreadsheet", "presentation", "unknown"].includes(detected.kind)));
+    (detected.kind === "image" || detected.kind === "pdf" || text.length === 0) &&
+    (detected.kind !== "pdf" || !isUsablePdfTextLayer(text));
 
   if (shouldUseGeminiFallback) {
     let fallback: { text: string };
