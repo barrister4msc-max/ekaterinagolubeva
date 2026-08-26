@@ -245,6 +245,7 @@ async function extractWithGeminiFallback(params: {
       headers: {
         "Content-Type": "application/json",
       },
+      signal: AbortSignal.timeout(90_000),
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: {
@@ -513,7 +514,13 @@ Deno.serve(async (req) => {
         text = extractHtml(downloaded.buf);
         break;
       case "pdf": {
-        text = await extractPdfTextLayer(downloaded.buf);
+        const pdfTimeout = new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error("pdf_text_extraction_timeout")), 90_000),
+        );
+        text = await Promise.race([
+          extractPdfTextLayer(downloaded.buf),
+          pdfTimeout,
+        ]);
         break;
       }
       case "image":
