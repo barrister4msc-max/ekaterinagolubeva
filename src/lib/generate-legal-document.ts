@@ -288,7 +288,20 @@ export { MatterGateError } from "./quality-gate";
 export async function prepareAndGenerate(
   opts: PrepareAndGenerateOptions,
 ): Promise<PrepareAndGenerateResult> {
-  const { template, state, schema, sessionId } = opts;
+  const { template, schema, sessionId } = opts;
+
+  // 0. Redaction contract — the generator always receives canonical values.
+  // Fail closed when the form is anonymized but the mapping is missing.
+  if (opts.redactionModeEnabled && !opts.redactionMapping) {
+    throw new RedactionMappingError(
+      "Генерация остановлена: включено обезличивание, но карта соответствия токенов отсутствует.",
+    );
+  }
+  const state: IntakeState = {
+    ...opts.state,
+    answers: restoreCanonicalAnswers(opts.state.answers, opts.redactionMapping) as IntakeState["answers"],
+  };
+
 
   // 1. For complex templates require fresh matter analysis.
   let snapshot: MatterSnapshot | null = null;
