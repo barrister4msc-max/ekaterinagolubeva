@@ -250,7 +250,15 @@ import {
   type RedactionFieldMapping,
 } from "./redaction-field-mapping";
 
+import {
+  EntityRegistryError,
+  restoreEntityTokensInAnswers,
+  type EntityRegistry,
+} from "./entity-registry";
+
 export { RedactionMappingError } from "./redaction-field-mapping";
+export { EntityRegistryError } from "./entity-registry";
+
 
 export type PrepareAndGenerateOptions = {
   template: DocumentTemplate;
@@ -269,6 +277,9 @@ export type PrepareAndGenerateOptions = {
   redactionModeEnabled?: boolean;
   /** Token → canonical value map for the current session. */
   redactionMapping?: RedactionFieldMapping | null;
+  /** Matter/session-scoped entity registry (PR #88). Optional for legacy sessions. */
+  entityRegistry?: EntityRegistry | null;
+
   /**
    * Explicit `document_intake_ai_runs.id` of the AI-fill run whose answers are
    * being generated from. Never resolved by "latest run for session".
@@ -299,8 +310,12 @@ export async function prepareAndGenerate(
   }
   const state: IntakeState = {
     ...opts.state,
-    answers: restoreCanonicalAnswers(opts.state.answers, opts.redactionMapping) as IntakeState["answers"],
+    answers: restoreEntityTokensInAnswers(
+      restoreCanonicalAnswers(opts.state.answers, opts.redactionMapping) as Record<string, unknown>,
+      opts.entityRegistry,
+    ) as IntakeState["answers"],
   };
+
 
 
   // 1. For complex templates require fresh matter analysis.

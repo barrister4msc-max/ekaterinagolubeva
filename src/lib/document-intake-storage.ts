@@ -170,12 +170,16 @@ export function intakeStateFromSession(params: {
 // ---------------------------------------------------------------------------
 
 import type { RedactionFieldMapping } from "@/lib/redaction-field-mapping";
+import { readEntityRegistry, type EntityRegistry } from "@/lib/entity-registry";
 
 export type IntakeGenerationContext = {
   intakeAiFillRunId: string | null;
   redactionMapping: RedactionFieldMapping | null;
   redactionModeEnabled: boolean;
+  /** PR #88 — matter-scoped entity registry; `null` for legacy sessions. */
+  entityRegistry: EntityRegistry | null;
 };
+
 
 async function readSessionMetadata(sessionId: string): Promise<Record<string, any>> {
   const { data, error } = await supabase
@@ -210,6 +214,25 @@ export async function saveSessionRedactionState(params: {
   if (error) throw error;
 }
 
+export async function saveSessionEntityRegistry(params: {
+  sessionId: string;
+  registry: EntityRegistry;
+}): Promise<void> {
+  const metadata = await readSessionMetadata(params.sessionId);
+  const { error } = await supabase
+    .from("document_intake_sessions")
+    .update({
+      metadata: {
+        ...metadata,
+        entity_registry: params.registry,
+        entity_registry_updated_at: new Date().toISOString(),
+      } as any,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", params.sessionId);
+  if (error) throw error;
+}
+
 export async function loadIntakeGenerationContext(
   sessionId: string,
 ): Promise<IntakeGenerationContext> {
@@ -221,5 +244,7 @@ export async function loadIntakeGenerationContext(
     intakeAiFillRunId: (metadata.intake_ai_fill?.run_id as string | undefined) ?? null,
     redactionMapping: redaction?.mapping ?? null,
     redactionModeEnabled: Boolean(redaction?.enabled),
+    entityRegistry: readEntityRegistry(metadata.entity_registry),
   };
 }
+
