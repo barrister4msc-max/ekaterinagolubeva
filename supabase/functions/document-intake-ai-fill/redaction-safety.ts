@@ -17,13 +17,20 @@ export class AiFillRedactionError extends Error {
   }
 }
 
+export type AiFillTextOptions = {
+  allowUnredactedText?: boolean;
+};
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
 }
 
-export function selectSafeAiFillText(document: AiFillDocument): string {
+export function selectSafeAiFillText(
+  document: AiFillDocument,
+  options: AiFillTextOptions = {},
+): string {
   const metadata = asRecord(document.metadata);
   const status = typeof metadata.redaction_status === "string"
     ? metadata.redaction_status
@@ -96,6 +103,20 @@ export function selectSafeAiFillText(document: AiFillDocument): string {
     return currentText;
   }
 
+  // This branch is reachable only after an explicit user confirmation from
+  // the UI. It deliberately reads the current OCR text, never the hidden
+  // original_ocr_text snapshot, so the authorization cannot silently expose a
+  // second copy of the source or bypass the document ownership checks.
+  if (options.allowUnredactedText === true) {
+    const currentText = typeof document.ocr_text === "string"
+      ? document.ocr_text.trim()
+      : "";
+    if (currentText) return currentText;
+    throw new AiFillRedactionError(
+      "AI fill blocked: document has no extracted text to authorize.",
+    );
+  }
+
   throw new AiFillRedactionError(
     `AI fill blocked: redaction state ${status ?? "missing"} is not complete.`,
   );
@@ -103,10 +124,11 @@ export function selectSafeAiFillText(document: AiFillDocument): string {
 
 export function prepareSafeAiFillDocuments<T extends AiFillDocument>(
   documents: T[],
+  options: AiFillTextOptions = {},
 ): SafeAiFillDocument<T>[] {
   return documents.map((document, index) => ({
     document,
-    text: selectSafeAiFillText(document),
+    text: selectSafeAiFillText(document, options),
     modelLabel: `DOCUMENT_${index + 1}`,
   }));
 }
@@ -125,3 +147,4 @@ export function buildModelFacingDocumentText(
     .join("\n\n")
     .slice(0, 120_000);
 }
+
