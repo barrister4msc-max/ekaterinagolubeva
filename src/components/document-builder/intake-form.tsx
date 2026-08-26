@@ -817,6 +817,19 @@ const reloadAnswersFromSession = useCallback(async () => {
       setIsBuildingCaseIntelligence(false);
     }
   };  
+  const readFunctionErrorBody = async (error: any): Promise<Record<string, any> | null> => {
+    const context = error?.context;
+    if (context && typeof context.json === "function") {
+      try {
+        const body = await context.json();
+        return body && typeof body === "object" ? body : null;
+      } catch {
+        // The response body may already have been consumed by supabase-js.
+      }
+    }
+    return null;
+  };
+
   const handleAiFillFromDocument = async (
     options: { trigger?: "manual" | "auto"; silent?: boolean } = {},
   ) => {
@@ -840,6 +853,18 @@ const reloadAnswersFromSession = useCallback(async () => {
       const documentsWithoutText = currentDocuments.filter(
         (document) => !hasExtractedDocumentText(document.ocr_text),
       );
+
+      // AI-fill is batch-scoped: never send a partial package while another
+      // document is still extracting. Partial runs caused 409 redaction/readiness
+      // conflicts and produced misleading generic "non-2xx" errors in the UI.
+      if (readyDocs.length > 0 && documentsWithoutText.length > 0) {
+        const pendingNames = documentsWithoutText
+          .map((document) => document.file_name ?? document.title ?? document.id)
+          .join(", ");
+        throw new Error(
+          `AI-заполнение ожидает завершения OCR всех файлов. Ещё обрабатываются: ${pendingNames}`,
+        );
+      }
 
       // If at least one document is ready, start AI-fill immediately. Remaining OCR jobs
       // keep using the normal background queue. Only an all-pending package waits once.
@@ -869,6 +894,20 @@ const reloadAnswersFromSession = useCallback(async () => {
         );
       }
 
+      // Redaction is an internal preparation step: the user does not need
+      // to click a second button. Original OCR is retained server-side and
+      // the AI-fill function receives only the accepted redacted text.
+      for (const document of readyDocs) {
+        if (document.redaction_status !== "accepted" && document.redaction_status !== "not_required") {
+          await suggestRedaction(document.id);
+          await acceptRedaction(document.id, {});
+        }
+      }
+      currentDocuments = await refreshSessionDocuments(intakeSessionId);
+      readyDocs = currentDocuments.filter((document) =>
+        hasExtractedDocumentText(document.ocr_text),
+      );
+
       await buildCaseIntelligenceIfReady("before_ai_fill", readyDocs);
 
       let fillResult: any = null;
@@ -888,7 +927,8 @@ const reloadAnswersFromSession = useCallback(async () => {
           break;
         }
 
-        lastFillError = error?.message || data?.error ||
+        const functionErrorBody = await readFunctionErrorBody(error);
+        lastFillError = functionErrorBody?.error || error?.message || data?.error ||
           (data?.success === true
             ? "AI не нашёл полей с достаточной уверенностью и цитатами"
             : "AI-заполнение завершилось без результата");
@@ -1098,6 +1138,7 @@ const reloadAnswersFromSession = useCallback(async () => {
                 onClick={() => handleAiFillFromDocument({ trigger: "manual" })}
                 disabled={
                   isAiFilling ||
+                  isProcessingDocuments ||
                   sessionDocuments.length === 0
                 }
               >
