@@ -545,6 +545,7 @@ Deno.serve(async (req) => {
     downloaded?.buf &&
     (detected.kind === "image" ||
       (detected.kind === "pdf" && !isUsablePdfTextLayer(text)) ||
+      text.length === 0 ||
       (text.length === 0 && !["spreadsheet", "presentation", "unknown"].includes(detected.kind)));
 
   if (shouldUseGeminiFallback) {
