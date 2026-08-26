@@ -550,6 +550,7 @@ Deno.serve(async (req) => {
 
   const shouldUseGeminiFallback =
     downloaded?.buf &&
+    status !== "failed" &&
     (detected.kind === "image" || detected.kind === "pdf" || text.length === 0) &&
     (detected.kind !== "pdf" || !isUsablePdfTextLayer(text));
 
