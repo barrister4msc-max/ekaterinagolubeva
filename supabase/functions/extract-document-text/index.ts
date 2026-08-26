@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 // @ts-ignore esm.sh JSZip runtime exposes default; declaration omits it
 import JSZip from "https://esm.sh/jszip@3.10.1";
+import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
 import { extractXlsxText } from "../_shared/xlsx-text.ts";
 
 const corsHeaders = {
@@ -278,6 +279,53 @@ async function extractWithGeminiFallback(params: {
 
   return { text, debug };
 }
+async function extractPdfWithChunkedGemini(
+  buf: ArrayBuffer,
+  fileName: string,
+): Promise<{ text: string }> {
+  const source = await PDFDocument.load(buf, { ignoreEncryption: true });
+  const pageCount = source.getPageCount();
+  const chunkSize = 6;
+  const chunks: Array<{ start: number; end: number; buf: ArrayBuffer }> = [];
+
+  for (let start = 0; start < pageCount; start += chunkSize) {
+    const end = Math.min(start + chunkSize, pageCount);
+    const part = await PDFDocument.create();
+    const pages = await part.copyPages(
+      source,
+      Array.from({ length: end - start }, (_, offset) => start + offset),
+    );
+    pages.forEach((page) => part.addPage(page));
+    const bytes = await part.save({ useObjectStreams: false });
+    chunks.push({
+      start,
+      end,
+      buf: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+    });
+  }
+
+  const results: string[] = new Array(chunks.length).fill("");
+  let cursor = 0;
+  const worker = async () => {
+    while (true) {
+      const index = cursor++;
+      if (index >= chunks.length) return;
+      const chunk = chunks[index];
+      const result = await extractWithGeminiFallback({
+        buf: chunk.buf,
+        mimeType: "application/pdf",
+        fileName: `${fileName}.pages-${chunk.start + 1}-${chunk.end}.pdf`,
+      });
+      results[index] = result.text.trim();
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(3, chunks.length) }, () => worker()),
+  );
+  return { text: results.filter(Boolean).join("\n\n") };
+}
+
 type Detected = {
   method: ExtractionMethod;
   kind:
@@ -541,9 +589,11 @@ Deno.serve(async (req) => {
     }
     } catch (e) {
     console.error("[extract-document-text] extraction error", e);
-    status = "failed";
     extractionError = e instanceof Error ? e.message : "extraction_failed";
     text = "";
+    // A PDF text-layer failure is recoverable through chunked OCR below.
+    // Keep the pipeline alive long enough to persist the OCR result/status.
+    status = detected.kind === "pdf" ? "completed" : "failed";
   }
 
   text = sanitizeExtractedText(text);
@@ -557,11 +607,16 @@ Deno.serve(async (req) => {
   if (shouldUseGeminiFallback) {
     let fallback: { text: string };
     try {
-      fallback = await extractWithGeminiFallback({
-        buf: downloaded.buf,
-        mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
-        fileName: doc.file_name || "document",
-      });
+      fallback = detected.kind === "pdf"
+        ? await extractPdfWithChunkedGemini(
+            downloaded.buf,
+            doc.file_name || "document",
+          )
+        : await extractWithGeminiFallback({
+            buf: downloaded.buf,
+            mimeType: normalizeOcrMimeType(doc.mime_type, doc.file_name || "document", doc.storage_path),
+            fileName: doc.file_name || "document",
+          });
     } catch (error) {
       console.error("[extract-document-text] OCR provider fallback failed", error);
       fallback = { text: "" };
