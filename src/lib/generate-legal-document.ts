@@ -370,6 +370,7 @@ export async function prepareAndGenerate(
   const payload: GenerateLegalDocumentRequest & {
     session_id?: string | null;
     intake_session_id?: string | null;
+    intake_ai_fill_run_id?: string | null;
   } = {
     ...buildGenerateRequest(template, state, schema, {
       intakeSessionId: sessionId ?? null,
@@ -379,10 +380,17 @@ export async function prepareAndGenerate(
     }),
     session_id: sessionId ?? null,
     intake_session_id: sessionId ?? null,
+    intake_ai_fill_run_id: opts.intakeAiFillRunId ?? null,
   };
+
+  // 3b. Fail closed: no redaction token may ever reach the generator through
+  // the structured intake slots or the lawyer's free-text instructions.
+  assertNoRedactionTokens("анкета", payload.intake);
+  assertNoRedactionTokens("особые указания", payload.special_instructions);
 
   // 4. Invoke generator (existing edge function, unmodified).
   const result = await invokeGenerateLegalDocument(payload);
+
 
   // Edge function may return the id under different keys depending on version.
   const generatedDocumentId =
