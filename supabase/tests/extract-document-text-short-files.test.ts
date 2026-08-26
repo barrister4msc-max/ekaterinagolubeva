@@ -24,4 +24,20 @@ describe("extract-document-text short text files", () => {
     expect(source).toContain("readable / value.length >= 0.82 && words >= 10");
     expect(source).toContain('status = "ocr_required";\n      text = "";');
   });
+
+  test("uses a real page-aware PDF text extractor before OCR fallback", async () => {
+    const source = await Bun.file(functionPath).text();
+    expect(source).toContain("pdfjs-dist@4.10.38/legacy/build/pdf.mjs");
+    expect(source).toContain("disableWorker: true");
+    expect(source).toContain("[Страница ${pageNumber}]");
+    expect(source).toContain("pdf.getPage(pageNumber)");
+    expect(source).toContain("pdf.getPage(pageNumber)");
+  });
+
+  test("persists provider failures instead of leaving an OCR lease processing forever", async () => {
+    const source = await Bun.file(functionPath).text();
+    expect(source).toContain('extractionError = "ocr_provider_failed"');
+    expect(source).toContain("extraction_lease_until: null");
+  });
 });
+
