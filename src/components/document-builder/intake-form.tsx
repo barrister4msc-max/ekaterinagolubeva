@@ -161,6 +161,11 @@ const [autoFillStage, setAutoFillStage] = useState<import("@/lib/auto-ai-fill").
 const lastAutoFingerprintRef = useRef<string | null>(null);
 const aiFillInFlightRef = useRef(false);
 const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null);
+// Anonymized display layer. Canonical values stay in `redactionMapping`.
+const [redactionMode, setRedactionMode] = useState(false);
+const [redactionMapping, setRedactionMapping] = useState<RedactionFieldMapping | null>(null);
+
+
 
   const [isBuildingCaseIntelligence, setIsBuildingCaseIntelligence] = useState(false);
 const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
