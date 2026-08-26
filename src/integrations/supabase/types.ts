@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -3879,6 +3879,7 @@ export type Database = {
           metadata: Json | null
           practice_area: string
           source_name: string
+          source_registry_id: string | null
           source_type: string
           source_url: string | null
           title: string
@@ -3899,6 +3900,7 @@ export type Database = {
           metadata?: Json | null
           practice_area: string
           source_name: string
+          source_registry_id?: string | null
           source_type?: string
           source_url?: string | null
           title: string
@@ -3919,12 +3921,28 @@ export type Database = {
           metadata?: Json | null
           practice_area?: string
           source_name?: string
+          source_registry_id?: string | null
           source_type?: string
           source_url?: string | null
           title?: string
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "legal_regulatory_monitored_sources_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "legal_source_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_regulatory_monitored_sources_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_analysis_sources"
+            referencedColumns: ["source_registry_id"]
+          },
+        ]
       }
       legal_regulatory_update_alerts: {
         Row: {
@@ -3946,9 +3964,14 @@ export type Database = {
           old_hash: string | null
           practice_area: string
           related_task_id: string | null
+          research_issue_id: string | null
+          research_issue_text: string | null
           reviewed_at: string | null
           reviewed_by: string | null
+          signal_metadata: Json
+          signal_type: string | null
           source_name: string | null
+          source_registry_id: string | null
           source_type: string | null
           status: string | null
           title: string
@@ -3972,9 +3995,14 @@ export type Database = {
           old_hash?: string | null
           practice_area: string
           related_task_id?: string | null
+          research_issue_id?: string | null
+          research_issue_text?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          signal_metadata?: Json
+          signal_type?: string | null
           source_name?: string | null
+          source_registry_id?: string | null
           source_type?: string | null
           status?: string | null
           title: string
@@ -3998,9 +4026,14 @@ export type Database = {
           old_hash?: string | null
           practice_area?: string
           related_task_id?: string | null
+          research_issue_id?: string | null
+          research_issue_text?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
+          signal_metadata?: Json
+          signal_type?: string | null
           source_name?: string | null
+          source_registry_id?: string | null
           source_type?: string | null
           status?: string | null
           title?: string
@@ -4020,6 +4053,20 @@ export type Database = {
             referencedRelation: "v_legal_regulatory_monitoring_dashboard"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "legal_regulatory_update_alerts_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "legal_source_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_regulatory_update_alerts_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_analysis_sources"
+            referencedColumns: ["source_registry_id"]
+          },
         ]
       }
       legal_regulatory_update_logs: {
@@ -4033,6 +4080,7 @@ export type Database = {
           new_hash: string | null
           old_hash: string | null
           raw_response: Json | null
+          source_registry_id: string | null
           status: string
         }
         Insert: {
@@ -4045,6 +4093,7 @@ export type Database = {
           new_hash?: string | null
           old_hash?: string | null
           raw_response?: Json | null
+          source_registry_id?: string | null
           status?: string
         }
         Update: {
@@ -4057,6 +4106,7 @@ export type Database = {
           new_hash?: string | null
           old_hash?: string | null
           raw_response?: Json | null
+          source_registry_id?: string | null
           status?: string
         }
         Relationships: [
@@ -4073,6 +4123,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_legal_regulatory_monitoring_dashboard"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_regulatory_update_logs_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "legal_source_registry"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_regulatory_update_logs_source_registry_id_fkey"
+            columns: ["source_registry_id"]
+            isOneToOne: false
+            referencedRelation: "v_practice_analysis_sources"
+            referencedColumns: ["source_registry_id"]
           },
         ]
       }
@@ -4353,8 +4417,10 @@ export type Database = {
           completed_at: string | null
           external_url: string | null
           id: string
+          recheck_outcome: string | null
           requested_at: string
           requested_by: string | null
+          result_metadata: Json
           result_summary: string | null
           source_id: string | null
           source_kind: string
@@ -4366,8 +4432,10 @@ export type Database = {
           completed_at?: string | null
           external_url?: string | null
           id?: string
+          recheck_outcome?: string | null
           requested_at?: string
           requested_by?: string | null
+          result_metadata?: Json
           result_summary?: string | null
           source_id?: string | null
           source_kind: string
@@ -4379,8 +4447,10 @@ export type Database = {
           completed_at?: string | null
           external_url?: string | null
           id?: string
+          recheck_outcome?: string | null
           requested_at?: string
           requested_by?: string | null
+          result_metadata?: Json
           result_summary?: string | null
           source_id?: string | null
           source_kind?: string
@@ -6287,6 +6357,107 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      fns_open_data_debtam_is_available: { Args: never; Returns: boolean }
+      fns_open_data_get_average_headcount: {
+        Args: { p_as_of_date?: string; p_inn: string }
+        Returns: {
+          average_headcount: number
+          dataset_id: string
+          document_date: string
+          document_id: string
+          inn: string
+          organization_name: string
+          reporting_date: string
+          source_sha256: string
+          source_url: string
+        }[]
+      }
+      fns_open_data_get_financial_statement_text: {
+        Args: { p_as_of_date?: string; p_inn: string }
+        Returns: {
+          dataset_id: string
+          document_date: string
+          document_id: string
+          expense_amount: string
+          income_amount: string
+          inn: string
+          organization_name: string
+          reporting_date: string
+          source_sha256: string
+          source_url: string
+        }[]
+      }
+      fns_open_data_get_tax_debts: {
+        Args: { p_as_of_date?: string; p_inn: string }
+        Returns: {
+          data_as_of: string
+          dataset_id: string
+          debt_row_ordinal: number
+          document_date: string
+          document_id: string
+          fine_amount: number
+          inn: string
+          organization_name: string
+          penalty_amount: number
+          source_sha256: string
+          source_url: string
+          tax_debt_amount: number
+          tax_name: string
+          total_debt_amount: number
+        }[]
+      }
+      fns_open_data_get_tax_debts_text: {
+        Args: { p_as_of_date?: string; p_inn: string }
+        Returns: {
+          data_as_of: string
+          dataset_id: string
+          debt_row_ordinal: number
+          document_date: string
+          document_id: string
+          fine_amount: string
+          inn: string
+          organization_name: string
+          penalty_amount: string
+          source_sha256: string
+          source_url: string
+          tax_debt_amount: string
+          tax_name: string
+          total_debt_amount: string
+        }[]
+      }
+      fns_open_data_get_tax_offences: {
+        Args: { p_as_of_date?: string; p_inn: string }
+        Returns: {
+          data_as_of: string
+          dataset_id: string
+          document_date: string
+          document_id: string
+          fine_amount: string
+          format_version: string
+          inn: string
+          organization_name: string
+          source_sha256: string
+          source_url: string
+        }[]
+      }
+      fns_open_data_get_tax_regime: {
+        Args: { p_as_of_date?: string; p_inn: string }
+        Returns: {
+          data_as_of: string
+          dataset_id: string
+          document_date: string
+          document_id: string
+          inn: string
+          organization_name: string
+          regimes: string[]
+          source_sha256: string
+          source_url: string
+        }[]
+      }
+      fns_open_data_revexp_is_available: { Args: never; Returns: boolean }
+      fns_open_data_snr_is_available: { Args: never; Returns: boolean }
+      fns_open_data_sshr2019_is_available: { Args: never; Returns: boolean }
+      fns_open_data_taxoffence_is_available: { Args: never; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -6295,6 +6466,51 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_superadmin: { Args: { _user_id: string }; Returns: boolean }
+      law7_mirror_get_article_version: {
+        Args: {
+          p_article_number: string
+          p_as_of_date?: string
+          p_code_id: string
+        }
+        Returns: {
+          amendment_date: string
+          amendment_eo_number: string
+          article_number: string
+          article_text: string
+          article_title: string
+          code_id: string
+          is_current: boolean
+          is_repealed: boolean
+          repealed_date: string
+          text_hash: string
+          version_date: string
+        }[]
+      }
+      law7_mirror_is_available: { Args: never; Returns: boolean }
+      law7_mirror_query_laws: {
+        Args: { p_max_results?: number; p_query: string }
+        Returns: {
+          article_number: string
+          article_text: string
+          article_title: string
+          code_id: string
+          rank: number
+          version_date: string
+        }[]
+      }
+      law7_mirror_trace_amendment_history: {
+        Args: { p_article_number: string; p_code_id: string; p_limit?: number }
+        Returns: {
+          amendment_date: string
+          amendment_eo_number: string
+          article_number: string
+          code_id: string
+          is_repealed: boolean
+          repealed_date: string
+          text_hash: string
+          version_date: string
+        }[]
+      }
       match_legal_knowledge: {
         Args: {
           category_filter?: string
