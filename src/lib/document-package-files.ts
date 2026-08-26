@@ -23,11 +23,20 @@ export const SUPPORTED_PACKAGE_EXTENSIONS = [
   "xlsx",
 ] as const;
 
+/** `accept` value for the intake file input: supported documents plus ZIP packages. */
+export const DOCUMENT_UPLOAD_ACCEPT = [
+  ...SUPPORTED_PACKAGE_EXTENSIONS.map((ext) => `.${ext}`),
+  ".zip",
+  "application/zip",
+  "application/x-zip-compressed",
+].join(",");
+
 export const PACKAGE_LIMITS = {
   maxEntries: 100,
   maxEntryBytes: 25 * 1024 * 1024,
   maxTotalBytes: 150 * 1024 * 1024,
 } as const;
+
 
 export class DocumentPackageError extends Error {
   constructor(message: string) {
