@@ -813,6 +813,7 @@ const reloadAnswersFromSession = useCallback(async () => {
           body: {
             session_id: intakeSessionId,
             document_ids: readyDocs.map((document) => document.id),
+            trigger,
           },
         });
 
@@ -838,6 +839,9 @@ const reloadAnswersFromSession = useCallback(async () => {
       }
       if (!fillResult) throw new Error(lastFillError);
 
+      // Explicit run identity — never resolved as "latest run for session".
+      if (typeof fillResult.run_id === "string") setAiFillRunId(fillResult.run_id);
+
       const { data: answers, error: answersError } = await supabase
         .from("document_intake_answers")
         .select("field_name, field_value")
@@ -856,18 +860,63 @@ const reloadAnswersFromSession = useCallback(async () => {
       }
 
       setAiFillFailure(null);
-      alert(
-        `AI заполнил ${fillResult.filled_fields} полей из комплекта. Проверьте значения и цитаты.`,
-      );
+      setAutoFillStage("done");
+      if (!options.silent) {
+        alert(
+          `AI заполнил ${fillResult.filled_fields} полей из комплекта. Проверьте значения и цитаты.`,
+        );
+      }
     } catch (e) {
       console.error("AI fill failed", e);
       const message = e instanceof Error ? e.message : String(e);
       setAiFillFailure(message);
+      setAutoFillStage("failed");
     } finally {
+      aiFillInFlightRef.current = false;
       setIsAiFilling(false);
       setRetryingDocumentId(null);
     }
   };
+
+  // Auto AI-fill: runs exactly once per settled document set. Re-renders,
+  // polling and reloads are de-duplicated by the document-set fingerprint.
+  useEffect(() => {
+    const decision = evaluateAutoAiFill({
+      sessionId: intakeSessionId,
+      documents: sessionDocuments.map((d) => ({
+        id: d.id,
+        extraction_status: d.extraction_status,
+        ocr_text_length: d.ocr_text_length,
+      })),
+      lastFingerprint: lastAutoFingerprintRef.current,
+      inFlight: aiFillInFlightRef.current || isAiFilling,
+      processing: isProcessingDocuments || isUploadingDocument,
+    });
+
+    if (decision.action === "wait") {
+      if (sessionDocuments.length > 0 && autoFillStage === "idle") setAutoFillStage("uploaded");
+      if (decision.reason === "extraction_pending" || decision.reason === "processing") {
+        setAutoFillStage((prev) => (prev === "done" ? prev : "extracting"));
+      }
+      return;
+    }
+    if (decision.action === "blocked") {
+      lastAutoFingerprintRef.current = decision.fingerprint;
+      setAutoFillStage("failed");
+      setAiFillFailure(
+        decision.reason === "partial_extraction"
+          ? "Не все документы распознаны. Повторите извлечение и запустите AI-заполнение."
+          : "Ни из одного файла не удалось извлечь текст. Повторите извлечение.",
+      );
+      return;
+    }
+    if (decision.action !== "run") return;
+
+    lastAutoFingerprintRef.current = decision.fingerprint;
+    void handleAiFillFromDocument({ trigger: "auto", silent: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [intakeSessionId, sessionDocuments, isProcessingDocuments, isUploadingDocument, isAiFilling]);
+
 
   const handleSuggestedTemplate = async (templateCode: string) => {
     if (!intakeSessionId || !onSuggestedTemplateSelect) return;
