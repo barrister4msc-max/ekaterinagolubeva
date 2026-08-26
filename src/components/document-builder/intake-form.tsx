@@ -578,11 +578,16 @@ const reloadAnswersFromSession = useCallback(async () => {
           console.warn("[extract-document-text] late invocation error", error);
         });
         const persisted = await waitForPersistedExtraction(documentId);
-        if (persisted.extractionStatus === "completed" && persisted.textLength > 0) {
+        if (
+          (persisted.extractionStatus === "completed" && persisted.textLength > 0) ||
+          persisted.extractionStatus === "failed" ||
+          persisted.extractionStatus === "ocr_required"
+        ) {
           return {
-            extractionStatus: "completed",
+            extractionStatus: persisted.extractionStatus,
             textLength: persisted.textLength,
             attempts: attempt,
+            error: persisted.error,
           };
         }
         lastError = persisted.error || lastError;
