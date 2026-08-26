@@ -162,3 +162,64 @@ export function intakeStateFromSession(params: {
     answers: params.answers,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Generation context: explicit AI-fill run identity + redaction mapping.
+// Both live in `document_intake_sessions.metadata` so the generator can resolve
+// them by session id without ever guessing "the latest run".
+// ---------------------------------------------------------------------------
+
+import type { RedactionFieldMapping } from "@/lib/redaction-field-mapping";
+
+export type IntakeGenerationContext = {
+  intakeAiFillRunId: string | null;
+  redactionMapping: RedactionFieldMapping | null;
+  redactionModeEnabled: boolean;
+};
+
+async function readSessionMetadata(sessionId: string): Promise<Record<string, any>> {
+  const { data, error } = await supabase
+    .from("document_intake_sessions")
+    .select("metadata")
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (error) throw error;
+  return ((data?.metadata as Record<string, any> | null) ?? {}) as Record<string, any>;
+}
+
+export async function saveSessionRedactionState(params: {
+  sessionId: string;
+  enabled: boolean;
+  mapping: RedactionFieldMapping | null;
+}): Promise<void> {
+  const metadata = await readSessionMetadata(params.sessionId);
+  const { error } = await supabase
+    .from("document_intake_sessions")
+    .update({
+      metadata: {
+        ...metadata,
+        intake_redaction: {
+          enabled: params.enabled,
+          mapping: params.mapping,
+          updated_at: new Date().toISOString(),
+        },
+      } as any,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", params.sessionId);
+  if (error) throw error;
+}
+
+export async function loadIntakeGenerationContext(
+  sessionId: string,
+): Promise<IntakeGenerationContext> {
+  const metadata = await readSessionMetadata(sessionId);
+  const redaction = (metadata.intake_redaction ?? null) as
+    | { enabled?: boolean; mapping?: RedactionFieldMapping | null }
+    | null;
+  return {
+    intakeAiFillRunId: (metadata.intake_ai_fill?.run_id as string | undefined) ?? null,
+    redactionMapping: redaction?.mapping ?? null,
+    redactionModeEnabled: Boolean(redaction?.enabled),
+  };
+}
