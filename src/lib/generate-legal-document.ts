@@ -310,8 +310,12 @@ export async function prepareAndGenerate(
   }
   const state: IntakeState = {
     ...opts.state,
-    answers: restoreCanonicalAnswers(opts.state.answers, opts.redactionMapping) as IntakeState["answers"],
+    answers: restoreEntityTokensInAnswers(
+      restoreCanonicalAnswers(opts.state.answers, opts.redactionMapping) as Record<string, unknown>,
+      opts.entityRegistry,
+    ) as IntakeState["answers"],
   };
+
 
 
   // 1. For complex templates require fresh matter analysis.
