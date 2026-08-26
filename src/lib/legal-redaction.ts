@@ -297,6 +297,18 @@ const CRITICAL_TYPES = new Set<LegalEntityType>([
   "CADASTRAL",
 ]);
 
+function isNonSensitiveResidual(type: LegalEntityType, reason: string): boolean {
+  // Legal context must retain dates, document numbers and harmless legal-form
+  // markers for objective analysis. They are not personal identifiers.
+  if (type === "DATE" || type === "DOCUMENT_NUMBER" || type === "SIGNATURE") return true;
+  return type === "COMPANY" && reason === "company marker";
+}
+
+export function isBlockingRemainingEntity(entity: RemainingEntity): boolean {
+  return !isNonSensitiveResidual(entity.type, entity.reason) &&
+    (entity.severity === "high" || CRITICAL_TYPES.has(entity.type) || entity.type === "COMPANY");
+}
+
 function findRiskMarkers(text: string): RemainingEntity[] {
   const markers: Array<{ type: LegalEntityType; re: RegExp; reason: string }> = [
     {
@@ -325,11 +337,17 @@ function findRiskMarkers(text: string): RemainingEntity[] {
   const found: RemainingEntity[] = [];
   for (const marker of markers) {
     if (marker.re.test(text)) {
+      const severity: RemainingEntity["severity"] =
+        marker.type === "DATE" ||
+        marker.type === "DOCUMENT_NUMBER" ||
+        marker.type === "COMPANY"
+          ? "low"
+          : "high";
       found.push({
         type: marker.type,
         text: marker.reason,
         reason: `Risk marker remains: ${marker.reason}`,
-        severity: "high",
+        severity,
       });
     }
   }
@@ -466,15 +484,16 @@ export function redactLegalDocument(input: string): LegalRedactionResult {
 
   for (const r of allRemaining) {
     stats.by_type[r.type].remaining += 1;
-    stats.remaining_total += 1;
+    if (isBlockingRemainingEntity(r)) stats.remaining_total += 1;
   }
 
   stats.coverage_percent = computeCoverage(stats);
 
+  const hasBlockingResiduals = allRemaining.some(isBlockingRemainingEntity);
   const quality: RedactionQuality =
     allRemaining.length === 0
       ? "excellent"
-      : allRemaining.some((r) => r.severity === "high" || CRITICAL_TYPES.has(r.type))
+      : hasBlockingResiduals
         ? "unsafe"
         : "warning";
 
@@ -585,8 +604,9 @@ export function isAcceptable(
   if (quality === "unsafe") {
     return { ok: false, reason: "Качество обезличивания — unsafe" };
   }
-  if (remaining.length > 0) {
-    return { ok: false, reason: `Найдено ${remaining.length} остаточных идентификаторов` };
+  const blocking = remaining.filter(isBlockingRemainingEntity);
+  if (blocking.length > 0) {
+    return { ok: false, reason: `Найдено ${blocking.length} остаточных защищённых идентификаторов` };
   }
   if (stats.coverage_percent < 95) {
     return { ok: false, reason: `Покрытие ${stats.coverage_percent}% < 95%` };
