@@ -179,4 +179,16 @@ describe("PR22 Gemini AI-fill privacy boundary", () => {
     const payload = buildModelFacingDocumentText(prepareSafeAiFillDocuments([document]));
     expect(payload).not.toContain("RAW SHOULD NOT BE USED");
   });
+
+  test("allows original current OCR only after explicit authorization", () => {
+    const document = {
+      id: "doc-authorized",
+      ocr_text: "Исходный OCR с реквизитами организации.",
+      metadata: { redaction_status: "suggested" },
+    };
+
+    expect(() => selectSafeAiFillText(document)).toThrow(/AI fill blocked/);
+    expect(selectSafeAiFillText(document, { allowUnredactedText: true })).toBe(document.ocr_text);
+  });
 });
+
