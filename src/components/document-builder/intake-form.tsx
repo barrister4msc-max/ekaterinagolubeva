@@ -142,6 +142,7 @@ const isProcessingDocuments = processingDocumentIds.length > 0;
 
 const [isAiFilling, setIsAiFilling] = useState(false);
 const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
+const [allowUnredactedAiFill, setAllowUnredactedAiFill] = useState(false);
 const [retryingDocumentId, setRetryingDocumentId] = useState<string | null>(null);
   const [isBuildingCaseIntelligence, setIsBuildingCaseIntelligence] = useState(false);
 const lastCaseIntelligenceKeyRef = useRef<string | null>(null);
@@ -723,6 +724,7 @@ const reloadAnswersFromSession = useCallback(async () => {
     try {
       const { error } = await supabase.from("documents").delete().eq("id", documentId);
       if (error) throw error;
+      removeProcessingDocument(documentId);
       await refreshSessionDocuments(intakeSessionId);
       try {
         window.dispatchEvent(new CustomEvent("intake-documents-updated"));
@@ -771,7 +773,7 @@ const reloadAnswersFromSession = useCallback(async () => {
       setIsBuildingCaseIntelligence(false);
     }
   };  
-  const handleAiFillFromDocument = async () => {
+  const handleAiFillFromDocument = async (allowUnredactedText = allowUnredactedAiFill) => {
     if (!intakeSessionId) {
       alert("Сначала загрузите документы");
       return;
@@ -788,9 +790,17 @@ const reloadAnswersFromSession = useCallback(async () => {
         (document) => !hasExtractedDocumentText(document.ocr_text),
       );
 
-      // If at least one document is ready, start AI-fill immediately. Remaining OCR jobs
-      // keep using the normal background queue. Only an all-pending package waits once.
-      if (readyDocs.length === 0 && documentsWithoutText.length > 0) {
+      // Never send a partial package. A legal conclusion can change when a
+      // later act, response, table, or attachment arrives.
+      if (documentsWithoutText.length > 0) {
+        const alreadyProcessing = documentsWithoutText.filter((document) =>
+          processingDocumentIdsRef.current.has(document.id),
+        );
+        if (alreadyProcessing.length > 0) {
+          throw new Error(
+            `Ожидается извлечение текста из ${alreadyProcessing.length} документа(ов). Дождитесь завершения OCR и повторите заполнение.`,
+          );
+        }
         await runBackgroundExtraction(
           documentsWithoutText.map((document) => ({
             id: document.id,
@@ -810,9 +820,10 @@ const reloadAnswersFromSession = useCallback(async () => {
         readyDocs = currentDocuments.filter((document) => hasExtractedDocumentText(document.ocr_text));
       }
 
-      if (readyDocs.length === 0) {
+      const failedDocuments = currentDocuments.filter((document) => !hasExtractedDocumentText(document.ocr_text));
+      if (failedDocuments.length > 0 || readyDocs.length !== currentDocuments.length) {
         throw new Error(
-          "Ни из одного файла не удалось извлечь текст. Используйте «Повторить извлечение» у файла.",
+          `Комплект не готов: текст не извлечён из ${failedDocuments.map((document) => document.file_name ?? document.title ?? document.id).join(", ")}. Используйте «Повторить извлечение» или удалите этот файл из комплекта.`,
         );
       }
 
@@ -825,6 +836,7 @@ const reloadAnswersFromSession = useCallback(async () => {
           body: {
             session_id: intakeSessionId,
             document_ids: readyDocs.map((document) => document.id),
+            allow_unredacted_text: allowUnredactedText,
           },
         });
 
@@ -967,7 +979,7 @@ const reloadAnswersFromSession = useCallback(async () => {
               <button
                 type="button"
                 className="db-cta"
-                onClick={handleAiFillFromDocument}
+                onClick={() => void handleAiFillFromDocument()}
                 disabled={
                   isAiFilling ||
                   sessionDocuments.length === 0
@@ -1011,6 +1023,20 @@ const reloadAnswersFromSession = useCallback(async () => {
                 <div className="mt-1 text-muted-foreground">
                   Можно нажать «Повторить AI-заполнение»: комплект и уже сохранённые ответы не потеряются.
                 </div>
+                {/обезлич|redaction|protected entities/i.test(aiFillFailure) && (
+                  <button
+                    type="button"
+                    className="mt-2 rounded-md border border-rose-700/40 px-2 py-1 font-medium hover:bg-rose-500/10"
+                    onClick={() => {
+                      if (!confirm("Разрешить передачу исходного OCR-текста в AI для этого заполнения? Это действие передаст потенциальные персональные данные и не выполняется автоматически.")) return;
+                      setAllowUnredactedAiFill(true);
+                      void handleAiFillFromDocument(true);
+                    }}
+                    disabled={isAiFilling || isProcessingDocuments}
+                  >
+                    Разрешить исходный текст для AI
+                  </button>
+                )}
               </div>
             )}
 
@@ -2393,3 +2419,4 @@ function RedactionDialog({
     </div>
   );
 }
+
