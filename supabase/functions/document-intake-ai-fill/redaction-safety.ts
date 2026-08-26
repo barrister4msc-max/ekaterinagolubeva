@@ -32,7 +32,14 @@ export function selectSafeAiFillText(
   options: AiFillTextOptions = {},
 ): string {
   if (options.allowUnredactedText === true) {
-    const text = typeof document.ocr_text === "string" ? document.ocr_text.trim() : "";
+    const metadata = asRecord(document.metadata);
+    const originalText = typeof metadata.original_ocr_text === "string"
+      ? metadata.original_ocr_text.trim()
+      : "";
+    const currentText = typeof document.ocr_text === "string"
+      ? document.ocr_text.trim()
+      : "";
+    const text = originalText || currentText;
     if (!text) throw new AiFillRedactionError("AI fill blocked: document has no extracted text.");
     return text;
   }
