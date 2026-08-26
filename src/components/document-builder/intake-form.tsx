@@ -1082,10 +1082,12 @@ const reloadAnswersFromSession = useCallback(async () => {
                 <input
                   type="file"
                   multiple
+                  accept={DOCUMENT_UPLOAD_ACCEPT}
                   className="hidden"
                   onChange={handleUploadDocument}
                   disabled={isUploadingDocument || isAiFilling || isBuildingCaseIntelligence}
                 />
+
               </label>
 
               <button
