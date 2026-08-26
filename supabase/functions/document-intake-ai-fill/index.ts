@@ -313,10 +313,10 @@ serve(async (req) => {
       if (readyDocuments.length > 1 && !allowedDocumentIds.has(sourceDocumentId)) return false;
       if (templateDerived) return false;
 
-      if (policy === "identity" && role.can_fill_identity !== true) return false;
-      if (policy === "authority" && role.can_fill_authority !== true) return false;
-      if (policy === "fact" && role.can_fill_facts !== true) return false;
-      if (policy === "legal" && role.can_fill_legal_position !== true) return false;
+      if (enforceAggregateRole && policy === "identity" && role.can_fill_identity !== true) return false;
+      if (enforceAggregateRole && policy === "authority" && role.can_fill_authority !== true) return false;
+      if (enforceAggregateRole && policy === "fact" && role.can_fill_facts !== true) return false;
+      if (enforceAggregateRole && policy === "legal" && role.can_fill_legal_position !== true) return false;
 
       return true;
     });
