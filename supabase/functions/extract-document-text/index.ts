@@ -246,6 +246,7 @@ async function extractWithGeminiFallback(params: {
   buf: ArrayBuffer;
   mimeType: string;
   fileName: string;
+  signal?: AbortSignal;
 }): Promise<{ text: string; debug: Record<string, unknown> }> {
   if (!GEMINI_API_KEY) {
   console.error("[extract-document-text] GEMINI_API_KEY is missing");
@@ -276,7 +277,7 @@ async function extractWithGeminiFallback(params: {
       headers: {
         "Content-Type": "application/json",
       },
-      signal: AbortSignal.timeout(90_000),
+      signal: params.signal ?? AbortSignal.timeout(90_000),
       body: JSON.stringify({
         contents: [{ parts }],
         generationConfig: {
@@ -313,47 +314,64 @@ async function extractPdfWithChunkedGemini(
   buf: ArrayBuffer,
   fileName: string,
 ): Promise<{ text: string }> {
-  const source = await PDFDocument.load(buf, { ignoreEncryption: true });
-  const pageCount = source.getPageCount();
-  const chunkSize = 6;
-  const chunks: Array<{ start: number; end: number; buf: ArrayBuffer }> = [];
+  const controller = new AbortController();
+  const deadlineId = setTimeout(() => controller.abort(), 105_000);
+  try {
+    const source = await PDFDocument.load(buf, { ignoreEncryption: true });
+    const pageCount = source.getPageCount();
+    const chunkSize = 6;
+    const chunks: Array<{ start: number; end: number; buf: ArrayBuffer }> = [];
 
-  for (let start = 0; start < pageCount; start += chunkSize) {
-    const end = Math.min(start + chunkSize, pageCount);
-    const part = await PDFDocument.create();
-    const pages = await part.copyPages(
-      source,
-      Array.from({ length: end - start }, (_, offset) => start + offset),
-    );
-    pages.forEach((page) => part.addPage(page));
-    const bytes = await part.save({ useObjectStreams: false });
-    chunks.push({
-      start,
-      end,
-      buf: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
-    });
-  }
-
-  const results: string[] = new Array(chunks.length).fill("");
-  let cursor = 0;
-  const worker = async () => {
-    while (true) {
-      const index = cursor++;
-      if (index >= chunks.length) return;
-      const chunk = chunks[index];
-      const result = await extractWithGeminiFallback({
-        buf: chunk.buf,
-        mimeType: "application/pdf",
-        fileName: `${fileName}.pages-${chunk.start + 1}-${chunk.end}.pdf`,
+    for (let start = 0; start < pageCount; start += chunkSize) {
+      const end = Math.min(start + chunkSize, pageCount);
+      const part = await PDFDocument.create();
+      const pages = await part.copyPages(
+        source,
+        Array.from({ length: end - start }, (_, offset) => start + offset),
+      );
+      pages.forEach((page) => part.addPage(page));
+      const bytes = await part.save({ useObjectStreams: false });
+      chunks.push({
+        start,
+        end,
+        buf: bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength,
+        ) as ArrayBuffer,
       });
-      results[index] = result.text.trim();
     }
-  };
 
-  await Promise.all(
-    Array.from({ length: Math.min(3, chunks.length) }, () => worker()),
-  );
-  return { text: results.filter(Boolean).join("\n\n") };
+    const results: string[] = new Array(chunks.length).fill("");
+    let cursor = 0;
+    const worker = async () => {
+      while (true) {
+        const index = cursor++;
+        if (index >= chunks.length) return;
+        const chunk = chunks[index];
+        const result = await extractWithGeminiFallback({
+          buf: chunk.buf,
+          mimeType: "application/pdf",
+          fileName: `${fileName}.pages-${chunk.start + 1}-${chunk.end}.pdf`,
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted || result.debug?.error || !result.text.trim()) {
+          throw new Error(`pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}`);
+        }
+        results[index] = result.text.trim();
+      }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(3, chunks.length) }, () => worker()),
+    );
+    if (results.some((text) => !text)) {
+      throw new Error("pdf_ocr_incomplete_chunks");
+    }
+    return { text: results.join("\n\n") };
+  } finally {
+    clearTimeout(deadlineId);
+    controller.abort();
+  }
 }
 
 type Detected = {
