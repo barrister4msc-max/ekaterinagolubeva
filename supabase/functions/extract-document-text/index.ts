@@ -153,31 +153,25 @@ function extractHtml(buf: ArrayBuffer): string {
     .trim();
 }
 
-function extractPdfTextLayer(buf: ArrayBuffer): string {
-  // Minimal text-layer probe: try to pull strings from BT...ET blocks.
-  // If pdf has no embedded text (scan), this returns < 100 chars and triggers OCR-required.
-  const raw = new TextDecoder("latin1").decode(buf);
-  const out: string[] = [];
-  const btEt = raw.match(/BT[\s\S]*?ET/g) || [];
-  for (const block of btEt) {
-    const strs = block.match(/\(((?:\\.|[^\\()])*)\)/g) || [];
-    for (const s of strs) {
-      const inner = s.slice(1, -1).replace(/\\([()\\])/g, "$1");
-      out.push(inner);
+async function extractPdfTextLayer(buf: ArrayBuffer): Promise<string> {
+  try {
+    // @ts-ignore pdfjs legacy build is runtime-compatible with Deno Edge.
+    const pdfjs = await import("https://esm.sh/pdfjs-dist@4.10.38/legacy/build/pdf.mjs");
+    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(buf), disableWorker: true, useSystemFonts: false });
+    const pdf = await loadingTask.promise;
+    const pages: string[] = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      pages.push((content.items ?? []).map((item: any) => typeof item?.str === "string" ? item.str : "").filter(Boolean).join(" "));
+      page.cleanup?.();
     }
-    const hex = block.match(/<([0-9A-Fa-f\s]+)>/g) || [];
-    for (const h of hex) {
-      const clean = h.slice(1, -1).replace(/\s+/g, "");
-      let txt = "";
-      for (let i = 0; i + 1 < clean.length; i += 2) {
-        txt += String.fromCharCode(parseInt(clean.slice(i, i + 2), 16));
-      }
-      out.push(txt);
-    }
+    return pages.join("\n\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  } catch (error) {
+    console.error("[extract-document-text] PDF text-layer extraction failed", error);
+    return "";
   }
-  return out.join(" ").replace(/\s+/g, " ").trim();
 }
-
 function sanitizeExtractedText(value: string): string {
   // PostgreSQL text/JSON cannot store NUL. Minimal PDF probes can surface
   // binary control bytes from compressed streams, so strip those before an
@@ -509,7 +503,7 @@ Deno.serve(async (req) => {
         text = extractHtml(downloaded.buf);
         break;
       case "pdf": {
-        text = extractPdfTextLayer(downloaded.buf);
+        text = await extractPdfTextLayer(downloaded.buf);
         break;
       }
       case "image":
@@ -539,7 +533,8 @@ Deno.serve(async (req) => {
 
   const shouldUseGeminiFallback =
     downloaded?.buf &&
-    (detected.kind === "image" || detected.kind === "pdf" ||
+    (detected.kind === "image" ||
+      (detected.kind === "pdf" && !isUsablePdfTextLayer(text)) ||
       (text.length === 0 && !["spreadsheet", "presentation", "unknown"].includes(detected.kind)));
 
   if (shouldUseGeminiFallback) {

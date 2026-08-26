@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import {
   AiFillRedactionError,
   buildModelFacingDocumentText,
+  extractProtectedAnswerCandidates,
   prepareSafeAiFillDocuments,
 } from "./redaction-safety.ts";
 
@@ -136,6 +137,56 @@ serve(async (req) => {
 
     const fields = extractFields(schema.schema_json);
 
+    const { data: existingAnswers, error: existingAnswersError } = await supabase
+      .from("document_intake_answers")
+      .select("field_name, value_source")
+      .eq("session_id", session_id);
+
+    if (existingAnswersError) {
+      throw existingAnswersError;
+    }
+
+    const existingAnswerSources = new Map(
+      (existingAnswers ?? []).map((answer) => [
+        String(answer.field_name),
+        String(answer.value_source ?? ""),
+      ]),
+    );
+    const protectedAnswerCandidates = extractProtectedAnswerCandidates(documents, fields);
+    const protectedFieldNames = new Set(
+      protectedAnswerCandidates.map((candidate) => candidate.field_name),
+    );
+
+    let protectedInserted = 0;
+    for (const candidate of protectedAnswerCandidates) {
+      const existingSource = existingAnswerSources.get(candidate.field_name);
+      if (existingSource && existingSource !== "ai_document") {
+        continue;
+      }
+
+      const { error } = await supabase.from("document_intake_answers").upsert(
+        {
+          session_id,
+          field_name: candidate.field_name,
+          field_label: candidate.field_label,
+          field_value: candidate.value,
+          value_source: "document_local",
+          confidence: 0.98,
+          source_document_id: candidate.source_document_id,
+          source_quote: "[извлечено локально из исходного OCR; оригинал не передавался модели]",
+          needs_review: true,
+          is_verified: false,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "session_id,field_name" },
+      );
+
+      if (error) {
+        throw error;
+      }
+      protectedInserted += 1;
+    }
+
     // Explicit run identity. Every AI-fill (auto or manual) owns one
     // document_intake_ai_runs row; consumers must reference this id directly
     // instead of resolving "the latest run for the session".
@@ -227,6 +278,10 @@ serve(async (req) => {
       const value = answer.value;
       const fieldName = String(answer.field_name ?? "");
 
+      // Canonical locally extracted/manual values must never be overwritten by
+      // a model placeholder or a lower-fidelity interpretation.
+      if (protectedFieldNames.has(fieldName)) return false;
+
       const quote = typeof answer.source_quote === "string" ? answer.source_quote.trim() : "";
       const sourceDocumentId =
         typeof answer.source_document_id === "string" ? answer.source_document_id : "";
@@ -262,7 +317,7 @@ serve(async (req) => {
       return true;
     });
 
-    let inserted = 0;
+    let inserted = protectedInserted;
 
     for (const answer of allowedAnswers) {
       if (!answer.field_name || answer.value === undefined || answer.value === null) {
@@ -317,6 +372,7 @@ serve(async (req) => {
           total_candidate_fields: fields.length,
           summary: aiResult.summary ?? null,
           answers: allowedAnswers,
+          protected_fields: protectedInserted,
         },
       })
       .eq("id", aiFillRunId);
