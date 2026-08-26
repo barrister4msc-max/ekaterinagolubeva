@@ -1,8 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, it, test } from "bun:test";
 import JSZip from "jszip";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  DOCUMENT_UPLOAD_ACCEPT,
   DocumentPackageError,
   expandSelectedDocumentFiles,
   expandZipPackage,
@@ -11,6 +12,7 @@ import {
   isZipFile,
   packageEntryFileName,
   PACKAGE_LIMITS,
+  SUPPORTED_PACKAGE_EXTENSIONS,
 } from "../../src/lib/document-package-files";
 
 const testsDirectory = dirname(fileURLToPath(import.meta.url));
