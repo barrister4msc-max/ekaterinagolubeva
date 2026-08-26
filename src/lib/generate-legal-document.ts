@@ -250,7 +250,15 @@ import {
   type RedactionFieldMapping,
 } from "./redaction-field-mapping";
 
+import {
+  EntityRegistryError,
+  restoreEntityTokensInAnswers,
+  type EntityRegistry,
+} from "./entity-registry";
+
 export { RedactionMappingError } from "./redaction-field-mapping";
+export { EntityRegistryError } from "./entity-registry";
+
 
 export type PrepareAndGenerateOptions = {
   template: DocumentTemplate;
