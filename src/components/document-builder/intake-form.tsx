@@ -46,7 +46,23 @@ import { isValidInn } from "@/lib/company-registry";
 import {
   hasExtractedDocumentText,
   suggestTemplatesForPackage,
+import {
+  hasExtractedDocumentText,
+  suggestTemplatesForPackage,
 } from "@/lib/document-template-suggestions";
+import {
+  describeAutoAiFillStage,
+  evaluateAutoAiFill,
+} from "@/lib/auto-ai-fill";
+import {
+  applyFieldRedaction,
+  applyManualFieldEdit,
+  buildFieldRedactionMapping,
+  restoreCanonicalAnswers,
+  type RedactionFieldMapping,
+} from "@/lib/redaction-field-mapping";
+import { saveSessionRedactionState } from "@/lib/document-intake-storage";
+
 type IntakeContext = {
   matterId?: string | null;
   clientId?: string | null;
