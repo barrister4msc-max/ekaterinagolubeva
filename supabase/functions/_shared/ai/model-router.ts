@@ -5,6 +5,7 @@ import type {
   ModelProvider,
   ModelRawStatus,
   ModelRunResult,
+  ModelSpec,
   ModelTaskType,
 } from "./model-types.ts";
 
@@ -12,86 +13,89 @@ export type ModelRunner<T> = (params: {
   provider: ModelProvider;
   model: string;
   attempt: number;
+  signal: AbortSignal;
 }) => Promise<ModelAttempt<T>>;
 
 export async function runModelTask<T>(params: {
   taskType: ModelTaskType;
   run: ModelRunner<T>;
+  availableProviders: Partial<Record<ModelProvider, boolean>>;
   validate?: (output: T) => string[];
   timeoutMs?: number;
   maxCostPerRunUsd?: number | null;
 }): Promise<ModelRunResult<T>> {
   const policy = getModelPolicy(params.taskType);
   const costCap = params.maxCostPerRunUsd ?? policy.max_cost_per_run_usd;
+
+  if (policy.requires_explicit_cost_cap && costCap === null) {
+    return blockedResult(params.taskType, "explicit cost cap is required");
+  }
+
   const models = [policy.primary, ...policy.fallback]
-    .filter((model, index, all) => all.indexOf(model) === index)
-    .filter((model) => policy.allowed_models.includes(model))
+    .filter((spec, index, all) => all.findIndex((item) => sameSpec(item, spec)) === index)
+    .filter((spec) => policy.allowed_models.some((item) => sameSpec(item, spec)))
+    .filter((spec) => params.availableProviders[spec.provider] === true)
     .slice(0, policy.max_attempts);
+
+  if (models.length === 0) {
+    return blockedResult(params.taskType, "no configured provider is available");
+  }
 
   if (
     policy.requires_cross_provider_fallback &&
-    new Set(models.map(inferProvider)).size < 2
+    new Set(models.map((spec) => spec.provider)).size < 2
   ) {
-    return {
-      provider: inferProvider(models[0] ?? "gemini"),
-      model: models[0] ?? "none",
-      task_type: params.taskType,
-      attempt: 0,
-      latency_ms: 0,
-      input_tokens: null,
-      output_tokens: null,
-      estimated_cost_usd: null,
-      total_estimated_cost_usd: null,
-      raw_status: "policy_blocked",
-      json_valid: false,
-      validation_errors: ["cross-provider fallback is required but not configured"],
-      fallback_used: false,
-      attempt_history: [],
-      source_document_ids: [],
-      source_quotes: [],
-      confidence: null,
-    };
+    return blockedResult(
+      params.taskType,
+      "cross-provider fallback is required but a second provider is unavailable",
+    );
   }
 
   const errors: string[] = [];
-  const attempts = new Set<string>();
   const attemptHistory: ModelAttemptRecord[] = [];
   let totalEstimatedCost = 0;
   let last: ModelRunResult<T> | null = null;
 
   for (let index = 0; index < models.length; index += 1) {
-    const model = models[index];
-    if (attempts.has(model)) continue;
-    attempts.add(model);
-
-    const provider = inferProvider(model);
+    const spec = models[index];
     const started = Date.now();
+    const controller = new AbortController();
 
     try {
       const attempt = await withTimeout(
-        params.run({ provider, model, attempt: index + 1 }),
+        params.run({
+          provider: spec.provider,
+          model: spec.model,
+          attempt: index + 1,
+          signal: controller.signal,
+        }),
         params.timeoutMs ?? policy.timeout_ms,
+        () => controller.abort(),
       );
+
       const validationErrors = [
         ...(attempt.validation_errors ?? []),
         ...(params.validate ? params.validate(attempt.output as T) : []),
       ];
-      const jsonValid = attempt.json_valid !== false && validationErrors.length === 0;
+      const rawStatus: ModelRawStatus = attempt.raw_status ??
+        (attempt.json_valid === true && validationErrors.length === 0
+          ? "success"
+          : "invalid_json");
+      const jsonValid =
+        attempt.json_valid === true &&
+        rawStatus === "success" &&
+        validationErrors.length === 0;
       const estimatedCost = attempt.estimated_cost_usd ?? null;
       if (estimatedCost !== null) totalEstimatedCost += estimatedCost;
 
-      const rawStatus: ModelRawStatus = attempt.raw_status ??
-        (jsonValid ? "success" : "invalid_json");
       const latencyMs = Date.now() - started;
       const fallbackUsed = index > 0;
 
       if (costCap !== null && totalEstimatedCost > costCap) {
         const costError = "cumulative estimated cost exceeds cap";
-        errors.push(`${provider}/${model}: ${costError}`);
         const record = makeAttemptRecord({
           attempt,
-          provider,
-          model,
+          spec,
           attemptNumber: index + 1,
           latencyMs,
           jsonValid: false,
@@ -100,10 +104,10 @@ export async function runModelTask<T>(params: {
           fallbackUsed,
         });
         attemptHistory.push(record);
+        errors.push(`${spec.provider}/${spec.model}: ${costError}`);
         last = makeResult({
           attempt,
-          provider,
-          model,
+          spec,
           taskType: params.taskType,
           attemptNumber: index + 1,
           latencyMs,
@@ -114,78 +118,76 @@ export async function runModelTask<T>(params: {
           attemptHistory,
           totalEstimatedCost,
         });
-        continue;
+        break;
       }
 
-      if (!jsonValid) {
-        errors.push(...validationErrors, `${provider}/${model}: invalid result`);
+      if (jsonValid) {
         attemptHistory.push(makeAttemptRecord({
           attempt,
-          provider,
-          model,
+          spec,
           attemptNumber: index + 1,
           latencyMs,
-          jsonValid: false,
-          rawStatus,
-          validationErrors,
+          jsonValid: true,
+          rawStatus: "success",
+          validationErrors: [],
           fallbackUsed,
         }));
-        last = makeResult({
+        return makeResult({
           attempt,
-          provider,
-          model,
+          spec,
           taskType: params.taskType,
           attemptNumber: index + 1,
           latencyMs,
-          jsonValid: false,
-          rawStatus,
-          validationErrors,
+          jsonValid: true,
+          rawStatus: "success",
+          validationErrors: [],
           fallbackUsed,
           attemptHistory,
           totalEstimatedCost,
         });
-        continue;
       }
 
       attemptHistory.push(makeAttemptRecord({
         attempt,
-        provider,
-        model,
+        spec,
         attemptNumber: index + 1,
         latencyMs,
-        jsonValid: true,
-        rawStatus: "success",
-        validationErrors: [],
+        jsonValid: false,
+        rawStatus,
+        validationErrors,
         fallbackUsed,
       }));
-      return makeResult({
+      errors.push(...validationErrors, `${spec.provider}/${spec.model}: invalid result`);
+      last = makeResult({
         attempt,
-        provider,
-        model,
+        spec,
         taskType: params.taskType,
         attemptNumber: index + 1,
         latencyMs,
-        jsonValid: true,
-        rawStatus: "success",
-        validationErrors: [],
+        jsonValid: false,
+        rawStatus,
+        validationErrors,
         fallbackUsed,
         attemptHistory,
         totalEstimatedCost,
       });
+
+      if (attempt.retryable === false) break;
     } catch (error) {
       const message = error instanceof Error ? error.message : "model request failed";
-      const latencyMs = Date.now() - started;
       const rawStatus: ModelRawStatus = message.includes("timeout")
         ? "timeout"
         : "http_error";
-      errors.push(`${provider}/${model}: ${message}`);
+      const latencyMs = Date.now() - started;
+      errors.push(`${spec.provider}/${spec.model}: ${message}`);
       attemptHistory.push({
-        provider,
-        model,
+        provider: spec.provider,
+        model: spec.model,
         attempt: index + 1,
         latency_ms: latencyMs,
         input_tokens: null,
         output_tokens: null,
+        cached_input_tokens: null,
         estimated_cost_usd: null,
         raw_status: rawStatus,
         json_valid: false,
@@ -193,13 +195,14 @@ export async function runModelTask<T>(params: {
         fallback_used: index > 0,
       });
       last = {
-        provider,
-        model,
+        provider: spec.provider,
+        model: spec.model,
         task_type: params.taskType,
         attempt: index + 1,
         latency_ms: latencyMs,
         input_tokens: null,
         output_tokens: null,
+        cached_input_tokens: null,
         estimated_cost_usd: null,
         total_estimated_cost_usd: totalEstimatedCost || null,
         raw_status: rawStatus,
@@ -208,7 +211,7 @@ export async function runModelTask<T>(params: {
         fallback_used: index > 0,
         attempt_history: [...attemptHistory],
         source_document_ids: [],
-        source_quotes: [],
+        source_quote_refs: [],
         confidence: null,
       };
     }
@@ -223,35 +226,42 @@ export async function runModelTask<T>(params: {
     };
   }
 
+  return blockedResult(params.taskType, "router ended without a result");
+}
+
+function sameSpec(left: ModelSpec, right: ModelSpec): boolean {
+  return left.provider === right.provider && left.model === right.model;
+}
+
+function blockedResult<T>(
+  taskType: ModelTaskType,
+  reason: string,
+): ModelRunResult<T> {
   return {
     provider: "gemini",
     model: "none",
-    task_type: params.taskType,
+    task_type: taskType,
     attempt: 0,
     latency_ms: 0,
     input_tokens: null,
     output_tokens: null,
+    cached_input_tokens: null,
     estimated_cost_usd: null,
     total_estimated_cost_usd: null,
     raw_status: "policy_blocked",
     json_valid: false,
-    validation_errors: ["no allowed models configured"],
+    validation_errors: [reason],
     fallback_used: false,
     attempt_history: [],
     source_document_ids: [],
-    source_quotes: [],
+    source_quote_refs: [],
     confidence: null,
   };
 }
 
-function inferProvider(model: string): ModelProvider {
-  return model.startsWith("gpt-") ? "openai" : "gemini";
-}
-
 function makeAttemptRecord<T>(params: {
   attempt: ModelAttempt<T>;
-  provider: ModelProvider;
-  model: string;
+  spec: ModelSpec;
   attemptNumber: number;
   latencyMs: number;
   jsonValid: boolean;
@@ -260,12 +270,13 @@ function makeAttemptRecord<T>(params: {
   fallbackUsed: boolean;
 }): ModelAttemptRecord {
   return {
-    provider: params.provider,
-    model: params.model,
+    provider: params.spec.provider,
+    model: params.spec.model,
     attempt: params.attemptNumber,
     latency_ms: params.latencyMs,
     input_tokens: params.attempt.input_tokens ?? null,
     output_tokens: params.attempt.output_tokens ?? null,
+    cached_input_tokens: params.attempt.cached_input_tokens ?? null,
     estimated_cost_usd: params.attempt.estimated_cost_usd ?? null,
     raw_status: params.rawStatus,
     json_valid: params.jsonValid,
@@ -276,8 +287,7 @@ function makeAttemptRecord<T>(params: {
 
 function makeResult<T>(params: {
   attempt: ModelAttempt<T>;
-  provider: ModelProvider;
-  model: string;
+  spec: ModelSpec;
   taskType: ModelTaskType;
   attemptNumber: number;
   latencyMs: number;
@@ -289,13 +299,14 @@ function makeResult<T>(params: {
   totalEstimatedCost: number;
 }): ModelRunResult<T> {
   return {
-    provider: params.provider,
-    model: params.model,
+    provider: params.spec.provider,
+    model: params.spec.model,
     task_type: params.taskType,
     attempt: params.attemptNumber,
     latency_ms: params.latencyMs,
     input_tokens: params.attempt.input_tokens ?? null,
     output_tokens: params.attempt.output_tokens ?? null,
+    cached_input_tokens: params.attempt.cached_input_tokens ?? null,
     estimated_cost_usd: params.attempt.estimated_cost_usd ?? null,
     total_estimated_cost_usd: params.totalEstimatedCost || null,
     raw_status: params.rawStatus,
@@ -304,16 +315,23 @@ function makeResult<T>(params: {
     fallback_used: params.fallbackUsed,
     attempt_history: [...params.attemptHistory],
     source_document_ids: params.attempt.source_document_ids ?? [],
-    source_quotes: params.attempt.source_quotes ?? [],
+    source_quote_refs: params.attempt.source_quote_refs ?? [],
     confidence: params.attempt.confidence ?? null,
     output: params.jsonValid ? params.attempt.output : undefined,
   };
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  onTimeout: () => void,
+): Promise<T> {
   let timer: number | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`model timeout after ${timeoutMs}ms`)), timeoutMs);
+    timer = setTimeout(() => {
+      onTimeout();
+      reject(new Error(`model timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
   });
   try {
     return await Promise.race([promise, timeout]);
