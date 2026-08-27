@@ -556,7 +556,7 @@ ${documentText.slice(0, 120000)}
 }
 `;
 
-  const models = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-1.5-flash"];
+  const models = await resolveGeminiModels(apiKey);
 
   let lastError = "";
 
@@ -587,6 +587,7 @@ ${documentText.slice(0, 120000)}
       lastError = errorText;
 
       const retryable =
+        response.status === 404 ||
         response.status === 503 ||
         response.status === 429 ||
         errorText.includes("UNAVAILABLE") ||
@@ -608,11 +609,57 @@ ${documentText.slice(0, 120000)}
       continue;
     }
 
-    return JSON.parse(text);
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      lastError = `Gemini model ${model} returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`;
+      continue;
+    }
   }
 
   throw new Error(lastError || "All Gemini models failed");
 }
+async function resolveGeminiModels(apiKey: string): Promise<string[]> {
+  const fallbackModels = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-3-flash-preview",
+  ];
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+    );
+
+    if (!response.ok) {
+      return fallbackModels;
+    }
+
+    const data = await response.json();
+    const discovered = (Array.isArray(data?.models) ? data.models : [])
+      .filter((model: any) =>
+        Array.isArray(model?.supportedGenerationMethods) &&
+        model.supportedGenerationMethods.includes("generateContent") &&
+        typeof model?.name === "string"
+      )
+      .map((model: any) => String(model.name).replace(/^models\//, ""))
+      .filter((model: string) =>
+        /gemini/i.test(model) &&
+        /flash|pro/i.test(model) &&
+        !/image|tts|live|audio|embedding/i.test(model)
+      );
+
+    const ordered = fallbackModels.filter((model) => discovered.includes(model));
+
+    // Keep a bounded, predictable cascade. Do not silently expand to every
+    // available model: that could introduce more expensive or incompatible
+    // models into a routine intake fill.
+    return ordered.length > 0 ? ordered : fallbackModels;
+  } catch {
+    return fallbackModels;
+  }
+}
+
 function sanitizeAnswers(rawAnswers: any[]) {
   const forbiddenCompanyNames = [
     "Компания",
