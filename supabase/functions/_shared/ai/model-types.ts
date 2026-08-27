@@ -1,5 +1,7 @@
 export type ModelProvider = "gemini" | "openai";
 
+export type FallbackMode = "none" | "optional" | "required";
+
 export type ModelSpec = {
   provider: ModelProvider;
   model: string;
@@ -85,6 +87,6 @@ export type ModelPolicy = {
   timeout_ms: number;
   max_cost_per_run_usd: number | null;
   requires_explicit_cost_cap: boolean;
-  requires_cross_provider_fallback: boolean;
+  fallback_mode: FallbackMode;
   requires_human_review: boolean;
 };
