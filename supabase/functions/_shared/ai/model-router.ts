@@ -338,3 +338,8 @@ async function withTimeout<T>(
     }, timeoutMs);
   });
   try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
