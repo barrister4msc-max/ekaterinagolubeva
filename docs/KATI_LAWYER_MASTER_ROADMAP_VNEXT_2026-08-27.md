@@ -51,9 +51,13 @@ Legal Analysis Core не перепроектируется. Сохраняют�
 - `attempt_history` с телеметрией каждой последовательной попытки;
 - `total_estimated_cost_usd` по всему запуску, включая fallback;
 - cumulative cost cap, а не только лимит одной попытки;
-- policy block, если заявлен cross-provider fallback, но второй провайдер не настроен.
+- policy block, если заявлен cross-provider fallback, но второй провайдер не настроен;
+- явная доступность провайдеров перед запуском; без подтверждённого provider adapter вызов не выполняется;
+- timeout отменяет попытку через `AbortSignal`; non-retryable ошибки не запускают fallback.
 
 До подключения consumers остаётся честный статус: это контракт и orchestration foundation; фактических OpenAI-вызовов и production model switch нет.
+
+Router v1 не реализует shadow execution и не содержит live Gemini/OpenAI adapters. Shadow benchmark и provider adapters — отдельный P1 PR. До benchmark production primary остаётся Gemini.
 
 ## P1 — controlled benchmark
 
@@ -91,4 +95,4 @@ Gemini Enterprise for Legal не является заменой KATI. Подг�
 
 ## Definition of Done Router v1
 
-Единый контракт Gemini/OpenAI, ограниченные retry/fallback, policy guard, единые метрики, история всех попыток, cumulative cost cap, тесты ошибок/JSON/cost cap, сохранённые run_id/provenance/source references, отсутствие изменения consumers и зелёные regression/typecheck.
+Provider-neutral canonical contract, готовый для Gemini/OpenAI adapters; явные ModelSpec и provider availability; ограниченные retry/fallback, AbortSignal, fail-closed JSON/status validation, единые метрики, история всех попыток, cumulative cost cap, cached token accounting, тесты ошибок/JSON/policy/abort/cost cap, сохранённые run_id/provenance/source references, отсутствие изменения consumers и зелёные regression/typecheck.
