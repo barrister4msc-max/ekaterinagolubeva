@@ -51,7 +51,7 @@ Legal Analysis Core не перепроектируется. Сохраняют�
 - `attempt_history` с телеметрией каждой последовательной попытки;
 - `total_estimated_cost_usd` по всему запуску, включая fallback;
 - cumulative cost cap, а не только лимит одной попытки;
-- policy block, если заявлен cross-provider fallback, но второй провайдер не настроен;
+- явный `fallback_mode`: `none` запускает только primary, `optional` не блокирует baseline Gemini при недоступном OpenAI, `required` блокирует маршрут до AI-вызова при отсутствии допустимого reserve;
 - явная доступность провайдеров перед запуском; без подтверждённого provider adapter вызов не выполняется;
 - timeout отменяет попытку через `AbortSignal`; non-retryable ошибки не запускают fallback.
 
