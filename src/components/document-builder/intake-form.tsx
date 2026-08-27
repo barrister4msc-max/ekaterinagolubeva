@@ -998,10 +998,14 @@ const reloadAnswersFromSession = useCallback(async () => {
             : "AI-заполнение завершилось без результата");
 
         const status = Number((error as any)?.context?.status ?? 0);
-        const transient = Boolean(error) && (
-          status === 429 ||
-          status >= 500 ||
-          /network|fetch|timeout|temporar/i.test(error?.message ?? "")
+        const emptySuccessfulResult =
+          !error && data?.success === true && filledFields === 0;
+        const transient = emptySuccessfulResult || (
+          Boolean(error) && (
+            status === 429 ||
+            status >= 500 ||
+            /network|fetch|timeout|temporar/i.test(error?.message ?? "")
+          )
         );
         if (!transient || technicalAttempt === maxAttempts - 1) break;
         await waitBeforeRetry(technicalAttempt + 1);
