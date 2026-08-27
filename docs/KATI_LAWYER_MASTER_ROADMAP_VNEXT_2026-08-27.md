@@ -47,6 +47,14 @@ Legal Analysis Core не перепроектируется. Сохраняют�
 5. Router не меняет Legal Analysis Core и не пишет shadow-ответы в пользовательскую форму.
 6. OpenAI key используется только в Supabase Edge Functions.
 
+В PR Router v1 дополнительно обязательно:
+- `attempt_history` с телеметрией каждой последовательной попытки;
+- `total_estimated_cost_usd` по всему запуску, включая fallback;
+- cumulative cost cap, а не только лимит одной попытки;
+- policy block, если заявлен cross-provider fallback, но второй провайдер не настроен.
+
+До подключения consumers остаётся честный статус: это контракт и orchestration foundation; фактических OpenAI-вызовов и production model switch нет.
+
 ## P1 — controlled benchmark
 
 Shadow-ответ не изменяет production.
@@ -83,4 +91,4 @@ Gemini Enterprise for Legal не является заменой KATI. Подг�
 
 ## Definition of Done Router v1
 
-Единый контракт Gemini/OpenAI, ограниченные retry/fallback, policy guard, единые метрики, тесты ошибок/JSON/cost cap, сохранённые run_id/provenance/source references, отсутствие изменения consumers и зелёные regression/typecheck.
+Единый контракт Gemini/OpenAI, ограниченные retry/fallback, policy guard, единые метрики, история всех попыток, cumulative cost cap, тесты ошибок/JSON/cost cap, сохранённые run_id/provenance/source references, отсутствие изменения consumers и зелёные regression/typecheck.
