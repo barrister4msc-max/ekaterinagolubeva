@@ -60,6 +60,7 @@ export async function runModelTask<T>(params: {
     const spec = models[index];
     const started = Date.now();
     const controller = new AbortController();
+    let timedOut = false;
 
     try {
       const attempt = await withTimeout(
@@ -70,7 +71,10 @@ export async function runModelTask<T>(params: {
           signal: controller.signal,
         }),
         params.timeoutMs ?? policy.timeout_ms,
-        () => controller.abort(),
+        () => {
+          timedOut = true;
+          controller.abort();
+        },
       );
 
       const validationErrors = [
@@ -175,7 +179,7 @@ export async function runModelTask<T>(params: {
       if (attempt.retryable === false) break;
     } catch (error) {
       const message = error instanceof Error ? error.message : "model request failed";
-      const rawStatus: ModelRawStatus = message.includes("timeout")
+      const rawStatus: ModelRawStatus = timedOut || message.includes("timeout")
         ? "timeout"
         : "http_error";
       const latencyMs = Date.now() - started;
@@ -334,8 +338,3 @@ async function withTimeout<T>(
     }, timeoutMs);
   });
   try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}
