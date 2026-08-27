@@ -14,7 +14,22 @@ export type ModelRawStatus =
   | "http_error"
   | "invalid_json"
   | "timeout"
-  | "cost_cap_exceeded";
+  | "cost_cap_exceeded"
+  | "policy_blocked";
+
+export type ModelAttemptRecord = {
+  provider: ModelProvider;
+  model: string;
+  attempt: number;
+  latency_ms: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  estimated_cost_usd: number | null;
+  raw_status: ModelRawStatus;
+  json_valid: boolean;
+  validation_errors: string[];
+  fallback_used: boolean;
+};
 
 export type ModelRunResult<T = unknown> = {
   provider: ModelProvider;
@@ -25,10 +40,12 @@ export type ModelRunResult<T = unknown> = {
   input_tokens: number | null;
   output_tokens: number | null;
   estimated_cost_usd: number | null;
+  total_estimated_cost_usd: number | null;
   raw_status: ModelRawStatus;
   json_valid: boolean;
   validation_errors: string[];
   fallback_used: boolean;
+  attempt_history: ModelAttemptRecord[];
   source_document_ids: string[];
   source_quotes: string[];
   confidence: number | null;
@@ -42,6 +59,7 @@ export type ModelAttempt<T = unknown> = {
   input_tokens?: number | null;
   output_tokens?: number | null;
   estimated_cost_usd?: number | null;
+  raw_status?: ModelRawStatus;
   json_valid?: boolean;
   validation_errors?: string[];
   source_document_ids?: string[];
