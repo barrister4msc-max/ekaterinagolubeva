@@ -183,6 +183,23 @@
   opacity: 1;
 }
 
+/* Actions rendered on the light registry card must never inherit white text. */
+.workspace-glass .registry-card button.db-ghost,
+.workspace-glass .registry-card button.db-ghost *,
+.workspace-glass .db-card button.db-ghost,
+.workspace-glass .db-card button.db-ghost * {
+  color: #26343d !important;
+  -webkit-text-fill-color: #26343d !important;
+}
+.workspace-glass .registry-card button.db-ghost:disabled,
+.workspace-glass .registry-card button.db-ghost:disabled *,
+.workspace-glass .db-card button.db-ghost:disabled,
+.workspace-glass .db-card button.db-ghost:disabled * {
+  color: #475569 !important;
+  -webkit-text-fill-color: #475569 !important;
+  opacity: 1 !important;
+}
+
 /* Disabled controls: visibly disabled, never invisible. */
 .workspace-glass button:disabled,
 .workspace-glass input:disabled,
