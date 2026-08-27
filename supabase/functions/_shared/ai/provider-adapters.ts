@@ -89,8 +89,12 @@ export function createGeminiAdapter(deps: {
       if (!apiKey) return unavailableCheck();
       try {
         const response = await fetchFn(
-          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(request.model)}?key=${encodeURIComponent(apiKey)}`,
-          { method: "GET", signal: request.signal },
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(request.model)}`,
+          {
+            method: "GET",
+            signal: request.signal,
+            headers: { "x-goog-api-key": apiKey },
+          },
         );
         return availabilityFromStatus(response.status, response.ok);
       } catch {
@@ -103,11 +107,14 @@ export function createGeminiAdapter(deps: {
 
       try {
         const response = await fetchFn(
-          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(request.model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(request.model)}:generateContent`,
           {
             method: "POST",
             signal: request.signal,
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey,
+            },
             body: JSON.stringify({
               contents: [{ parts: [{ text: request.prompt }] }],
               generationConfig: { responseMimeType: "application/json" },
