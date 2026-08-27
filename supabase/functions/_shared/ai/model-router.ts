@@ -2,6 +2,7 @@ import { getModelPolicy } from "./model-policy.ts";
 import type {
   ModelAttempt,
   ModelAttemptRecord,
+  ModelPolicy,
   ModelProvider,
   ModelRawStatus,
   ModelRunResult,
@@ -31,25 +32,11 @@ export async function runModelTask<T>(params: {
     return blockedResult(params.taskType, "explicit cost cap is required");
   }
 
-  const models = [policy.primary, ...policy.fallback]
-    .filter((spec, index, all) => all.findIndex((item) => sameSpec(item, spec)) === index)
-    .filter((spec) => policy.allowed_models.some((item) => sameSpec(item, spec)))
-    .filter((spec) => params.availableProviders[spec.provider] === true)
-    .slice(0, policy.max_attempts);
-
-  if (models.length === 0) {
-    return blockedResult(params.taskType, "no configured provider is available");
+  const route = selectEligibleModels(policy, params.availableProviders);
+  if (route.blockReason) {
+    return blockedResult(params.taskType, route.blockReason);
   }
-
-  if (
-    policy.requires_cross_provider_fallback &&
-    new Set(models.map((spec) => spec.provider)).size < 2
-  ) {
-    return blockedResult(
-      params.taskType,
-      "cross-provider fallback is required but a second provider is unavailable",
-    );
-  }
+  const models = route.models;
 
   const errors: string[] = [];
   const attemptHistory: ModelAttemptRecord[] = [];
@@ -77,17 +64,30 @@ export async function runModelTask<T>(params: {
         },
       );
 
-      const validationErrors = [
-        ...(attempt.validation_errors ?? []),
-        ...(params.validate ? params.validate(attempt.output as T) : []),
-      ];
-      const rawStatus: ModelRawStatus = attempt.raw_status ??
-        (attempt.json_valid === true && validationErrors.length === 0
-          ? "success"
-          : "invalid_json");
+      const hasDecodedOutput = attempt.output !== undefined;
+      const reportedSuccess = attempt.raw_status === undefined || attempt.raw_status === "success";
+      const canValidate = attempt.json_valid === true && hasDecodedOutput && reportedSuccess;
+      const validationErrors = [...(attempt.validation_errors ?? [])];
+
+      if (attempt.json_valid !== true) {
+        validationErrors.push("response JSON is not valid");
+      } else if (!hasDecodedOutput) {
+        validationErrors.push("model response is missing decoded output");
+      }
+
+      if (canValidate && params.validate) {
+        validationErrors.push(...params.validate(attempt.output as T));
+      }
+
+      const rawStatus: ModelRawStatus = canValidate && validationErrors.length === 0
+        ? "success"
+        : attempt.raw_status && attempt.raw_status !== "success"
+        ? attempt.raw_status
+        : "invalid_json";
       const jsonValid =
-        attempt.json_valid === true &&
         rawStatus === "success" &&
+        attempt.json_valid === true &&
+        hasDecodedOutput &&
         validationErrors.length === 0;
       const estimatedCost = attempt.estimated_cost_usd ?? null;
       if (estimatedCost !== null) totalEstimatedCost += estimatedCost;
@@ -231,6 +231,43 @@ export async function runModelTask<T>(params: {
   }
 
   return blockedResult(params.taskType, "router ended without a result");
+}
+
+function selectEligibleModels(
+  policy: ModelPolicy,
+  availableProviders: Partial<Record<ModelProvider, boolean>>,
+): { models: ModelSpec[]; blockReason?: string } {
+  const isAllowed = (spec: ModelSpec) =>
+    policy.allowed_models.some((allowed) => sameSpec(allowed, spec));
+  const isAvailable = (spec: ModelSpec) =>
+    isAllowed(spec) && availableProviders[spec.provider] === true;
+  const primary = isAvailable(policy.primary) ? policy.primary : null;
+
+  if (policy.fallback_mode === "none") {
+    return primary
+      ? { models: [primary] }
+      : { models: [], blockReason: "primary provider is unavailable" };
+  }
+
+  const fallback = policy.fallback
+    .filter(isAvailable)
+    .filter((spec) => !sameSpec(spec, policy.primary))
+    .filter((spec, index, all) => all.findIndex((item) => sameSpec(item, spec)) === index);
+
+  if (policy.fallback_mode === "required" && (!primary || fallback.length === 0)) {
+    return {
+      models: [],
+      blockReason: "required fallback is unavailable",
+    };
+  }
+
+  const models = [primary, ...fallback]
+    .filter((spec): spec is ModelSpec => spec !== null)
+    .slice(0, policy.max_attempts);
+
+  return models.length > 0
+    ? { models }
+    : { models: [], blockReason: "no configured provider is available" };
 }
 
 function sameSpec(left: ModelSpec, right: ModelSpec): boolean {
