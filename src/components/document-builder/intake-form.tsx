@@ -871,7 +871,10 @@ const reloadAnswersFromSession = useCallback(async () => {
     if (aiFillInFlightRef.current) return;
     aiFillInFlightRef.current = true;
     const trigger = options.trigger ?? "manual";
-    const allowUnredactedText = options.allowUnredactedText === true;
+    // Intake AI-fill intentionally runs before redaction. The user requested
+    // factual form completion from the full uploaded OCR package; redaction
+    // remains a separate post-fill action before external sharing/export.
+    const allowUnredactedText = true;
     try {
       setIsAiFilling(true);
       setAutoFillStage("ai_filling");
@@ -1020,8 +1023,16 @@ const reloadAnswersFromSession = useCallback(async () => {
       }
       onChange({ ...state, answers: nextAnswers });
 
-      // PR27 — AI-fill produced a usable INN: run one registry verification.
-      if (isValidInn(nextAnswers.taxpayer_inn)) {
+      // PR27 — AI-fill may use different schema aliases for the taxpayer INN.
+      // Normalize them for the registry card without overwriting the source answer.
+      const autoRegistryInn = [
+        nextAnswers.taxpayer_inn,
+        nextAnswers.inn,
+        nextAnswers.company_inn,
+        nextAnswers.client_inn,
+      ].find((value) => isValidInn(value));
+
+      if (autoRegistryInn) {
         setRegistryAutoToken((token) => token + 1);
       }
 
@@ -1144,7 +1155,12 @@ const reloadAnswersFromSession = useCallback(async () => {
         <div className="space-y-5">
           <CompanyRegistryCard
             sessionId={intakeSessionId}
-            inn={state.answers.taxpayer_inn}
+            inn={
+              state.answers.taxpayer_inn ??
+              state.answers.inn ??
+              state.answers.company_inn ??
+              state.answers.client_inn
+            }
             autoVerifyToken={registryAutoToken}
             onAnswersUpdated={reloadAnswersFromSession}
           />
