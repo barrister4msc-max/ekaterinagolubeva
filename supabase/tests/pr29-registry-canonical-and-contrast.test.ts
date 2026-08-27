@@ -97,6 +97,32 @@ describe("PR29 — канонические реквизиты из реестр
     expect(plan.every((entry) => entry.value_source === "registry")).toBe(true);
   });
 
+  test("сопоставляет юридический адрес с алиасом taxpayer_address", () => {
+    const answers: AnswerRow[] = [
+      {
+        field_name: "taxpayer_address",
+        field_value: "старый машинно извлечённый адрес",
+        value_source: "ai_document",
+      },
+    ];
+    const plan = buildCanonicalRegistryOverrides({
+      profile: profile(),
+      answers,
+      schemaFieldKeys: [
+        "taxpayer_name",
+        "taxpayer_inn",
+        "taxpayer_ogrn",
+        "taxpayer_kpp",
+        "taxpayer_address",
+      ],
+      conflicts: [],
+    });
+
+    expect(plan.find((entry) => entry.field_name === "taxpayer_address")?.field_value).toBe(
+      profile().legal_address,
+    );
+  });
+
   test("не перезаписывает ручное или подтверждённое юристом значение", () => {
     const answers: AnswerRow[] = [
       {

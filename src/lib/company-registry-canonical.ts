@@ -122,18 +122,29 @@ export function buildCanonicalRegistryOverrides(params: {
     ["business_activity", formatRegistryBusinessActivity(params.profile)],
   ];
 
+  const resolveFieldName = (fieldName: string): string | null => {
+    const aliases: Record<string, string[]> = {
+      taxpayer_legal_address: ["taxpayer_legal_address", "taxpayer_address", "legal_address"],
+      main_okved: ["main_okved", "okved_main", "business_activity"],
+    };
+    const candidates = aliases[fieldName] ?? [fieldName];
+    if (known.size === 0) return candidates[0];
+    return candidates.find((candidate) => known.has(candidate)) ?? null;
+  };
+
   const plan: AutofillEntry[] = [];
   for (const [fieldName, value] of mapping) {
     if (!value) continue;
-    if (known.size > 0 && !known.has(fieldName)) continue;
-    const current = byName.get(fieldName);
+    const targetFieldName = resolveFieldName(fieldName);
+    if (!targetFieldName) continue;
+    const current = byName.get(targetFieldName);
     if (isHumanProtectedAnswer(current)) continue;
-    if (blockedIdentifierFields.has(fieldName)) continue;
+    if (blockedIdentifierFields.has(fieldName) || blockedIdentifierFields.has(targetFieldName)) continue;
     if (current && !isMachineExtracted(current)) continue;
 
     plan.push({
-      field_name: fieldName,
-      field_label: FIELD_LABELS[fieldName] ?? fieldName,
+      field_name: targetFieldName,
+      field_label: FIELD_LABELS[fieldName] ?? FIELD_LABELS[targetFieldName] ?? targetFieldName,
       field_value: value,
       value_source: REGISTRY_VALUE_SOURCE,
     });
