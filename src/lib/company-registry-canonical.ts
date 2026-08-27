@@ -125,7 +125,9 @@ export function buildCanonicalRegistryOverrides(params: {
   const resolveFieldName = (fieldName: string): string | null => {
     const aliases: Record<string, string[]> = {
       taxpayer_legal_address: ["taxpayer_legal_address", "taxpayer_address", "legal_address"],
-      main_okved: ["main_okved", "okved_main", "business_activity"],
+      // `business_activity` is a descriptive field. Never place a bare OKVED
+      // code there when the template has no dedicated code field.
+      main_okved: ["main_okved", "okved_main"],
     };
     const candidates = aliases[fieldName] ?? [fieldName];
     if (known.size === 0) return candidates[0];
