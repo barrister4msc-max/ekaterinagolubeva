@@ -104,6 +104,7 @@ export function evaluateModelEligibility(input: ModelEligibilityInput): ModelEli
   if (!state.configured) reasons.push("provider_not_configured");
   if (state.authorized !== true) reasons.push("provider_not_authorized");
   if (state.model_available !== true) reasons.push("model_not_available");
+  if (state.reachable !== true) reasons.push("provider_unreachable");
   if (!hasCapabilities(descriptor.capabilities, policy.required_capabilities)) {
     reasons.push("missing_required_capability");
   }
