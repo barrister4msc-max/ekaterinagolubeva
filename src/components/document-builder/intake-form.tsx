@@ -158,6 +158,7 @@ const isProcessingDocuments = processingDocumentIds.length > 0;
 
 const [isAiFilling, setIsAiFilling] = useState(false);
 const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
+const [aiFillWarning, setAiFillWarning] = useState<string | null>(null);
 const [allowUnredactedAiFill, setAllowUnredactedAiFill] = useState(false);
 const [aiFillRunId, setAiFillRunId] = useState<string | null>(null);
 const [autoFillStage, setAutoFillStage] = useState<import("@/lib/auto-ai-fill").AutoAiFillStage>("idle");
@@ -875,6 +876,7 @@ const reloadAnswersFromSession = useCallback(async () => {
       setIsAiFilling(true);
       setAutoFillStage("ai_filling");
       setAiFillFailure(null);
+      setAiFillWarning(null);
       // The raw-text offer is valid only for the current redaction failure.
       setAllowUnredactedAiFill(false);
 
@@ -887,17 +889,9 @@ const reloadAnswersFromSession = useCallback(async () => {
         (document) => !hasExtractedDocumentText(document.ocr_text),
       );
 
-      // AI-fill is batch-scoped: never send a partial package while another
-      // document is still extracting. Partial runs caused 409 redaction/readiness
-      // conflicts and produced misleading generic "non-2xx" errors in the UI.
-      if (readyDocs.length > 0 && documentsWithoutText.length > 0) {
-        const pendingNames = documentsWithoutText
-          .map((document) => document.file_name ?? document.title ?? document.id)
-          .join(", ");
-        throw new Error(
-          `AI-заполнение ожидает завершения OCR всех файлов. Ещё обрабатываются: ${pendingNames}`,
-        );
-      }
+      // A failed/OCR-required document must not block usable documents.
+      // It remains outside this AI request and is shown as an explicit warning.
+      // Pending documents continue through the background extraction queue.
 
       // If at least one document is ready, start AI-fill immediately. Remaining OCR jobs
       // keep using the normal background queue. Only an all-pending package waits once.
@@ -959,6 +953,15 @@ const reloadAnswersFromSession = useCallback(async () => {
           redactionIssues.length > 0
             ? `Не удалось безопасно подготовить документы для AI: ${redactionIssues.join("; ")}`
             : "Нет документов, безопасных для AI-заполнения.",
+        );
+      }
+
+      const omittedNames = currentDocuments
+        .filter((document) => !readyDocs.some((ready) => ready.id === document.id))
+        .map((document) => document.file_name ?? document.title ?? document.id);
+      if (omittedNames.length > 0) {
+        setAiFillWarning(
+          `AI использует ${readyDocs.length} из ${currentDocuments.length} документов. Не включены: ${omittedNames.join(", ")}. Их можно дозагрузить или повторно распознать позже.`,
         );
       }
 
@@ -1248,6 +1251,16 @@ const reloadAnswersFromSession = useCallback(async () => {
               )}
             </div>
 
+
+            {aiFillWarning && !aiFillFailure && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-800">
+                <div className="font-semibold">AI-заполнение выполнено по доступным документам</div>
+                <div className="mt-1">{aiFillWarning}</div>
+                <div className="mt-1 text-muted-foreground">
+                  После повторного OCR можно снова запустить AI-заполнение, чтобы дополнить ответы.
+                </div>
+              </div>
+            )}
 
             {aiFillFailure && (
               <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-800">

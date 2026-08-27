@@ -61,6 +61,19 @@ describe("auto AI-fill orchestration", () => {
     expect(second.reason).toBe("already_ran");
   });
 
+  test("OCR-required documents are settled and do not keep auto-fill waiting", () => {
+    const decision = evaluateAutoAiFill({
+      sessionId: "s1",
+      documents: [doc("a", "completed", 500), doc("b", "ocr_required", 0)],
+      lastFingerprint: null,
+      inFlight: false,
+      processing: false,
+    });
+    expect(decision.action).toBe("run");
+    if (decision.action !== "run") throw new Error("unreachable");
+    expect(decision.documentIds).toEqual(["a"]);
+  });
+
   test("re-render / polling while a run is in flight never triggers a duplicate", () => {
     const documents = [doc("a", "completed", 500)];
     const decision = evaluateAutoAiFill({
@@ -87,7 +100,7 @@ describe("auto AI-fill orchestration", () => {
     expect(decision.action).toBe("run");
   });
 
-  test("partial OCR failure is not reported as success", () => {
+  test("partial OCR failure runs on usable documents with an explicit partial reason", () => {
     const decision = evaluateAutoAiFill({
       sessionId: "s1",
       documents: [doc("a", "completed", 500), doc("b", "failed", 0)],
@@ -95,8 +108,10 @@ describe("auto AI-fill orchestration", () => {
       inFlight: false,
       processing: false,
     });
-    expect(decision.action).toBe("blocked");
+    expect(decision.action).toBe("run");
     expect(decision.reason).toBe("partial_extraction");
+    if (decision.action !== "run") throw new Error("unreachable");
+    expect(decision.documentIds).toEqual(["a"]);
   });
 });
 
