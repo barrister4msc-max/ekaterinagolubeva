@@ -609,7 +609,12 @@ ${documentText.slice(0, 120000)}
       continue;
     }
 
-    return JSON.parse(text);
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      lastError = `Gemini model ${model} returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`;
+      continue;
+    }
   }
 
   throw new Error(lastError || "All Gemini models failed");
@@ -644,11 +649,11 @@ async function resolveGeminiModels(apiKey: string): Promise<string[]> {
         !/image|tts|live|audio|embedding/i.test(model)
       );
 
-    const ordered = [
-      ...fallbackModels.filter((model) => discovered.includes(model)),
-      ...discovered.filter((model) => !fallbackModels.includes(model)),
-    ];
+    const ordered = fallbackModels.filter((model) => discovered.includes(model));
 
+    // Keep a bounded, predictable cascade. Do not silently expand to every
+    // available model: that could introduce more expensive or incompatible
+    // models into a routine intake fill.
     return ordered.length > 0 ? ordered : fallbackModels;
   } catch {
     return fallbackModels;
