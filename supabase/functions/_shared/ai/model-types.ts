@@ -84,6 +84,7 @@ export type ModelPolicy = {
   max_attempts: number;
   timeout_ms: number;
   max_cost_per_run_usd: number | null;
+  requires_explicit_cost_cap: boolean;
   requires_cross_provider_fallback: boolean;
   requires_human_review: boolean;
 };
