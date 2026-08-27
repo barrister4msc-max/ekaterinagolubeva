@@ -18,8 +18,10 @@ export async function runModelTask<T>(params: {
   run: ModelRunner<T>;
   validate?: (output: T) => string[];
   timeoutMs?: number;
+  maxCostPerRunUsd?: number | null;
 }): Promise<ModelRunResult<T>> {
   const policy = getModelPolicy(params.taskType);
+  const costCap = params.maxCostPerRunUsd ?? policy.max_cost_per_run_usd;
   const models = [policy.primary, ...policy.fallback]
     .filter((model, index, all) => all.indexOf(model) === index)
     .filter((model) => policy.allowed_models.includes(model))
@@ -48,6 +50,24 @@ export async function runModelTask<T>(params: {
       ];
       const jsonValid = attempt.json_valid !== false && validationErrors.length === 0;
       const estimatedCost = attempt.estimated_cost_usd ?? null;
+
+      if (costCap !== null && estimatedCost !== null && estimatedCost > costCap) {
+        const costError = "estimated cost exceeds cap";
+        errors.push(`${provider}/${model}: ${costError}`);
+        last = makeResult({
+          attempt,
+          provider,
+          model,
+          taskType: params.taskType,
+          attemptNumber: index + 1,
+          latencyMs: Date.now() - started,
+          jsonValid: false,
+          rawStatus: "cost_cap_exceeded",
+          validationErrors: [costError],
+          fallbackUsed: index > 0,
+        });
+        continue;
+      }
 
       if (!jsonValid) {
         errors.push(...validationErrors, `${provider}/${model}: invalid result`);
@@ -135,6 +155,7 @@ function makeResult<T>(params: {
   jsonValid: boolean;
   validationErrors: string[];
   fallbackUsed: boolean;
+  rawStatus?: ModelRawStatus;
 }): ModelRunResult<T> {
   return {
     provider: params.provider,
@@ -145,7 +166,7 @@ function makeResult<T>(params: {
     input_tokens: params.attempt.input_tokens ?? null,
     output_tokens: params.attempt.output_tokens ?? null,
     estimated_cost_usd: params.attempt.estimated_cost_usd ?? null,
-    raw_status: params.jsonValid ? "success" : "invalid_json",
+    raw_status: params.rawStatus ?? (params.jsonValid ? "success" : "invalid_json"),
     json_valid: params.jsonValid,
     validation_errors: params.validationErrors,
     fallback_used: params.fallbackUsed,
