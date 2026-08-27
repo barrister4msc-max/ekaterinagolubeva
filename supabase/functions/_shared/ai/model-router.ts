@@ -1,6 +1,7 @@
 import { getModelPolicy } from "./model-policy.ts";
 import type {
   ModelAttempt,
+  ModelAttemptRecord,
   ModelProvider,
   ModelRawStatus,
   ModelRunResult,
@@ -27,8 +28,35 @@ export async function runModelTask<T>(params: {
     .filter((model) => policy.allowed_models.includes(model))
     .slice(0, policy.max_attempts);
 
+  if (
+    policy.requires_cross_provider_fallback &&
+    new Set(models.map(inferProvider)).size < 2
+  ) {
+    return {
+      provider: inferProvider(models[0] ?? "gemini"),
+      model: models[0] ?? "none",
+      task_type: params.taskType,
+      attempt: 0,
+      latency_ms: 0,
+      input_tokens: null,
+      output_tokens: null,
+      estimated_cost_usd: null,
+      total_estimated_cost_usd: null,
+      raw_status: "policy_blocked",
+      json_valid: false,
+      validation_errors: ["cross-provider fallback is required but not configured"],
+      fallback_used: false,
+      attempt_history: [],
+      source_document_ids: [],
+      source_quotes: [],
+      confidence: null,
+    };
+  }
+
   const errors: string[] = [];
   const attempts = new Set<string>();
+  const attemptHistory: ModelAttemptRecord[] = [];
+  let totalEstimatedCost = 0;
   let last: ModelRunResult<T> | null = null;
 
   for (let index = 0; index < models.length; index += 1) {
@@ -36,7 +64,7 @@ export async function runModelTask<T>(params: {
     if (attempts.has(model)) continue;
     attempts.add(model);
 
-    const provider: ModelProvider = model.startsWith("gpt-") ? "openai" : "gemini";
+    const provider = inferProvider(model);
     const started = Date.now();
 
     try {
@@ -50,68 +78,135 @@ export async function runModelTask<T>(params: {
       ];
       const jsonValid = attempt.json_valid !== false && validationErrors.length === 0;
       const estimatedCost = attempt.estimated_cost_usd ?? null;
+      if (estimatedCost !== null) totalEstimatedCost += estimatedCost;
 
-      if (costCap !== null && estimatedCost !== null && estimatedCost > costCap) {
-        const costError = "estimated cost exceeds cap";
+      const rawStatus: ModelRawStatus = attempt.raw_status ??
+        (jsonValid ? "success" : "invalid_json");
+      const latencyMs = Date.now() - started;
+      const fallbackUsed = index > 0;
+
+      if (costCap !== null && totalEstimatedCost > costCap) {
+        const costError = "cumulative estimated cost exceeds cap";
         errors.push(`${provider}/${model}: ${costError}`);
+        const record = makeAttemptRecord({
+          attempt,
+          provider,
+          model,
+          attemptNumber: index + 1,
+          latencyMs,
+          jsonValid: false,
+          rawStatus: "cost_cap_exceeded",
+          validationErrors: [costError],
+          fallbackUsed,
+        });
+        attemptHistory.push(record);
         last = makeResult({
           attempt,
           provider,
           model,
           taskType: params.taskType,
           attemptNumber: index + 1,
-          latencyMs: Date.now() - started,
+          latencyMs,
           jsonValid: false,
           rawStatus: "cost_cap_exceeded",
           validationErrors: [costError],
-          fallbackUsed: index > 0,
+          fallbackUsed,
+          attemptHistory,
+          totalEstimatedCost,
         });
         continue;
       }
 
       if (!jsonValid) {
         errors.push(...validationErrors, `${provider}/${model}: invalid result`);
+        attemptHistory.push(makeAttemptRecord({
+          attempt,
+          provider,
+          model,
+          attemptNumber: index + 1,
+          latencyMs,
+          jsonValid: false,
+          rawStatus,
+          validationErrors,
+          fallbackUsed,
+        }));
         last = makeResult({
           attempt,
           provider,
           model,
           taskType: params.taskType,
           attemptNumber: index + 1,
-          latencyMs: Date.now() - started,
+          latencyMs,
           jsonValid: false,
+          rawStatus,
           validationErrors,
-          fallbackUsed: index > 0,
+          fallbackUsed,
+          attemptHistory,
+          totalEstimatedCost,
         });
         continue;
       }
 
+      attemptHistory.push(makeAttemptRecord({
+        attempt,
+        provider,
+        model,
+        attemptNumber: index + 1,
+        latencyMs,
+        jsonValid: true,
+        rawStatus: "success",
+        validationErrors: [],
+        fallbackUsed,
+      }));
       return makeResult({
         attempt,
         provider,
         model,
         taskType: params.taskType,
         attemptNumber: index + 1,
-        latencyMs: Date.now() - started,
+        latencyMs,
         jsonValid: true,
+        rawStatus: "success",
         validationErrors: [],
-        fallbackUsed: index > 0,
+        fallbackUsed,
+        attemptHistory,
+        totalEstimatedCost,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "model request failed";
+      const latencyMs = Date.now() - started;
+      const rawStatus: ModelRawStatus = message.includes("timeout")
+        ? "timeout"
+        : "http_error";
       errors.push(`${provider}/${model}: ${message}`);
+      attemptHistory.push({
+        provider,
+        model,
+        attempt: index + 1,
+        latency_ms: latencyMs,
+        input_tokens: null,
+        output_tokens: null,
+        estimated_cost_usd: null,
+        raw_status: rawStatus,
+        json_valid: false,
+        validation_errors: [message],
+        fallback_used: index > 0,
+      });
       last = {
         provider,
         model,
         task_type: params.taskType,
         attempt: index + 1,
-        latency_ms: Date.now() - started,
+        latency_ms: latencyMs,
         input_tokens: null,
         output_tokens: null,
         estimated_cost_usd: null,
-        raw_status: message.includes("timeout") ? "timeout" : "http_error",
+        total_estimated_cost_usd: totalEstimatedCost || null,
+        raw_status: rawStatus,
         json_valid: false,
         validation_errors: [message],
         fallback_used: index > 0,
+        attempt_history: [...attemptHistory],
         source_document_ids: [],
         source_quotes: [],
         confidence: null,
@@ -122,6 +217,8 @@ export async function runModelTask<T>(params: {
   if (last) {
     return {
       ...last,
+      attempt_history: attemptHistory,
+      total_estimated_cost_usd: totalEstimatedCost || null,
       validation_errors: [...last.validation_errors, ...errors],
     };
   }
@@ -135,13 +232,45 @@ export async function runModelTask<T>(params: {
     input_tokens: null,
     output_tokens: null,
     estimated_cost_usd: null,
-    raw_status: "http_error",
+    total_estimated_cost_usd: null,
+    raw_status: "policy_blocked",
     json_valid: false,
     validation_errors: ["no allowed models configured"],
     fallback_used: false,
+    attempt_history: [],
     source_document_ids: [],
     source_quotes: [],
     confidence: null,
+  };
+}
+
+function inferProvider(model: string): ModelProvider {
+  return model.startsWith("gpt-") ? "openai" : "gemini";
+}
+
+function makeAttemptRecord<T>(params: {
+  attempt: ModelAttempt<T>;
+  provider: ModelProvider;
+  model: string;
+  attemptNumber: number;
+  latencyMs: number;
+  jsonValid: boolean;
+  rawStatus: ModelRawStatus;
+  validationErrors: string[];
+  fallbackUsed: boolean;
+}): ModelAttemptRecord {
+  return {
+    provider: params.provider,
+    model: params.model,
+    attempt: params.attemptNumber,
+    latency_ms: params.latencyMs,
+    input_tokens: params.attempt.input_tokens ?? null,
+    output_tokens: params.attempt.output_tokens ?? null,
+    estimated_cost_usd: params.attempt.estimated_cost_usd ?? null,
+    raw_status: params.rawStatus,
+    json_valid: params.jsonValid,
+    validation_errors: params.validationErrors,
+    fallback_used: params.fallbackUsed,
   };
 }
 
@@ -153,9 +282,11 @@ function makeResult<T>(params: {
   attemptNumber: number;
   latencyMs: number;
   jsonValid: boolean;
+  rawStatus: ModelRawStatus;
   validationErrors: string[];
   fallbackUsed: boolean;
-  rawStatus?: ModelRawStatus;
+  attemptHistory: ModelAttemptRecord[];
+  totalEstimatedCost: number;
 }): ModelRunResult<T> {
   return {
     provider: params.provider,
@@ -166,10 +297,12 @@ function makeResult<T>(params: {
     input_tokens: params.attempt.input_tokens ?? null,
     output_tokens: params.attempt.output_tokens ?? null,
     estimated_cost_usd: params.attempt.estimated_cost_usd ?? null,
-    raw_status: params.rawStatus ?? (params.jsonValid ? "success" : "invalid_json"),
+    total_estimated_cost_usd: params.totalEstimatedCost || null,
+    raw_status: params.rawStatus,
     json_valid: params.jsonValid,
     validation_errors: params.validationErrors,
     fallback_used: params.fallbackUsed,
+    attempt_history: [...params.attemptHistory],
     source_document_ids: params.attempt.source_document_ids ?? [],
     source_quotes: params.attempt.source_quotes ?? [],
     confidence: params.attempt.confidence ?? null,
