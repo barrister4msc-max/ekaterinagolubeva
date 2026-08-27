@@ -871,7 +871,10 @@ const reloadAnswersFromSession = useCallback(async () => {
     if (aiFillInFlightRef.current) return;
     aiFillInFlightRef.current = true;
     const trigger = options.trigger ?? "manual";
-    const allowUnredactedText = options.allowUnredactedText === true;
+    // Intake AI-fill intentionally runs before redaction. The user requested
+    // factual form completion from the full uploaded OCR package; redaction
+    // remains a separate post-fill action before external sharing/export.
+    const allowUnredactedText = true;
     try {
       setIsAiFilling(true);
       setAutoFillStage("ai_filling");
