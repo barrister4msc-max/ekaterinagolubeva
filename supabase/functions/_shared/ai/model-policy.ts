@@ -16,7 +16,7 @@ export const MODEL_POLICIES: Record<ModelTaskType, ModelPolicy> = {
     timeout_ms: 30_000,
     max_cost_per_run_usd: null,
     requires_explicit_cost_cap: true,
-    requires_cross_provider_fallback: true,
+    fallback_mode: "optional",
     requires_human_review: false,
   },
   fact_extraction: {
@@ -28,7 +28,7 @@ export const MODEL_POLICIES: Record<ModelTaskType, ModelPolicy> = {
     timeout_ms: 45_000,
     max_cost_per_run_usd: null,
     requires_explicit_cost_cap: true,
-    requires_cross_provider_fallback: true,
+    fallback_mode: "optional",
     requires_human_review: false,
   },
   ai_fill: {
@@ -40,7 +40,7 @@ export const MODEL_POLICIES: Record<ModelTaskType, ModelPolicy> = {
     timeout_ms: 120_000,
     max_cost_per_run_usd: null,
     requires_explicit_cost_cap: true,
-    requires_cross_provider_fallback: true,
+    fallback_mode: "optional",
     requires_human_review: false,
   },
   legal_research: {
@@ -52,7 +52,7 @@ export const MODEL_POLICIES: Record<ModelTaskType, ModelPolicy> = {
     timeout_ms: 180_000,
     max_cost_per_run_usd: null,
     requires_explicit_cost_cap: true,
-    requires_cross_provider_fallback: true,
+    fallback_mode: "optional",
     requires_human_review: false,
   },
   generation: {
@@ -64,7 +64,7 @@ export const MODEL_POLICIES: Record<ModelTaskType, ModelPolicy> = {
     timeout_ms: 180_000,
     max_cost_per_run_usd: null,
     requires_explicit_cost_cap: true,
-    requires_cross_provider_fallback: true,
+    fallback_mode: "optional",
     requires_human_review: false,
   },
   review: {
@@ -76,7 +76,7 @@ export const MODEL_POLICIES: Record<ModelTaskType, ModelPolicy> = {
     timeout_ms: 180_000,
     max_cost_per_run_usd: null,
     requires_explicit_cost_cap: true,
-    requires_cross_provider_fallback: true,
+    fallback_mode: "optional",
     requires_human_review: false,
   },
   challenge: {
@@ -88,7 +88,7 @@ export const MODEL_POLICIES: Record<ModelTaskType, ModelPolicy> = {
     timeout_ms: 180_000,
     max_cost_per_run_usd: null,
     requires_explicit_cost_cap: true,
-    requires_cross_provider_fallback: true,
+    fallback_mode: "optional",
     requires_human_review: false,
   },
 };
