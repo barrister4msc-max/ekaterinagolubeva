@@ -1,7 +1,21 @@
 import { describe, expect, test } from "bun:test";
+import { getModelPolicy, MODEL_POLICIES } from "../functions/_shared/ai/model-policy.ts";
 import { runModelTask } from "../functions/_shared/ai/model-router.ts";
 
 const bothProviders = { gemini: true, openai: true };
+
+async function withClassificationFallbackMode<T>(
+  fallbackMode: "none" | "optional" | "required",
+  callback: () => Promise<T>,
+): Promise<T> {
+  const previous = MODEL_POLICIES.classification;
+  MODEL_POLICIES.classification = { ...previous, fallback_mode: fallbackMode };
+  try {
+    return await callback();
+  } finally {
+    MODEL_POLICIES.classification = previous;
+  }
+}
 
 describe("Model Router Contract & Policy Foundation", () => {
   test("keeps Gemini primary until benchmark and returns normalized telemetry", async () => {
@@ -52,9 +66,27 @@ describe("Model Router Contract & Policy Foundation", () => {
     expect(result.validation_errors[0]).toContain("cost cap");
   });
 
-  test("blocks a required cross-provider route when the second provider is unavailable", async () => {
-    let calls = 0;
+  test("keeps the Gemini baseline available when an optional OpenAI reserve is unavailable", async () => {
+    const calls: string[] = [];
     const result = await runModelTask({
+      taskType: "classification",
+      availableProviders: { gemini: true, openai: false },
+      maxCostPerRunUsd: 0.01,
+      run: async ({ provider, model }) => {
+        calls.push(model);
+        return { provider, model, output: { ok: true }, json_valid: true };
+      },
+    });
+
+    expect(getModelPolicy("classification").fallback_mode).toBe("optional");
+    expect(calls).toEqual(["gemini-2.5-flash"]);
+    expect(result.raw_status).toBe("success");
+    expect(result.provider).toBe("gemini");
+  });
+
+  test("blocks a required route before model execution when its reserve is unavailable", async () => {
+    let calls = 0;
+    const result = await withClassificationFallbackMode("required", () => runModelTask({
       taskType: "classification",
       availableProviders: { gemini: true, openai: false },
       maxCostPerRunUsd: 0.01,
@@ -62,11 +94,27 @@ describe("Model Router Contract & Policy Foundation", () => {
         calls += 1;
         return { provider: "gemini", model: "gemini-2.5-flash", output: {}, json_valid: true };
       },
-    });
+    }));
 
     expect(calls).toBe(0);
     expect(result.raw_status).toBe("policy_blocked");
-    expect(result.validation_errors[0]).toContain("second provider");
+    expect(result.validation_errors[0]).toContain("required fallback");
+  });
+
+  test("uses only the primary when fallback mode is none", async () => {
+    const calls: string[] = [];
+    const result = await withClassificationFallbackMode("none", () => runModelTask({
+      taskType: "classification",
+      availableProviders: bothProviders,
+      maxCostPerRunUsd: 0.01,
+      run: async ({ provider, model }) => {
+        calls.push(model);
+        return { provider, model, output: {}, json_valid: false };
+      },
+    }));
+
+    expect(calls).toEqual(["gemini-2.5-flash"]);
+    expect(result.raw_status).toBe("invalid_json");
   });
 
   test("uses sequential cross-provider fallback after fail-closed JSON validation", async () => {
@@ -151,4 +199,53 @@ describe("Model Router Contract & Policy Foundation", () => {
     expect(nonRetryableCalls).toBe(1);
     expect(nonRetryableResult.attempt_history).toHaveLength(1);
   });
+
+  test("accounts for invalid response cost before any validator and never calls that validator", async () => {
+    let calls = 0;
+    let validatorCalls = 0;
+    const result = await runModelTask({
+      taskType: "classification",
+      availableProviders: bothProviders,
+      maxCostPerRunUsd: 0.01,
+      validate: () => {
+        validatorCalls += 1;
+        throw new Error("validator must not run for undecoded output");
+      },
+      run: async ({ provider, model }) => {
+        calls += 1;
+        return {
+          provider,
+          model,
+          estimated_cost_usd: 0.02,
+          json_valid: false,
+        };
+      },
+    });
+
+    expect(calls).toBe(1);
+    expect(validatorCalls).toBe(0);
+    expect(result.raw_status).toBe("cost_cap_exceeded");
+    expect(result.total_estimated_cost_usd).toBe(0.02);
+  });
+
+  test("does not accept valid JSON without decoded output", async () => {
+    const calls: string[] = [];
+    const result = await runModelTask({
+      taskType: "classification",
+      availableProviders: bothProviders,
+      maxCostPerRunUsd: 0.01,
+      run: async ({ provider, model }) => {
+        calls.push(model);
+        if (calls.length === 1) {
+          return { provider, model, json_valid: true };
+        }
+        return { provider, model, output: { ok: true }, json_valid: true };
+      },
+    });
+
+    expect(calls).toEqual(["gemini-2.5-flash", "gpt-5.6-luna"]);
+    expect(result.provider).toBe("openai");
+    expect(result.output).toEqual({ ok: true });
+  });
+
 });
