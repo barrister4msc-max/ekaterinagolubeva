@@ -86,6 +86,21 @@ describe("P1-A Provider / Model Capability Foundation", () => {
     ]));
   });
 
+  test("does not mark an unreachable provider eligible even with fresh authorization and model state", () => {
+    const result = evaluateModelEligibility({
+      descriptor: descriptor("gemini", "gemini-2.5-flash"),
+      policy: getModelPolicy("classification"),
+      provider_state: { ...checkedProvider, reachable: false },
+      adapter_registered: true,
+      production_baseline_approvals: [{ provider: "gemini", model: "gemini-2.5-flash", task_type: "classification" }],
+      benchmark_approvals: [],
+      remaining_budget_allows_attempt: true,
+      policy_allows_model: true,
+    });
+
+    expect(result).toEqual({ eligible: false, reasons: ["provider_unreachable"] });
+  });
+
   test("OpenAI adapter normalizes success and cached token usage", async () => {
     const adapter = createOpenAiAdapter({
       readEnv: () => "secret-value",
@@ -163,6 +178,29 @@ describe("P1-A Provider / Model Capability Foundation", () => {
     expect(result.provider_error?.code).toBe("invalid_response");
     expect(result.input_tokens).toBe(7);
     expect(result.cached_input_tokens).toBe(1);
+  });
+
+  test("Gemini keeps its API key out of availability and inference URLs", async () => {
+    const requests: Array<{ url: string; headers: Headers }> = [];
+    const adapter = createGeminiAdapter({
+      readEnv: () => "gemini-super-secret",
+      fetchFn: async (url, init) => {
+        requests.push({ url: String(url), headers: new Headers(init?.headers) });
+        if (init?.method === "GET") return new Response("{}", { status: 200 });
+        return new Response(JSON.stringify({
+          candidates: [{ content: { parts: [{ text: "{}" }] } }],
+        }), { status: 200 });
+      },
+    });
+
+    await adapter.checkModelAvailability({ model: "gemini-2.5-flash", signal: new AbortController().signal });
+    await adapter.runJson({ model: "gemini-2.5-flash", prompt: "safe fixture", signal: new AbortController().signal });
+
+    expect(requests).toHaveLength(2);
+    for (const request of requests) {
+      expect(request.url).not.toContain("gemini-super-secret");
+      expect(request.headers.get("x-goog-api-key")).toBe("gemini-super-secret");
+    }
   });
 
   test("timeout is retryable and exposes no prompt or API key", async () => {
