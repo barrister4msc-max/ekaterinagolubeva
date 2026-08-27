@@ -2,9 +2,23 @@ export type ModelProvider = "gemini" | "openai";
 
 export type FallbackMode = "none" | "optional" | "required";
 
+/** Technical capabilities only. They are not evidence of legal quality. */
+export type ModelCapability = "text_generation" | "structured_json" | "long_context";
+
+export type ModelTier = "baseline" | "standard" | "advanced";
+
+export type CostProfile = "unknown" | "low" | "medium" | "high";
+
 export type ModelSpec = {
   provider: ModelProvider;
   model: string;
+};
+
+export type ModelDescriptor = ModelSpec & {
+  tier: ModelTier;
+  capabilities: ModelCapability[];
+  cost_profile: CostProfile;
+  enabled: boolean;
 };
 
 export type ModelTaskType =
@@ -23,6 +37,41 @@ export type ModelRawStatus =
   | "timeout"
   | "cost_cap_exceeded"
   | "policy_blocked";
+
+export type ProviderError = {
+  provider: ModelProvider;
+  model: string;
+  status_code: number | null;
+  code:
+    | "timeout"
+    | "rate_limited"
+    | "server_error"
+    | "malformed_request"
+    | "unauthorized"
+    | "forbidden"
+    | "model_unavailable"
+    | "network_error"
+    | "invalid_response";
+  retryable: boolean;
+  /** Safe for telemetry/UI: never include a secret, prompt, OCR or provider body. */
+  safe_message: string;
+};
+
+export type ProviderState = {
+  registered: boolean;
+  configured: boolean;
+  /** Unknown is deliberately not promoted to true merely because a key exists. */
+  authorized: boolean | null;
+  model_available: boolean | null;
+  reachable: boolean | null;
+  checked_at: string | null;
+};
+
+/** Result of a level-2 provider/model availability request (no inference). */
+export type ProviderModelAvailability = Pick<
+  ProviderState,
+  "authorized" | "model_available" | "reachable" | "checked_at"
+>;
 
 export type ModelAttemptRecord = {
   provider: ModelProvider;
@@ -76,6 +125,7 @@ export type ModelAttempt<T = unknown> = {
   source_document_ids?: string[];
   source_quote_refs?: string[];
   confidence?: number | null;
+  provider_error?: ProviderError | null;
 };
 
 export type ModelPolicy = {
@@ -88,5 +138,10 @@ export type ModelPolicy = {
   max_cost_per_run_usd: number | null;
   requires_explicit_cost_cap: boolean;
   fallback_mode: FallbackMode;
+  required_capabilities: ModelCapability[];
+  minimum_quality_tier: ModelTier;
+  /** Kept separate from normal fallback: never selected by Router v1. */
+  fallback_candidates: ModelSpec[];
+  escalation_candidates: ModelSpec[];
   requires_human_review: boolean;
 };
