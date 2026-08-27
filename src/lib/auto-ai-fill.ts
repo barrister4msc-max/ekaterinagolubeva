@@ -2,8 +2,9 @@
  * Auto AI-fill orchestration contract.
  *
  * Pure decision layer used by the intake form so that AI-fill starts by itself
- * exactly once per document set, after every uploaded document has finished its
- * OCR/extraction lifecycle. No network calls happen here.
+ * exactly once per settled document set. Usable documents may run while a
+ * failed/OCR-required document is excluded with an explicit warning. No network
+ * calls happen here.
  */
 
 export type AutoAiFillDocument = {
@@ -27,7 +28,7 @@ export type AutoAiFillDecision =
   | { action: "run"; reason: string; fingerprint: string; documentIds: string[] };
 
 const READY_STATUSES = new Set(["completed", "extracted", "ready"]);
-const FAILED_STATUSES = new Set(["failed", "error", "unsupported"]);
+const FAILED_STATUSES = new Set(["failed", "error", "unsupported", "ocr_required", "ocr_failed"]);
 
 export function isExtractionSettled(doc: AutoAiFillDocument): boolean {
   const status = (doc.extraction_status ?? "").toLowerCase();
@@ -89,8 +90,15 @@ export function evaluateAutoAiFill(input: {
     return { action: "blocked", reason: "no_extracted_text", fingerprint };
   }
   if (usable.length !== input.documents.length) {
-    // Partial OCR failure must not be reported as a successful fill.
-    return { action: "blocked", reason: "partial_extraction", fingerprint };
+    // Run on the usable subset, but let the caller surface the omitted files
+    // as an explicit warning. A single failed OCR document must not freeze
+    // otherwise usable intake data.
+    return {
+      action: "run",
+      reason: "partial_extraction",
+      fingerprint,
+      documentIds: usable.map((d) => d.id),
+    };
   }
 
   return {
