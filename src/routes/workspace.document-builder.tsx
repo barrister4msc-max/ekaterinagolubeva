@@ -678,8 +678,9 @@ function DocumentBuilderPage() {
         .db-cta { display: inline-flex; align-items: center; gap: 8px; padding: 11px 22px; border-radius: 12px; font-size: 13px; font-weight: 500; color: #0d1a22; background: linear-gradient(135deg, #e2c889, #c8a86b); border: 1px solid rgba(214,188,120,0.70); box-shadow: 0 12px 30px rgba(200,168,107,0.25); transition: opacity 160ms ease, transform 160ms ease; cursor: pointer; }
         .db-cta:hover:not(:disabled) { transform: translateY(-1px); }
         .db-cta:disabled { opacity: 0.45; cursor: not-allowed; }
-        .db-ghost { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; font-size: 13px; color: rgba(255,255,255,0.80); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; transition: all 160ms ease; }
-        .db-ghost:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .db-ghost { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 10px; font-size: 13px; color: #26343d; background: rgba(255,255,255,0.72); border: 1px solid rgba(38,52,61,0.24); cursor: pointer; transition: all 160ms ease; }
+        .db-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.92); color: #0d1a22; border-color: rgba(38,52,61,0.38); }
+        .db-ghost:disabled { color: #475569; background: rgba(255,255,255,0.62); border-color: rgba(71,85,105,0.22); opacity: 1; cursor: not-allowed; }
         .db-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: 999px; font-size: 12px; color: rgba(255,255,255,0.80); background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); cursor: pointer; transition: all 140ms ease; }
         .db-chip:hover { background: rgba(255,255,255,0.10); color: #fff; }
         .db-chip-active { background: rgba(214,188,120,0.20); border-color: rgba(214,188,120,0.55); color: #f5e2a5; }
