@@ -161,8 +161,8 @@ async function extractPdfTextLayer(
   let loadingTask: any = null;
   let timeoutId: number | null = null;
   try {
-    // @ts-ignore pdfjs legacy build is runtime-compatible with Deno Edge. jsDelivr keeps the worker import relative; esm.sh rewrites it to a missing denonext path.
-    const pdfjs = await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/legacy/build/pdf.mjs");
+    // @ts-ignore Use the bundled Deno build so PDF.js does not request a separate worker module at runtime.
+    const pdfjs = await import("https://esm.sh/pdfjs-dist@4.10.38/deno/legacy/build/pdf.bundle.mjs");
     loadingTask = pdfjs.getDocument({
       data: new Uint8Array(buf),
       disableWorker: true,
