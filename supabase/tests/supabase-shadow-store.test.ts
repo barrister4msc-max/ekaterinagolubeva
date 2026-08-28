@@ -48,8 +48,10 @@ describe("P1-B.1 Supabase shadow store", () => {
       "reserve_model_shadow_budget",
       "record_model_shadow_telemetry",
     ]);
-    expect(JSON.stringify(calls)).not.toContain("prompt");
-    expect(JSON.stringify(calls)).not.toContain("output");
+    const telemetryPayload = calls[1].args.p_telemetry as Record<string, unknown>;
+    expect(telemetryPayload).not.toHaveProperty("prompt");
+    expect(telemetryPayload).not.toHaveProperty("output");
+    expect(telemetryPayload).toHaveProperty("output_tokens", 2);
   });
 
   test("fails closed when either RPC is unavailable", async () => {
