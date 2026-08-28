@@ -278,7 +278,9 @@ function toTelemetry<T>(input: {
     cached_input_tokens: input.attempt.cached_input_tokens ?? null,
     cost_known: estimatedCost !== null,
     estimated_cost_usd: estimatedCost,
-    raw_status: jsonValid ? "success" : input.attempt.raw_status ?? "invalid_json",
+    raw_status: jsonValid ? "success" : candidateIdentityVerified
+      ? input.attempt.raw_status ?? "invalid_json"
+      : "invalid_json",
     json_valid: jsonValid,
     schema_valid: input.validation.schema_valid,
     semantic_valid: input.validation.semantic_valid,
