@@ -101,11 +101,25 @@ describe("P1-A Provider / Model Capability Foundation", () => {
     expect(result).toEqual({ eligible: false, reasons: ["provider_unreachable"] });
   });
 
-  test("OpenAI adapter normalizes success and cached token usage", async () => {
+  test("OpenAI adapter decodes every raw Responses output_text content item in order", async () => {
     const adapter = createOpenAiAdapter({
       readEnv: () => "secret-value",
       fetchFn: async () => new Response(JSON.stringify({
-        output_text: '{"ok":true}',
+        // `output_text` is not the raw REST contract and must not win over `output`.
+        output_text: '{"ok":false}',
+        output: [
+          {
+            type: "message",
+            content: [
+              { type: "output_text", text: '{"ok":' },
+              { type: "refusal", refusal: "ignored" },
+            ],
+          },
+          {
+            type: "message",
+            content: [{ type: "output_text", text: "true}" }],
+          },
+        ],
         usage: { input_tokens: 11, output_tokens: 5, input_tokens_details: { cached_tokens: 3 } },
       }), { status: 200 }),
     });
@@ -121,6 +135,20 @@ describe("P1-A Provider / Model Capability Foundation", () => {
       cached_input_tokens: 3,
       estimated_cost_usd: null,
     });
+  });
+
+  test("OpenAI adapter fails closed when a raw Responses output array has no output_text", async () => {
+    const adapter = createOpenAiAdapter({
+      readEnv: () => "secret-value",
+      fetchFn: async () => new Response(JSON.stringify({
+        output_text: '{"must_not_be_used":true}',
+        output: [{ type: "message", content: [{ type: "refusal", refusal: "ignored" }] }],
+      }), { status: 200 }),
+    });
+
+    const result = await adapter.runJson({ model: "gpt-5.6-luna", prompt: "safe fixture", signal: new AbortController().signal });
+    expect(result.json_valid).toBe(false);
+    expect(result.provider_error?.code).toBe("invalid_response");
   });
 
   test("level-2 availability check makes no inference request and distinguishes access from model absence", async () => {
