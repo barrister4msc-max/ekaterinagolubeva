@@ -93,7 +93,7 @@ begin
     nullif(p_telemetry->>'candidate_identity_verified','')::boolean
   );
 end;
-$;
+$$;
 
 revoke all on schema private from public;
 revoke all on all tables in schema private from public;
