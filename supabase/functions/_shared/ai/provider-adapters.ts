@@ -197,8 +197,24 @@ function statusCode(status: number): ProviderError["code"] {
 }
 
 function readOpenAiText(payload: Record<string, unknown>): string | undefined {
-  if (typeof payload.output_text === "string") return payload.output_text;
-  return undefined;
+  // `output_text` is an SDK convenience field. The raw Responses REST payload
+  // carries generated text in every `output[].content[]` item of type
+  // `output_text`; preserve their order and concatenate all of them.
+  const hasRawOutput = Array.isArray(payload.output);
+  const output = hasRawOutput ? payload.output : [];
+  const text = output.flatMap((item) => {
+    const content = asRecord(item)?.content;
+    if (!Array.isArray(content)) return [];
+    return content.flatMap((part) => {
+      const record = asRecord(part);
+      return record?.type === "output_text" && typeof record.text === "string" ? [record.text] : [];
+    });
+  }).join("");
+
+  if (text) return text;
+  // Retain compatibility with callers that supply an SDK-normalized payload,
+  // but never mask a malformed raw REST `output` array with that convenience field.
+  return !hasRawOutput && typeof payload.output_text === "string" ? payload.output_text : undefined;
 }
 
 function readOpenAiUsage(payload: Record<string, unknown>): Pick<ModelAttempt, "input_tokens" | "output_tokens" | "cached_input_tokens"> {
