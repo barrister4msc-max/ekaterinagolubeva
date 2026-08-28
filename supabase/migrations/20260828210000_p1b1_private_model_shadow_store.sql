@@ -2,7 +2,7 @@
 create schema if not exists private;
 
 create table if not exists private.model_shadow_budget_reservations (
-  shadow_run_id uuid primary key,
+  shadow_run_id text primary key,
   budget_day date not null,
   budget_scope text not null check (char_length(budget_scope) between 1 and 128),
   reserved_cost_usd numeric(12,6) not null check (reserved_cost_usd >= 0),
@@ -13,8 +13,8 @@ create index if not exists model_shadow_budget_reservations_day_scope_idx
   on private.model_shadow_budget_reservations (budget_day, budget_scope);
 
 create table if not exists private.model_shadow_telemetry (
-  shadow_run_id uuid primary key references private.model_shadow_budget_reservations(shadow_run_id),
-  operation_run_id uuid not null,
+  shadow_run_id text primary key references private.model_shadow_budget_reservations(shadow_run_id),
+  operation_run_id text not null,
   task_type text not null,
   provider text not null check (provider in ('gemini', 'openai')),
   model text not null,
@@ -40,7 +40,7 @@ alter table private.model_shadow_budget_reservations enable row level security;
 alter table private.model_shadow_telemetry enable row level security;
 
 create or replace function public.reserve_model_shadow_budget(
-  p_shadow_run_id uuid,
+  p_shadow_run_id text,
   p_budget_day date,
   p_budget_scope text,
   p_reserved_cost_usd numeric,
@@ -67,7 +67,7 @@ end;
 $$;
 
 create or replace function public.record_model_shadow_telemetry(
-  p_shadow_run_id uuid,
+  p_shadow_run_id text,
   p_telemetry jsonb
 ) returns void
 language plpgsql
@@ -81,7 +81,7 @@ begin
     raw_status, json_valid, schema_valid, semantic_valid, source_ref_fidelity,
     reviewer_finding_codes, reviewer_findings_count, candidate_identity_verified
   ) values (
-    p_shadow_run_id, (p_telemetry->>'operation_run_id')::uuid, p_telemetry->>'task_type',
+    p_shadow_run_id, p_telemetry->>'operation_run_id', p_telemetry->>'task_type',
     p_telemetry->>'provider', p_telemetry->>'model', (p_telemetry->>'latency_ms')::integer,
     nullif(p_telemetry->>'input_tokens','')::integer, nullif(p_telemetry->>'output_tokens','')::integer,
     nullif(p_telemetry->>'cached_input_tokens','')::integer, (p_telemetry->>'cost_known')::boolean,
@@ -97,8 +97,8 @@ $$;
 
 revoke all on schema private from public;
 revoke all on all tables in schema private from public;
-revoke all on function public.reserve_model_shadow_budget(uuid,date,text,numeric,numeric,numeric) from public, anon, authenticated;
-revoke all on function public.record_model_shadow_telemetry(uuid,jsonb) from public, anon, authenticated;
+revoke all on function public.reserve_model_shadow_budget(text,date,text,numeric,numeric,numeric) from public, anon, authenticated;
+revoke all on function public.record_model_shadow_telemetry(text,jsonb) from public, anon, authenticated;
 grant usage on schema private to service_role;
-grant execute on function public.reserve_model_shadow_budget(uuid,date,text,numeric,numeric,numeric) to service_role;
-grant execute on function public.record_model_shadow_telemetry(uuid,jsonb) to service_role;
+grant execute on function public.reserve_model_shadow_budget(text,date,text,numeric,numeric,numeric) to service_role;
+grant execute on function public.record_model_shadow_telemetry(text,jsonb) to service_role;
