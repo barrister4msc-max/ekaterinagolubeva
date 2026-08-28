@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createSupabaseShadowStore } from "../functions/_shared/ai/supabase-shadow-store.ts";
 import type { ShadowRunTelemetry } from "../functions/_shared/ai/model-shadow-harness.ts";
+
+const migration = readFileSync(
+  join(import.meta.dir, "../migrations/20260828210000_p1b1_private_model_shadow_store.sql"),
+  "utf8",
+);
 
 const telemetry: ShadowRunTelemetry = {
   operation_run_id: "operation-1",
@@ -25,6 +32,12 @@ const telemetry: ShadowRunTelemetry = {
 };
 
 describe("P1-B.1 Supabase shadow store", () => {
+  test("closes every PL/pgSQL dollar-quoted function body", () => {
+    expect(migration.match(/\bas \$\$/g)).toHaveLength(2);
+    expect(migration.match(/^\$\$;$/gm)).toHaveLength(2);
+    expect(migration).not.toMatch(/^\$;$/m);
+  });
+
   test("uses only closed RPCs and forwards no prompt or output fields", async () => {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
     const store = createSupabaseShadowStore({
