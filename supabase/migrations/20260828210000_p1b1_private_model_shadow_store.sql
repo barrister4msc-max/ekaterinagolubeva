@@ -53,18 +53,9 @@ set search_path = pg_catalog, private
 as $$
 declare
   v_total numeric;
-  v_existing private.model_shadow_budget_reservations%rowtype;
 begin
   if p_reserved_cost_usd < 0 or p_reserved_cost_usd > p_per_run_cap_usd then return false; end if;
   perform pg_advisory_xact_lock(hashtextextended(p_budget_day::text || ':' || p_budget_scope, 0));
-  select * into v_existing
-  from private.model_shadow_budget_reservations
-  where shadow_run_id = p_shadow_run_id;
-  if found then
-    return v_existing.budget_day = p_budget_day and
-      v_existing.budget_scope = p_budget_scope and
-      v_existing.reserved_cost_usd = p_reserved_cost_usd;
-  end if;
   select coalesce(sum(reserved_cost_usd), 0) into v_total
   from private.model_shadow_budget_reservations
   where budget_day = p_budget_day and budget_scope = p_budget_scope;
@@ -100,7 +91,7 @@ begin
     coalesce(array(select jsonb_array_elements_text(p_telemetry->'reviewer_finding_codes')), '{}'),
     (p_telemetry->>'reviewer_findings_count')::integer,
     nullif(p_telemetry->>'candidate_identity_verified','')::boolean
-  ) on conflict (shadow_run_id) do nothing;
+  );
 end;
 $;
 
