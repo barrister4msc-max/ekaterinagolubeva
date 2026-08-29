@@ -162,6 +162,15 @@ async function sha256Hex(input: string): Promise<string> {
     .join("");
 }
 
+// Stage 03A: deterministic identity for exact textual representations only.
+// NFKC + whitespace normalization removes extraction-format noise without
+// making any semantic claim that different text belongs to the same evidence.
+export async function computeEvidenceIdentity(text: string): Promise<string | null> {
+  const normalized = text.normalize("NFKC").replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  return `sha256:${await sha256Hex(normalized)}`;
+}
+
 function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value ?? null);
   if (Array.isArray(value)) return "[" + value.map(stableStringify).join(",") + "]";
@@ -1067,7 +1076,12 @@ export function buildEvidenceMatrix(opts: {
   facts: FactRecord[];
   parsed: any;
   conclusions: Conclusion[];
-  documents: Array<{ id: string; title: string; ocr_length: number }>;
+  documents: Array<{
+    id: string;
+    title: string;
+    ocr_length: number;
+    evidence_identity?: string | null;
+  }>;
   factKeyToId: Map<string, string>;
 }): EvidenceMatrixEntry[] {
   const missing: string[] = Array.isArray(opts.parsed.missing_evidence)
@@ -1079,6 +1093,16 @@ export function buildEvidenceMatrix(opts: {
 
   // Allowed client document UUIDs — the ONLY defensible universe for links.
   const allowedDocIds = new Set(opts.documents.map((d) => d.id));
+  // Representation identity affects only independent-support counting.
+  // Provenance remains document-id based so every uploaded representation is retained.
+  const evidenceIdentityByDocId = new Map(
+    opts.documents.map((d) => [
+      d.id,
+      typeof d.evidence_identity === "string" && d.evidence_identity.trim()
+        ? d.evidence_identity.trim()
+        : `document:${d.id}`,
+    ]),
+  );
 
   // Canonical fact identity universe (from facts_index built this run).
   const validFactIds = new Set(opts.facts.map((f) => f.fact_id));
@@ -1277,9 +1301,13 @@ export function buildEvidenceMatrix(opts: {
       status = "partial";
       strength = "medium";
     } else {
-      const supporting = relations.filter(
-        (r) => r.relation === "DIRECTLY_RECORDS" || r.relation === "SUPPORTS",
-      ).length;
+      const supporting = new Set(
+        relations
+          .filter((r) => r.relation === "DIRECTLY_RECORDS" || r.relation === "SUPPORTS")
+          .map(
+            (r) => evidenceIdentityByDocId.get(r.document_id) ?? `document:${r.document_id}`,
+          ),
+      ).size;
       if (supporting === 0) {
         // A-CONSERVATIVE: PARTIALLY_SUPPORTS-only evidence (no
         // DIRECTLY_RECORDS and no SUPPORTS) must NOT auto-upgrade to

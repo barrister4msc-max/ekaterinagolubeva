@@ -37,6 +37,7 @@ import {
   buildEvidenceMatrix,
   evaluateSufficiency,
   computeHashes,
+  computeEvidenceIdentity,
   setActuallyUsedInGeneration,
   buildSourceWarnings,
   evaluateExternalSearch,
@@ -282,6 +283,11 @@ Deno.serve(async (req) => {
         ocr_text: pickText(d),
       }),
     );
+    const evidenceIdentityByDocId = new Map<string, string>();
+    for (const d of docs ?? []) {
+      const identity = await computeEvidenceIdentity(pickText(d));
+      if (identity) evidenceIdentityByDocId.set((d as any).id as string, identity);
+    }
     const usedDocs = audited.filter((d) => d.used);
     const rejectedDocs = audited.filter((d) => !d.used);
 
@@ -583,7 +589,12 @@ Deno.serve(async (req) => {
       facts,
       parsed,
       conclusions: validatedConclusions,
-      documents: usedDocs.map((d) => ({ id: d.id, title: d.title, ocr_length: d.ocr_length })),
+      documents: usedDocs.map((d) => ({
+        id: d.id,
+        title: d.title,
+        ocr_length: d.ocr_length,
+        evidence_identity: evidenceIdentityByDocId.get(d.id) ?? null,
+      })),
       factKeyToId,
     });
 
