@@ -42,4 +42,18 @@ describe("document-intake-ai-fill authorization boundary", () => {
     expect(source).toContain("digits.length !== 13");
     expect(source).toContain("digits.length !== 15");
   });
+
+  test("never lets an AI rerun overwrite a non-AI answer source", async () => {
+    const source = await Bun.file(functionPath).text();
+    const allowedAnswers = source.indexOf("const allowedAnswers = answers.filter");
+    const sourceGuard = source.indexOf(
+      'if (existingSource && existingSource !== "ai_document") return false;',
+      allowedAnswers,
+    );
+    const aiUpsert = source.indexOf('value_source: "ai_document"', sourceGuard);
+
+    expect(allowedAnswers).toBeGreaterThan(-1);
+    expect(sourceGuard).toBeGreaterThan(allowedAnswers);
+    expect(aiUpsert).toBeGreaterThan(sourceGuard);
+  });
 });

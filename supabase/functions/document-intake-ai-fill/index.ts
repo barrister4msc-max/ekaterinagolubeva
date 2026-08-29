@@ -284,6 +284,12 @@ serve(async (req) => {
       // a model placeholder or a lower-fidelity interpretation.
       if (protectedFieldNames.has(fieldName)) return false;
 
+      // A saved human/lawyer/local/registry value is authoritative for this
+      // rerun. Only a previous AI proposal may be replaced by a new AI
+      // proposal; the upsert below shares the same session/field key.
+      const existingSource = existingAnswerSources.get(fieldName);
+      if (existingSource && existingSource !== "ai_document") return false;
+
       const quote = typeof answer.source_quote === "string" ? answer.source_quote.trim() : "";
       const sourceDocumentId =
         typeof answer.source_document_id === "string" ? answer.source_document_id : "";
