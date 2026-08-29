@@ -23,120 +23,67 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
+
           path = Path("supabase/functions/analyze-document-legal-position/enrich.ts")
           source = path.read_text(encoding="utf-8")
 
-          replacements = [
-            (
-              '''  // Canonical producer output: fact_id → (doc_id → strongest relation).
-  // Relation precedence for de-dup within one fact when the model repeats a
-  // doc_id: DIRECTLY_RECORDS > CONTRADICTS > SUPPORTS > PARTIALLY_SUPPORTS >
-  // MERELY_STATES. Higher rank wins; CONTRADICTS never silently downgrades.
-  const RELATION_RANK: Record<EvidenceRelation, number> = {
-    DIRECTLY_RECORDS: 5,
-    CONTRADICTS: 4,
-    SUPPORTS: 3,
-    PARTIALLY_SUPPORTS: 2,
-    MERELY_STATES: 1,
-  };
-  const canonicalByFact = new Map<string, Map<string, EvidenceRelation>>();
-  const addCanonical = (factId: string | null, docId: unknown, relation: EvidenceRelation) => {
-    if (!factId) return;
-    const id = typeof docId === "string" ? docId.trim() : "";
-    if (!id || !allowedDocIds.has(id)) return;
-    let m = canonicalByFact.get(factId);
-    if (!m) {
-      m = new Map();
-      canonicalByFact.set(factId, m);
-    }
-    const prev = m.get(id);
-    if (!prev || RELATION_RANK[relation] > RELATION_RANK[prev]) m.set(id, relation);
-  };
-''',
-              '''  // Canonical producer output: fact_id → (doc_id → set of relations).
-  // Preserve conflicting relations; conflict resolution requires an explicit
-  // reasoned decision and must not happen through aggregation precedence.
-  const canonicalByFact = new Map<string, Map<string, Set<EvidenceRelation>>>();
-  const addCanonical = (factId: string | null, docId: unknown, relation: EvidenceRelation) => {
-    if (!factId) return;
-    const id = typeof docId === "string" ? docId.trim() : "";
-    if (!id || !allowedDocIds.has(id)) return;
-    let m = canonicalByFact.get(factId);
-    if (!m) {
-      m = new Map();
-      canonicalByFact.set(factId, m);
-    }
-    let relationsForDoc = m.get(id);
-    if (!relationsForDoc) {
-      relationsForDoc = new Set<EvidenceRelation>();
-      m.set(id, relationsForDoc);
-    }
-    relationsForDoc.add(relation);
-  };
-'''
-            ),
-            (
-              '''    if (canonicalMap && canonicalMap.size > 0) {
-      relations = Array.from(canonicalMap.entries()).map(([document_id, relation]) => ({
-        document_id,
-        relation,
-      }));
-      evidenceSource = "canonical";
-''',
-              '''    if (canonicalMap && canonicalMap.size > 0) {
-      relations = Array.from(canonicalMap.entries()).flatMap(([document_id, relationSet]) =>
-        Array.from(relationSet).map((relation) => ({ document_id, relation })),
-      );
-      evidenceSource = "canonical";
-'''
-            ),
-            (
-              '''    const docs = relations.map((r) => r.document_id);
-''',
-              '''    const docs = Array.from(new Set(relations.map((r) => r.document_id)));
-'''
-            ),
-            (
-              '''    const allContradict =
-      relations.length > 0 && relations.every((r) => r.relation === "CONTRADICTS");
+          storage = "\n".join([
+              "  // Canonical producer output: fact_id → (doc_id → set of relations).",
+              "  // Preserve conflicting relations; conflict resolution requires an explicit",
+              "  // reasoned decision and must not happen through aggregation precedence.",
+              "  const canonicalByFact = new Map<string, Map<string, Set<EvidenceRelation>>>();",
+              "  const addCanonical = (factId: string | null, docId: unknown, relation: EvidenceRelation) => {",
+              "    if (!factId) return;",
+              "    const id = typeof docId === \"string\" ? docId.trim() : \"\";",
+              "    if (!id || !allowedDocIds.has(id)) return;",
+              "    let m = canonicalByFact.get(factId);",
+              "    if (!m) {",
+              "      m = new Map();",
+              "      canonicalByFact.set(factId, m);",
+              "    }",
+              "    let relationsForDoc = m.get(id);",
+              "    if (!relationsForDoc) {",
+              "      relationsForDoc = new Set<EvidenceRelation>();",
+              "      m.set(id, relationsForDoc);",
+              "    }",
+              "    relationsForDoc.add(relation);",
+              "  };",
+          ])
+          pattern = r"  // Canonical producer output: fact_id → \(doc_id → strongest relation\)\.[\s\S]*?  };\n\n  const rawCanonical:"
+          source, n = re.subn(pattern, storage + "\n\n  const rawCanonical:", source, count=1)
+          if n != 1:
+              raise SystemExit(f"canonical storage patch count={n}")
 
-    let status: EvidenceMatrixEntry["evidence_status"];
-    let strength: EvidenceMatrixEntry["evidence_strength"];
-    if (allContradict) {
-      status = "contradicted";
-      strength = "low";
-    } else if (missingForFact.length > 0 && !nonContradictSupport) {
-''',
-              '''    const hasContradiction = relations.some((r) => r.relation === "CONTRADICTS");
-    const allContradict =
-      relations.length > 0 && relations.every((r) => r.relation === "CONTRADICTS");
-    const mixedContradiction = hasContradiction && !allContradict;
+          old_projection = "      relations = Array.from(canonicalMap.entries()).map(([document_id, relation]) => ({\n        document_id,\n        relation,\n      }));"
+          new_projection = "      relations = Array.from(canonicalMap.entries()).flatMap(([document_id, relationSet]) =>\n        Array.from(relationSet).map((relation) => ({ document_id, relation })),\n      );"
+          if source.count(old_projection) != 1:
+              raise SystemExit("relation projection target mismatch")
+          source = source.replace(old_projection, new_projection, 1)
 
-    let status: EvidenceMatrixEntry["evidence_status"];
-    let strength: EvidenceMatrixEntry["evidence_strength"];
-    if (allContradict) {
-      status = "contradicted";
-      strength = "low";
-    } else if (mixedContradiction) {
-      status = "partial";
-      strength = "low";
-    } else if (missingForFact.length > 0 && !nonContradictSupport) {
-'''
-            ),
-            (
-              '''      contradiction_notes: null,
-''',
-              '''      contradiction_notes: mixedContradiction
-        ? "Обнаружены одновременно подтверждающие и противоречащие связи; требуется мотивированное разрешение конфликта"
-        : null,
-'''
-            ),
-          ]
+          old_docs = "    const docs = relations.map((r) => r.document_id);"
+          new_docs = "    const docs = Array.from(new Set(relations.map((r) => r.document_id)));"
+          if source.count(old_docs) != 1:
+              raise SystemExit("documents_used target mismatch")
+          source = source.replace(old_docs, new_docs, 1)
 
-          for old, new in replacements:
-            if source.count(old) != 1:
-              raise SystemExit(f"expected one patch target, found {source.count(old)}")
-            source = source.replace(old, new, 1)
+          old_flags = "    const allContradict =\n      relations.length > 0 && relations.every((r) => r.relation === \"CONTRADICTS\");"
+          new_flags = "    const hasContradiction = relations.some((r) => r.relation === \"CONTRADICTS\");\n    const allContradict =\n      relations.length > 0 && relations.every((r) => r.relation === \"CONTRADICTS\");\n    const mixedContradiction = hasContradiction && !allContradict;"
+          if source.count(old_flags) != 1:
+              raise SystemExit("contradiction flags target mismatch")
+          source = source.replace(old_flags, new_flags, 1)
+
+          old_branch = "    if (allContradict) {\n      status = \"contradicted\";\n      strength = \"low\";\n    } else if (missingForFact.length > 0 && !nonContradictSupport) {"
+          new_branch = "    if (allContradict) {\n      status = \"contradicted\";\n      strength = \"low\";\n    } else if (mixedContradiction) {\n      status = \"partial\";\n      strength = \"low\";\n    } else if (missingForFact.length > 0 && !nonContradictSupport) {"
+          if source.count(old_branch) != 1:
+              raise SystemExit("mixed contradiction branch target mismatch")
+          source = source.replace(old_branch, new_branch, 1)
+
+          old_note = "      contradiction_notes: null,"
+          new_note = "      contradiction_notes: mixedContradiction\n        ? \"Обнаружены одновременно подтверждающие и противоречащие связи; требуется мотивированное разрешение конфликта\"\n        : null,"
+          if source.count(old_note) != 1:
+              raise SystemExit("contradiction note target mismatch")
+          source = source.replace(old_note, new_note, 1)
 
           path.write_text(source, encoding="utf-8")
 
