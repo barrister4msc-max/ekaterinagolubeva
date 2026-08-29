@@ -1,6 +1,6 @@
 import type { Bucket, RawSource } from "./repositories.ts";
 
-export type ExternalResearchProviderId = "strizh" | "garant" | "consultant" | "other";
+export type ExternalResearchProviderId = "bras_kad" | "strizh" | "garant" | "consultant" | "other";
 
 export type ExternalResearchCandidate = {
   title?: string | null;
@@ -83,7 +83,7 @@ export type ExternalResearchRunSnapshot = {
   }>;
 };
 
-const PROVIDERS = new Set<ExternalResearchProviderId>(["strizh", "garant", "consultant", "other"]);
+const PROVIDERS = new Set<ExternalResearchProviderId>(["bras_kad", "strizh", "garant", "consultant", "other"]);
 const MAX_IMPORTS = 20;
 const MAX_LINKS_PER_IMPORT = 50;
 const MAX_CANDIDATES_PER_IMPORT = 50;
@@ -109,6 +109,19 @@ function normalizeUrl(value: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+function isBrasKadUrl(value: unknown): boolean {
+  const url = normalizeUrl(value);
+  if (!url) return false;
+  const hostname = new URL(url).hostname.toLowerCase();
+  return hostname === "kad.arbitr.ru" || hostname.endsWith(".kad.arbitr.ru") ||
+    hostname === "ras.arbitr.ru" || hostname.endsWith(".ras.arbitr.ru");
+}
+
+function isArbitrationCaseNumber(value: unknown): boolean {
+  const raw = text(value)?.replace(/\s+/g, "").toUpperCase();
+  return !!raw && /^А\d+-\d+\/\d{4}$/.test(raw);
 }
 
 function inferBucket(candidate: ExternalResearchCandidate): Bucket {
@@ -164,7 +177,18 @@ function normalizedCandidate(
     return null;
   }
 
-  const bucket = inferBucket(candidate);
+  // BRAS/KAD is a manual discovery channel only. An arbitrary URL must not
+  // acquire this official-source label; accept the official host or a
+  // syntactically identifiable arbitration case number, never a narrative.
+  if (
+    provider === "bras_kad" &&
+    !isBrasKadUrl(candidate.url) &&
+    !isArbitrationCaseNumber(candidate.case_number)
+  ) {
+    return null;
+  }
+
+  const bucket = provider === "bras_kad" ? "court_practice" : inferBucket(candidate);
   const issueIds = uniq([...(candidate.research_issue_ids ?? []), ...inheritedIssueIds]);
   const excerpt = text(candidate.excerpt);
 
@@ -184,6 +208,7 @@ function normalizedCandidate(
       provider_type: "research",
       provider_integration_mode: "manual_import",
       provider_source_class: "retrieval_intermediary",
+      source_family: provider === "bras_kad" ? "bras_kad" : undefined,
       external_research_import: true,
       imported_reference_only: true,
       imported_url: importedUrl,
