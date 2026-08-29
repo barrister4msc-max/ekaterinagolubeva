@@ -224,7 +224,7 @@ describe("validateConclusions", () => {
     });
   });
 
-  test("keeps a traceable but not sufficient conclusion partial and usable", () => {
+  test("blocks a traceable fact-to-law conclusion without linked fact and document", () => {
     const trusted = [source("law:nk:54.1")];
     const [validated] = validateConclusions(
       [conclusion("fact_to_law", [trusted[0].source_ref])],
@@ -232,9 +232,10 @@ describe("validateConclusions", () => {
     );
 
     expect(validated.provenance).toMatchObject({
-      support_level: "partial",
-      needs_source: false,
-      use_in_generation: true,
+      support_level: "unsupported",
+      needs_source: true,
+      use_in_generation: false,
+      unsupported_reason: "Для смешанного вывода не установлены связанный факт и документ",
     });
   });
 
