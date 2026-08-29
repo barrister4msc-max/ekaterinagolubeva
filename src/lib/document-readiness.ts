@@ -16,6 +16,7 @@ export type ReadinessInput = {
     blockReason: string | null;
   } | null;
   review: any | null; // review_run.ai_result
+  reviewCompleted: boolean;
   // Source Review warnings whose affected_conclusions is non-empty are treated
   // as Source Review blockers (matches source-warning-reviews contract).
   sourceWarnings?: Array<{
@@ -55,6 +56,12 @@ export function computeDocumentReadiness(input: ReadinessInput): ReadinessResult
   }
 
   // NEEDS_REVISION
+  const validReviewStatuses = new Set(["passed", "needs_revision", "blocked"]);
+  if (!input.reviewCompleted) {
+    reasons.push("review_not_completed");
+  } else if (!validReviewStatuses.has(reviewStatus)) {
+    reasons.push("review_result_invalid");
+  }
   if (reviewStatus === "needs_revision") {
     reasons.push(`review_status=${reviewStatus}`);
   }
