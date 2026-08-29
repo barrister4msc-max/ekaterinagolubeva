@@ -2,6 +2,8 @@ name: Stage 03A Apply Patch
 on:
   push:
     branches: [fix/stage03a-evidence-identity-fingerprint]
+permissions:
+  contents: write
 jobs:
   apply:
     runs-on: ubuntu-latest
