@@ -619,6 +619,7 @@ function lookupSourceRef(
 }
 
 function provenanceFor(opts: {
+  kind: Conclusion["kind"];
   facts: string[]; // fact_ids
   documents: string[];
   laws: string[];
@@ -650,9 +651,19 @@ function provenanceFor(opts: {
     trusts.length > 0 ? Math.round(trusts.reduce((s, t) => s + t.score, 0) / trusts.length) : 0;
   const lowest = trusts.sort((a, b) => a.score - b.score)[0]?.ref ?? null;
 
+  // A pure legal thesis may be sufficiently grounded in one high-trust primary
+  // source. A mixed fact-to-law thesis, on the other hand, cannot enter
+  // generation merely because its legal source is highly trusted: it also
+  // needs a structurally linked fact and document. This is deliberately a
+  // small eligibility gate, not a universal score or a two-source rule.
+  const needsFactualBasis =
+    opts.kind === "fact_to_law" || opts.facts.length > 0 || opts.documents.length > 0;
+  const hasCompleteFactualBasis = opts.facts.length > 0 && opts.documents.length > 0;
+
   let status: "sufficient" | "partial" | "insufficient";
   if (allRefs.length === 0) status = "insufficient";
-  else if (min >= 90 && allRefs.length >= 2) status = "sufficient";
+  else if (needsFactualBasis && !hasCompleteFactualBasis) status = "insufficient";
+  else if (min >= 90) status = "sufficient";
   else if (min >= 70) status = "partial";
   else status = "insufficient";
 
@@ -836,6 +847,7 @@ export function buildConclusionsAndIndex(
       kind,
       statement: trimmed,
       provenance: provenanceFor({
+        kind,
         facts: extra.facts ?? [],
         documents: extra.documents ?? [],
         laws: extra.laws ?? [],
@@ -1011,6 +1023,21 @@ function conclusionSourceRefs(conclusion: Conclusion): string[] {
   );
 }
 
+function needsCompleteFactualEvidence(conclusion: Conclusion): boolean {
+  return (
+    conclusion.kind === "fact_to_law" ||
+    conclusion.provenance.facts_used.length > 0 ||
+    conclusion.provenance.documents_used.length > 0
+  );
+}
+
+function hasCompleteFactualEvidence(conclusion: Conclusion): boolean {
+  return (
+    conclusion.provenance.facts_used.length > 0 &&
+    conclusion.provenance.documents_used.length > 0
+  );
+}
+
 /**
  * Deterministic post-LLM gate for Analyzer -> Generator.
  *
@@ -1045,6 +1072,16 @@ export function validateConclusions(
     } else if (sourceRequired && refs.length === 0) {
       supportLevel = "unsupported";
       unsupportedReason = "Для юридического вывода не установлен источник";
+    } else if (
+      needsCompleteFactualEvidence(conclusion) &&
+      !hasCompleteFactualEvidence(conclusion)
+    ) {
+      supportLevel = "unsupported";
+      unsupportedReason = "Для смешанного вывода не установлены связанный факт и документ";
+    } else if (conclusion.kind === "opponent_position") {
+      // This records the opponent's position; it never converts that position
+      // into an accepted factual or legal conclusion of the system.
+      supportLevel = "partial";
     } else if (conclusion.provenance.sufficiency.status === "sufficient") {
       supportLevel = "strong";
     } else {
