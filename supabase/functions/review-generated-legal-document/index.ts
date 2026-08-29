@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { normalizeReviewOutcome } from "./review-outcome.ts";
 import {
   resolveReviewProfile,
   renderReviewProfileBlock,
@@ -923,7 +924,7 @@ if (!geminiResponse) {
 
     const geminiJson = await geminiResponse.json();
     const raw = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    const review = JSON.parse(raw);
+    const review = normalizeReviewOutcome(JSON.parse(raw));
 
     const updatedMetadata = {
       ...(doc.metadata || {}),
