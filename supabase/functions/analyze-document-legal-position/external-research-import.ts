@@ -182,8 +182,8 @@ function normalizedCandidate(
   // syntactically identifiable arbitration case number, never a narrative.
   if (
     provider === "bras_kad" &&
-    !isBrasKadUrl(candidate.url) &&
-    !isArbitrationCaseNumber(candidate.case_number)
+    ((candidate.url && !isBrasKadUrl(candidate.url)) ||
+      (!candidate.url && !isArbitrationCaseNumber(candidate.case_number)))
   ) {
     return null;
   }
