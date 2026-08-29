@@ -25,7 +25,7 @@ function approval(reviewTimestamp?: string | null, documentUpdatedAt?: string | 
   return evaluateReviewApproval(
     {
       status: "completed",
-      ai_result: { review_status: "passed" },
+      ai_result: { review_status: "passed", problems: [] },
       completed_at: reviewTimestamp,
     },
     documentUpdatedAt,
