@@ -17,6 +17,8 @@ export type ReadinessInput = {
   } | null;
   review: any | null; // review_run.ai_result
   reviewCompleted: boolean;
+  reviewCompletedAt?: string | null;
+  documentUpdatedAt?: string | null;
   // Source Review warnings whose affected_conclusions is non-empty are treated
   // as Source Review blockers (matches source-warning-reviews contract).
   sourceWarnings?: Array<{
@@ -61,6 +63,12 @@ export function computeDocumentReadiness(input: ReadinessInput): ReadinessResult
     reasons.push("review_not_completed");
   } else if (!validReviewStatuses.has(reviewStatus)) {
     reasons.push("review_result_invalid");
+  } else if (
+    input.reviewCompletedAt &&
+    input.documentUpdatedAt &&
+    new Date(input.reviewCompletedAt).getTime() < new Date(input.documentUpdatedAt).getTime()
+  ) {
+    reasons.push("review_stale");
   }
   if (reviewStatus === "needs_revision") {
     reasons.push(`review_status=${reviewStatus}`);
