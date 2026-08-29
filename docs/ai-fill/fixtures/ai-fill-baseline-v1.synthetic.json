@@ -1,0 +1,67 @@
+{
+  "fixture_version": "1",
+  "classification": "synthetic_only",
+  "purpose": "lawyer annotation template for the existing AI-fill baseline; not a model benchmark result",
+  "required_run_metadata": [
+    "document_revision_or_hash",
+    "template_code",
+    "schema_revision",
+    "prompt_source_sha256",
+    "provider",
+    "model",
+    "run_id"
+  ],
+  "annotation_fields": [
+    "result",
+    "accepted_final_value",
+    "document_role",
+    "source_quote_reference",
+    "negation_preserved",
+    "conflict_preserved",
+    "citation_status",
+    "manual_answer_preserved"
+  ],
+  "cases": [
+    {
+      "id": "identity-supported",
+      "document_text": "Заявитель: ООО «Север». ИНН 7700000000.",
+      "expected_invariants": ["identity_supported_by_quote"],
+      "recorded_ai_output": null,
+      "lawyer_annotation": "pending"
+    },
+    {
+      "id": "negative-proposition",
+      "document_text": "Восстановление расходов по представленным документам не допускается.",
+      "expected_invariants": ["negation_preserved", "no_positive_reconstruction_claim"],
+      "recorded_ai_output": null,
+      "lawyer_annotation": "pending"
+    },
+    {
+      "id": "conflicting-documents",
+      "document_text": "Документ A: договор подписан 10 марта. Документ B: договор не заключался.",
+      "expected_invariants": ["conflict_exposed", "no_unattributed_resolution"],
+      "recorded_ai_output": null,
+      "lawyer_annotation": "pending"
+    },
+    {
+      "id": "unknown-unsupported",
+      "document_text": "Сведения о дате доверенности отсутствуют.",
+      "expected_invariants": ["unknown_remains_unfilled", "no_fabricated_value"],
+      "recorded_ai_output": null,
+      "lawyer_annotation": "pending"
+    },
+    {
+      "id": "manual-answer-protection",
+      "document_text": "В документе указан иной адрес.",
+      "existing_answer": {
+        "field_name": "registration_address",
+        "field_value": "Подтверждённый адвокатом адрес",
+        "value_source": "manual"
+      },
+      "expected_invariants": ["manual_answer_preserved"],
+      "recorded_ai_output": null,
+      "lawyer_annotation": "pending",
+      "code_regression_status": "covered_by_main"
+    }
+  ]
+}
