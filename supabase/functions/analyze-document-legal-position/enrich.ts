@@ -1452,7 +1452,11 @@ export function evaluateExternalSearch(opts: {
 
 export function decideGeneration(opts: {
   sufficiency: { status: string };
-  challenge: { status: string; issues: Array<{ kind: string; description?: string }> };
+  challenge: {
+    execution_status?: string;
+    status: string | null;
+    issues: Array<{ kind: string; description?: string }>;
+  };
   warnings: SourceWarning[];
   conclusions: Conclusion[];
   trusted: TrustedSource[];
@@ -1501,8 +1505,15 @@ export function decideGeneration(opts: {
     (w) =>
       w.warning_type === "low_trust_source_used" || w.warning_type === "superseded_source_used",
   );
+  const challengeCompleted = opts.challenge.execution_status === "passed";
   const blockFinal =
-    blockDraft || opts.sufficiency.status !== "sufficient" || finalBlockingWarnings.length > 0;
+    blockDraft ||
+    !challengeCompleted ||
+    opts.challenge.status === "blocked" ||
+    opts.sufficiency.status !== "sufficient" ||
+    finalBlockingWarnings.length > 0;
+  if (!challengeCompleted) reasons.push(`challenge_execution:${opts.challenge.execution_status ?? "not_run"}`);
+  if (opts.challenge.status === "blocked") reasons.push("challenge:blocked");
   if (finalBlockingWarnings.length > 0) reasons.push("low_trust_or_superseded_used_in_generation");
   if (!blockDraft && opts.sufficiency.status !== "sufficient")
     reasons.push("final_requires_sufficient_sources");

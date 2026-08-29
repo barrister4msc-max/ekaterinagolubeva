@@ -8,8 +8,16 @@ import { callGeminiWithFallback, FLASH_GEMINI_MODELS } from "./gemini-fallback.t
 import { safeParseGeminiJson } from "./merge.ts";
 import type { Conclusion, TrustedSource } from "./enrich.ts";
 
+export type ChallengeExecutionStatus =
+  | "not_run"
+  | "unavailable"
+  | "invalid_response"
+  | "failed"
+  | "passed";
+
 export type ChallengeResult = {
-  status: "passed" | "needs_revision" | "blocked";
+  execution_status: ChallengeExecutionStatus;
+  status: "passed" | "needs_revision" | "blocked" | null;
   issues: Array<{
     kind:
       | "adverse_practice"
@@ -37,12 +45,13 @@ export type ChallengeResult = {
 };
 
 const EMPTY_RESULT: ChallengeResult = {
-  status: "passed",
+  execution_status: "not_run",
+  status: null,
   issues: [],
   required_changes: [],
   adverse_sources: [],
   unresolved_risks: [],
-  reasoning: "Challenge pass skipped (no LLM key) or returned no issues.",
+  reasoning: "Challenge не завершён; содержательный verdict отсутствует.",
 };
 
 export async function runChallenge(opts: {
@@ -124,11 +133,19 @@ export async function runChallenge(opts: {
     }
   }
 
-  // LLM pass (cheap flash model). Skips silently when key absent.
+  // LLM execution state is distinct from the substantive verdict. Missing
+  // credentials, invalid output and transport/model failure are never PASSED.
   let llmIssues: ChallengeResult["issues"] = [];
   let llmReasoning = "";
-  try {
-    if (Deno.env.get("GEMINI_API_KEY") || Deno.env.get("LOVABLE_API_KEY")) {
+  let executionStatus: ChallengeExecutionStatus = "not_run";
+  const hasChallengeKey = Boolean(
+    Deno.env.get("GEMINI_API_KEY") || Deno.env.get("LOVABLE_API_KEY"),
+  );
+
+  if (!hasChallengeKey) {
+    executionStatus = "unavailable";
+  } else {
+    try {
       const prompt = buildChallengePrompt(opts);
       const { text } = await callGeminiWithFallback(prompt, {
         models: FLASH_GEMINI_MODELS,
@@ -136,17 +153,30 @@ export async function runChallenge(opts: {
         maxOutputTokens: 2048,
         responseMimeType: "application/json",
       });
-      if (text) {
-        const parsed = safeParseGeminiJson(text) as Partial<ChallengeResult>;
-        if (Array.isArray(parsed?.issues)) llmIssues = parsed.issues;
-        if (typeof parsed?.reasoning === "string") llmReasoning = parsed.reasoning;
-        for (const r of parsed?.adverse_sources ?? []) {
-          if (typeof r === "string") adverseRefs.add(r);
+      if (!text?.trim()) {
+        executionStatus = "invalid_response";
+      } else {
+        try {
+          const parsed = safeParseGeminiJson(text) as Partial<ChallengeResult>;
+          if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.issues)) {
+            executionStatus = "invalid_response";
+          } else {
+            llmIssues = parsed.issues;
+            if (typeof parsed.reasoning === "string") llmReasoning = parsed.reasoning;
+            for (const r of parsed.adverse_sources ?? []) {
+              if (typeof r === "string") adverseRefs.add(r);
+            }
+            executionStatus = "passed";
+          }
+        } catch (e) {
+          executionStatus = "invalid_response";
+          console.warn("[challenge] invalid response:", (e as Error).message);
         }
       }
+    } catch (e) {
+      executionStatus = "failed";
+      console.warn("[challenge] LLM pass failed:", (e as Error).message);
     }
-  } catch (e) {
-    console.warn("[challenge] LLM pass failed:", (e as Error).message);
   }
 
   const issues = [...seedIssues, ...llmIssues];

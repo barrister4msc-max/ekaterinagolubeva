@@ -571,7 +571,8 @@ Deno.serve(async (req) => {
       trusted,
       conclusions: validatedConclusions,
     });
-    for (const c of validatedConclusions) c.provenance.reviewed_by_challenge = true;
+    for (const c of validatedConclusions)
+      c.provenance.reviewed_by_challenge = challengeResult.execution_status === "passed";
 
     // Phase B correction: warnings + external_search + draft/final decision.
     const sourceWarnings = buildSourceWarnings(trusted, validatedConclusions);
