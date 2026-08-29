@@ -57,6 +57,7 @@ import {
   type ConsistencyResult,
 } from "@/components/quality-gate";
 import { computeDocumentReadiness } from "@/lib/document-readiness";
+import { assertReviewAllowsApproval } from "@/lib/document-approval";
 import {
   AttachmentsTab,
   AttachmentDrawer,
@@ -1934,6 +1935,16 @@ function DocumentDetailPage() {
   const approve = useMutation({
     mutationFn: async () => {
       if (!doc) return;
+      const { data: latestReviewRun, error: latestReviewError } = await supabase
+        .from("document_intake_ai_runs")
+        .select("status,ai_result")
+        .eq("generated_document_id" as any, doc.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestReviewError) throw latestReviewError;
+      assertReviewAllowsApproval(latestReviewRun);
+
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase
         .from("generated_legal_documents")
@@ -2196,9 +2207,11 @@ function DocumentDetailPage() {
       computeDocumentReadiness({
         consistency,
         review,
+        reviewCompleted:
+          !!reviewRun && String(reviewRun.status ?? "").toLowerCase() === "completed",
         sourceWarnings: (matterSnapshot?.source_warnings as any[]) ?? null,
       }),
-    [consistency, review, matterSnapshot?.source_warnings],
+    [consistency, review, reviewRun, matterSnapshot?.source_warnings],
   );
   const approveBlocked = readiness.status !== "READY" && readiness.status !== "READY_WITH_WARNINGS";
 
