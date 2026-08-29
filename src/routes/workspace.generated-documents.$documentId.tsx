@@ -1831,7 +1831,11 @@ function DocumentDetailPage() {
       if (isApproved) throw new Error("Одобренную или финальную версию нельзя изменить напрямую.");
       const { error } = await supabase
         .from("generated_legal_documents")
-        .update({ content: edited, updated_at: new Date().toISOString() })
+        .update({
+          content: edited,
+          ai_review_status: null,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", doc.id);
       if (error) throw error;
     },
@@ -1937,13 +1941,21 @@ function DocumentDetailPage() {
       if (!doc) return;
       const { data: latestReviewRun, error: latestReviewError } = await supabase
         .from("document_intake_ai_runs")
-        .select("status,ai_result")
+        .select("status,ai_result,created_at,completed_at")
         .eq("generated_document_id" as any, doc.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (latestReviewError) throw latestReviewError;
-      assertReviewAllowsApproval(latestReviewRun);
+
+      const { data: currentDoc, error: currentDocError } = await supabase
+        .from("generated_legal_documents")
+        .select("updated_at")
+        .eq("id", doc.id)
+        .maybeSingle();
+      if (currentDocError) throw currentDocError;
+      if (!currentDoc) throw new Error("Document approval blocked: document_not_found");
+      assertReviewAllowsApproval(latestReviewRun, currentDoc.updated_at);
 
       const { data: u } = await supabase.auth.getUser();
       const { error } = await supabase
@@ -2209,9 +2221,12 @@ function DocumentDetailPage() {
         review,
         reviewCompleted:
           !!reviewRun && String(reviewRun.status ?? "").toLowerCase() === "completed",
+        reviewCompletedAt:
+          (reviewRun as any)?.completed_at ?? (reviewRun as any)?.created_at ?? null,
+        documentUpdatedAt: doc?.updated_at ?? null,
         sourceWarnings: (matterSnapshot?.source_warnings as any[]) ?? null,
       }),
-    [consistency, review, reviewRun, matterSnapshot?.source_warnings],
+    [consistency, review, reviewRun, doc?.updated_at, matterSnapshot?.source_warnings],
   );
   const approveBlocked = readiness.status !== "READY" && readiness.status !== "READY_WITH_WARNINGS";
 
