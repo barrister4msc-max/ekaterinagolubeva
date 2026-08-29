@@ -149,6 +149,57 @@ describe("Analyzer -> Generator conclusion contract", () => {
     ).toBe(lawyerPosition);
   });
 
+  test("preserves canonical evidence, claim-type, source identity, and temporal lineage", () => {
+    const result = buildGeneratorPromptInputs({
+      facts_index: [{ fact_id: "fact-1", fact_text: "Поставка состоялась", claim_type: "objective_proposition" }],
+      evidence_matrix: [{
+        fact_id: "fact-1",
+        fact_text: "Поставка состоялась",
+        documents_used: ["doc-1"],
+        used_in_conclusions: ["conclusion-1"],
+        document_relations: [{ document_id: "doc-1", relation: "DIRECTLY_RECORDS" }],
+        evidence_status: "proven",
+        evidence_strength: "high",
+      }],
+      trusted_sources: [{
+        source_id: "source-1",
+        source_ref: "law:article-1",
+        source_type: "law",
+        title: "Статья 1",
+        use_in_generation: true,
+        actually_used_in_generation: true,
+        effective_from: "2020-01-01",
+        effective_to: null,
+        current_status: "active",
+        revision_date: "2024-01-01",
+      }],
+    }, null);
+
+    expect(result.legalAnalysisForGeneration?.facts_index).toEqual([{
+      fact_id: "fact-1",
+      fact_text: "Поставка состоялась",
+      claim_type: "objective_proposition",
+    }]);
+    expect(result.legalAnalysisForGeneration?.evidence_matrix).toEqual([{
+      fact_id: "fact-1",
+      fact_text: "Поставка состоялась",
+      documents_used: ["doc-1"],
+      used_in_conclusions: ["conclusion-1"],
+      document_relations: [{ document_id: "doc-1", relation: "DIRECTLY_RECORDS" }],
+      evidence_status: "proven",
+      evidence_strength: "high",
+    }]);
+    expect(result.legalAnalysisForGeneration?.trusted_sources).toEqual([
+      expect.objectContaining({
+        source_ref: "law:article-1",
+        effective_from: "2020-01-01",
+        effective_to: null,
+        current_status: "active",
+        revision_date: "2024-01-01",
+      }),
+    ]);
+  });
+
   test("wires only sanitized objects into the generator prompt", async () => {
     const source = await Bun.file(new URL("../index.ts", import.meta.url)).text();
 

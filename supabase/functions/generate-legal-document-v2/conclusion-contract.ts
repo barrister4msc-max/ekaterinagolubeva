@@ -102,6 +102,10 @@ function sanitizeTrustedSources(value: unknown): Record<string, unknown>[] {
       citation: source.citation,
       verification_status: source.verification_status,
       actuality_status: source.actuality_status,
+      effective_from: source.effective_from,
+      effective_to: source.effective_to,
+      current_status: source.current_status,
+      revision_date: source.revision_date,
     }];
   });
 }
@@ -120,7 +124,11 @@ function sanitizeFactRecords(
         ? fact.text
         : "";
     return (factId || factText) && !isBlockedText(factText)
-      ? [{ fact_id: factId, fact_text: factText }]
+      ? [{
+        fact_id: factId,
+        fact_text: factText,
+        claim_type: typeof fact.claim_type === "string" ? fact.claim_type : null,
+      }]
       : [];
   });
 }
@@ -137,11 +145,20 @@ function sanitizeEvidenceMatrix(
     return [{
       fact_id: typeof entry.fact_id === "string" ? entry.fact_id : "",
       fact_text: factText,
-      documents: Array.isArray(entry.documents)
-        ? entry.documents.filter((id): id is string => typeof id === "string")
+      documents_used: Array.isArray(entry.documents_used)
+        ? entry.documents_used.filter((id): id is string => typeof id === "string")
         : [],
-      conclusions: Array.isArray(entry.conclusions)
-        ? entry.conclusions.filter((id): id is string => typeof id === "string")
+      used_in_conclusions: Array.isArray(entry.used_in_conclusions)
+        ? entry.used_in_conclusions.filter((id): id is string => typeof id === "string")
+        : [],
+      document_relations: Array.isArray(entry.document_relations)
+        ? entry.document_relations.flatMap((relation) =>
+          isRecord(relation) &&
+            typeof relation.document_id === "string" &&
+            typeof relation.relation === "string"
+            ? [{ document_id: relation.document_id, relation: relation.relation }]
+            : []
+        )
         : [],
       evidence_status: entry.evidence_status,
       evidence_strength: entry.evidence_strength,
