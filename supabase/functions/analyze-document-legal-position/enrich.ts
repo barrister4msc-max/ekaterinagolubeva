@@ -1179,8 +1179,17 @@ export function buildEvidenceMatrix(opts: {
         : [];
     for (const d of docsField) {
       if (d && typeof d === "object") {
-        const rel = normalizeRelation(d.relation) ?? "SUPPORTS";
-        addCanonical(factId, d.doc_id ?? d.document_id ?? d.id, rel);
+        // Preferred canonical shape is fail-closed: a doc_id without a
+        // recognized relation is malformed and must not become SUPPORTS.
+        if (Object.prototype.hasOwnProperty.call(d, "doc_id")) {
+          const rel = normalizeRelation(d.relation);
+          if (rel) addCanonical(factId, d.doc_id, rel);
+          continue;
+        }
+
+        // Explicitly recognized legacy object shapes carried no relation.
+        // Keep their historical SUPPORTS semantics isolated here only.
+        addCanonical(factId, d.document_id ?? d.id, "SUPPORTS");
       } else if (typeof d === "string") {
         addCanonical(factId, d, "SUPPORTS");
       }
