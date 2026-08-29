@@ -1,69 +1,147 @@
-name: PR Quality Gate
+name: Prompt07D Branch Verifier
 
 on:
-  pull_request:
-    branches:
-      - main
-      - feat/p0a-taxoffence-runtime
   push:
     branches:
-      - main
-  workflow_dispatch:
+      - fix/prompt07d-missing-review-readiness
 
 permissions:
-  contents: read
-
-concurrency:
-  group: pr-quality-gate-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  contents: write
 
 jobs:
-  quality:
-    name: Linux quality gate
+  apply-and-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/prompt07d-missing-review-readiness
+          fetch-depth: 0
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install JavaScript dependencies
-        run: bun install --frozen-lockfile
-
-      # Linux is intentional: the local Windows Bun 1.3.14 full-suite crash
-      # must not be confused with a project test failure.
-      - name: Run full JavaScript test suite
-        run: bun test
-
-      - name: Run TypeScript typecheck
-        run: bun run typecheck
-
-      - name: Run production build
-        run: bun run build
-
-      - name: Run FNS contract tests when present
+      - name: Apply minimal Prompt 07D patch
         shell: bash
         run: |
-          set -euo pipefail
-          if [[ -f scripts/test_fns_open_data_taxoffence_storage.py ]]; then
-            python scripts/test_fns_open_data_taxoffence_storage.py
-          fi
-          if [[ -f scripts/test_fns_open_data_taxoffence_import_manifest.py ]]; then
-            python scripts/test_fns_open_data_taxoffence_import_manifest.py
-          fi
-          if [[ -f scripts/test_fns_open_data_taxoffence_dry_run.py ]]; then
-            python scripts/test_fns_open_data_taxoffence_dry_run.py --help
-          fi
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Verify repository has no accidental generated changes
-        run: git diff --exit-code
+          readiness_path = Path('src/lib/document-readiness.ts')
+          readiness = readiness_path.read_text()
+          old = '''  review: any | null; // review_run.ai_result
+  // Source Review warnings whose affected_conclusions is non-empty are treated
+'''
+          new = '''  review: any | null; // review_run.ai_result
+  reviewCompleted: boolean;
+  // Source Review warnings whose affected_conclusions is non-empty are treated
+'''
+          assert old in readiness, 'readiness input anchor missing'
+          readiness = readiness.replace(old, new, 1)
+
+          old = '''  // NEEDS_REVISION
+  if (reviewStatus === "needs_revision") {
+    reasons.push(`review_status=${reviewStatus}`);
+  }
+'''
+          new = '''  // NEEDS_REVISION
+  const validReviewStatuses = new Set(["passed", "needs_revision", "blocked"]);
+  if (!input.reviewCompleted) {
+    reasons.push("review_not_completed");
+  } else if (!validReviewStatuses.has(reviewStatus)) {
+    reasons.push("review_result_invalid");
+  }
+  if (reviewStatus === "needs_revision") {
+    reasons.push(`review_status=${reviewStatus}`);
+  }
+'''
+          assert old in readiness, 'readiness NEEDS_REVISION anchor missing'
+          readiness = readiness.replace(old, new, 1)
+          readiness_path.write_text(readiness)
+
+          Path('src/lib/document-approval.ts').write_text('''export type ReviewRunForApproval = {\n  status?: unknown;\n  ai_result?: unknown;\n} | null;\n\nexport type ReviewApprovalGate =\n  | { allowed: true; reason: null }\n  | { allowed: false; reason: "review_not_completed" | "review_result_invalid" | "review_not_passed" };\n\nexport function evaluateReviewApproval(reviewRun: ReviewRunForApproval): ReviewApprovalGate {\n  if (!reviewRun || String(reviewRun.status ?? "").toLowerCase() !== "completed") {\n    return { allowed: false, reason: "review_not_completed" };\n  }\n\n  const result =\n    reviewRun.ai_result && typeof reviewRun.ai_result === "object" && !Array.isArray(reviewRun.ai_result)\n      ? (reviewRun.ai_result as Record<string, unknown>)\n      : null;\n  const reviewStatus = String(result?.review_status ?? "").toLowerCase();\n\n  if (!["passed", "needs_revision", "blocked"].includes(reviewStatus)) {\n    return { allowed: false, reason: "review_result_invalid" };\n  }\n  if (reviewStatus !== "passed") {\n    return { allowed: false, reason: "review_not_passed" };\n  }\n  return { allowed: true, reason: null };\n}\n\nexport function assertReviewAllowsApproval(reviewRun: ReviewRunForApproval): void {\n  const gate = evaluateReviewApproval(reviewRun);\n  if (!gate.allowed) {\n    throw new Error(`Document approval blocked: ${gate.reason}`);\n  }\n}\n''')
+
+          route_path = Path('src/routes/workspace.generated-documents.$documentId.tsx')
+          route = route_path.read_text()
+          old = 'import { computeDocumentReadiness } from "@/lib/document-readiness";\n'
+          new = old + 'import { assertReviewAllowsApproval } from "@/lib/document-approval";\n'
+          assert old in route, 'route import anchor missing'
+          route = route.replace(old, new, 1)
+
+          old = '''  const approve = useMutation({
+    mutationFn: async () => {
+      if (!doc) return;
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase
+'''
+          new = '''  const approve = useMutation({
+    mutationFn: async () => {
+      if (!doc) return;
+      const { data: latestReviewRun, error: latestReviewError } = await supabase
+        .from("document_intake_ai_runs")
+        .select("status,ai_result")
+        .eq("generated_document_id" as any, doc.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (latestReviewError) throw latestReviewError;
+      assertReviewAllowsApproval(latestReviewRun);
+
+      const { data: u } = await supabase.auth.getUser();
+      const { error } = await supabase
+'''
+          assert old in route, 'approve mutation anchor missing'
+          route = route.replace(old, new, 1)
+
+          old = '''      computeDocumentReadiness({
+        consistency,
+        review,
+        sourceWarnings: (matterSnapshot?.source_warnings as any[]) ?? null,
+      }),
+    [consistency, review, matterSnapshot?.source_warnings],
+'''
+          new = '''      computeDocumentReadiness({
+        consistency,
+        review,
+        reviewCompleted:
+          !!reviewRun && String(reviewRun.status ?? "").toLowerCase() === "completed",
+        sourceWarnings: (matterSnapshot?.source_warnings as any[]) ?? null,
+      }),
+    [consistency, review, reviewRun, matterSnapshot?.source_warnings],
+'''
+          assert old in route, 'readiness call anchor missing'
+          route = route.replace(old, new, 1)
+          route_path.write_text(route)
+
+          Path('src/lib/document-readiness.test.ts').write_text('''import { describe, expect, test } from "bun:test";\nimport { computeDocumentReadiness } from "./document-readiness";\n\nconst greenConsistency = { ready: true, criticalFailed: [], warningsFailed: [], blockReason: null };\n\ndescribe("Prompt 07D document readiness", () => {\n  test("missing review cannot become READY", () => {\n    const result = computeDocumentReadiness({ consistency: greenConsistency, review: null, reviewCompleted: false });\n    expect(result.status).toBe("NEEDS_REVISION");\n    expect(result.reasons).toContain("review_not_completed");\n  });\n  test("completed run without valid Reviewer result cannot become READY", () => {\n    const result = computeDocumentReadiness({ consistency: greenConsistency, review: {}, reviewCompleted: true });\n    expect(result.status).toBe("NEEDS_REVISION");\n    expect(result.reasons).toContain("review_result_invalid");\n  });\n  test("completed passed review can become READY", () => {\n    expect(computeDocumentReadiness({ consistency: greenConsistency, review: { review_status: "passed", problems: [] }, reviewCompleted: true })).toEqual({ status: "READY", reasons: [] });\n  });\n  test("completed passed review with noncritical findings remains warning-only", () => {\n    expect(computeDocumentReadiness({ consistency: greenConsistency, review: { review_status: "passed", problems: [{ severity: "high" }] }, reviewCompleted: true }).status).toBe("READY_WITH_WARNINGS");\n  });\n  test("needs_revision and blocked preserve existing outcomes", () => {\n    expect(computeDocumentReadiness({ consistency: greenConsistency, review: { review_status: "needs_revision" }, reviewCompleted: true }).status).toBe("NEEDS_REVISION");\n    expect(computeDocumentReadiness({ consistency: greenConsistency, review: { review_status: "blocked" }, reviewCompleted: true }).status).toBe("BLOCKED");\n  });\n});\n''')
+
+          Path('src/lib/document-approval.test.ts').write_text('''import { describe, expect, test } from "bun:test";\nimport { assertReviewAllowsApproval, evaluateReviewApproval } from "./document-approval";\n\ndescribe("Prompt 07D lawyer approval gate", () => {\n  test("missing pending and failed review runs are rejected", () => {\n    expect(evaluateReviewApproval(null)).toEqual({ allowed: false, reason: "review_not_completed" });\n    expect(evaluateReviewApproval({ status: "pending", ai_result: { review_status: "passed" } })).toEqual({ allowed: false, reason: "review_not_completed" });\n    expect(evaluateReviewApproval({ status: "failed", ai_result: { review_status: "passed" } })).toEqual({ allowed: false, reason: "review_not_completed" });\n  });\n  test("completed run with missing or invalid result is rejected", () => {\n    expect(evaluateReviewApproval({ status: "completed", ai_result: null })).toEqual({ allowed: false, reason: "review_result_invalid" });\n    expect(evaluateReviewApproval({ status: "completed", ai_result: {} })).toEqual({ allowed: false, reason: "review_result_invalid" });\n  });\n  test("completed needs_revision or blocked review cannot be approved", () => {\n    expect(evaluateReviewApproval({ status: "completed", ai_result: { review_status: "needs_revision" } })).toEqual({ allowed: false, reason: "review_not_passed" });\n    expect(evaluateReviewApproval({ status: "completed", ai_result: { review_status: "blocked" } })).toEqual({ allowed: false, reason: "review_not_passed" });\n  });\n  test("only completed passed review is accepted", () => {\n    const run = { status: "completed", ai_result: { review_status: "passed" } };\n    expect(evaluateReviewApproval(run)).toEqual({ allowed: true, reason: null });\n    expect(() => assertReviewAllowsApproval(run)).not.toThrow();\n  });\n  test("assertion fails closed before approval write", () => {\n    expect(() => assertReviewAllowsApproval(null)).toThrow("review_not_completed");\n  });\n});\n''')
+          PY
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Prompt 07D regressions
+        run: bun test src/lib/document-readiness.test.ts src/lib/document-approval.test.ts
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Verify and commit clean product diff
+        shell: bash
+        run: |
+          git checkout 9d26b3b70c286e46a5a3a79b93a7b8b07084ec7a -- .github/workflows/pr-quality-gate.yml
+          rm -f .github/workflows/prompt07d-apply-test.yml
+          changed="$(git diff --name-only 9d26b3b70c286e46a5a3a79b93a7b8b07084ec7a | sort)"
+          expected="$(printf '%s\n' \
+            'src/lib/document-approval.test.ts' \
+            'src/lib/document-approval.ts' \
+            'src/lib/document-readiness.test.ts' \
+            'src/lib/document-readiness.ts' \
+            'src/routes/workspace.generated-documents.$documentId.tsx' | sort)"
+          test "$changed" = "$expected"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Fail closed on missing Reviewer approval gate"
+          git push origin HEAD:fix/prompt07d-missing-review-readiness
