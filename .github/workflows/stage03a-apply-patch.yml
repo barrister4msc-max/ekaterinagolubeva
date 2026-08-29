@@ -1,0 +1,27 @@
+name: Stage 03A Apply Patch
+on:
+  push:
+    branches: [fix/stage03a-evidence-identity-fingerprint]
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python scripts/stage03a_patch.py
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: |
+          bun test supabase/functions/analyze-document-legal-position/evidence-relation-fail-closed.test.ts
+          bun test supabase/functions/analyze-document-legal-position/evidence-contradiction-unresolved.test.ts
+          bun test supabase/functions/analyze-document-legal-position/evidence-identity-fingerprint.test.ts
+      - run: |
+          git rm .github/workflows/stage03a-apply-patch.yml scripts/stage03a_patch.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/analyze-document-legal-position/enrich.ts supabase/functions/analyze-document-legal-position/index.ts supabase/functions/analyze-document-legal-position/evidence-identity-fingerprint.test.ts
+          git commit -m "Add deterministic evidence representation identity"
+          git push origin HEAD:fix/stage03a-evidence-identity-fingerprint
