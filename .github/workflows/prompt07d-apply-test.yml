@@ -67,11 +67,11 @@ jobs:
         run: |
           git checkout 9d26b3b70c286e46a5a3a79b93a7b8b07084ec7a -- .github/workflows/law7-controlled-real-data-poc.yml .github/workflows/pr-quality-gate.yml
           rm -f .github/workflows/prompt07d-apply-test.yml
-          changed="$(git diff --name-only 9d26b3b70c286e46a5a3a79b93a7b8b07084ec7a | sort)"
+          git add -A
+          changed="$(git diff --cached --name-only 9d26b3b70c286e46a5a3a79b93a7b8b07084ec7a | sort)"
           expected="$(printf '%s\n' 'src/lib/document-approval.ts' 'src/lib/document-readiness.ts' 'src/routes/workspace.generated-documents.$documentId.tsx' 'supabase/tests/prompt07d-document-approval.test.ts' 'supabase/tests/prompt07d-document-readiness.test.ts' | sort)"
           test "$changed" = "$expected"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
           git commit -m "Fail closed on missing Reviewer approval gate"
           git push origin HEAD:fix/prompt07d-missing-review-readiness
