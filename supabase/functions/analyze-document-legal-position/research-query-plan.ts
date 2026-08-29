@@ -144,7 +144,7 @@ const SENSITIVITY = new Set<ResearchSensitivityClass>([
 ]);
 
 const ARBITRATION_CASE_RE = /^А\d+-\d+\/\d{4}$/u;
-const FORBIDDEN_IDENTIFIER_RE = /(?:\b\d{10}\b|\b\d{12}\b|\b\d{13}\b|\b\d{15}\b|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|\b(?:ООО|АО|ПАО|ЗАО|ИП|ОАО)\s+["«][^"»]+["»])/iu;
+const FORBIDDEN_IDENTIFIER_RE = /(?:\b\d{10}\b|\b\d{12}\b|\b\d{13}\b|\b\d{15}\b|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|(?:^|[^А-ЯЁA-Z0-9])(?:ООО|АО|ПАО|ЗАО|ИП|ОАО)\s+["«][^"»]+["»])/iu;
 const FREE_TEXT_KEYS = new Set([
   "document_text",
   "ocr_text",
