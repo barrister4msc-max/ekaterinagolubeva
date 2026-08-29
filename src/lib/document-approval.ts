@@ -7,7 +7,14 @@ export type ReviewRunForApproval = {
 
 export type ReviewApprovalGate =
   | { allowed: true; reason: null }
-  | { allowed: false; reason: "review_not_completed" | "review_result_invalid" | "review_not_passed" | "review_stale" };
+  | { allowed: false; reason: "review_not_completed" | "review_result_invalid" | "review_not_passed" | "review_stale" | "review_freshness_unverifiable" };
+
+function parseRequiredTimestamp(value: unknown): number | null {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return null;
+  const time = new Date(raw).getTime();
+  return Number.isFinite(time) ? time : null;
+}
 
 export function evaluateReviewApproval(
   reviewRun: ReviewRunForApproval,
@@ -25,13 +32,14 @@ export function evaluateReviewApproval(
   }
   if (reviewStatus !== "passed") return { allowed: false, reason: "review_not_passed" };
 
-  const reviewCompletedAt = String(reviewRun.completed_at ?? reviewRun.created_at ?? "");
-  if (reviewCompletedAt && documentUpdatedAt) {
-    const reviewTime = new Date(reviewCompletedAt).getTime();
-    const documentTime = new Date(documentUpdatedAt).getTime();
-    if (Number.isFinite(reviewTime) && Number.isFinite(documentTime) && reviewTime < documentTime) {
-      return { allowed: false, reason: "review_stale" };
-    }
+  const reviewCompletedAt = reviewRun.completed_at ?? reviewRun.created_at;
+  const reviewTime = parseRequiredTimestamp(reviewCompletedAt);
+  const documentTime = parseRequiredTimestamp(documentUpdatedAt);
+  if (reviewTime === null || documentTime === null) {
+    return { allowed: false, reason: "review_freshness_unverifiable" };
+  }
+  if (reviewTime < documentTime) {
+    return { allowed: false, reason: "review_stale" };
   }
 
   return { allowed: true, reason: null };

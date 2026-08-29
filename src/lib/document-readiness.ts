@@ -33,6 +33,13 @@ export type ReadinessResult = {
   reasons: string[];
 };
 
+function parseRequiredTimestamp(value: unknown): number | null {
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (!raw) return null;
+  const time = new Date(raw).getTime();
+  return Number.isFinite(time) ? time : null;
+}
+
 export function computeDocumentReadiness(input: ReadinessInput): ReadinessResult {
   const reasons: string[] = [];
 
@@ -63,12 +70,14 @@ export function computeDocumentReadiness(input: ReadinessInput): ReadinessResult
     reasons.push("review_not_completed");
   } else if (!validReviewStatuses.has(reviewStatus)) {
     reasons.push("review_result_invalid");
-  } else if (
-    input.reviewCompletedAt &&
-    input.documentUpdatedAt &&
-    new Date(input.reviewCompletedAt).getTime() < new Date(input.documentUpdatedAt).getTime()
-  ) {
-    reasons.push("review_stale");
+  } else if (reviewStatus === "passed") {
+    const reviewTime = parseRequiredTimestamp(input.reviewCompletedAt);
+    const documentTime = parseRequiredTimestamp(input.documentUpdatedAt);
+    if (reviewTime === null || documentTime === null) {
+      reasons.push("review_freshness_unverifiable");
+    } else if (reviewTime < documentTime) {
+      reasons.push("review_stale");
+    }
   }
   if (reviewStatus === "needs_revision") {
     reasons.push(`review_status=${reviewStatus}`);
