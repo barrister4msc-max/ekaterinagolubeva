@@ -17,8 +17,38 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return json({ success: false, error: "Method not allowed" }, 405);
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    const supabase = createClient(supabaseUrl, serviceKey);
+
+    const authorization = req.headers.get("Authorization");
+    const accessToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!accessToken) {
+      return json({ success: false, error: "Unauthorized" }, 401);
+    }
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(accessToken);
+    if (authError || !user) {
+      return json({ success: false, error: "Unauthorized" }, 401);
+    }
+
+    const { data: isAdmin, error: roleError } = await supabase.rpc("is_admin_or_superadmin", {
+      _user_id: user.id,
+    });
+    if (roleError) {
+      throw new Error("Unable to verify access");
+    }
+    if (isAdmin !== true) {
+      return json({ success: false, error: "Forbidden" }, 403);
+    }
+
     const payload = await req.json();
 
     const {
@@ -46,10 +76,67 @@ Deno.serve(async (req) => {
   } = payload;
 
 const effectiveSessionId = intake_session_id || session_id || null;
-  const legalAnalysisObject =
-  legal_analysis && typeof legal_analysis === "object"
-    ? (legal_analysis as Record<string, any>)
-    : null;
+
+    let validatedSession: Record<string, any> | null = null;
+    if (effectiveSessionId) {
+      const { data: session, error: sessionError } = await supabase
+        .from("document_intake_sessions")
+        .select("id,matter_id,created_by,template_code,jurisdiction,language,status")
+        .eq("id", effectiveSessionId)
+        .maybeSingle();
+
+      if (sessionError) throw sessionError;
+      if (!session) {
+        return json({ success: false, error: "Intake session not found" }, 404);
+      }
+      if (session.created_by && session.created_by !== user.id) {
+        return json({ success: false, error: "Forbidden" }, 403);
+      }
+      if (template_code && session.template_code !== template_code) {
+        return json({ success: false, error: "Template does not match intake session" }, 409);
+      }
+      if (jurisdiction && session.jurisdiction !== jurisdiction) {
+        return json({ success: false, error: "Jurisdiction does not match intake session" }, 409);
+      }
+      if (language && session.language !== language) {
+        return json({ success: false, error: "Language does not match intake session" }, 409);
+      }
+      validatedSession = session as Record<string, any>;
+    }
+
+    if (legal_analysis && !legal_analysis_run_id) {
+      return json({ success: false, error: "legal_analysis_run_id is required with legal_analysis" }, 400);
+    }
+    if (legal_analysis_run_id && !effectiveSessionId) {
+      return json({ success: false, error: "intake_session_id is required with legal_analysis_run_id" }, 400);
+    }
+
+    let validatedLegalAnalysis: Record<string, any> | null = null;
+    if (legal_analysis_run_id) {
+      const { data: run, error: runError } = await supabase
+        .from("document_intake_ai_runs")
+        .select("id,session_id,run_type,status,ai_result")
+        .eq("id", legal_analysis_run_id)
+        .eq("session_id", effectiveSessionId)
+        .eq("run_type", "legal_analysis")
+        .eq("status", "completed")
+        .maybeSingle();
+
+      if (runError) throw runError;
+      if (!run || !run.ai_result || typeof run.ai_result !== "object") {
+        return json({ success: false, error: "Accepted legal analysis run not found" }, 409);
+      }
+      validatedLegalAnalysis = run.ai_result as Record<string, any>;
+    }
+
+    console.info("[generator-auth]", JSON.stringify({
+      actor_user_id: user.id,
+      session_id: effectiveSessionId,
+      matter_id: validatedSession?.matter_id ?? null,
+      legal_analysis_run_id: legal_analysis_run_id ?? null,
+    }));
+
+  const legalAnalysisObject = validatedLegalAnalysis;
 
 const rawWorkingStrategy =
   payload.working_strategy ??
@@ -79,13 +166,7 @@ const includeLegacyCaseIntelligence = !legalAnalysisForGeneration;
     const templateProfileBlock = templateProfile ? renderTemplateProfileBlock(templateProfile) : "";
     if (!template?.title) return json({ success: false, error: "template.title is required" }, 400);
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
-
     if (!geminiKey) throw new Error("GEMINI_API_KEY is missing");
-
-    const supabase = createClient(supabaseUrl, serviceKey);
 
     await observeCanonicalShadowParity({
       enabled: canonicalConsumerObservationEnabled((name) => Deno.env.get(name)),
@@ -710,7 +791,7 @@ and explain in "why_used" what must be checked manually.
         title,
         status: "draft",
         content: generated.content || "",
-        created_by: null,
+        created_by: user.id,
 intake_session_id: effectiveSessionId,
 metadata: {
           source: "generate-legal-document-v2",
