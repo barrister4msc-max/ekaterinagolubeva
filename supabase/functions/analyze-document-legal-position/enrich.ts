@@ -1137,18 +1137,10 @@ export function buildEvidenceMatrix(opts: {
     return ALLOWED_RELATIONS.has(v as EvidenceRelation) ? (v as EvidenceRelation) : null;
   };
 
-  // Canonical producer output: fact_id → (doc_id → strongest relation).
-  // Relation precedence for de-dup within one fact when the model repeats a
-  // doc_id: DIRECTLY_RECORDS > CONTRADICTS > SUPPORTS > PARTIALLY_SUPPORTS >
-  // MERELY_STATES. Higher rank wins; CONTRADICTS never silently downgrades.
-  const RELATION_RANK: Record<EvidenceRelation, number> = {
-    DIRECTLY_RECORDS: 5,
-    CONTRADICTS: 4,
-    SUPPORTS: 3,
-    PARTIALLY_SUPPORTS: 2,
-    MERELY_STATES: 1,
-  };
-  const canonicalByFact = new Map<string, Map<string, EvidenceRelation>>();
+  // Canonical producer output: fact_id → (doc_id → set of relations).
+  // Preserve conflicting relations; conflict resolution requires an explicit
+  // reasoned decision and must not happen through aggregation precedence.
+  const canonicalByFact = new Map<string, Map<string, Set<EvidenceRelation>>>();
   const addCanonical = (factId: string | null, docId: unknown, relation: EvidenceRelation) => {
     if (!factId) return;
     const id = typeof docId === "string" ? docId.trim() : "";
@@ -1158,8 +1150,12 @@ export function buildEvidenceMatrix(opts: {
       m = new Map();
       canonicalByFact.set(factId, m);
     }
-    const prev = m.get(id);
-    if (!prev || RELATION_RANK[relation] > RELATION_RANK[prev]) m.set(id, relation);
+    let relationsForDoc = m.get(id);
+    if (!relationsForDoc) {
+      relationsForDoc = new Set<EvidenceRelation>();
+      m.set(id, relationsForDoc);
+    }
+    relationsForDoc.add(relation);
   };
 
   const rawCanonical: any[] = Array.isArray(opts.parsed.fact_to_evidence_mapping)
@@ -1226,10 +1222,9 @@ export function buildEvidenceMatrix(opts: {
     let relations: Array<{ document_id: string; relation: EvidenceRelation }> = [];
     let evidenceSource: EvidenceMatrixEntry["evidence_source"];
     if (canonicalMap && canonicalMap.size > 0) {
-      relations = Array.from(canonicalMap.entries()).map(([document_id, relation]) => ({
-        document_id,
-        relation,
-      }));
+      relations = Array.from(canonicalMap.entries()).flatMap(([document_id, relationSet]) =>
+        Array.from(relationSet).map((relation) => ({ document_id, relation })),
+      );
       evidenceSource = "canonical";
     } else if (!canonicalPresent && legacyByFact.has(f.fact_id)) {
       relations = Array.from(legacyByFact.get(f.fact_id)!).map((document_id) => ({
@@ -1240,7 +1235,7 @@ export function buildEvidenceMatrix(opts: {
     } else {
       evidenceSource = "none";
     }
-    const docs = relations.map((r) => r.document_id);
+    const docs = Array.from(new Set(relations.map((r) => r.document_id)));
 
     const used_in_conclusions = opts.conclusions
       .filter((c) => c.provenance.facts_used.includes(f.fact_id))
@@ -1259,13 +1254,18 @@ export function buildEvidenceMatrix(opts: {
     const nonContradictSupport = relations.some(
       (r) => r.relation !== "CONTRADICTS" && r.relation !== "MERELY_STATES",
     );
+    const hasContradiction = relations.some((r) => r.relation === "CONTRADICTS");
     const allContradict =
       relations.length > 0 && relations.every((r) => r.relation === "CONTRADICTS");
+    const mixedContradiction = hasContradiction && !allContradict;
 
     let status: EvidenceMatrixEntry["evidence_status"];
     let strength: EvidenceMatrixEntry["evidence_strength"];
     if (allContradict) {
       status = "contradicted";
+      strength = "low";
+    } else if (mixedContradiction) {
+      status = "partial";
       strength = "low";
     } else if (missingForFact.length > 0 && !nonContradictSupport) {
       status = "missing";
@@ -1302,7 +1302,9 @@ export function buildEvidenceMatrix(opts: {
       evidence_status: status,
       evidence_strength: strength,
       missing_evidence: missingForFact,
-      contradiction_notes: null,
+      contradiction_notes: mixedContradiction
+        ? "Обнаружены одновременно подтверждающие и противоречащие связи; требуется мотивированное разрешение конфликта"
+        : null,
       used_in_conclusions,
       evidence_source: evidenceSource,
     });
