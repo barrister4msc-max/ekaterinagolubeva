@@ -77,6 +77,32 @@ describe("external legal research import", () => {
     expect(source.metadata.is_official).toBeUndefined();
   });
 
+  test("admits an official BRAS/KAD reference only as unverified court-practice discovery", () => {
+    const result = normalizeExternalResearchImport({
+      provider: "bras_kad",
+      candidates: [{
+        title: "Постановление по делу А40-123/2024",
+        url: "https://kad.arbitr.ru/Card/123#top",
+        case_number: "А40-123/2024",
+      }],
+    });
+    const source = result.sources[0];
+    expect(source.bucket).toBe("court_practice");
+    expect(source.official_url).toBeNull();
+    expect(source.metadata.imported_url).toBe("https://kad.arbitr.ru/Card/123");
+    expect(source.metadata.source_family).toBe("bras_kad");
+    expect(source.metadata.substantive_use_allowed).toBe(false);
+  });
+
+  test("rejects non-official BRAS/KAD URLs and unidentifiable case references", () => {
+    const result = normalizeExternalResearchImport({
+      provider: "bras_kad",
+      candidates: [{ title: "Решение", url: "https://example.test/case/123", case_number: "дело клиента" }],
+    });
+    expect(result.sources).toEqual([]);
+    expect(result.diagnostics.warnings).toContain("invalid_or_unidentifiable_candidates_skipped");
+  });
+
   test("deduplicates same reference and preserves issue provenance", () => {
     const result = normalizeExternalResearchImport({
       provider: "strizh",
