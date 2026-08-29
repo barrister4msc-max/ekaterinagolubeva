@@ -37,7 +37,7 @@ describe("Prompt 07F stale Reviewer freshness gate", () => {
     expect(evaluateReviewApproval(
       {
         status: "completed",
-        ai_result: { review_status: "passed" },
+        ai_result: { review_status: "passed", problems: [] },
         completed_at: "2026-08-29T15:30:00.000Z",
       },
       "2026-08-29T15:29:00.000Z",
@@ -48,7 +48,7 @@ describe("Prompt 07F stale Reviewer freshness gate", () => {
     expect(evaluateReviewApproval(
       {
         status: "completed",
-        ai_result: { review_status: "passed" },
+        ai_result: { review_status: "passed", problems: [] },
         completed_at: "2026-08-29T15:29:00.000Z",
       },
       "2026-08-29T15:30:00.000Z",

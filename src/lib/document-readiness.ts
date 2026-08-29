@@ -44,7 +44,8 @@ export function computeDocumentReadiness(input: ReadinessInput): ReadinessResult
   const reasons: string[] = [];
 
   const reviewStatus = String(input.review?.review_status ?? "").toLowerCase();
-  const problems = Array.isArray(input.review?.problems) ? input.review!.problems : [];
+  const problemsPayloadValid = Array.isArray(input.review?.problems);
+  const problems = problemsPayloadValid ? input.review!.problems : [];
   const criticalProblems = problems.filter((p: any) => {
     const s = String(p?.severity ?? "").toLowerCase();
     return s === "critical" || s === "blocker";
@@ -70,6 +71,8 @@ export function computeDocumentReadiness(input: ReadinessInput): ReadinessResult
     reasons.push("review_not_completed");
   } else if (!validReviewStatuses.has(reviewStatus)) {
     reasons.push("review_result_invalid");
+  } else if (reviewStatus === "passed" && !problemsPayloadValid) {
+    reasons.push("review_safety_payload_invalid");
   } else if (reviewStatus === "passed") {
     const reviewTime = parseRequiredTimestamp(input.reviewCompletedAt);
     const documentTime = parseRequiredTimestamp(input.documentUpdatedAt);

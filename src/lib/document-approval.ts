@@ -7,7 +7,7 @@ export type ReviewRunForApproval = {
 
 export type ReviewApprovalGate =
   | { allowed: true; reason: null }
-  | { allowed: false; reason: "review_not_completed" | "review_result_invalid" | "review_not_passed" | "review_stale" | "review_freshness_unverifiable" };
+  | { allowed: false; reason: "review_not_completed" | "review_result_invalid" | "review_not_passed" | "review_stale" | "review_freshness_unverifiable" | "review_safety_payload_invalid" };
 
 function parseRequiredTimestamp(value: unknown): number | null {
   const raw = typeof value === "string" ? value.trim() : "";
@@ -31,6 +31,9 @@ export function evaluateReviewApproval(
     return { allowed: false, reason: "review_result_invalid" };
   }
   if (reviewStatus !== "passed") return { allowed: false, reason: "review_not_passed" };
+  if (!Array.isArray(result?.problems)) {
+    return { allowed: false, reason: "review_safety_payload_invalid" };
+  }
 
   const reviewCompletedAt = reviewRun.completed_at ?? reviewRun.created_at;
   const reviewTime = parseRequiredTimestamp(reviewCompletedAt);

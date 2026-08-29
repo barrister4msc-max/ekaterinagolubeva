@@ -10,6 +10,14 @@ export type ReviewReadinessContext = {
   paragraphProvenance?: unknown;
 };
 
+const REVIEW_SAFETY_PAYLOAD_GAP = {
+  type: "missing_information",
+  severity: "high",
+  text_fragment: "",
+  problem: "Обязательный Reviewer safety payload problems отсутствует или имеет неверный формат.",
+  recommendation: "Повторить AI Review до финального согласования документа.",
+} as const;
+
 const PARAGRAPH_PROVENANCE_GAP = {
   type: "missing_information",
   severity: "high",
@@ -48,6 +56,7 @@ function hasStructurallyCompleteParagraphProvenance(value: unknown): boolean {
 /**
  * Deterministic fail-closed reconciliation for the existing Reviewer contract.
  * Critical findings cannot coexist with a successful/final review projection.
+ * Missing or malformed safety-critical problems payload cannot retain a successful/final projection.
  * A substantive generated document without structurally complete mandatory paragraph provenance
  * may remain a draft, but cannot retain a successful/final readiness projection.
  */
@@ -60,7 +69,20 @@ export function normalizeReviewOutcome(
       ? { ...(input as Record<string, unknown>) }
       : {};
 
-  const problems = Array.isArray(review.problems) ? review.problems : [];
+  const problemsPayloadValid = Array.isArray(review.problems);
+  const problems = problemsPayloadValid ? review.problems as unknown[] : [];
+
+  if (!problemsPayloadValid) {
+    return {
+      ...review,
+      review_status:
+        review.review_status === "passed" ? "needs_revision" : review.review_status,
+      ready_for_client: false,
+      can_be_sent_as_final: false,
+      problems: [REVIEW_SAFETY_PAYLOAD_GAP],
+    };
+  }
+
   const hasCriticalFinding = problems.some((problem) => {
     if (!problem || typeof problem !== "object" || Array.isArray(problem)) return false;
     return (problem as Record<string, unknown>).severity === "critical";
