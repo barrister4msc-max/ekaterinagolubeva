@@ -924,7 +924,11 @@ if (!geminiResponse) {
 
     const geminiJson = await geminiResponse.json();
     const raw = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    const review = normalizeReviewOutcome(JSON.parse(raw));
+    const review = normalizeReviewOutcome(JSON.parse(raw), {
+    requiresParagraphProvenance:
+      typeof doc.content === "string" && doc.content.trim().length > 0,
+    paragraphProvenance: doc.metadata?.paragraph_provenance,
+  });
 
     const updatedMetadata = {
       ...(doc.metadata || {}),
