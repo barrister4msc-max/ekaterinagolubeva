@@ -1,0 +1,196 @@
+name: Stage 03 Apply Patch
+
+on:
+  push:
+    branches:
+      - fix/stage03-evidence-contradiction-unresolved
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/stage03-evidence-contradiction-unresolved
+          fetch-depth: 0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Reproduce Stage 03 first failure
+        shell: bash
+        run: |
+          set +e
+          bun test supabase/functions/analyze-document-legal-position/evidence-contradiction-unresolved.test.ts
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then
+            echo "Expected pre-fix regression test to fail, but it passed"
+            exit 1
+          fi
+          echo "Confirmed pre-fix mixed-relation failure"
+
+      - name: Apply minimal mixed-relation fix
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("supabase/functions/analyze-document-legal-position/enrich.ts")
+          source = path.read_text(encoding="utf-8")
+
+          old1 = '''  // Canonical producer output: fact_id → (doc_id → strongest relation).
+  // Relation precedence for de-dup within one fact when the model repeats a
+  // doc_id: DIRECTLY_RECORDS > CONTRADICTS > SUPPORTS > PARTIALLY_SUPPORTS >
+  // MERELY_STATES. Higher rank wins; CONTRADICTS never silently downgrades.
+  const RELATION_RANK: Record<EvidenceRelation, number> = {
+    DIRECTLY_RECORDS: 5,
+    CONTRADICTS: 4,
+    SUPPORTS: 3,
+    PARTIALLY_SUPPORTS: 2,
+    MERELY_STATES: 1,
+  };
+  const canonicalByFact = new Map<string, Map<string, EvidenceRelation>>();
+  const addCanonical = (factId: string | null, docId: unknown, relation: EvidenceRelation) => {
+    if (!factId) return;
+    const id = typeof docId === "string" ? docId.trim() : "";
+    if (!id || !allowedDocIds.has(id)) return;
+    let m = canonicalByFact.get(factId);
+    if (!m) {
+      m = new Map();
+      canonicalByFact.set(factId, m);
+    }
+    const prev = m.get(id);
+    if (!prev || RELATION_RANK[relation] > RELATION_RANK[prev]) m.set(id, relation);
+  };
+'''
+
+          new1 = '''  // Canonical producer output: fact_id → (doc_id → set of relations).
+  // Stage 03: preserve conflicting relations instead of collapsing them by
+  // precedence. The same evidence may both support and contradict a proposition;
+  // conflict resolution belongs to an explicit later decision, not aggregation.
+  const canonicalByFact = new Map<string, Map<string, Set<EvidenceRelation>>>();
+  const addCanonical = (factId: string | null, docId: unknown, relation: EvidenceRelation) => {
+    if (!factId) return;
+    const id = typeof docId === "string" ? docId.trim() : "";
+    if (!id || !allowedDocIds.has(id)) return;
+    let m = canonicalByFact.get(factId);
+    if (!m) {
+      m = new Map();
+      canonicalByFact.set(factId, m);
+    }
+    let relationsForDoc = m.get(id);
+    if (!relationsForDoc) {
+      relationsForDoc = new Set<EvidenceRelation>();
+      m.set(id, relationsForDoc);
+    }
+    relationsForDoc.add(relation);
+  };
+'''
+
+          old2 = '''    if (canonicalMap && canonicalMap.size > 0) {
+      relations = Array.from(canonicalMap.entries()).map(([document_id, relation]) => ({
+        document_id,
+        relation,
+      }));
+      evidenceSource = "canonical";
+'''
+
+          new2 = '''    if (canonicalMap && canonicalMap.size > 0) {
+      relations = Array.from(canonicalMap.entries()).flatMap(([document_id, relationSet]) =>
+        Array.from(relationSet).map((relation) => ({ document_id, relation })),
+      );
+      evidenceSource = "canonical";
+'''
+
+          old3 = '''    const docs = relations.map((r) => r.document_id);
+'''
+          new3 = '''    const docs = Array.from(new Set(relations.map((r) => r.document_id)));
+'''
+
+          old4 = '''    // Aggregate status is a separate question from per-pair relation.
+    // If ALL defensible links for this fact are CONTRADICTS, aggregate is
+    // "contradicted"; otherwise existing rules apply. document_relations is
+    // additive — legacy consumers keep reading documents_used unchanged.
+    const nonContradictSupport = relations.some(
+      (r) => r.relation !== "CONTRADICTS" && r.relation !== "MERELY_STATES",
+    );
+    const allContradict =
+      relations.length > 0 && relations.every((r) => r.relation === "CONTRADICTS");
+
+    let status: EvidenceMatrixEntry["evidence_status"];
+    let strength: EvidenceMatrixEntry["evidence_strength"];
+    if (allContradict) {
+      status = "contradicted";
+      strength = "low";
+    } else if (missingForFact.length > 0 && !nonContradictSupport) {
+'''
+
+          new4 = '''    // Aggregate status is separate from per-pair relation. A material
+    // contradiction must remain unresolved until an explicit, reasoned resolution;
+    // the presence of SUPPORTS/DIRECTLY_RECORDS must not erase CONTRADICTS.
+    const nonContradictSupport = relations.some(
+      (r) => r.relation !== "CONTRADICTS" && r.relation !== "MERELY_STATES",
+    );
+    const hasContradiction = relations.some((r) => r.relation === "CONTRADICTS");
+    const allContradict =
+      relations.length > 0 && relations.every((r) => r.relation === "CONTRADICTS");
+    const mixedContradiction = hasContradiction && !allContradict;
+
+    let status: EvidenceMatrixEntry["evidence_status"];
+    let strength: EvidenceMatrixEntry["evidence_strength"];
+    if (allContradict) {
+      status = "contradicted";
+      strength = "low";
+    } else if (mixedContradiction) {
+      status = "partial";
+      strength = "low";
+    } else if (missingForFact.length > 0 && !nonContradictSupport) {
+'''
+
+          old5 = '''      contradiction_notes: null,
+'''
+          new5 = '''      contradiction_notes: mixedContradiction
+        ? "Обнаружены одновременно подтверждающие и противоречащие связи; требуется мотивированное разрешение конфликта"
+        : null,
+'''
+
+          for label, old, new in [
+            ("canonical relation storage", old1, new1),
+            ("relation projection", old2, new2),
+            ("document identity list", old3, new3),
+            ("mixed contradiction aggregation", old4, new4),
+            ("contradiction note", old5, new5),
+          ]:
+            count = source.count(old)
+            if count != 1:
+              raise SystemExit(f"{label}: expected exactly one target block, found {count}")
+            source = source.replace(old, new, 1)
+
+          path.write_text(source, encoding="utf-8")
+
+      - name: Run Stage 02 and Stage 03 regression tests
+        run: |
+          bun test supabase/functions/analyze-document-legal-position/evidence-relation-fail-closed.test.ts
+          bun test supabase/functions/analyze-document-legal-position/evidence-contradiction-unresolved.test.ts
+
+      - name: Commit only final Stage 03 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/stage03-apply-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/analyze-document-legal-position/enrich.ts \
+                  supabase/functions/analyze-document-legal-position/evidence-contradiction-unresolved.test.ts
+          git commit -m "Preserve unresolved evidence contradictions"
+          git push origin HEAD:fix/stage03-evidence-contradiction-unresolved
