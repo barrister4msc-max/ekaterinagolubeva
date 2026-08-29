@@ -12,17 +12,61 @@ const corsHeaders = {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method !== "POST") return json({ success: false, error: "Method not allowed" }, 405);
 
   let targetDocumentId: string | null = null;
   let intakeSessionId: string | null = null;
   let supabase: any = null;
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+
+    if (!geminiKey) throw new Error("GEMINI_API_KEY is missing");
+
+    supabase = createClient(supabaseUrl, serviceKey);
+
+    const authorization = req.headers.get("Authorization");
+    const accessToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+    if (!accessToken) {
+      return json({ success: false, error: "Unauthorized" }, 401);
+    }
+
+    let actorUserId: string | null = null;
+    let callerType: "trusted_server" | "user" = "user";
+
+    if (accessToken === serviceKey) {
+      callerType = "trusted_server";
+    } else {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser(accessToken);
+
+      if (authError || !user) {
+        return json({ success: false, error: "Unauthorized" }, 401);
+      }
+
+      const { data: isAdmin, error: roleError } = await supabase.rpc("is_admin_or_superadmin", {
+        _user_id: user.id,
+      });
+      if (roleError) {
+        throw new Error("Unable to verify access");
+      }
+      if (isAdmin !== true) {
+        return json({ success: false, error: "Forbidden" }, 403);
+      }
+
+      actorUserId = user.id;
+    }
+
     const payload = await req.json();
 
     const {
       document_id,
       generated_document_id,
+      legal_analysis_run_id = null,
       run_type = "review",
       revision_materials = [],
       parent_document_id = null,
@@ -34,14 +78,6 @@ serve(async (req) => {
       return json({ error: "document_id or generated_document_id is required" }, 400);
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
-
-    if (!geminiKey) throw new Error("GEMINI_API_KEY is missing");
-
-    supabase = createClient(supabaseUrl, serviceKey);
-
     const { data: doc, error: docError } = await supabase
       .from("generated_legal_documents")
       .select("*")
@@ -50,16 +86,82 @@ serve(async (req) => {
 
     if (docError || !doc) return json({ error: "Generated document not found" }, 404);
 
-        const matterId = doc.metadata?.matter_id;
+    if (callerType === "user" && doc.created_by && doc.created_by !== actorUserId) {
+      return json({ success: false, error: "Forbidden" }, 403);
+    }
+
+    const matterId = doc.metadata?.matter_id ?? null;
     intakeSessionId = doc.intake_session_id || doc.metadata?.intake_session_id || null;
+    const persistedLegalAnalysisRunId = doc.metadata?.legal_analysis_run_id ?? null;
 
+    if (legal_analysis_run_id && !persistedLegalAnalysisRunId) {
+      return json({ success: false, error: "Generated document has no bound legal analysis run" }, 409);
+    }
+    if (
+      legal_analysis_run_id &&
+      persistedLegalAnalysisRunId &&
+      legal_analysis_run_id !== persistedLegalAnalysisRunId
+    ) {
+      return json({ success: false, error: "legal_analysis_run_id does not match generated document" }, 409);
+    }
 
-        let matter = null;
+    let matter = null;
     let strategy = null;
     let matterDocs: any[] = [];
     let intakeSession = null;
     let intakeAnswers: any[] = [];
     let intakeSourceDocument = null;
+
+    if (intakeSessionId) {
+      const { data: sessionData, error: sessionError } = await supabase
+        .from("document_intake_sessions")
+        .select("*")
+        .eq("id", intakeSessionId)
+        .single();
+
+      if (sessionError || !sessionData) {
+        return json({ success: false, error: "Intake session not found" }, 404);
+      }
+
+      if (callerType === "user" && sessionData.created_by && sessionData.created_by !== actorUserId) {
+        return json({ success: false, error: "Forbidden" }, 403);
+      }
+
+      if (matterId && sessionData.matter_id && matterId !== sessionData.matter_id) {
+        return json({ success: false, error: "Generated document matter does not match intake session" }, 409);
+      }
+
+      intakeSession = sessionData;
+    }
+
+    if (persistedLegalAnalysisRunId) {
+      if (!intakeSessionId) {
+        return json({ success: false, error: "Bound legal analysis run requires intake session" }, 409);
+      }
+
+      const { data: acceptedRun, error: acceptedRunError } = await supabase
+        .from("document_intake_ai_runs")
+        .select("id,session_id,run_type,status")
+        .eq("id", persistedLegalAnalysisRunId)
+        .eq("session_id", intakeSessionId)
+        .eq("run_type", "legal_analysis")
+        .eq("status", "completed")
+        .maybeSingle();
+
+      if (acceptedRunError) throw acceptedRunError;
+      if (!acceptedRun) {
+        return json({ success: false, error: "Accepted legal analysis run not found" }, 409);
+      }
+    }
+
+    console.info("[reviewer-auth]", JSON.stringify({
+      caller_type: callerType,
+      actor_user_id: actorUserId,
+      generated_document_id: targetDocumentId,
+      session_id: intakeSessionId,
+      matter_id: matterId,
+      legal_analysis_run_id: persistedLegalAnalysisRunId,
+    }));
 
     if (matterId) {
       const { data: matterData } = await supabase
@@ -87,32 +189,25 @@ serve(async (req) => {
 
       matterDocs = docsData || [];
     }
+
     if (intakeSessionId) {
-  const { data: sessionData } = await supabase
-    .from("document_intake_sessions")
-    .select("*")
-    .eq("id", intakeSessionId)
-    .single();
+      const { data: answersData } = await supabase
+        .from("document_intake_answers")
+        .select("*")
+        .eq("session_id", intakeSessionId);
 
-  intakeSession = sessionData;
+      intakeAnswers = answersData || [];
 
-  const { data: answersData } = await supabase
-    .from("document_intake_answers")
-    .select("*")
-    .eq("session_id", intakeSessionId);
+      if (intakeSession?.document_id) {
+        const { data: sourceDocumentData } = await supabase
+          .from("documents")
+          .select("*")
+          .eq("id", intakeSession.document_id)
+          .single();
 
-  intakeAnswers = answersData || [];
-
-  if (intakeSession?.document_id) {
-    const { data: sourceDocumentData } = await supabase
-      .from("documents")
-      .select("*")
-      .eq("id", intakeSession.document_id)
-      .single();
-
-    intakeSourceDocument = sourceDocumentData;
-  }
-}
+        intakeSourceDocument = sourceDocumentData;
+      }
+    }
 
 const resolveRevisionMaterials = async () => {
   if (!Array.isArray(revision_materials) || revision_materials.length === 0) {
