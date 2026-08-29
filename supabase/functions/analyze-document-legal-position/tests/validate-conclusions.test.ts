@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildConclusionsAndIndex,
+  buildFactRecords,
   setActuallyUsedInGeneration,
   validateConclusions,
   type Conclusion,
@@ -91,7 +92,8 @@ describe("validateConclusions", () => {
 
     expect(validated.provenance.laws_used).toEqual([trusted[0].source_ref]);
     expect(validated.provenance).toMatchObject({
-      support_level: "partial",
+      sufficiency: { status: "sufficient" },
+      support_level: "strong",
       needs_source: false,
       use_in_generation: true,
       hallucinated_source: false,
@@ -99,6 +101,80 @@ describe("validateConclusions", () => {
     expect(built.provenance_index.source_to_conclusions[trusted[0].source_ref]).toEqual([
       validated.conclusion_id,
     ]);
+  });
+
+  test("blocks a mixed fact-to-law conclusion without a linked document", () => {
+    const trusted = [source("law:nk:54.1")];
+    const { records } = buildFactRecords([
+      { fact_key: "F1", text: "Поставка товара состоялась" },
+    ]);
+    const fact = records[0]!;
+    const built = buildConclusionsAndIndex(
+      {
+        fact_to_law_mapping: [
+          {
+            fact_key: "F1",
+            fact: "Поставка товара состоялась",
+            law: "Статья 54.1 НК РФ",
+            conclusion: "Нужна оценка документального подтверждения поставки",
+          },
+        ],
+        conclusion_source_links: [
+          { conclusion_key: "fact_to_law:F1", source_ids: [trusted[0].source_id] },
+        ],
+      },
+      trusted,
+      records,
+    );
+    const [validated] = validateConclusions(built.conclusions, trusted);
+
+    expect(validated.provenance).toMatchObject({
+      facts_used: [fact.fact_id],
+      documents_used: [],
+      sufficiency: { status: "insufficient" },
+      support_level: "unsupported",
+      needs_source: true,
+      use_in_generation: false,
+      unsupported_reason: "Для смешанного вывода не установлены связанный факт и документ",
+    });
+  });
+
+  test("blocks a mixed fact-to-law conclusion with a document but no linked fact", () => {
+    const trusted = [source("law:nk:54.1")];
+    const mixed = conclusion("fact_to_law", [trusted[0].source_ref], "sufficient");
+    mixed.provenance.documents_used = ["doc-1"];
+
+    const [validated] = validateConclusions([mixed], trusted);
+
+    expect(validated.provenance).toMatchObject({
+      facts_used: [],
+      documents_used: ["doc-1"],
+      support_level: "unsupported",
+      needs_source: true,
+      use_in_generation: false,
+      unsupported_reason: "Для смешанного вывода не установлены связанный факт и документ",
+    });
+  });
+
+  test("keeps a sourced opponent assertion reportable but never strong", () => {
+    const trusted = [source("law:nk:54.1")];
+    const built = buildConclusionsAndIndex(
+      {
+        tax_authority_position: "Налоговый орган утверждает наличие схемы дробления бизнеса",
+        conclusion_source_links: [
+          { conclusion_key: "tax_authority_position", source_ids: [trusted[0].source_id] },
+        ],
+      },
+      trusted,
+      [],
+    );
+    const [validated] = validateConclusions(built.conclusions, trusted);
+
+    expect(validated.provenance).toMatchObject({
+      sufficiency: { status: "sufficient" },
+      support_level: "partial",
+      use_in_generation: true,
+    });
   });
 
   test("does not infer a run-wide source link when explicit linkage is absent", () => {
@@ -148,7 +224,7 @@ describe("validateConclusions", () => {
     });
   });
 
-  test("keeps a traceable but not sufficient conclusion partial and usable", () => {
+  test("blocks a traceable fact-to-law conclusion without linked fact and document", () => {
     const trusted = [source("law:nk:54.1")];
     const [validated] = validateConclusions(
       [conclusion("fact_to_law", [trusted[0].source_ref])],
@@ -156,9 +232,10 @@ describe("validateConclusions", () => {
     );
 
     expect(validated.provenance).toMatchObject({
-      support_level: "partial",
-      needs_source: false,
-      use_in_generation: true,
+      support_level: "unsupported",
+      needs_source: true,
+      use_in_generation: false,
+      unsupported_reason: "Для смешанного вывода не установлены связанный факт и документ",
     });
   });
 
