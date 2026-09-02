@@ -228,10 +228,10 @@ export function assessPlenumAuthority(
     is_plenum_vs_rf: true,
     guiding_status,
     guiding_status_reason,
-    citation_complete,
-    missing_metadata,
+    citation_complete: citation_complete && exactCitation,
+    missing_metadata: exactCitation ? missing_metadata : [...missing_metadata, "exact_plenum_act_identity"],
     conflict_signals,
-    substantive_use_allowed: guiding_status === "guiding_in_force" && authentic && citation_complete,
+    substantive_use_allowed: guiding_status === "guiding_in_force" && authentic && citation_complete && exactCitation,
     ...base,
   };
 }
