@@ -140,6 +140,14 @@ function hasVerifiedOfficialSafety(metadata: Record<string, unknown>): boolean {
     bool(safety.substantive_use_allowed);
 }
 
+function isExactPlenumCitation(metadata: Record<string, unknown>): boolean {
+  const court = (text(metadata.court) ?? text(metadata.authority_name) ?? "").toLowerCase();
+  const actType = (text(metadata.act_type) ?? "").toLowerCase();
+  return court.includes("верховн") &&
+    actType.includes("пленум") &&
+    (actType.includes("постанов") || actType.includes("resolution"));
+}
+
 function subjectApplicabilityContradicted(metadata: Record<string, unknown>): boolean {
   const applicability = record(metadata.applicability);
   const verdicts = [
