@@ -29,6 +29,7 @@ const ACT_EVIDENCE: EvaluationEvidence = {
 function truth(overrides: Partial<CanonicalFieldGroundTruth> = {}): CanonicalFieldGroundTruth {
   return {
     field_id: "tax.request_number",
+    label: "correct",
     expected_value: "123",
     expected_meaning: CANONICAL_FIELD_EVALUATION_REGISTRY["tax.request_number"].meaning,
     evidence: [REQUEST_EVIDENCE],
@@ -43,7 +44,9 @@ function truth(overrides: Partial<CanonicalFieldGroundTruth> = {}): CanonicalFie
   };
 }
 
-function observation(overrides: Partial<CanonicalFieldObservation> = {}): CanonicalFieldObservation {
+function observation(
+  overrides: Partial<CanonicalFieldObservation> = {},
+): CanonicalFieldObservation {
   return {
     field_id: "tax.request_number",
     observed_value: "123",
@@ -51,6 +54,7 @@ function observation(overrides: Partial<CanonicalFieldObservation> = {}): Canoni
     preserves_negation: true,
     preserves_conflict: true,
     manual_value_preserved: false,
+    semantic_equivalence: "not_reviewed",
     ...overrides,
   };
 }
@@ -68,7 +72,9 @@ describe("Prompt 09A universal AI-fill evaluation baseline", () => {
   });
 
   test("contains exactly the five approved flagship template profiles", () => {
-    expect(Object.keys(TEMPLATE_BENCHMARK_PROFILES_09A).sort()).toEqual([...FLAGSHIP_TEMPLATE_CODES_09A].sort());
+    expect(Object.keys(TEMPLATE_BENCHMARK_PROFILES_09A).sort()).toEqual(
+      [...FLAGSHIP_TEMPLATE_CODES_09A].sort(),
+    );
     for (const code of FLAGSHIP_TEMPLATE_CODES_09A) {
       expect(TEMPLATE_BENCHMARK_PROFILES_09A[code].profile_version).toBe("09A-v1");
       expect(TEMPLATE_BENCHMARK_PROFILES_09A[code].template_code).toBe(code);
@@ -86,8 +92,9 @@ describe("Prompt 09A universal AI-fill evaluation baseline", () => {
       }
     }
 
-    const positionMeanings = FLAGSHIP_TEMPLATE_CODES_09A
-      .map((code) => benchmarkRule(code, "tax.position_summary"))
+    const positionMeanings = FLAGSHIP_TEMPLATE_CODES_09A.map((code) =>
+      benchmarkRule(code, "tax.position_summary"),
+    )
       .filter(Boolean)
       .map(() => CANONICAL_FIELD_EVALUATION_REGISTRY["tax.position_summary"].meaning);
     expect(new Set(positionMeanings).size).toBe(1);
@@ -98,21 +105,27 @@ describe("Prompt 09A universal AI-fill evaluation baseline", () => {
   });
 
   test("labels a supported but wrong value as incorrect", () => {
-    expect(evaluateCanonicalField(truth(), observation({ observed_value: "999" }))).toBe("incorrect");
+    expect(evaluateCanonicalField(truth(), observation({ observed_value: "999" }))).toBe(
+      "incorrect",
+    );
   });
 
   test("labels a value without matching provenance/quote as unsupported", () => {
-    expect(evaluateCanonicalField(
-      truth(),
-      observation({
-        supported_by: [{
-          document_role: "procedural_request",
-          document_ref: "fixture/other",
-          quote: "Требование № 123",
-          provenance_ref: "fixture:other:p1",
-        }],
-      }),
-    )).toBe("unsupported");
+    expect(
+      evaluateCanonicalField(
+        truth(),
+        observation({
+          supported_by: [
+            {
+              document_role: "procedural_request",
+              document_ref: "fixture/other",
+              quote: "Требование № 123",
+              provenance_ref: "fixture:other:p1",
+            },
+          ],
+        }),
+      ),
+    ).toBe("unsupported");
   });
 
   test("labels a missing observation as unknown when the ground truth has a value", () => {
@@ -121,13 +134,21 @@ describe("Prompt 09A universal AI-fill evaluation baseline", () => {
 
   test("distinguishes unknown ground truth from an invented unsupported value", () => {
     const unknownTruth = truth({ expected_value: null, evidence: [] });
-    expect(evaluateCanonicalField(unknownTruth, observation({ observed_value: null, supported_by: [] }))).toBe("unknown");
-    expect(evaluateCanonicalField(unknownTruth, observation({ observed_value: "123", supported_by: [] }))).toBe("unsupported");
+    expect(
+      evaluateCanonicalField(unknownTruth, observation({ observed_value: null, supported_by: [] })),
+    ).toBe("unknown");
+    expect(
+      evaluateCanonicalField(
+        unknownTruth,
+        observation({ observed_value: "123", supported_by: [] }),
+      ),
+    ).toBe("unsupported");
   });
 
   test("preserves negation for a field whose canonical semantics require it", () => {
     const negatedTruth: CanonicalFieldGroundTruth = {
       field_id: "tax.contested_amount",
+      label: "correct",
       expected_value: "0",
       expected_meaning: CANONICAL_FIELD_EVALUATION_REGISTRY["tax.contested_amount"].meaning,
       evidence: [ACT_EVIDENCE],
@@ -142,26 +163,96 @@ describe("Prompt 09A universal AI-fill evaluation baseline", () => {
       preserves_negation: true,
       preserves_conflict: true,
       manual_value_preserved: false,
+      semantic_equivalence: "not_reviewed",
     };
     expect(evaluateCanonicalField(negatedTruth, base)).toBe("correct");
-    expect(evaluateCanonicalField(negatedTruth, { ...base, preserves_negation: false })).toBe("incorrect");
+    expect(evaluateCanonicalField(negatedTruth, { ...base, preserves_negation: false })).toBe(
+      "incorrect",
+    );
   });
 
   test("does not collapse a documented conflict into one apparently certain value", () => {
     const conflictTruth = truth({ conflict_present: true });
-    expect(evaluateCanonicalField(conflictTruth, observation({ preserves_conflict: false }))).toBe("incorrect");
-    expect(evaluateCanonicalField(conflictTruth, observation({ preserves_conflict: true }))).toBe("correct");
+    expect(evaluateCanonicalField(conflictTruth, observation({ preserves_conflict: false }))).toBe(
+      "incorrect",
+    );
+    expect(evaluateCanonicalField(conflictTruth, observation({ preserves_conflict: true }))).toBe(
+      "correct",
+    );
+  });
+
+  test("uses a lawyer semantic-equivalence result for narrative fields", () => {
+    const narrativeTruth = truth({
+      field_id: "tax.position_summary",
+      expected_value:
+        "Клиент не согласен с выводом инспекции: документы подтверждают реальность операций.",
+      expected_meaning: CANONICAL_FIELD_EVALUATION_REGISTRY["tax.position_summary"].meaning,
+      evidence: [REQUEST_EVIDENCE],
+    });
+    const narrativeObservation = observation({
+      field_id: "tax.position_summary",
+      observed_value:
+        "Позиция клиента: реальность операций подтверждена документами, с выводом инспекции он не согласен.",
+      semantic_equivalence: "equivalent",
+    });
+    expect(evaluateCanonicalField(narrativeTruth, narrativeObservation)).toBe("correct");
+    expect(
+      evaluateCanonicalField(narrativeTruth, {
+        ...narrativeObservation,
+        semantic_equivalence: "not_reviewed",
+      }),
+    ).toBe("unknown");
+    expect(
+      evaluateCanonicalField(narrativeTruth, {
+        ...narrativeObservation,
+        semantic_equivalence: "not_equivalent",
+      }),
+    ).toBe("incorrect");
+  });
+
+  test("compares dates and money deterministically by their field comparator", () => {
+    const dateTruth = truth({
+      field_id: "tax.request_date",
+      expected_value: "2026-08-15",
+      expected_meaning: CANONICAL_FIELD_EVALUATION_REGISTRY["tax.request_date"].meaning,
+    });
+    expect(
+      evaluateCanonicalField(
+        dateTruth,
+        observation({ field_id: "tax.request_date", observed_value: "15.08.2026" }),
+      ),
+    ).toBe("correct");
+
+    const moneyTruth = truth({
+      field_id: "tax.contested_amount",
+      expected_value: "1 250,00 руб.",
+      expected_meaning: CANONICAL_FIELD_EVALUATION_REGISTRY["tax.contested_amount"].meaning,
+      evidence: [ACT_EVIDENCE],
+    });
+    expect(
+      evaluateCanonicalField(
+        moneyTruth,
+        observation({
+          field_id: "tax.contested_amount",
+          observed_value: "1250",
+          supported_by: [ACT_EVIDENCE],
+        }),
+      ),
+    ).toBe("correct");
   });
 
   test("labels explicitly accepted unchanged manual value as manual_preserved", () => {
     const manualTruth = truth({
+      label: "manual_preserved",
       expected_value: "ручное значение 123",
-      evidence: [{
-        document_role: "user_manual_input",
-        document_ref: "manual/session-1",
-        quote: "ручное значение 123",
-        provenance_ref: "manual:session-1:field",
-      }],
+      evidence: [
+        {
+          document_role: "user_manual_input",
+          document_ref: "manual/session-1",
+          quote: "ручное значение 123",
+          provenance_ref: "manual:session-1:field",
+        },
+      ],
       manual_override: {
         applied: true,
         accepted_explicitly: true,
@@ -181,19 +272,22 @@ describe("Prompt 09A universal AI-fill evaluation baseline", () => {
       expected_value: "123",
       manual_override: { applied: true, accepted_explicitly: false, final_value_unchanged: true },
     });
-    expect(evaluateCanonicalField(baseTruth, observation({ manual_value_preserved: true }))).toBe("correct");
+    expect(evaluateCanonicalField(baseTruth, observation({ manual_value_preserved: true }))).toBe(
+      "correct",
+    );
 
     const changedTruth = truth({
       manual_override: { applied: true, accepted_explicitly: true, final_value_unchanged: false },
     });
-    expect(evaluateCanonicalField(changedTruth, observation({ manual_value_preserved: true }))).toBe("correct");
+    expect(
+      evaluateCanonicalField(changedTruth, observation({ manual_value_preserved: true })),
+    ).toBe("correct");
   });
 
   test("rejects evaluation when truth and observation refer to different canonical fields", () => {
-    expect(() => evaluateCanonicalField(
-      truth(),
-      { ...observation(), field_id: "tax.request_date" },
-    )).toThrow("field_id_mismatch");
+    expect(() =>
+      evaluateCanonicalField(truth(), { ...observation(), field_id: "tax.request_date" }),
+    ).toThrow("field_id_mismatch");
   });
 
   test("synthetic fixtures are contract-only and expose no model accuracy claim", async () => {
