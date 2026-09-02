@@ -1,9 +1,15 @@
 import type { Bucket } from "./repositories.ts";
+import {
+  isPlenumVsRfSource,
+  PLENUM_VS_RF_SOURCE_TYPE,
+  plenumAuthorityMetadata,
+} from "./plenum-authority-contract.ts";
 
 export type LegalResearchSourceFamily =
   | "normative_retrieval"
   | "official_explanation"
   | "judicial"
+  | "judicial_guidance"
   | "secondary_discovery"
   | "legislative_process"
   | "factual_official_data"
