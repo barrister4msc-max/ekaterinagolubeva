@@ -36,6 +36,7 @@ const TYPES_BY_BUCKET: Readonly<Record<Bucket, readonly string[]>> = {
     "vs_review",
     "vsrf_act",
     "vsrf_review",
+    PLENUM_VS_RF_SOURCE_TYPE,
     "kad_case",
     "sudact_case",
   ],
@@ -53,6 +54,7 @@ const TYPES_BY_BUCKET: Readonly<Record<Bucket, readonly string[]>> = {
 };
 
 const NEW_FAIL_CLOSED_TYPES = new Set([
+  PLENUM_VS_RF_SOURCE_TYPE,
   "ruslawod_act",
   "russian_law_mcp_provision",
   "federal_law_initial_text",
