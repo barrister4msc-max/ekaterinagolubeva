@@ -60,7 +60,7 @@ const PLENUM_TYPE_ALIASES = new Set([
 ]);
 
 const PLENUM_TITLE_RE =
-  /постановлен\w*\s+пленума\s+(?:верховного\s+суда|вс)\s*(?:российской\s+федерации|рф)?/iu;
+  /постановлен\w*\s+пленума\s+(?:верховного\s+суда|вс)\s+(?:российской\s+федерации|рф)/iu;
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
