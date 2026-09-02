@@ -74,6 +74,9 @@ export function sourceTypesForBucket(bucket: Bucket): string[] {
 
 export function sourceFamilyForType(sourceType: string): LegalResearchSourceFamily {
   const normalized = sourceType.trim().toLowerCase();
+  if (isPlenumVsRfSource(normalized)) {
+    return "judicial_guidance";
+  }
   if (["law_full_text", "federal_law", "law_full_text_placeholder", "ruslawod_act", "russian_law_mcp_provision", "federal_law_initial_text", "official_publication_pravo"].includes(normalized)) {
     return "normative_retrieval";
   }
@@ -127,6 +130,7 @@ export function sourceFamilyMetadataForType(
   if (NEW_FAIL_CLOSED_TYPES.has(normalized)) {
     result.substantive_use_allowed = hasVerifiedOfficialSafety(existingMetadata);
   }
+  Object.assign(result, plenumAuthorityMetadata(normalized, existingMetadata, existingMetadata.title));
   return result;
 }
 
@@ -137,5 +141,6 @@ export function sourceFamilyMetadataForType(
  */
 export function isSubstantiveLegalBucketType(sourceType: string): boolean {
   const family = sourceFamilyForType(sourceType);
-  return family === "normative_retrieval" || family === "official_explanation" || family === "judicial";
+  return family === "normative_retrieval" || family === "official_explanation" ||
+    family === "judicial" || family === "judicial_guidance";
 }
