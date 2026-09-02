@@ -23,6 +23,7 @@ const TYPES_BY_BUCKET: Readonly<Record<Bucket, readonly string[]>> = {
     "ruslawod_act",
     "russian_law_mcp_provision",
     "federal_law_initial_text",
+    "official_publication_pravo",
   ],
   court_practice: [
     "court_practice",
@@ -49,6 +50,7 @@ const NEW_FAIL_CLOSED_TYPES = new Set([
   "ruslawod_act",
   "russian_law_mcp_provision",
   "federal_law_initial_text",
+  "official_publication_pravo",
   "vsrf_act",
   "vsrf_review",
   "kad_case",
@@ -64,7 +66,7 @@ export function sourceTypesForBucket(bucket: Bucket): string[] {
 
 export function sourceFamilyForType(sourceType: string): LegalResearchSourceFamily {
   const normalized = sourceType.trim().toLowerCase();
-  if (["law_full_text", "federal_law", "law_full_text_placeholder", "ruslawod_act", "russian_law_mcp_provision", "federal_law_initial_text"].includes(normalized)) {
+  if (["law_full_text", "federal_law", "law_full_text_placeholder", "ruslawod_act", "russian_law_mcp_provision", "federal_law_initial_text", "official_publication_pravo"].includes(normalized)) {
     return "normative_retrieval";
   }
   if (["fns_letter", "fns_explanation", "fns_appeal_decision", "minfin_letter", "minfin_explanation"].includes(normalized)) {
