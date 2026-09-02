@@ -105,6 +105,20 @@ describe("Prompt 08F research retrieval shadow harness", () => {
     expect(result.shadow.discovered_sources).toBe(0);
   });
 
+  test("enabled shadow requires an explicit retriever and never falls back to live network implicitly", async () => {
+    const ticks = [10, 11];
+    const result = await runResearchRetrievalShadow({
+      ...input(),
+      enabled: true,
+      now: () => ticks.shift() ?? 11,
+    });
+    expect(result.status).toBe("failed");
+    expect(result.error_code).toBe("shadow_retriever_not_configured");
+    expect(result.shadow.error_count).toBe(1);
+    expect(result.shadow.discovered_sources).toBe(0);
+    expect(result.primary_unchanged).toBe(true);
+  });
+
   test("runs 08B-08E in shadow with deterministic bounded parity telemetry", async () => {
     const retriever: PravoRetriever = async () => ({ sources: [official()], diagnostics: diagnostics() });
     const ticks = [1000, 1012];
@@ -171,9 +185,10 @@ describe("Prompt 08F research retrieval shadow harness", () => {
     expect(result.shadow.safety_regressions).toBe(0);
   });
 
-  test("is fail-soft when shadow retrieval throws and exposes only bounded error diagnostics", async () => {
+  test("is fail-soft and never exposes raw retrieval errors in telemetry", async () => {
+    const secret = "ИНН 7701234567 ООО «Секретный клиент»";
     const retriever: PravoRetriever = async () => {
-      throw new Error("synthetic_shadow_failure_with_sensitive_payload_removed");
+      throw new Error(`synthetic_shadow_failure ${secret}`);
     };
     const ticks = [20, 27];
     const result = await runResearchRetrievalShadow({
@@ -185,8 +200,10 @@ describe("Prompt 08F research retrieval shadow harness", () => {
     expect(result.primary_unchanged).toBe(true);
     expect(result.shadow.error_count).toBe(1);
     expect(result.shadow.discovered_sources).toBe(0);
-    expect(result.error_code).toBe("synthetic_shadow_failure_with_sensitive_payload_removed");
-    expect(result.error_code!.length).toBeLessThanOrEqual(120);
+    expect(result.error_code).toBe("shadow_retrieval_failed");
+    expect(JSON.stringify(result)).not.toContain(secret);
+    expect(JSON.stringify(result)).not.toContain("7701234567");
+    expect(JSON.stringify(result)).not.toContain("Секретный клиент");
   });
 
   test("never exposes a BRAS/KAD network option in the shadow contract", async () => {
