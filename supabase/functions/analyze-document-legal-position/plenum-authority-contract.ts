@@ -190,6 +190,7 @@ export function assessPlenumAuthority(
   const citation_complete = missing_metadata.length === 0;
   const conflict_signals = collectConflictSignals(metadata);
   const authentic = hasVerifiedOfficialSafety(metadata);
+  const exactCitation = isExactPlenumCitation(metadata);
   const actDate = normalizeTemporalDate(
     text(metadata.act_date) ?? text(metadata.document_date) ?? text(metadata.publication_date),
   );
