@@ -215,9 +215,9 @@ export function assessPlenumAuthority(
   } else if (!authentic) {
     guiding_status = "not_applicable";
     guiding_status_reason = "Authenticity of the Plenum resolution is not verified by the Official Source Safety Contract.";
-  } else if (!citation_complete) {
+  } else if (!citation_complete || !exactCitation) {
     guiding_status = "not_applicable";
-    guiding_status_reason = `Exact citation metadata is incomplete: ${missing_metadata.join(", ")}.`;
+    guiding_status_reason = `Exact citation metadata is incomplete: ${[...missing_metadata, ...(exactCitation ? [] : ["exact_plenum_act_identity"])].join(", ")}.`;
   } else {
     guiding_status = "guiding_in_force";
     guiding_status_reason =
