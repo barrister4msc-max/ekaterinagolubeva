@@ -134,9 +134,9 @@ function pendingCase(templateCode: FlagshipTemplateCode09A): Q0BenchmarkCase {
 
 /**
  * Contract-only Q0 manifest. These five entries deliberately contain no model
- * output or lawyer ground truth and therefore make no accuracy/non-regression
- * claim. They are placeholders until approved anonymized real cases, recorded
- * outputs and lawyer-reviewed truth are supplied under separate authorization.
+ * output or lawyer ground truth and therefore make no accuracy/non-regression claim.
+ * They are placeholders until approved anonymized real cases, recorded outputs and
+ * lawyer-reviewed truth are supplied under separate authorization.
  */
 export const Q0_BENCHMARK_MANIFEST_09B: readonly Q0BenchmarkCase[] =
   FLAGSHIP_TEMPLATE_CODES_09A.map(pendingCase);
