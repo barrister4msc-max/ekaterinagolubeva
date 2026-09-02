@@ -13,6 +13,11 @@ import {
 import { sourceFamilyForType } from "./source-family-contract.ts";
 
 export type ResearchShadowStatus = "disabled" | "completed" | "failed";
+export type ResearchShadowErrorCode =
+  | "shadow_retriever_not_configured"
+  | "shadow_retrieval_failed"
+  | "shadow_retrieval_blocked"
+  | "shadow_execution_failed";
 
 export type ResearchShadowMetrics = {
   discovered_sources: number;
@@ -44,7 +49,7 @@ export type ResearchShadowTelemetry = {
     duplicate_delta: number;
     family_coverage_delta: number;
   };
-  error_code?: string;
+  error_code?: ResearchShadowErrorCode;
 };
 
 export type RunResearchShadowInput = {
@@ -155,7 +160,7 @@ function telemetry(
   planId: string | null,
   transportStatus: string | null,
   providerId: string | null,
-  errorCode?: string,
+  errorCode?: ResearchShadowErrorCode,
 ): ResearchShadowTelemetry {
   const legacyFamilies = new Set(legacy.source_family_coverage);
   const shadowFamilies = new Set(shadow.source_family_coverage);
@@ -178,14 +183,22 @@ function telemetry(
       duplicate_delta: shadow.duplicate_sources - legacy.duplicate_sources,
       family_coverage_delta: familyDelta,
     },
-    ...(errorCode ? { error_code: errorCode.slice(0, 120) } : {}),
+    ...(errorCode ? { error_code: errorCode } : {}),
   };
+}
+
+function retrievalErrorCode(status: string): ResearchShadowErrorCode | undefined {
+  if (status === "failed") return "shadow_retrieval_failed";
+  if (status === "blocked") return "shadow_retrieval_blocked";
+  return undefined;
 }
 
 /**
  * Prompt 08F side-effect-free observer. It never mutates or returns a replacement
  * for the primary source list. The caller may persist only this bounded telemetry.
- * Default is OFF. Errors are fail-soft and reduced to a bounded error code.
+ * Default is OFF. Errors are fail-soft and reduced to a fixed redacted taxonomy.
+ * An enabled shadow requires an explicitly injected retriever, preventing any
+ * accidental fallback to a live network transport from this observer itself.
  */
 export async function runResearchRetrievalShadow(
   input: RunResearchShadowInput,
@@ -200,6 +213,22 @@ export async function runResearchRetrievalShadow(
   let planId: string | null = null;
   let transportStatus: string | null = null;
   try {
+    if (!input.retriever) {
+      const failed = emptyMetrics();
+      failed.latency_ms = Math.max(0, now() - started);
+      failed.error_count = 1;
+      return telemetry(
+        "failed",
+        true,
+        legacy,
+        failed,
+        null,
+        null,
+        "pravo",
+        "shadow_retriever_not_configured",
+      );
+    }
+
     const plan = buildResearchQueryPlan({
       matter_id: input.matter_id,
       legal_analysis_run_id: input.legal_analysis_run_id,
@@ -229,13 +258,13 @@ export async function runResearchRetrievalShadow(
       retrieval.sources,
     );
     const latency = now() - started;
-    const errors = retrieval.diagnostics.status === "failed" || retrieval.diagnostics.status === "blocked" ? 1 : 0;
+    const redactedError = retrievalErrorCode(retrieval.diagnostics.status);
     const shadow = shadowMetrics(
       retrieval.sources,
       admission.substantive_sources,
       admission.decisions,
       latency,
-      errors,
+      redactedError ? 1 : 0,
     );
     return telemetry(
       "completed",
@@ -245,13 +274,12 @@ export async function runResearchRetrievalShadow(
       plan.plan_id,
       decision.status,
       decision.provider_id,
-      retrieval.diagnostics.error_code,
+      redactedError,
     );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+  } catch (_) {
     const failed = emptyMetrics();
     failed.latency_ms = Math.max(0, now() - started);
     failed.error_count = 1;
-    return telemetry("failed", true, legacy, failed, planId, transportStatus, "pravo", message);
+    return telemetry("failed", true, legacy, failed, planId, transportStatus, "pravo", "shadow_execution_failed");
   }
 }
