@@ -863,18 +863,6 @@ lawyer_override_reason:
       .single();
 
     if (insertError) throw insertError;
-
-    // P1-B.2 comparison-only shadow observation. Disabled by default; never
-    // touches the accepted document and never propagates an error.
-    await observeGeneratorShadow({
-      readEnv: (name) => Deno.env.get(name),
-      operation_run_id: String(inserted?.id ?? legal_analysis_run_id ?? effectiveSessionId ?? ""),
-      prompt,
-      accepted_output: generated,
-      accepted_model: "gemini-2.5-flash-lite",
-      createStore: () => createSupabaseShadowStore(supabase as never),
-    });
-
     const reasoning = generated.legal_reasoning || {};
 
 const toSourceObject = (item: any) => {
