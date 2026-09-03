@@ -28,7 +28,7 @@ export type AutoAiFillDecision =
   | { action: "run"; reason: string; fingerprint: string; documentIds: string[] };
 
 const READY_STATUSES = new Set(["completed", "extracted", "ready"]);
-const FAILED_STATUSES = new Set(["failed", "error", "unsupported", "ocr_required", "ocr_failed"]);
+const FAILED_STATUSES = new Set(["failed", "error", "unsupported", "ocr_required", "ocr_failed", "partial_pages"]);
 
 export function isExtractionSettled(doc: AutoAiFillDocument): boolean {
   const status = (doc.extraction_status ?? "").toLowerCase();

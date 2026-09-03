@@ -74,6 +74,18 @@ describe("auto AI-fill orchestration", () => {
     expect(decision.documentIds).toEqual(["a"]);
   });
 
+  test("partial page indexing cannot start AI-fill before all required units finish", () => {
+    const decision = evaluateAutoAiFill({
+      sessionId: "s1",
+      documents: [doc("large-pdf", "partial_pages", 12_000)],
+      lastFingerprint: null,
+      inFlight: false,
+      processing: false,
+    });
+    expect(decision.action).toBe("blocked");
+    expect(decision.reason).toBe("no_extracted_text");
+  });
+
   test("re-render / polling while a run is in flight never triggers a duplicate", () => {
     const documents = [doc("a", "completed", 500)];
     const decision = evaluateAutoAiFill({
