@@ -796,14 +796,16 @@ const reloadAnswersFromSession = useCallback(async () => {
   const handleDeleteDocument = async (documentId: string) => {
     if (!confirm("Удалить этот документ из комплекта?")) return;
     try {
-      removeProcessingDocument(documentId);
+      // Keep the marker until the delete succeeds. Clearing it first lets the
+      // resume effect start a second OCR request while the row still exists.
       if (retryingDocumentId === documentId) setRetryingDocumentId(null);
       const { error } = await supabase.from("documents").delete().eq("id", documentId);
       if (error) throw error;
+      removeProcessingDocument(documentId);
+      setAiFillFailure(null);
+      setAiFillWarning(null);
       await refreshSessionDocuments(intakeSessionId);
-      try {
-        window.dispatchEvent(new CustomEvent("intake-documents-updated"));
-      } catch {}
+      notifyDocumentsUpdated();
     } catch (e) {
       console.error("Failed to delete document", e);
       alert("Не удалось удалить документ");
@@ -811,6 +813,8 @@ const reloadAnswersFromSession = useCallback(async () => {
   };
 
   const handleRetryExtraction = async (documentId: string) => {
+    if (processingDocumentIdsRef.current.has(documentId)) return;
+    addProcessingDocuments([documentId]);
     try {
       setRetryingDocumentId(documentId);
       const result = await runExtractionWithRetry(documentId);
@@ -819,6 +823,7 @@ const reloadAnswersFromSession = useCallback(async () => {
         alert(`Текст не извлечён после ${result.attempts} попыток: ${result.error}`);
       }
     } finally {
+      removeProcessingDocument(documentId);
       setRetryingDocumentId(null);
     }
   };
