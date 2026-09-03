@@ -57,6 +57,18 @@ export function computeDocumentSetFingerprint(documents: AutoAiFillDocument[]): 
     .join("|");
 }
 
+/**
+ * Identity of what AI-fill actually consumes: only the usable (extracted)
+ * documents. Mixed packets are resilient because of this: removing or retrying
+ * a failed document never changes the AI input, so deleting one broken file out
+ * of a packet cannot trigger a duplicate AI run over identical content, while
+ * any change to a usable document still starts a new run.
+ */
+export function computeAiFillInputFingerprint(documents: AutoAiFillDocument[]): string {
+  return computeDocumentSetFingerprint(documents.filter(isExtractionUsable));
+}
+
+
 export function evaluateAutoAiFill(input: {
   sessionId: string | null | undefined;
   documents: AutoAiFillDocument[];
