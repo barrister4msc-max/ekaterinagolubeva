@@ -1,0 +1,2 @@
+- [x] P1-B.2: connect the comparison-only model shadow harness to the generator with a fail-closed hook
+- [ ] Run focused local tests, typecheck, and build; verify no production output changes
