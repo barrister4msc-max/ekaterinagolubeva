@@ -117,6 +117,16 @@ type SessionDocument = {
   redaction_quality: import("@/lib/legal-redaction").RedactionQuality | null;
   redaction_stats: import("@/lib/legal-redaction").RedactionStats | null;
   redaction_remaining_entities: import("@/lib/legal-redaction").RemainingEntity[];
+  page_index_progress: {
+    totalUnits: number;
+    completedUnits: number;
+    failedUnits: number;
+    pendingUnits: number;
+    totalPages: number;
+    indexedPages: number;
+    percent: number;
+    complete: boolean;
+  } | null;
 };
 const [sessionDocuments, setSessionDocuments] = useState<SessionDocument[]>([]);
 const [redactionDocId, setRedactionDocId] = useState<string | null>(null);
@@ -153,7 +163,8 @@ const notifyDocumentsUpdated = () => {
   } catch {}
 };
 const isProcessingDocuments = processingDocumentIds.length > 0;
-
+const hasCompleteExtraction = (document: SessionDocument) =>
+  document.extraction_status !== "partial_pages" && hasExtractedDocumentText(document.ocr_text);
 
 
 const [isAiFilling, setIsAiFilling] = useState(false);
@@ -195,7 +206,7 @@ const reloadAnswersFromSession = useCallback(async () => {
   const totalSteps = steps.length + 1; // +1 for review
 
   const readyDocuments = useMemo(
-    () => sessionDocuments.filter((document) => hasExtractedDocumentText(document.ocr_text)),
+    () => sessionDocuments.filter(hasCompleteExtraction),
     [sessionDocuments],
   );
   const templateSuggestions = useMemo(
@@ -388,10 +399,14 @@ const reloadAnswersFromSession = useCallback(async () => {
             null,
           redaction_stats:
             (meta.redaction_stats as import("@/lib/legal-redaction").RedactionStats | null) ?? null,
-          redaction_remaining_entities: Array.isArray(meta.redaction_remaining_entities)
-            ? (meta.redaction_remaining_entities as import("@/lib/legal-redaction").RemainingEntity[])
-            : [],
-        };
+           redaction_remaining_entities: Array.isArray(meta.redaction_remaining_entities)
+             ? (meta.redaction_remaining_entities as import("@/lib/legal-redaction").RemainingEntity[])
+             : [],
+           page_index_progress:
+             meta.page_index_progress && typeof meta.page_index_progress === "object"
+               ? (meta.page_index_progress as SessionDocument["page_index_progress"])
+               : null,
+         };
       });
     setSessionDocuments(mappedDocuments);
     return mappedDocuments;
@@ -502,17 +517,19 @@ const reloadAnswersFromSession = useCallback(async () => {
         if (extractionStatus === "completed" && textLength > 0) {
           return { extractionStatus: "completed", textLength };
         }
-        if (extractionStatus === "failed" || extractionStatus === "ocr_required") {
-          return {
-            extractionStatus,
-            textLength: 0,
-            error: extractionError || (
-              extractionStatus === "ocr_required"
-                ? "Для этого PDF требуется отдельный OCR-режим"
-                : "Извлечение текста завершилось с ошибкой"
-            ),
-          };
-        }
+         if (extractionStatus === "failed" || extractionStatus === "ocr_required" || extractionStatus === "partial_pages") {
+           return {
+             extractionStatus,
+             textLength: typeof data.ocr_text === "string" ? data.ocr_text.length : 0,
+             error: extractionError || (
+               extractionStatus === "partial_pages"
+                 ? "Индексация PDF продолжается по блокам страниц"
+                 : extractionStatus === "ocr_required"
+                   ? "Для этого PDF требуется отдельный OCR-режим"
+                   : "Извлечение текста завершилось с ошибкой"
+             ),
+           };
+         }
         lastError = extractionError;
       } else if (error) {
         lastError = error.message;
@@ -557,18 +574,28 @@ const reloadAnswersFromSession = useCallback(async () => {
             attempts: attempt,
           };
         }
-        if (!error && (data?.extraction_status === "failed" || data?.extraction_status === "ocr_required")) {
-          return {
-            extractionStatus: data.extraction_status,
-            textLength: 0,
-            attempts: attempt,
-            error: data?.error || (
-              data.extraction_status === "ocr_required"
-                ? "Для этого PDF требуется отдельный OCR-режим"
-                : "Извлечение текста завершилось с ошибкой"
-            ),
-          };
-        }
+         if (!error && (data?.extraction_status === "failed" || data?.extraction_status === "ocr_required")) {
+           return {
+             extractionStatus: data.extraction_status,
+             textLength: 0,
+             attempts: attempt,
+             error: data?.error || (
+               data.extraction_status === "ocr_required"
+                 ? "Для этого PDF требуется отдельный OCR-режим"
+                 : "Извлечение текста завершилось с ошибкой"
+             ),
+           };
+         }
+         if (!error && data?.extraction_status === "partial_pages") {
+           lastError = "Индексация PDF ещё не завершена — продолжаем с незавершённого блока";
+           if (attempt < maxAttempts) continue;
+           return {
+             extractionStatus: "partial_pages",
+             textLength: Number(data?.text_length) || 0,
+             attempts: attempt,
+             error: lastError,
+           };
+         }
         lastError = error?.message || data?.error ||
           `Извлечение завершилось со статусом ${data?.extraction_status ?? "failed"}`;
       } else {
@@ -581,9 +608,10 @@ const reloadAnswersFromSession = useCallback(async () => {
         const persisted = await waitForPersistedExtraction(documentId);
         if (
           (persisted.extractionStatus === "completed" && persisted.textLength > 0) ||
-          persisted.extractionStatus === "failed" ||
-          persisted.extractionStatus === "ocr_required"
-        ) {
+           persisted.extractionStatus === "failed" ||
+           persisted.extractionStatus === "ocr_required" ||
+           persisted.extractionStatus === "partial_pages"
+         ) {
           return {
             extractionStatus: persisted.extractionStatus,
             textLength: persisted.textLength,
@@ -611,7 +639,7 @@ const reloadAnswersFromSession = useCallback(async () => {
   // Resume staged documents after reload/navigation; no saved file may remain silently unprocessed.
   useEffect(() => {
     if (!intakeSessionId) return;
-    const pending = sessionDocuments.filter((d) => !hasExtractedDocumentText(d.ocr_text) && (d.extraction_status === null || d.extraction_status === "pending") && !processingDocumentIdsRef.current.has(d.id)).map((d) => ({ id:d.id, fileName:d.file_name ?? d.title ?? d.id }));
+    const pending = sessionDocuments.filter((d) => !hasCompleteExtraction(d) && (d.extraction_status === null || d.extraction_status === "pending" || d.extraction_status === "partial_pages") && !processingDocumentIdsRef.current.has(d.id)).map((d) => ({ id:d.id, fileName:d.file_name ?? d.title ?? d.id }));
     if (!pending.length) return;
     void runBackgroundExtraction(pending, async (doc) => { const r=await runExtractionWithRetry(doc.id); return { ok:r.extractionStatus === "completed" && r.textLength > 0 }; }, {
       isProcessing:(id)=>processingDocumentIdsRef.current.has(id), onStart:(ids)=>addProcessingDocuments(ids),
@@ -890,12 +918,10 @@ const reloadAnswersFromSession = useCallback(async () => {
 
 
       let currentDocuments = await refreshSessionDocuments(intakeSessionId);
-      let readyDocs = currentDocuments.filter((document) =>
-        hasExtractedDocumentText(document.ocr_text),
-      );
-      const documentsWithoutText = currentDocuments.filter(
-        (document) => !hasExtractedDocumentText(document.ocr_text),
-      );
+       let readyDocs = currentDocuments.filter(hasCompleteExtraction);
+       const documentsWithoutText = currentDocuments.filter(
+         (document) => !hasCompleteExtraction(document),
+       );
 
       // A failed/OCR-required document must not block usable documents.
       // It remains outside this AI request and is shown as an explicit warning.
@@ -920,7 +946,7 @@ const reloadAnswersFromSession = useCallback(async () => {
           },
         );
         currentDocuments = await refreshSessionDocuments(intakeSessionId);
-        readyDocs = currentDocuments.filter((document) => hasExtractedDocumentText(document.ocr_text));
+         readyDocs = currentDocuments.filter(hasCompleteExtraction);
       }
 
       if (readyDocs.length === 0) {
@@ -1313,8 +1339,8 @@ const reloadAnswersFromSession = useCallback(async () => {
             {sessionDocuments.length > 0 && (
               <ul className="space-y-2">
                 {sessionDocuments.map((doc) => {
-                  const ready = hasExtractedDocumentText(doc.ocr_text);
-                  const processing = processingDocumentIds.includes(doc.id) || retryingDocumentId === doc.id;
+                   const ready = hasCompleteExtraction(doc);
+                   const processing = processingDocumentIds.includes(doc.id) || retryingDocumentId === doc.id;
                   const tone = redactionStatusTone(doc.redaction_status);
                   const showRedactButton =
                     ready &&
@@ -1333,19 +1359,23 @@ const reloadAnswersFromSession = useCallback(async () => {
                             {doc.title || doc.file_name || doc.id}
                           </div>
                           <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-2">
-                            <span>
-                              OCR: {doc.ocr_text_length} симв.{" "}
-                              {processing && !ready ? (
-                                <span className="inline-flex items-center gap-1 text-amber-700">
-                                  <Loader2 size={10} className="animate-spin" />
-                                  Извлекаю текст…
-                                </span>
-                              ) : ready ? (
-                                <span className="text-emerald-700">— Готов</span>
-                              ) : (
-                                <span className="text-amber-700">— Требует проверки</span>
-                              )}
-                            </span>
+                             <span>
+                               OCR: {doc.ocr_text_length} симв.{" "}
+                               {processing && !ready ? (
+                                 <span className="inline-flex items-center gap-1 text-amber-700">
+                                   <Loader2 size={10} className="animate-spin" />
+                                   Извлекаю текст…
+                                 </span>
+                               ) : ready ? (
+                                 <span className="text-emerald-700">— Готов</span>
+                               ) : doc.page_index_progress && doc.page_index_progress.totalPages > 0 ? (
+                                 <span className="text-amber-700">
+                                   — Индексация: {doc.page_index_progress.indexedPages} из {doc.page_index_progress.totalPages} стр. ({doc.page_index_progress.percent}%)
+                                 </span>
+                               ) : (
+                                 <span className="text-amber-700">— Требует проверки</span>
+                               )}
+                             </span>
                             <RedactionBadge
                               status={doc.redaction_status}
                               tone={tone}

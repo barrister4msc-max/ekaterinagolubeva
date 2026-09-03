@@ -8,6 +8,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
 import { extractXlsxText } from "../_shared/xlsx-text.ts";
+import {
+  applyUnitResult,
+  computePageIndexProgress,
+  resumePageIndexState,
+  selectUnitsForInvocation,
+  type PageIndexState,
+} from "../_shared/page-index-plan.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,6 +29,7 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const GEMINI_MODEL = "gemini-2.5-flash";
 type ExtractionStatus =
   | "completed"
+  | "partial_pages"
   | "ocr_required"
   | "failed";
 
@@ -313,27 +321,31 @@ async function extractWithGeminiFallback(params: {
 async function extractPdfWithChunkedGemini(
   buf: ArrayBuffer,
   fileName: string,
-): Promise<{ text: string }> {
+  cachedPageIndex: unknown,
+  existingText: string,
+): Promise<{ text: string; pageIndex: PageIndexState; complete: boolean }> {
   const controller = new AbortController();
   const deadlineId = setTimeout(() => controller.abort(), 105_000);
   try {
     const source = await PDFDocument.load(buf, { ignoreEncryption: true });
-    const pageCount = source.getPageCount();
-    const chunkSize = 6;
+    const pageIndex = resumePageIndexState(source.getPageCount(), cachedPageIndex);
+    const selectedUnits = selectUnitsForInvocation(pageIndex);
     const chunks: Array<{ start: number; end: number; buf: ArrayBuffer }> = [];
 
-    for (let start = 0; start < pageCount; start += chunkSize) {
-      const end = Math.min(start + chunkSize, pageCount);
+    // Build only this invocation's page windows. A 600-page PDF is resumed
+    // across bounded calls instead of creating 100 chunks and OCRing them in
+    // one request.
+    for (const unit of selectedUnits) {
       const part = await PDFDocument.create();
       const pages = await part.copyPages(
         source,
-        Array.from({ length: end - start }, (_, offset) => start + offset),
+        Array.from({ length: unit.end - unit.start }, (_, offset) => unit.start + offset),
       );
       pages.forEach((page) => part.addPage(page));
       const bytes = await part.save({ useObjectStreams: false });
       chunks.push({
-        start,
-        end,
+        start: unit.start,
+        end: unit.end,
         buf: bytes.buffer.slice(
           bytes.byteOffset,
           bytes.byteOffset + bytes.byteLength,
@@ -341,33 +353,54 @@ async function extractPdfWithChunkedGemini(
       });
     }
 
-    const results: string[] = new Array(chunks.length).fill("");
+    const results = new Map<number, { text: string } | { error: string }>();
     let cursor = 0;
     const worker = async () => {
       while (true) {
         const index = cursor++;
         if (index >= chunks.length) return;
         const chunk = chunks[index];
-        const result = await extractWithGeminiFallback({
-          buf: chunk.buf,
-          mimeType: "application/pdf",
-          fileName: `${fileName}.pages-${chunk.start + 1}-${chunk.end}.pdf`,
-          signal: controller.signal,
-        });
-        if (controller.signal.aborted || result.debug?.error || !result.text.trim()) {
-          throw new Error(`pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}`);
+        try {
+          const result = await extractWithGeminiFallback({
+            buf: chunk.buf,
+            mimeType: "application/pdf",
+            fileName: `${fileName}.pages-${chunk.start + 1}-${chunk.end}.pdf`,
+            signal: controller.signal,
+          });
+          if (controller.signal.aborted || result.debug?.error || !result.text.trim()) {
+            results.set(chunk.start, { error: `pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}` });
+          } else {
+            results.set(chunk.start, { text: result.text.trim() });
+          }
+        } catch (error) {
+          results.set(chunk.start, {
+            error: error instanceof Error ? error.message : `pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}`,
+          });
         }
-        results[index] = result.text.trim();
       }
     };
 
-    await Promise.all(
-      Array.from({ length: Math.min(3, chunks.length) }, () => worker()),
-    );
-    if (results.some((text) => !text)) {
-      throw new Error("pdf_ocr_incomplete_chunks");
+    await Promise.all(Array.from({ length: Math.min(3, chunks.length) }, () => worker()));
+    let nextState = pageIndex;
+    for (const unit of selectedUnits) {
+      nextState = applyUnitResult(nextState, unit.start, results.get(unit.start) ?? { error: "unit_not_processed" });
     }
-    return { text: results.join("\n\n") };
+
+    // Each completed unit retains its own text so out-of-order successes are
+    // not lost when an earlier unit fails. The existing text is a migration
+    // fallback for rows created before page_index was introduced.
+    const cachedUnitText = nextState.units
+      .filter((unit) => unit.status === "completed" && typeof unit.text === "string")
+      .sort((a, b) => a.start - b.start)
+      .map((unit) => unit.text as string)
+      .join("\n\n");
+    const text = cachedUnitText || existingText.trim();
+
+    return {
+      text,
+      pageIndex: nextState,
+      complete: computePageIndexProgress(nextState).complete,
+    };
   } finally {
     clearTimeout(deadlineId);
     controller.abort();
@@ -645,13 +678,16 @@ Deno.serve(async (req) => {
     (detected.kind === "image" || detected.kind === "pdf" || text.length === 0) &&
     (detected.kind !== "pdf" || !isUsablePdfTextLayer(text));
 
+  let pageIndex: PageIndexState | null = null;
   if (shouldUseGeminiFallback) {
-    let fallback: { text: string };
+    let fallback: { text: string; pageIndex?: PageIndexState; complete?: boolean };
     try {
       fallback = detected.kind === "pdf"
         ? await extractPdfWithChunkedGemini(
             downloaded.buf,
             doc.file_name || "document",
+            existingMeta.page_index,
+            typeof doc.ocr_text === "string" ? doc.ocr_text : "",
           )
         : await extractWithGeminiFallback({
             buf: downloaded.buf,
@@ -664,8 +700,14 @@ Deno.serve(async (req) => {
     }
 
     const fallbackText = sanitizeExtractedText(fallback.text);
+    pageIndex = fallback.pageIndex ?? null;
 
-    if (fallbackText.length > 0) {
+    if (detected.kind === "pdf" && pageIndex) {
+      text = fallbackText;
+      method = "gemini_fallback";
+      status = fallback.complete ? "completed" : "partial_pages";
+      if (!fallback.complete && !text) extractionError = "pdf_ocr_partial_pages";
+    } else if (fallbackText.length > 0) {
       text = fallbackText;
       method = "gemini_fallback";
       status = "completed";
@@ -676,10 +718,7 @@ Deno.serve(async (req) => {
     } else if (detected.kind === "image" || detected.kind === "pdf") {
       status = "ocr_required";
       text = "";
-      method =
-        detected.kind === "image"
-          ? "image_ocr_required"
-          : "pdf_ocr_required";
+      method = detected.kind === "image" ? "image_ocr_required" : "pdf_ocr_required";
     } else {
       status = "failed";
       method = "none";
@@ -690,9 +729,9 @@ Deno.serve(async (req) => {
 
   let analysisStatus: string;
   let reviewStatus: string;
-  if (status === "ocr_required") {
+  if (status === "ocr_required" || status === "partial_pages") {
     analysisStatus = "needs_review";
-    reviewStatus = "ocr_required";
+    reviewStatus = status === "partial_pages" ? "needs_review" : "ocr_required";
   } else if (status === "failed") {
     analysisStatus = "needs_review";
     reviewStatus = "needs_review";
@@ -711,6 +750,15 @@ Deno.serve(async (req) => {
     extracted_at: new Date().toISOString(),
     text_length: textLength,
     extraction_error: extractionError,
+    ...(pageIndex
+      ? {
+          page_index: {
+            ...pageIndex,
+            updated_at: new Date().toISOString(),
+          },
+          page_index_progress: computePageIndexProgress(pageIndex),
+        }
+      : {}),
   };
 
   const update: Record<string, any> = {
@@ -718,7 +766,7 @@ Deno.serve(async (req) => {
     review_status: reviewStatus,
     metadata: newMeta,
   };
-  if (status === "completed" && textLength > 0) {
+  if ((status === "completed" || status === "partial_pages") && textLength > 0) {
     update.ocr_text = text;
   }
 
