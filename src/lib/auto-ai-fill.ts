@@ -73,7 +73,7 @@ export function evaluateAutoAiFill(input: {
   /** Lawyer explicitly disabled automatic filling for this session. */
   disabled?: boolean;
 }): AutoAiFillDecision {
-  const fingerprint = computeAiFillInputFingerprint(input.documents);
+  const fingerprint = computeDocumentSetFingerprint(input.documents);
 
   if (!input.sessionId) return { action: "wait", reason: "no_session", fingerprint };
   if (input.disabled) return { action: "skip", reason: "disabled", fingerprint };
