@@ -10,8 +10,6 @@ import {
 } from "../_shared/legal-analysis/canonical-shadow-observer.ts";
 import { buildGeneratorPromptInputs } from "./conclusion-contract.ts";
 
-
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -864,7 +862,6 @@ lawyer_override_reason:
 
     if (insertError) throw insertError;
     const reasoning = generated.legal_reasoning || {};
-
 const toSourceObject = (item: any) => {
   if (item && typeof item === "object") return item;
   return {
