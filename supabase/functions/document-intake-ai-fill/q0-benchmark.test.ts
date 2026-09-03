@@ -24,13 +24,15 @@ function baseCase(): Q0BenchmarkCase {
     template_code: "response_to_tax_request",
     template_revision: "template-r1",
     schema_revision: "schema-r1",
-    documents: [{
-      document_ref: "fixture://doc-1",
-      sha256: SHA,
-      provenance_ref: "fixture:doc-1:p1",
-      anonymized: true,
-      approval_ref: "fixture:approval:1",
-    }],
+    documents: [
+      {
+        document_ref: "fixture://doc-1",
+        sha256: SHA,
+        provenance_ref: "fixture:doc-1:p1",
+        anonymized: true,
+        approval_ref: "fixture:approval:1",
+      },
+    ],
     expected_field_ids: ["company.name", "tax.position_summary"],
     recorded_output: null,
     lawyer_ground_truth: null,
@@ -55,14 +57,17 @@ function recorded(): RecordedAiFillOutput {
 
 const groundTruth: CanonicalFieldGroundTruth = {
   field_id: "company.name",
+  label: "correct",
   expected_value: "ООО Тест",
   expected_meaning: CANONICAL_FIELD_EVALUATION_REGISTRY["company.name"].meaning,
-  evidence: [{
-    document_role: "party_identity",
-    document_ref: "fixture://doc-1",
-    quote: "ООО Тест",
-    provenance_ref: "fixture:doc-1:p1",
-  }],
+  evidence: [
+    {
+      document_role: "party_identity",
+      document_ref: "fixture://doc-1",
+      quote: "ООО Тест",
+      provenance_ref: "fixture:doc-1:p1",
+    },
+  ],
   negation_present: false,
   conflict_present: false,
   manual_override: {
@@ -71,6 +76,66 @@ const groundTruth: CanonicalFieldGroundTruth = {
     final_value_unchanged: false,
   },
 };
+
+const RESPONSE_REQUIRED_FIELDS = [
+  "company.name",
+  "company.inn",
+  "tax.authority_name",
+  "tax.request_number",
+  "tax.request_date",
+  "tax.position_summary",
+] as const;
+
+function groundTruthFor(
+  field_id: (typeof RESPONSE_REQUIRED_FIELDS)[number],
+): CanonicalFieldGroundTruth {
+  const expected_value =
+    field_id === "tax.request_date"
+      ? "2026-08-15"
+      : field_id === "tax.position_summary"
+        ? "Клиент не согласен с выводом инспекции."
+        : field_id === "company.name"
+          ? "ООО Тест"
+          : "123";
+  return {
+    ...groundTruth,
+    field_id,
+    expected_value,
+    expected_meaning: CANONICAL_FIELD_EVALUATION_REGISTRY[field_id].meaning,
+    evidence: [
+      {
+        ...groundTruth.evidence[0],
+        document_role: field_id.startsWith("company.") ? "party_identity" : "procedural_request",
+      },
+    ],
+  };
+}
+
+function reviewed(): Q0BenchmarkCase["lawyer_ground_truth"] {
+  return {
+    review_ref: "fixture:lawyer:review-1",
+    review_sha256: SHA,
+    reviewed_at: "2026-08-02T12:00:00Z",
+    reviewer_id: "lawyer:fixture-1",
+    reviewer_role: "lawyer",
+    annotation_version: "09C-v1",
+    fields: RESPONSE_REQUIRED_FIELDS.map(groundTruthFor),
+  };
+}
+
+function admissibleCase(): Q0BenchmarkCase {
+  const values = Object.fromEntries(
+    RESPONSE_REQUIRED_FIELDS.map((fieldId) => [fieldId, groundTruthFor(fieldId).expected_value]),
+  );
+  const item: Q0BenchmarkCase = {
+    ...baseCase(),
+    expected_field_ids: RESPONSE_REQUIRED_FIELDS,
+    recorded_output: { ...recorded(), fields: values },
+    lawyer_ground_truth: reviewed(),
+    status: "ready_for_evaluation",
+  };
+  return item;
+}
 
 describe("Prompt 09B Q0 benchmark foundation", () => {
   test("freezes 09B version and reuses 09A evaluation version", () => {
@@ -81,8 +146,9 @@ describe("Prompt 09B Q0 benchmark foundation", () => {
   });
 
   test("contains exactly one pending contract fixture for each approved flagship", () => {
-    expect(Q0_BENCHMARK_MANIFEST_09B.map((x) => x.template_code).sort())
-      .toEqual([...FLAGSHIP_TEMPLATE_CODES_09A].sort());
+    expect(Q0_BENCHMARK_MANIFEST_09B.map((x) => x.template_code).sort()).toEqual(
+      [...FLAGSHIP_TEMPLATE_CODES_09A].sort(),
+    );
     expect(Q0_BENCHMARK_MANIFEST_09B).toHaveLength(5);
     for (const item of Q0_BENCHMARK_MANIFEST_09B) {
       expect(item.recorded_output).toBeNull();
@@ -94,14 +160,93 @@ describe("Prompt 09B Q0 benchmark foundation", () => {
   });
 
   test("derives lifecycle without pretending missing artifacts exist", () => {
-    expect(deriveQ0Status(null, null)).toBe("recorded_output_pending");
-    expect(deriveQ0Status(recorded(), null)).toBe("lawyer_review_pending");
-    expect(deriveQ0Status(recorded(), {
-      review_ref: "fixture:lawyer:review-1",
-      reviewed_at: "2026-08-02T12:00:00Z",
-      reviewer_role: "lawyer",
-      fields: [groundTruth],
-    })).toBe("ready_for_evaluation");
+    expect(
+      deriveQ0Status({ ...baseCase(), recorded_output: null, lawyer_ground_truth: null }),
+    ).toBe("recorded_output_pending");
+    expect(
+      deriveQ0Status({ ...baseCase(), recorded_output: recorded(), lawyer_ground_truth: null }),
+    ).toBe("lawyer_review_pending");
+    expect(deriveQ0Status(admissibleCase())).toBe("ready_for_evaluation");
+  });
+
+  test("admits evaluation only with exact output and lawyer-annotation coverage", () => {
+    expect(validateQ0BenchmarkCase(admissibleCase())).toEqual([]);
+
+    const emptyAnnotations = admissibleCase();
+    emptyAnnotations.lawyer_ground_truth = { ...reviewed()!, fields: [] };
+    emptyAnnotations.status = "lawyer_review_pending";
+    expect(validateQ0BenchmarkCase(emptyAnnotations)).toContain("ground_truth_field_missing");
+
+    const partialOutput = admissibleCase();
+    partialOutput.recorded_output = { ...recorded(), fields: { "company.name": "ООО Тест" } };
+    partialOutput.status = "lawyer_review_pending";
+    expect(validateQ0BenchmarkCase(partialOutput)).toContain("recorded_output_field_missing");
+
+    const duplicate = admissibleCase();
+    duplicate.lawyer_ground_truth = {
+      ...reviewed()!,
+      fields: [...reviewed()!.fields, groundTruthFor("company.name")],
+    };
+    duplicate.status = "lawyer_review_pending";
+    expect(validateQ0BenchmarkCase(duplicate)).toContain("ground_truth_field_duplicate");
+
+    const unknown = {
+      ...admissibleCase(),
+      expected_field_ids: [...RESPONSE_REQUIRED_FIELDS, "unknown.field"],
+      status: "lawyer_review_pending" as const,
+    };
+    expect(validateQ0BenchmarkCase(unknown as unknown as Q0BenchmarkCase)).toContain(
+      "unknown_expected_field_id",
+    );
+  });
+
+  test("requires lawyer evidence provenance and required profile coverage while allowing omitted optional fields", () => {
+    const missingEvidence = admissibleCase();
+    missingEvidence.lawyer_ground_truth = {
+      ...reviewed()!,
+      fields: reviewed()!.fields.map((field, index) =>
+        index === 0 ? { ...field, evidence: [] } : field,
+      ),
+    };
+    missingEvidence.status = "lawyer_review_pending";
+    expect(validateQ0BenchmarkCase(missingEvidence)).toContain("ground_truth_evidence_missing");
+
+    const missingRequired = admissibleCase();
+    missingRequired.expected_field_ids = ["company.name", "company.inn", "tax.position_summary"];
+    missingRequired.status = "lawyer_review_pending";
+    expect(validateQ0BenchmarkCase(missingRequired)).toContain("required_profile_field_missing");
+
+    const optionalOmitted = admissibleCase();
+    expect(optionalOmitted.expected_field_ids).not.toContain("company.kpp");
+    expect(validateQ0BenchmarkCase(optionalOmitted)).toEqual([]);
+  });
+
+  test("rejects invalid review labels and timestamps from untyped external input", () => {
+    const invalid = admissibleCase();
+    invalid.recorded_output = { ...invalid.recorded_output!, captured_at: "not-a-timestamp" };
+    invalid.lawyer_ground_truth = {
+      ...invalid.lawyer_ground_truth!,
+      reviewed_at: "not-a-timestamp",
+      fields: invalid.lawyer_ground_truth!.fields.map((field, index) =>
+        index === 0
+          ? { ...field, label: "invented_label" as never, expected_value: 42 as never }
+          : field,
+      ),
+    };
+    invalid.status = "lawyer_review_pending";
+    const errors = validateQ0BenchmarkCase(invalid);
+    expect(errors).toContain("recorded_output_captured_at_invalid");
+    expect(errors).toContain("ground_truth_reviewed_at_invalid");
+    expect(errors).toContain("ground_truth_label_invalid");
+    expect(errors).toContain("ground_truth_expected_value_invalid");
+  });
+
+  test("derivation and validation are idempotent and never call an incomplete case ready", () => {
+    const incomplete = admissibleCase();
+    incomplete.lawyer_ground_truth = { ...reviewed()!, fields: reviewed()!.fields.slice(0, -1) };
+    incomplete.status = "lawyer_review_pending";
+    expect(deriveQ0Status(incomplete)).toBe("lawyer_review_pending");
+    expect(validateQ0BenchmarkCase(incomplete)).toEqual(validateQ0BenchmarkCase(incomplete));
   });
 
   test("fails closed on non-anonymized or unapproved documents", () => {
@@ -135,8 +280,9 @@ describe("Prompt 09B Q0 benchmark foundation", () => {
   });
 
   test("rejects lifecycle labels inconsistent with actual artifacts", () => {
-    expect(validateQ0BenchmarkCase({ ...baseCase(), status: "ready_for_evaluation" }))
-      .toContain("status_does_not_match_artifacts");
+    expect(validateQ0BenchmarkCase({ ...baseCase(), status: "ready_for_evaluation" })).toContain(
+      "status_does_not_match_artifacts",
+    );
   });
 
   test("expected fields must come from the 09A canonical registry", () => {

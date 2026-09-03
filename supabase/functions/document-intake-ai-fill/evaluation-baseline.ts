@@ -8,7 +8,7 @@ export const AI_FILL_EVALUATION_TAXONOMY = [
   "manual_preserved",
 ] as const;
 
-export type AiFillEvaluationLabel = typeof AI_FILL_EVALUATION_TAXONOMY[number];
+export type AiFillEvaluationLabel = (typeof AI_FILL_EVALUATION_TAXONOMY)[number];
 
 export const FLAGSHIP_TEMPLATE_CODES_09A = [
   "response_to_tax_request",
@@ -18,7 +18,7 @@ export const FLAGSHIP_TEMPLATE_CODES_09A = [
   "tax_court_position",
 ] as const;
 
-export type FlagshipTemplateCode09A = typeof FLAGSHIP_TEMPLATE_CODES_09A[number];
+export type FlagshipTemplateCode09A = (typeof FLAGSHIP_TEMPLATE_CODES_09A)[number];
 
 export type CanonicalFieldId =
   | "company.name"
@@ -49,6 +49,7 @@ export type CanonicalFieldDefinition = {
   id: CanonicalFieldId;
   meaning: string;
   value_kind: "text" | "identifier" | "date" | "money" | "period";
+  comparator: CanonicalFieldComparator;
   accepted_document_roles: readonly CanonicalDocumentRole[];
   preserve_negation: boolean;
   preserve_conflict: boolean;
@@ -56,12 +57,34 @@ export type CanonicalFieldDefinition = {
   manual_override_supported: boolean;
 };
 
-export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalFieldId, CanonicalFieldDefinition>> = {
+/**
+ * A comparator is part of the benchmark contract, not a model capability.
+ * Narrative equivalence is deliberately supplied by a lawyer review and is
+ * never inferred by the runtime AI-fill model.
+ */
+export type CanonicalFieldComparator =
+  | "normalized_text"
+  | "identifier_normalized"
+  | "date_calendar"
+  | "money_normalized"
+  | "period_normalized"
+  | "lawyer_semantic";
+
+export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<
+  Record<CanonicalFieldId, CanonicalFieldDefinition>
+> = {
   "company.name": {
     id: "company.name",
-    meaning: "Полное или краткое наименование организации, выступающей клиентом/налогоплательщиком по материалам дела.",
+    meaning:
+      "Полное или краткое наименование организации, выступающей клиентом/налогоплательщиком по материалам дела.",
     value_kind: "text",
-    accepted_document_roles: ["party_identity", "procedural_request", "tax_audit_act", "tax_decision"],
+    comparator: "normalized_text",
+    accepted_document_roles: [
+      "party_identity",
+      "procedural_request",
+      "tax_audit_act",
+      "tax_decision",
+    ],
     preserve_negation: false,
     preserve_conflict: true,
     provenance_required: true,
@@ -69,9 +92,16 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
   },
   "company.inn": {
     id: "company.inn",
-    meaning: "ИНН организации, относящийся именно к клиенту/налогоплательщику, а не к контрагенту или иному лицу.",
+    meaning:
+      "ИНН организации, относящийся именно к клиенту/налогоплательщику, а не к контрагенту или иному лицу.",
     value_kind: "identifier",
-    accepted_document_roles: ["party_identity", "procedural_request", "tax_audit_act", "tax_decision"],
+    comparator: "identifier_normalized",
+    accepted_document_roles: [
+      "party_identity",
+      "procedural_request",
+      "tax_audit_act",
+      "tax_decision",
+    ],
     preserve_negation: false,
     preserve_conflict: true,
     provenance_required: true,
@@ -81,7 +111,13 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
     id: "company.kpp",
     meaning: "КПП организации, относящийся к клиенту/налогоплательщику.",
     value_kind: "identifier",
-    accepted_document_roles: ["party_identity", "procedural_request", "tax_audit_act", "tax_decision"],
+    comparator: "identifier_normalized",
+    accepted_document_roles: [
+      "party_identity",
+      "procedural_request",
+      "tax_audit_act",
+      "tax_decision",
+    ],
     preserve_negation: false,
     preserve_conflict: true,
     provenance_required: true,
@@ -91,7 +127,13 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
     id: "company.ogrn",
     meaning: "ОГРН организации, относящийся к клиенту/налогоплательщику.",
     value_kind: "identifier",
-    accepted_document_roles: ["party_identity", "procedural_request", "tax_audit_act", "tax_decision"],
+    comparator: "identifier_normalized",
+    accepted_document_roles: [
+      "party_identity",
+      "procedural_request",
+      "tax_audit_act",
+      "tax_decision",
+    ],
     preserve_negation: false,
     preserve_conflict: true,
     provenance_required: true,
@@ -99,9 +141,16 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
   },
   "company.legal_address": {
     id: "company.legal_address",
-    meaning: "Юридический адрес организации на релевантную дату, если он подтверждён допустимым источником.",
+    meaning:
+      "Юридический адрес организации на релевантную дату, если он подтверждён допустимым источником.",
     value_kind: "text",
-    accepted_document_roles: ["party_identity", "procedural_request", "tax_audit_act", "tax_decision"],
+    comparator: "normalized_text",
+    accepted_document_roles: [
+      "party_identity",
+      "procedural_request",
+      "tax_audit_act",
+      "tax_decision",
+    ],
     preserve_negation: false,
     preserve_conflict: true,
     provenance_required: true,
@@ -109,9 +158,16 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
   },
   "tax.authority_name": {
     id: "tax.authority_name",
-    meaning: "Наименование налогового органа, направившего требование/принявшего акт или решение по рассматриваемому эпизоду.",
+    meaning:
+      "Наименование налогового органа, направившего требование/принявшего акт или решение по рассматриваемому эпизоду.",
     value_kind: "text",
-    accepted_document_roles: ["authority_identity", "procedural_request", "tax_audit_act", "tax_decision"],
+    comparator: "normalized_text",
+    accepted_document_roles: [
+      "authority_identity",
+      "procedural_request",
+      "tax_audit_act",
+      "tax_decision",
+    ],
     preserve_negation: false,
     preserve_conflict: true,
     provenance_required: true,
@@ -119,8 +175,10 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
   },
   "tax.request_number": {
     id: "tax.request_number",
-    meaning: "Номер конкретного требования налогового органа, на которое готовится ответ или пояснения.",
+    meaning:
+      "Номер конкретного требования налогового органа, на которое готовится ответ или пояснения.",
     value_kind: "identifier",
+    comparator: "identifier_normalized",
     accepted_document_roles: ["procedural_request"],
     preserve_negation: false,
     preserve_conflict: true,
@@ -131,6 +189,7 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
     id: "tax.request_date",
     meaning: "Дата конкретного требования налогового органа.",
     value_kind: "date",
+    comparator: "date_calendar",
     accepted_document_roles: ["procedural_request"],
     preserve_negation: false,
     preserve_conflict: true,
@@ -139,8 +198,10 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
   },
   "tax.period": {
     id: "tax.period",
-    meaning: "Налоговый/отчётный период, к которому относится рассматриваемый вопрос или требование.",
+    meaning:
+      "Налоговый/отчётный период, к которому относится рассматриваемый вопрос или требование.",
     value_kind: "period",
+    comparator: "period_normalized",
     accepted_document_roles: ["procedural_request", "tax_return", "tax_audit_act", "tax_decision"],
     preserve_negation: false,
     preserve_conflict: true,
@@ -149,9 +210,17 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
   },
   "tax.position_summary": {
     id: "tax.position_summary",
-    meaning: "Краткое фактическое содержание позиции клиента без добавления неподтверждённых фактов и с сохранением отрицаний/оговорок.",
+    meaning:
+      "Краткое фактическое содержание позиции клиента без добавления неподтверждённых фактов и с сохранением отрицаний/оговорок.",
     value_kind: "text",
-    accepted_document_roles: ["procedural_request", "tax_audit_act", "tax_decision", "court_act", "user_manual_input"],
+    comparator: "lawyer_semantic",
+    accepted_document_roles: [
+      "procedural_request",
+      "tax_audit_act",
+      "tax_decision",
+      "court_act",
+      "user_manual_input",
+    ],
     preserve_negation: true,
     preserve_conflict: true,
     provenance_required: true,
@@ -159,8 +228,10 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
   },
   "tax.contested_amount": {
     id: "tax.contested_amount",
-    meaning: "Оспариваемая/доначисленная сумма, относящаяся к конкретному эпизоду; отсутствие начисления нельзя превращать в начисление.",
+    meaning:
+      "Оспариваемая/доначисленная сумма, относящаяся к конкретному эпизоду; отсутствие начисления нельзя превращать в начисление.",
     value_kind: "money",
+    comparator: "money_normalized",
     accepted_document_roles: ["tax_audit_act", "tax_decision", "court_act"],
     preserve_negation: true,
     preserve_conflict: true,
@@ -171,6 +242,7 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
     id: "tax.vat_period",
     meaning: "Налоговый период по НДС, если поле применимо к конкретному шаблону/эпизоду.",
     value_kind: "period",
+    comparator: "period_normalized",
     accepted_document_roles: ["procedural_request", "tax_return", "tax_audit_act", "tax_decision"],
     preserve_negation: false,
     preserve_conflict: true,
@@ -179,8 +251,10 @@ export const CANONICAL_FIELD_EVALUATION_REGISTRY: Readonly<Record<CanonicalField
   },
   "tax.court_case_number": {
     id: "tax.court_case_number",
-    meaning: "Номер судебного дела, относящийся к позиции в суде; не должен подставляться из нерелевантного дела.",
+    meaning:
+      "Номер судебного дела, относящийся к позиции в суде; не должен подставляться из нерелевантного дела.",
     value_kind: "identifier",
+    comparator: "identifier_normalized",
     accepted_document_roles: ["court_act"],
     preserve_negation: false,
     preserve_conflict: true,
@@ -209,7 +283,9 @@ const COMMON_COMPANY_FIELDS: readonly TemplateFieldBenchmarkRule[] = [
   { field_id: "company.legal_address", applicability: "optional", weight: 1 },
 ];
 
-export const TEMPLATE_BENCHMARK_PROFILES_09A: Readonly<Record<FlagshipTemplateCode09A, TemplateBenchmarkProfile>> = {
+export const TEMPLATE_BENCHMARK_PROFILES_09A: Readonly<
+  Record<FlagshipTemplateCode09A, TemplateBenchmarkProfile>
+> = {
   response_to_tax_request: {
     profile_version: "09A-v1",
     template_code: "response_to_tax_request",
@@ -277,6 +353,8 @@ export type EvaluationEvidence = {
 
 export type CanonicalFieldGroundTruth = {
   field_id: CanonicalFieldId;
+  /** Independent lawyer's field-level review outcome for the recorded output. */
+  label: AiFillEvaluationLabel;
   expected_value: string | null;
   expected_meaning: string;
   evidence: readonly EvaluationEvidence[];
@@ -296,16 +374,70 @@ export type CanonicalFieldObservation = {
   preserves_negation: boolean;
   preserves_conflict: boolean;
   manual_value_preserved: boolean;
+  /** Required for narrative fields; set only by the independent legal reviewer. */
+  semantic_equivalence: "equivalent" | "not_equivalent" | "not_reviewed";
 };
 
 function normalized(value: string | null): string | null {
   return value === null ? null : value.trim().replace(/\s+/g, " ").toLocaleLowerCase("ru-RU");
 }
 
-function evidenceSupports(observation: CanonicalFieldObservation, truth: CanonicalFieldGroundTruth): boolean {
+function normalizedIdentifier(value: string | null): string | null {
+  return normalized(value)?.replace(/[\s\-–—]/g, "") ?? null;
+}
+
+function normalizedDate(value: string | null): string | null {
+  const normalizedValue = normalized(value);
+  if (!normalizedValue) return normalizedValue;
+  const ruMatch = normalizedValue.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (ruMatch) return `${ruMatch[3]}-${ruMatch[2]}-${ruMatch[1]}`;
+  const isoMatch = normalizedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return isoMatch ? normalizedValue : normalizedValue;
+}
+
+function normalizedMoney(value: string | null): string | null {
+  const normalizedValue = normalized(value);
+  if (!normalizedValue) return normalizedValue;
+  const compact = normalizedValue.replace(/\s/g, "").replace(",", ".");
+  const numericMatch = compact.match(/^(-?\d+(?:\.\d+)?)(?:руб\.?|₽)?$/);
+  if (!numericMatch) return normalizedValue;
+  const numeric = Number(numericMatch[1]);
+  return Number.isFinite(numeric) ? numeric.toFixed(2) : normalizedValue;
+}
+
+function valuesMatch(
+  comparator: CanonicalFieldComparator,
+  observedValue: string | null,
+  expectedValue: string | null,
+  semanticEquivalence: CanonicalFieldObservation["semantic_equivalence"],
+): boolean | null {
+  switch (comparator) {
+    case "identifier_normalized":
+      return normalizedIdentifier(observedValue) === normalizedIdentifier(expectedValue);
+    case "date_calendar":
+      return normalizedDate(observedValue) === normalizedDate(expectedValue);
+    case "money_normalized":
+      return normalizedMoney(observedValue) === normalizedMoney(expectedValue);
+    case "period_normalized":
+    case "normalized_text":
+      return normalized(observedValue) === normalized(expectedValue);
+    case "lawyer_semantic":
+      if (semanticEquivalence === "not_reviewed") return null;
+      return semanticEquivalence === "equivalent";
+  }
+}
+
+function evidenceSupports(
+  observation: CanonicalFieldObservation,
+  truth: CanonicalFieldGroundTruth,
+): boolean {
   if (observation.supported_by.length === 0) return false;
-  const expectedRefs = new Set(truth.evidence.map((item) => `${item.document_ref}|${item.provenance_ref}|${item.quote}`));
-  return observation.supported_by.some((item) => expectedRefs.has(`${item.document_ref}|${item.provenance_ref}|${item.quote}`));
+  const expectedRefs = new Set(
+    truth.evidence.map((item) => `${item.document_ref}|${item.provenance_ref}|${item.quote}`),
+  );
+  return observation.supported_by.some((item) =>
+    expectedRefs.has(`${item.document_ref}|${item.provenance_ref}|${item.quote}`),
+  );
 }
 
 /**
@@ -337,14 +469,26 @@ export function evaluateCanonicalField(
 
   if (observation.observed_value === null) return "unknown";
   if (!evidenceSupports(observation, truth)) return "unsupported";
-  if (definition.preserve_negation && truth.negation_present && !observation.preserves_negation) return "incorrect";
-  if (definition.preserve_conflict && truth.conflict_present && !observation.preserves_conflict) return "incorrect";
-  return normalized(observation.observed_value) === normalized(truth.expected_value) ? "correct" : "incorrect";
+  if (definition.preserve_negation && truth.negation_present && !observation.preserves_negation)
+    return "incorrect";
+  if (definition.preserve_conflict && truth.conflict_present && !observation.preserves_conflict)
+    return "incorrect";
+  const matched = valuesMatch(
+    definition.comparator,
+    observation.observed_value,
+    truth.expected_value,
+    observation.semantic_equivalence,
+  );
+  return matched === null ? "unknown" : matched ? "correct" : "incorrect";
 }
 
 export function benchmarkRule(
   templateCode: FlagshipTemplateCode09A,
   fieldId: CanonicalFieldId,
 ): TemplateFieldBenchmarkRule | null {
-  return TEMPLATE_BENCHMARK_PROFILES_09A[templateCode].fields.find((field) => field.field_id === fieldId) ?? null;
+  return (
+    TEMPLATE_BENCHMARK_PROFILES_09A[templateCode].fields.find(
+      (field) => field.field_id === fieldId,
+    ) ?? null
+  );
 }
