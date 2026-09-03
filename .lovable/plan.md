@@ -1,90 +1,46 @@
-# PR #88 — Matter-scoped Entity Registry для обезличивания
+# Master control point after P0-C — состояние и следующий шаг
 
-Цель: несколько организаций и связанных сторон в одном деле никогда не смешиваются между документами. Один субъект = один стабильный токен ([ORG_001], [AUTH_001], [PERSON_001]) во всех документах дела; слияние только по надёжным реквизитам; финальная подстановка — детерминированный server-side резолвер.
+## Факты (read-only, проверено в текущем дереве)
 
-## Что уже есть (проверено в коде)
+Ветка/HEAD:
+- Текущая ветка: `edit/edt-dc096b4b-7fc6-4ecd-8bbb-756e738bbe5e`
+- HEAD: `9624407` «Implemented resumable PDF indexing» (P0-C 600-page indexing)
+- Рабочее дерево чистое (`git status --porcelain` пуст) — P0-C зафиксирован, ничего не висит.
 
-- `src/lib/legal-redaction.ts` — извлечение сущностей из текста документа, нумерация per-document (`[COMPANY_1]`, счётчики в `redactLegalDocument`), whitelist госорганов (ФНС/суды) — они сейчас НЕ обезличиваются вовсе.
-- `src/lib/redaction-field-mapping.ts` — session-scoped карта `token → canonical_value` для полей анкеты (`version: 1`, `tokens`, `fields`), fail-closed восстановление `restoreCanonicalAnswers`, страж `assertNoRedactionTokens`.
-- `src/lib/document-intake-storage.ts` — карта и флаг живут в `document_intake_sessions.metadata.intake_redaction`; run_id — в `metadata.intake_ai_fill.run_id` (`saveGenerationContext` / `loadGenerationContext`).
-- `src/lib/generate-legal-document.ts` — перед генерацией восстанавливает канонические значения и падает при отсутствии карты.
-- `src/lib/company-registry.ts` — нормализация ИНН/ОГРН/наименования/адреса, `detectCompanyConflicts`, verified-профиль DaData.
-- `src/components/document-builder/intake-form.tsx` — авто AI-fill, режим обезличивания, ручные правки через `applyManualFieldEdit`.
+Router-контур (`supabase/functions/_shared/ai/`):
+- `model-types.ts` (147), `model-policy.ts` (126), `model-registry.ts` (146), `provider-registry.ts` (46) — контракт, policy на 7 task types, eligibility, level-1 health check.
+- `model-router.ts` (382) — единственный экспорт `runModelTask`.
+- `provider-adapters.ts` (272) — реальные Gemini/OpenAI adapters + level-2 `checkModelAvailability`.
+- `model-shadow-harness.ts` (364) — `runShadowHarness`, comparison-only, budget reservation, safe-only телеметрия.
+- `supabase-shadow-store.ts` (39) — RPC-мост к `reserve_model_shadow_budget` / `record_model_shadow_telemetry`.
+- Миграции стора существуют: `20260828210000_p1b1_private_model_shadow_store.sql`, `20260828223000_p1b1_shadow_store_retry_safe.sql`.
+- Тесты: `model-router-v1` (251), `model-shadow-harness` (307), `provider-model-capability` (251), `supabase-shadow-store` (84).
 
-Пробел: нумерация токенов существует отдельно для текста каждого документа и отдельно для полей анкеты; общей идентичности субъекта на уровне дела нет.
+Ключевой факт — **потребителей нет**: `rg "_shared/ai/" .` даёт совпадения только в четырёх тестовых файлах. Ни одна Edge Function не импортирует Router или harness. Продакшн-вызовы Gemini идут напрямую в `generate-legal-document-v2/index.ts`, `review-generated-legal-document/index.ts`, `analyze-document-legal-position/*`, `document-intake-ai-fill/index.ts`, `extract-document-text`, `extract-external-research-text`.
 
-## Модель (versioned metadata bridge, без DDL)
+Вывод по статусу: Router v1 и P1-B.1 (private shadow store) закрыты как контракт и инфраструктура. P1 benchmark по роадмапу (`docs/KATI_LAWYER_MASTER_ROADMAP_VNEXT_2026-08-27.md`) не начат: нет ни одного места, где shadow реально запускается рядом с production-вызовом.
 
-Новый модуль `src/lib/entity-registry.ts` (чистые функции, без БД):
+## Единственный следующий незакрытый Master-substep
 
-```text
-EntityRegistry v1  (хранится в document_intake_sessions.metadata.entity_registry)
-├─ entities[]   entity_id (ORG_001…), entity_type (ORGANIZATION|PERSON|TAX_AUTHORITY|BANK),
-│               canonical { name, inn, ogrn, kpp, address }, status: verified|unverified|needs_review
-├─ mentions[]   entity_id, document_id, locator (поле анкеты или span-индекс), model_safe_mention
-├─ roles[]      entity_id, document_id|null (matter-scope), role: taxpayer|counterparty|supplier|
-│               claimant|respondent|tax_authority|bank
-├─ relations[]  from_entity_id, type (HAS_COUNTERPARTY|ISSUED_DOCUMENT|PAID), to_entity_id,
-│               provenance { document_id }, confidence
-└─ conflicts[]  entity_ids[], reason (similar_name|inn_mismatch), status: needs_review
-```
+**P1-B.2 — первое подключение shadow-контура к одному consumer: Generator (`generate-legal-document-v2`).**
 
-Правила идентичности (`resolveEntityIdentity`):
-- совпадение нормализованного ИНН или ОГРН → та же entity (merge);
-- нормализованное имя + подтверждённый реквизит (ИНН/ОГРН/КПП) → merge;
-- только имя, только адрес, любая нечёткость → НЕ merge; создаётся отдельная entity + запись в `conflicts` со `status: needs_review`;
-- госорган (whitelist из `legal-redaction.ts`) → `TAX_AUTHORITY`, никогда не получает роль `taxpayer`.
+Роадмап называет Generator первым кандидатом на switch, поэтому именно его shadow-данные нужны раньше остальных. Это единственный шаг, который переводит Router из «контракта» в «измеряемый», не меняя production-результат.
 
-Реальные значения (наименование, ИНН, ОГРН, КПП, адрес) остаются только в `canonical` внутри session metadata; в модель уходит проекция `buildModelFacingEntityContext()` — только `entity_id`, `entity_type`, роли, ссылки на relations, confidence/status.
+## Наименьший безопасный диф
 
-## Data-flow
+1. Новый файл `supabase/functions/generate-legal-document-v2/shadow-hook.ts`: тонкая обёртка, которая берёт уже принятый production-результат Gemini и вызывает `runShadowHarness` с `task_type: "generation"`, candidate `gpt-5.6-terra`, стором из `createSupabaseShadowStore`.
+2. Точечная вставка в `generate-legal-document-v2/index.ts` — один вызов после того, как production-ответ уже сформирован и сохранён; результат hook игнорируется, ошибки проглатываются.
+3. Конфиг shadow читается из env внутри хендлера: по умолчанию `enabled: false`, `sample_rate` 0 — без явно выставленных секретов и cap-ов контур не запускается (fail-closed уже реализован в harness).
+4. Тест `supabase/tests/p1b2-generator-shadow.test.ts`: (a) при выключенном флаге production-путь не меняется и harness не вызывается; (b) при включённом флаге production-ответ байт-в-байт тот же; (c) отсутствие cap → skip `cost_unknown`; (d) исключение внутри shadow не ломает генерацию.
 
-```text
-upload → OCR (original OCR остаётся server-side, как сейчас)
-      → redactLegalDocument(text)                  [существующий детектор сущностей]
-      → registerEntitiesFromDocument(registry, entities, document_id)
-            ├─ identity match по ИНН/ОГРН/имя+реквизит
-            └─ выдача стабильного entity_id/token
-      → повторная подстановка: placeholder документа → token реестра ([ORG_002])
-      → AI-fill / analyze-document-legal-position получают только model-facing проекцию
-      → анкета: redaction-field-mapping использует entity token там, где поле ссылается
-        на известную entity (иначе прежнее поведение [PERSON_1] сохраняется)
-      → save в document_intake_sessions.metadata.entity_registry (рядом с intake_redaction)
-      → generation: resolveEntityTokens() → канонические значения только для
-        verified / lawyer-approved; needs_review/unresolved → блок по текущей политике
-        (RedactionMappingError, как сейчас)
-```
+Границы: не трогать сам текст промпта, template-profiles, Reviewer, Legal Core, схемы/RLS, роуты и UI. Ноль изменений в возвращаемом клиенту документе.
 
-## Изменяемые файлы
+## Правильна ли текущая ветка
 
-- `src/lib/entity-registry.ts` — новый: типы, идентичность, слияние, конфликты, токены, model-facing проекция, детерминированный резолвер.
-- `src/lib/legal-redaction.ts` — минимальная точка расширения: опциональный аргумент «внешний нумератор токенов», чтобы документные placeholders брались из реестра. Существующее поведение без реестра не меняется.
-- `src/lib/redaction-field-mapping.ts` — учитывать entity-токены при построении карты полей; `restoreCanonicalAnswers` умеет резолвить и entity-токены (тот же fail-closed).
-- `src/lib/document-intake-storage.ts` — чтение/запись `metadata.entity_registry` (versioned reader: отсутствие ключа = legacy-режим).
-- `src/lib/generate-legal-document.ts` — резолв entity-токенов перед генерацией; блок/предупреждение при `needs_review`.
-- `src/components/document-builder/intake-form.tsx` — прокинуть реестр в существующий контур обезличивания; при необходимости краткий индикатор конфликтов.
-- `src/routes/workspace.document-builder.tsx` — передать реестр из `loadGenerationContext` в `prepareAndGenerate`.
-- `supabase/tests/pr88-entity-registry.test.ts` — новый набор тестов.
+Да. Дерево чистое, P0-C уже в истории этой ветки, отдельного router-бранча в проекте нет — P1-B.2 логично класть сюда же, следующим изолированным коммитом.
 
-DDL/миграция не планируется: `document_intake_sessions.metadata` уже используется как versioned-хранилище этого контура, RLS на сессии уже действует. Если на этапе реализации выяснится, что нужен матерь-скоуп шире сессии, вынесу это отдельным решением, а не молчаливым DDL.
+## Блокеры, которые надо признать честно
 
-## Тесты
-
-- две похожие организации → два токена + `conflicts.needs_review`;
-- одна организация в двух документах → один токен;
-- одна организация в разных ролях → один `entity_id`, разные `roles`;
-- точное совпадение ИНН → merge;
-- совпадение только по имени → нет merge;
-- налоговый орган не получает роль `taxpayer`;
-- mentions/relations хранят `document_id`;
-- model-facing payload не содержит названий/ИНН/адресов;
-- резолвер подставляет корректные значения для ORG_001 vs ORG_002;
-- `needs_review`/unresolved блокирует генерацию;
-- регрессия: весь текущий `bun test` (в т.ч. pr22/pr24/pr25/pr27/pr32).
-
-## Что НЕ меняется
-
-- legacy `legal_analysis` остаётся authoritative; canonical facts/evidence, Evidence Matrix, Argument Map, Reasoning Engine, Challenge, `working_strategy`, `generation_conclusions`, `blocked_conclusions` — без изменений.
-- PR #40, PR #81, TAXOFFENCE, любые edge functions, кроме перечисленных выше файлов, не трогаются.
-- Контракт `run_id`, `document_local`, приватность исходного OCR, поведение авто AI-fill из PR #88 сохраняются.
-- Никакого нового анализатора, движка или параллельного реестра; никакого merge/deploy — PR #88 остаётся Draft.
+- `OPENAI_API_KEY` в проекте не подтверждён — без него shadow даст только skip-телеметрию (`provider_not_configured`). Это ожидаемое поведение, а не баг, но benchmark-цифр не будет до появления ключа.
+- Проверить, что RPC `reserve_model_shadow_budget` / `record_model_shadow_telemetry` действительно применены на удалённой БД, нельзя — доступ к remote Supabase в этой задаче запрещён. Миграции в репозитории есть; факт применения непроверяем.
+- Реальные латентность/стоимость/качество по-прежнему неизмеримы, пока shadow не включён с ключом и cap-ами; никакой production switch на этом шаге не заявляется.
