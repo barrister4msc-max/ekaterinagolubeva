@@ -9,8 +9,7 @@ import {
   observeCanonicalShadowParity,
 } from "../_shared/legal-analysis/canonical-shadow-observer.ts";
 import { buildGeneratorPromptInputs } from "./conclusion-contract.ts";
-import { observeGeneratorShadow } from "./generator-shadow.ts";
-import { createSupabaseShadowStore } from "../_shared/ai/supabase-shadow-store.ts";
+
 
 
 const corsHeaders = {
