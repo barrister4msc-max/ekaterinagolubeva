@@ -45,28 +45,20 @@ export function isExtractionUsable(doc: AutoAiFillDocument): boolean {
 }
 
 /**
- * Stable identity of the current document set. A new document, a removed
- * document or a changed extraction length produces a new fingerprint, which is
- * what makes "run exactly once per document set" enforceable across re-renders,
- * polling and reloads.
+ * Stable identity of the document subset consumed by AI-fill. Failed or
+ * otherwise unusable documents are deliberately excluded: removing one broken
+ * file from a mixed packet must not trigger a duplicate AI run over identical
+ * usable content, while any change to a usable document still starts a new run.
  */
 export function computeDocumentSetFingerprint(documents: AutoAiFillDocument[]): string {
   return documents
+    .filter(isExtractionUsable)
     .map((d) => `${d.id}:${d.ocr_text_length}:${(d.extraction_status ?? "none").toLowerCase()}`)
     .sort()
     .join("|");
 }
 
-/**
- * Identity of what AI-fill actually consumes: only the usable (extracted)
- * documents. Mixed packets are resilient because of this: removing or retrying
- * a failed document never changes the AI input, so deleting one broken file out
- * of a packet cannot trigger a duplicate AI run over identical content, while
- * any change to a usable document still starts a new run.
- */
-export function computeAiFillInputFingerprint(documents: AutoAiFillDocument[]): string {
-  return computeDocumentSetFingerprint(documents.filter(isExtractionUsable));
-}
+
 
 
 export function evaluateAutoAiFill(input: {
