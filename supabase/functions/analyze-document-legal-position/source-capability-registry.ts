@@ -132,8 +132,10 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
   },
   {
     provider_id: "fns_official", official_provider_id: "fns",
-    source_families: ["fns_letters"], transport_id: "official_bulk_download", transport_version: "unverified", transport_kind: "official_bulk_download",
-    integration_mode: "official_download", auth_mode: "none", query_classes: ["exact", "issue", "temporal"],
+    // FNS Open Data remains a separate factual-evidence path. Do not relabel
+    // it as legal FNS letters merely because its files are downloadable.
+    source_families: ["fns_letters"], transport_id: "official_html_document", transport_version: "unverified", transport_kind: "official_html_document",
+    integration_mode: "official_web_document", auth_mode: "none", query_classes: ["exact", "issue", "temporal"],
     privacy_classes: ["public_legal_issue"], operational_status: "blocked", rate_policy: "not_configured",
     cache_policy: "none", last_verified_at: null, evidence: ["official_provider_registry_no_machine_interface"],
     kill_switch: true, substantive_use_allowed_by_provider: false,
