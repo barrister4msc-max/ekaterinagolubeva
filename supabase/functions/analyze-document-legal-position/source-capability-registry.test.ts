@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   createSourceCapabilityRegistry,
+  listSourceCapabilities,
   resolveSourceCapability,
   SOURCE_CAPABILITY_REGISTRY,
   type SourceCapabilityRegistration,
@@ -77,5 +78,14 @@ describe("Prompt 08H provider-neutral Source Capability Registry", () => {
     attemptedMutation?.push("manuals");
     expect(resolveSourceCapability({ provider_id: "pravo", source_family: "manuals" }).status)
       .toBe("unsupported_source_family");
+  });
+
+  test("keeps legacy compatibility routes out of new provider-neutral plans by default", () => {
+    const defaultRoutes = listSourceCapabilities({ source_family: "laws" });
+    expect(defaultRoutes.map((route) => route.provider_id)).toContain("law7_local");
+    expect(defaultRoutes.map((route) => route.provider_id)).not.toContain("pravo");
+
+    const includingLegacy = listSourceCapabilities({ source_family: "laws", include_legacy_compatibility: true });
+    expect(includingLegacy.map((route) => route.provider_id)).toContain("pravo");
   });
 });

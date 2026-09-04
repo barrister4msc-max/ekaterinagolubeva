@@ -16,6 +16,7 @@ export type SourceCapabilityOperationalStatus =
   | "degraded";
 
 export type SourceCapabilityAuthMode = "none" | "service_secret" | "user_session" | "manual";
+export type SourceCapabilityPlanEligibility = "eligible" | "legacy_compatibility_only";
 export type SourceCapabilityTransportKind =
   | "local_mirror"
   | "documented_api"
@@ -37,6 +38,9 @@ export type SourceCapabilityRegistration = {
   auth_mode: SourceCapabilityAuthMode;
   query_classes: readonly ("exact" | "issue" | "adverse" | "temporal")[];
   privacy_classes: readonly ResearchSensitivityClass[];
+  // New provider-neutral plans must not silently expand an existing legacy
+  // integration. The registry, rather than the Router, owns that distinction.
+  plan_eligibility: SourceCapabilityPlanEligibility;
   operational_status: SourceCapabilityOperationalStatus;
   rate_policy: "local_only" | "documented" | "manual" | "not_configured";
   cache_policy: "local_versioned" | "policy_bounded" | "none";
@@ -85,6 +89,9 @@ export function createSourceCapabilityRegistry(
     if (capability.substantive_use_allowed_by_provider !== false || capability.kill_switch !== true) {
       throw new Error("invalid_source_capability_safety_contract");
     }
+    if (capability.plan_eligibility !== "eligible" && capability.plan_eligibility !== "legacy_compatibility_only") {
+      throw new Error("invalid_source_capability_plan_eligibility");
+    }
     const key = `${capability.provider_id}|${capability.transport_id}|${capability.transport_version}`;
     if (seen.has(key)) throw new Error("duplicate_source_capability");
     seen.add(key);
@@ -102,6 +109,7 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
     source_families: ["laws"], transport_id: "supabase_law7_mirror", transport_version: "v1", transport_kind: "local_mirror",
     integration_mode: "local", auth_mode: "none", query_classes: ["exact", "issue", "temporal"],
     privacy_classes: ["public_legal_issue", "public_case_reference", "restricted_exact_party"],
+    plan_eligibility: "eligible",
     operational_status: "active", rate_policy: "local_only", cache_policy: "local_versioned",
     last_verified_at: null, evidence: ["existing_law7_transport_contract"], kill_switch: true,
     substantive_use_allowed_by_provider: false,
@@ -111,6 +119,7 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
     source_families: ["laws"], transport_id: "pravo_official_api", transport_version: "existing-v1", transport_kind: "documented_api",
     integration_mode: "direct_api", auth_mode: "none", query_classes: ["exact", "issue", "temporal"],
     privacy_classes: ["public_legal_issue", "public_case_reference"], operational_status: "active",
+    plan_eligibility: "legacy_compatibility_only",
     rate_policy: "documented", cache_policy: "policy_bounded", last_verified_at: null,
     evidence: ["official_provider_registry"], kill_switch: true, substantive_use_allowed_by_provider: false,
   },
@@ -119,6 +128,7 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
     source_families: ["court_practice"], transport_id: "browser_handoff", transport_version: "v1", transport_kind: "browser_handoff",
     integration_mode: "manual_import", auth_mode: "manual", query_classes: ["exact"],
     privacy_classes: ["public_case_reference"], operational_status: "manual_import_only",
+    plan_eligibility: "eligible",
     rate_policy: "manual", cache_policy: "none", last_verified_at: null,
     evidence: ["manual_import_admission_contract"], kill_switch: true, substantive_use_allowed_by_provider: false,
   },
@@ -127,6 +137,7 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
     source_families: ["court_practice"], transport_id: "api_cloud_ras_arbitr", transport_version: "unverified", transport_kind: "contracted_api",
     integration_mode: "partner_api", auth_mode: "service_secret", query_classes: ["exact", "issue", "adverse"],
     privacy_classes: ["public_legal_issue", "public_case_reference"], operational_status: "shadow_retrieval",
+    plan_eligibility: "legacy_compatibility_only",
     rate_policy: "not_configured", cache_policy: "policy_bounded", last_verified_at: null,
     evidence: ["shadow_only_pending_transport_evidence"], kill_switch: true, substantive_use_allowed_by_provider: false,
   },
@@ -137,6 +148,7 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
     source_families: ["fns_letters"], transport_id: "official_html_document", transport_version: "unverified", transport_kind: "official_html_document",
     integration_mode: "official_web_document", auth_mode: "none", query_classes: ["exact", "issue", "temporal"],
     privacy_classes: ["public_legal_issue"], operational_status: "blocked", rate_policy: "not_configured",
+    plan_eligibility: "eligible",
     cache_policy: "none", last_verified_at: null, evidence: ["official_provider_registry_no_machine_interface"],
     kill_switch: true, substantive_use_allowed_by_provider: false,
   },
@@ -145,6 +157,7 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
     source_families: ["minfin_letters"], transport_id: "official_html_document", transport_version: "unverified", transport_kind: "official_html_document",
     integration_mode: "official_web_document", auth_mode: "none", query_classes: ["exact", "issue", "temporal"],
     privacy_classes: ["public_legal_issue"], operational_status: "blocked", rate_policy: "not_configured",
+    plan_eligibility: "eligible",
     cache_policy: "none", last_verified_at: null, evidence: ["official_provider_registry_no_machine_interface"],
     kill_switch: true, substantive_use_allowed_by_provider: false,
   },
@@ -153,6 +166,7 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
     source_families: ["court_practice"], transport_id: "official_html_document", transport_version: "unverified", transport_kind: "official_html_document",
     integration_mode: "official_web_document", auth_mode: "none", query_classes: ["exact", "issue", "adverse"],
     privacy_classes: ["public_legal_issue", "public_case_reference"], operational_status: "degraded",
+    plan_eligibility: "eligible",
     rate_policy: "not_configured", cache_policy: "none", last_verified_at: null,
     evidence: ["official_provider_registry_no_machine_interface"], kill_switch: true, substantive_use_allowed_by_provider: false,
   },
@@ -162,6 +176,7 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
     transport_id: "manual_import", transport_version: "v1", transport_kind: "manual_import", integration_mode: "manual_import", auth_mode: "manual",
     query_classes: ["exact", "issue", "adverse", "temporal"], privacy_classes: ["public_legal_issue", "public_case_reference"],
     operational_status: "manual_import_only", rate_policy: "manual", cache_policy: "none", last_verified_at: null,
+    plan_eligibility: "eligible",
     evidence: ["external_research_import_contract"], kill_switch: true, substantive_use_allowed_by_provider: false,
   },
   {
@@ -170,6 +185,7 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
     transport_id: "manual_import", transport_version: "v1", transport_kind: "manual_import", integration_mode: "manual_import", auth_mode: "manual",
     query_classes: ["exact", "issue", "adverse", "temporal"], privacy_classes: ["public_legal_issue", "public_case_reference"],
     operational_status: "manual_import_only", rate_policy: "manual", cache_policy: "none", last_verified_at: null,
+    plan_eligibility: "eligible",
     evidence: ["external_research_import_contract"], kill_switch: true, substantive_use_allowed_by_provider: false,
   },
 ]);
@@ -193,4 +209,21 @@ export function resolveSourceCapability(input: {
     return { provider_id: input.provider_id, source_family: input.source_family, status: "transport_version_drift", capability: copy(route), executable: false, substantive_use_allowed: false };
   }
   return { provider_id: input.provider_id, source_family: input.source_family, status: route.operational_status, capability: copy(route), executable: false, substantive_use_allowed: false };
+}
+
+/**
+ * Provider-neutral capability lookup for a source family. This remains a
+ * description-only resolver: consumers receive copies and cannot execute a
+ * transport or obtain substantive authority from it.
+ */
+export function listSourceCapabilities(input: {
+  source_family: Bucket;
+  registry?: readonly SourceCapabilityRegistration[];
+  include_legacy_compatibility?: boolean;
+}): readonly SourceCapabilityRegistration[] {
+  const registry = input.registry ?? SOURCE_CAPABILITY_REGISTRY;
+  return registry
+    .filter((route) => route.source_families.includes(input.source_family))
+    .filter((route) => input.include_legacy_compatibility || route.plan_eligibility === "eligible")
+    .map(copy);
 }
