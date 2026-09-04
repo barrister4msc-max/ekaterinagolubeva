@@ -3,6 +3,10 @@ import type { ResearchQuestion } from "./research-routing.ts";
 import type { RawSource } from "./repositories.ts";
 import type { OfficialSourceDiagnostics, OfficialSourceResult } from "./official-sources.ts";
 import type { PravoRetriever } from "./research-retrieval-adapter.ts";
+import {
+  normalizeRawSourceCandidate,
+  type VerificationObservation,
+} from "./research-source-admission.ts";
 import { runResearchRetrievalShadow } from "./research-shadow-harness.ts";
 
 function question(): ResearchQuestion {
@@ -79,7 +83,22 @@ function official(overrides: Record<string, unknown> = {}): OfficialSourceResult
   };
 }
 
-function input(retriever?: PravoRetriever) {
+function verification(
+  source: RawSource,
+  safety: OfficialSourceResult["metadata"]["safety"],
+): VerificationObservation {
+  const candidate = normalizeRawSourceCandidate(source);
+  if (!candidate.canonical_identity.canonical_document_key) throw new Error("fixture requires canonical identity");
+  return {
+    observation_version: "08J-v1",
+    candidate_id: candidate.candidate_id,
+    canonical_document_key: candidate.canonical_identity.canonical_document_key,
+    verifier: "official_verification_gate",
+    safety,
+  };
+}
+
+function input(retriever?: PravoRetriever, verificationObservations?: readonly VerificationObservation[]) {
   return {
     matter_id: "matter-08f",
     legal_analysis_run_id: "run-08f",
@@ -88,6 +107,7 @@ function input(retriever?: PravoRetriever) {
     applicable_provisions: ["ст. 54.1 НК РФ"],
     sensitivity_class: "public_legal_issue" as const,
     retriever,
+    verification_observations: verificationObservations,
   };
 }
 
@@ -121,10 +141,11 @@ describe("Prompt 08F research retrieval shadow harness", () => {
   });
 
   test("runs 08B-08E in shadow with deterministic bounded parity telemetry", async () => {
-    const retriever: PravoRetriever = async () => ({ sources: [official()], diagnostics: diagnostics() });
+    const source = official();
+    const retriever: PravoRetriever = async () => ({ sources: [source], diagnostics: diagnostics() });
     const ticks = [1000, 1012];
     const result = await runResearchRetrievalShadow({
-      ...input(retriever),
+      ...input(retriever, [verification(source, source.metadata.safety)]),
       enabled: true,
       now: () => ticks.shift() ?? 1012,
     });
@@ -150,8 +171,9 @@ describe("Prompt 08F research retrieval shadow harness", () => {
   });
 
   test("reports a standalone fully verified source as substantive without changing primary", async () => {
+    const source = official({ canonical_document_key: "ru:laws:document:new" });
     const retriever: PravoRetriever = async () => ({
-      sources: [official({ canonical_document_key: "ru:laws:document:new" })],
+      sources: [source],
       diagnostics: diagnostics(),
     });
     const result = await runResearchRetrievalShadow({
@@ -159,6 +181,7 @@ describe("Prompt 08F research retrieval shadow harness", () => {
       enabled: true,
       now: () => 100,
       local_sources_for_admission: [],
+      verification_observations: [verification(source, source.metadata.safety)],
     });
     expect(result.primary_unchanged).toBe(true);
     expect(result.shadow.substantive_admitted).toBe(1);
@@ -167,23 +190,43 @@ describe("Prompt 08F research retrieval shadow harness", () => {
   });
 
   test("keeps unverified candidates discovery-only and records no safety regression", async () => {
+    const source = official({
+      safety: {
+        official_origin_verified: true,
+        document_identity_verified: true,
+        content_verified: false,
+        actuality_status: "unknown",
+        substantive_use_allowed: false,
+        verification_level: "identity",
+      },
+    });
     const retriever: PravoRetriever = async () => ({
-      sources: [official({
-        safety: {
-          official_origin_verified: true,
-          document_identity_verified: true,
-          content_verified: false,
-          actuality_status: "unknown",
-          substantive_use_allowed: false,
-          verification_level: "identity",
-        },
-      })],
+      sources: [source],
       diagnostics: diagnostics(),
     });
-    const result = await runResearchRetrievalShadow({ ...input(retriever), enabled: true, now: () => 1 });
+    const result = await runResearchRetrievalShadow({
+      ...input(retriever),
+      enabled: true,
+      now: () => 1,
+      verification_observations: [verification(source, source.metadata.safety)],
+    });
     expect(result.shadow.discovery_only).toBe(1);
     expect(result.shadow.substantive_admitted).toBe(0);
     expect(result.shadow.safety_regressions).toBe(0);
+  });
+
+  test("does not let a retriever self-promote metadata without independent evidence", async () => {
+    const source = official();
+    const retriever: PravoRetriever = async () => ({ sources: [source], diagnostics: diagnostics() });
+    const result = await runResearchRetrievalShadow({
+      ...input(retriever),
+      enabled: true,
+      now: () => 1,
+      local_sources_for_admission: [],
+    });
+    expect(result.shadow.substantive_admitted).toBe(0);
+    expect(result.shadow.discovery_only).toBe(1);
+    expect(result.primary_unchanged).toBe(true);
   });
 
   test("is fail-soft and never exposes raw retrieval errors in telemetry", async () => {

@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { OfficialSourceSafety } from "./official-sources.ts";
 import type { RawSource } from "./repositories.ts";
-import { admitResearchRetrievalCandidates } from "./research-source-admission.ts";
+import {
+  admitResearchRetrievalCandidates,
+  normalizeRawSourceCandidate,
+  type VerificationObservation,
+} from "./research-source-admission.ts";
 import { sourceFamilyForType, sourceFamilyMetadataForType } from "./source-family-contract.ts";
 
 const KEY = "ru:laws:document:425-фз:2025-11-28";
@@ -57,7 +61,22 @@ function localSource(): RawSource {
   };
 }
 
-describe("Prompt 08E retrieval candidate admission bridge", () => {
+function verification(
+  source: RawSource,
+  evidence: OfficialSourceSafety = safety(),
+): VerificationObservation {
+  const normalized = normalizeRawSourceCandidate(source);
+  if (!normalized.canonical_identity.canonical_document_key) throw new Error("fixture requires canonical identity");
+  return {
+    observation_version: "08J-v1",
+    candidate_id: normalized.candidate_id,
+    canonical_document_key: normalized.canonical_identity.canonical_document_key,
+    verifier: "official_verification_gate",
+    safety: evidence,
+  };
+}
+
+describe("Prompt 08J universal source admission boundary", () => {
   test("classifies Pravo official publications as fail-closed normative retrieval", () => {
     expect(sourceFamilyForType("official_publication_pravo")).toBe("normative_retrieval");
     expect(sourceFamilyMetadataForType("official_publication_pravo", {})).toMatchObject({
@@ -72,8 +91,9 @@ describe("Prompt 08E retrieval candidate admission bridge", () => {
     });
   });
 
-  test("admits a standalone Pravo candidate only with fully verified official safety", () => {
-    const result = admitResearchRetrievalCandidates([], [candidate()]);
+  test("admits a standalone Pravo candidate only with a separate fully verified observation", () => {
+    const source = candidate();
+    const result = admitResearchRetrievalCandidates([], [source], [verification(source)]);
     expect(result.decisions).toHaveLength(1);
     expect(result.decisions[0]).toMatchObject({
       status: "substantive_admitted",
@@ -90,7 +110,8 @@ describe("Prompt 08E retrieval candidate admission bridge", () => {
   });
 
   test("links a fully verified candidate to an existing canonical source instead of duplicating it", () => {
-    const result = admitResearchRetrievalCandidates([localSource()], [candidate()]);
+    const source = candidate();
+    const result = admitResearchRetrievalCandidates([localSource()], [source], [verification(source)]);
     expect(result.decisions[0]).toMatchObject({
       status: "linked_to_canonical",
       reason: "linked_to_existing_canonical",
@@ -102,24 +123,40 @@ describe("Prompt 08E retrieval candidate admission bridge", () => {
     expect(result.substantive_sources[0].metadata.official_verification).toEqual(safety());
   });
 
-  test("keeps missing or unverified official safety discovery-only", () => {
-    const missing = candidate({}, { safety: undefined });
+  test("uses independent evidence rather than provider metadata when verification fails", () => {
+    const metadataOnly = candidate({}, { safety: undefined });
     const unverified = candidate({}, { safety: safety({ official_origin_verified: false, substantive_use_allowed: false, verification_level: "discovery" }) });
-    const result = admitResearchRetrievalCandidates([], [missing, { ...unverified, source_id: "pravo:unverified" }]);
+    const unverifiedSource = { ...unverified, source_id: "pravo:unverified" };
+    const result = admitResearchRetrievalCandidates([], [metadataOnly, unverifiedSource], [
+      verification(metadataOnly, {
+        official_origin_verified: true,
+        document_identity_verified: true,
+        content_verified: true,
+        actuality_status: "verified",
+        substantive_use_allowed: true,
+        verification_level: "substantive",
+      }),
+      verification(unverifiedSource, safety({ official_origin_verified: false, substantive_use_allowed: false, verification_level: "discovery" })),
+    ]);
     expect(result.decisions.map((item) => item.reason)).toEqual([
-      "official_safety_missing",
+      "fully_verified_official_source",
       "official_origin_not_verified",
     ]);
-    expect(result.decisions.every((item) => item.status === "discovery_only")).toBe(true);
-    expect(result.substantive_sources).toEqual([]);
-    expect(result.discovery_candidates).toHaveLength(2);
+    expect(result.decisions[0].status).toBe("substantive_admitted");
+    expect(result.decisions[1].status).toBe("discovery_only");
+    expect(result.substantive_sources).toHaveLength(1);
+    expect(result.discovery_candidates).toHaveLength(1);
   });
 
   test("blocks ambiguous identity, content mismatch, and non-current actuality from substantive admission", () => {
     const ambiguous = candidate({}, { safety: safety({ document_identity_verified: false, substantive_use_allowed: false, verification_level: "origin" }) });
     const mismatch = candidate({ source_id: "pravo:mismatch" }, { safety: safety({ content_verified: false, substantive_use_allowed: false, verification_level: "identity" }) });
     const expired = candidate({ source_id: "pravo:expired" }, { safety: safety({ actuality_status: "unknown", substantive_use_allowed: false, verification_level: "content" }) });
-    const result = admitResearchRetrievalCandidates([], [ambiguous, mismatch, expired]);
+    const result = admitResearchRetrievalCandidates([], [ambiguous, mismatch, expired], [
+      verification(ambiguous, safety({ document_identity_verified: false, substantive_use_allowed: false, verification_level: "origin" })),
+      verification(mismatch, safety({ content_verified: false, substantive_use_allowed: false, verification_level: "identity" })),
+      verification(expired, safety({ actuality_status: "unknown", substantive_use_allowed: false, verification_level: "content" })),
+    ]);
     expect(result.decisions.map((item) => item.reason)).toEqual([
       "document_identity_not_verified",
       "content_not_verified",
@@ -129,13 +166,30 @@ describe("Prompt 08E retrieval candidate admission bridge", () => {
     expect(result.substantive_sources).toEqual([]);
   });
 
-  test("approved retrieval alone cannot self-promote a candidate", () => {
-    const result = admitResearchRetrievalCandidates([], [candidate({}, {
-      safety: safety({ substantive_use_allowed: false, verification_level: "content" }),
-    })]);
+  test("provider metadata cannot self-promote a candidate without a verification observation", () => {
+    const source = candidate({}, { safety: safety() });
+    const result = admitResearchRetrievalCandidates([], [source]);
     expect(result.decisions[0]).toMatchObject({
       status: "discovery_only",
-      reason: "substantive_use_not_allowed",
+      reason: "verification_observation_missing",
+      substantive_use_allowed: false,
+    });
+    expect(result.coverage_gaps).toEqual([{
+      candidate_id: "external_official_source:pravo:425-fz",
+      research_issue_id: null,
+      reason: "verification_observation_missing",
+    }]);
+  });
+
+  test("rejects verification evidence for a different canonical identity", () => {
+    const source = candidate();
+    const result = admitResearchRetrievalCandidates([], [source], [{
+      ...verification(source),
+      canonical_document_key: "ru:laws:document:other",
+    }]);
+    expect(result.decisions[0]).toMatchObject({
+      status: "discovery_only",
+      reason: "verification_observation_mismatch",
       substantive_use_allowed: false,
     });
   });
@@ -180,5 +234,26 @@ describe("Prompt 08E retrieval candidate admission bridge", () => {
       reason: "canonical_identity_missing",
     });
     expect(result.substantive_sources).toEqual([]);
+  });
+
+  test("creates source × issue decisions while keeping proposition and generation use unset", () => {
+    const source = candidate({}, { research_issue_ids: ["issue-a", "issue-b", "issue-a"] });
+    const result = admitResearchRetrievalCandidates([], [source], [verification(source)]);
+    expect(result.decisions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        research_issue_id: "issue-a",
+        proposition_id: null,
+        actually_used_in_generation: false,
+        status: "substantive_admitted",
+      }),
+      expect.objectContaining({
+        research_issue_id: "issue-b",
+        proposition_id: null,
+        actually_used_in_generation: false,
+        status: "substantive_admitted",
+      }),
+    ]));
+    expect(result.decisions).toHaveLength(2);
+    expect(result.coverage_gaps).toEqual([]);
   });
 });

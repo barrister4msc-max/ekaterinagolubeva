@@ -201,4 +201,33 @@ describe("Canonical dedupe / verification linking", () => {
     expect(merged.sources).toHaveLength(0);
     expect(merged.substantiveExternal).toBe(0);
   });
+
+  test("deduplicates a canonical external source while preserving multi-provider provenance", () => {
+    const canonical = "ru:laws:document:0003:2026-01-01";
+    const safety = evaluateOfficialSourceSafety({
+      officialUrl: "https://publication.pravo.gov.ru/document/0003",
+      identityVerified: true,
+      contentVerified: true,
+      actualityStatus: "verified",
+    });
+    const first: OfficialSourceResult = {
+      bucket: "laws", source_table: "external_official_source", source_id: "pravo:0003",
+      source_type: "official_publication_pravo", title: "Документ", official_url: "https://publication.pravo.gov.ru/document/0003",
+      citation: "0003", snippet: "metadata only",
+      metadata: { canonical_document_key: canonical, safety, provider_id: "pravo" },
+    };
+    const second: OfficialSourceResult = {
+      ...first,
+      source_id: "law7:0003",
+      official_url: "https://law7.ru/document/0003",
+      metadata: { canonical_document_key: canonical, safety, provider_id: "law7" },
+    };
+    const merged = mergeOfficialWithLocalSources([], [first, second]);
+    expect(merged.sources).toHaveLength(1);
+    expect(merged.substantiveExternal).toBe(1);
+    expect(merged.sources[0].metadata.official_provider_provenance).toEqual([
+      { provider_id: "pravo", source_id: "pravo:0003", official_url: "https://publication.pravo.gov.ru/document/0003" },
+      { provider_id: "law7", source_id: "law7:0003", official_url: "https://law7.ru/document/0003" },
+    ]);
+  });
 });
