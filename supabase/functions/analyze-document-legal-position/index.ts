@@ -62,6 +62,8 @@ import { buildCompanyAverageHeadcountEvidenceMatrix } from "./company-headcount-
 
 import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gemini-fallback.ts";
 import { authorizeAnalyzerRequest } from "./auth-boundary.ts";
+import { readBrasKadApiCloudConfig } from "./bras-kad-api-cloud.ts";
+import { runBrasKadPartnerShadow } from "./bras-kad-shadow-harness.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,6 +74,10 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MODEL_NAME = "gemini-2.5-pro";
+
+function enabledFlag(value: string | undefined): boolean {
+  return ["1", "true", "on", "yes"].includes(value?.trim().toLowerCase() ?? "");
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -371,6 +377,31 @@ Deno.serve(async (req) => {
       researchQuery,
       practiceArea,
     );
+    // A controlled, public-case-only observer. It is not part of repository
+    // retrieval, ranking, model input, or accepted sources. Ordinary analyses
+    // do not enter this branch; the caller, deployment flag, and partner config
+    // must all opt in explicitly.
+    const courtIssue = researchPlan.questions.find((question) =>
+      question.buckets.includes("court_practice")
+    );
+    const requestedCaseNumber = typeof body?.bras_kad_shadow_case_number === "string"
+      ? body.bras_kad_shadow_case_number
+      : null;
+    const brasKadShadow = courtIssue
+      ? await runBrasKadPartnerShadow({
+        enabled: body?.bras_kad_shadow_check === true &&
+          enabledFlag(Deno.env.get("BRAS_KAD_API_CLOUD_SHADOW_ENABLED")),
+        matter_id: sessionId,
+        legal_analysis_run_id: runId,
+        research_issue: courtIssue,
+        legacy_sources: repositorySources,
+        exact_case_number: requestedCaseNumber,
+        applicable_provisions: courtIssue.exact_terms,
+        sensitivity_class: requestedCaseNumber ? "public_case_reference" : "public_legal_issue",
+        config: readBrasKadApiCloudConfig(),
+        fetcher: fetch,
+      })
+      : null;
     const canonicalRepositorySources = await attachCanonicalRegistryMetadata(sb, repositorySources);
     const canonicalExternalCandidates = await attachCanonicalRegistryMetadata(sb, externalResearch.sources);
     const externalResearchLink = linkExternalResearchToLocalSources(
@@ -410,6 +441,7 @@ Deno.serve(async (req) => {
           company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
           company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
+          bras_kad_partner_shadow: brasKadShadow,
         } as any,
       })
       .eq("id", runId);
@@ -663,6 +695,7 @@ Deno.serve(async (req) => {
       final_model: model,
       fallback_used,
       external_research_import: externalResearchRunSnapshot,
+      bras_kad_partner_shadow: brasKadShadow,
     };
 
     // Extended ai_result fields (Phase A core):
