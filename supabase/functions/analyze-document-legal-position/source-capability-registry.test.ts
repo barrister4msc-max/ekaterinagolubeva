@@ -12,7 +12,7 @@ describe("Prompt 08H provider-neutral Source Capability Registry", () => {
       ["law7_local", "laws", "active", "local_mirror"],
       ["bras_kad_api_cloud", "court_practice", "shadow_retrieval", "contracted_api"],
       ["bras_kad", "court_practice", "manual_import_only", "browser_handoff"],
-      ["fns_official", "fns_letters", "blocked", "official_bulk_download"],
+      ["fns_official", "fns_letters", "blocked", "official_html_document"],
       ["vsrf_official", "court_practice", "degraded", "official_html_document"],
     ] as const;
 
@@ -56,19 +56,19 @@ describe("Prompt 08H provider-neutral Source Capability Registry", () => {
     expect(() => createSourceCapabilityRegistry([one, one])).toThrow("duplicate_source_capability");
   });
 
-  test("accepts an unimplemented RSS transport as descriptive and non-executable", () => {
+  test("accepts unimplemented RSS and bulk-download transports as descriptive and non-executable", () => {
     const base = SOURCE_CAPABILITY_REGISTRY.find((route) => route.provider_id === "minfin_official");
     if (!base) throw new Error("missing_minfin_fixture");
-    const rss = {
-      ...base,
-      provider_id: "future_official_rss",
-      transport_id: "official_rss",
-      transport_kind: "official_rss" as const,
-      integration_mode: "official_rss" as const,
-    };
-    const result = resolveSourceCapability({ provider_id: rss.provider_id, source_family: "minfin_letters", registry: [rss] });
-    expect(result.status).toBe("blocked");
-    expect(result.executable).toBe(false);
+    const planned = [
+      { provider_id: "future_official_rss", transport_id: "official_rss", transport_kind: "official_rss" as const, integration_mode: "official_rss" as const },
+      { provider_id: "future_official_download", transport_id: "official_bulk_download", transport_kind: "official_bulk_download" as const, integration_mode: "official_download" as const },
+    ];
+    for (const transport of planned) {
+      const route = { ...base, ...transport };
+      const result = resolveSourceCapability({ provider_id: route.provider_id, source_family: "minfin_letters", registry: [route] });
+      expect(result.status).toBe("blocked");
+      expect(result.executable).toBe(false);
+    }
   });
 
   test("does not expose mutable registry arrays to callers", () => {
