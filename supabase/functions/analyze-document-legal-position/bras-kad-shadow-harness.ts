@@ -86,7 +86,8 @@ function result(
 }
 
 function retrievalError(status: string): BrasKadPartnerShadowErrorCode | undefined {
-  if (status === "blocked" || status === "unavailable") return "shadow_retrieval_blocked";
+  if (status === "unavailable") return "shadow_adapter_not_configured";
+  if (status === "blocked") return "shadow_retrieval_blocked";
   if (status === "failed") return "shadow_retrieval_failed";
   return undefined;
 }
