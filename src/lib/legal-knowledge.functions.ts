@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { sha256Hex } from "@/lib/source-provenance";
 
 
 async function assertAdmin(supabase: any, userId: string) {
@@ -322,6 +323,7 @@ function trustLevelOf(url: string | null | undefined): "high" | "medium" | "low"
   }
 }
 
+
 function chunkText(input: string, target = 1800): string[] {
   const clean = input.replace(/\r\n/g, "\n").trim();
   if (!clean) return [];
@@ -367,6 +369,8 @@ export const lkCreateManualSource = createServerFn({ method: "POST" })
     if (chunks.length === 0) throw new Error("Пустой текст источника");
 
     const trust = trustLevelOf(data.source_url);
+    const contentHashSha256 = await sha256Hex(data.text_content);
+    const provenanceCapturedAt = new Date().toISOString();
     const baseMeta = {
       source_group_id: groupId,
       source_type: data.source_type,
@@ -381,6 +385,9 @@ export const lkCreateManualSource = createServerFn({ method: "POST" })
       import_status: "pending" as const,
       trust_level: trust,
       ingest_mode: "manual_text",
+      provenance_schema_version: 1,
+      content_hash_sha256: contentHashSha256,
+      provenance_captured_at: provenanceCapturedAt,
       notes: data.notes ?? null,
       uploaded_by: userId,
       uploaded_at: new Date().toISOString(),
@@ -425,6 +432,9 @@ export const lkCreateUrlSource = createServerFn({ method: "POST" })
       import_status: "pending",
       trust_level: trust,
       ingest_mode: "url_only",
+      provenance_schema_version: 1,
+      content_hash_sha256: null,
+      provenance_captured_at: new Date().toISOString(),
       notes: data.notes ?? null,
       chunk_index: 0,
       is_source_head: true,
@@ -464,6 +474,7 @@ export const lkUploadFileSource = createServerFn({ method: "POST" })
     const path = `legal-sources/${groupId}/${safeName}`;
 
     const bytes = Uint8Array.from(atob(data.file_base64), (c) => c.charCodeAt(0));
+    const contentHashSha256 = await sha256Hex(bytes);
     const { error: upErr } = await supabaseAdmin.storage
       .from("communication-attachments")
       .upload(path, bytes, { contentType: data.file_mime, upsert: false });
@@ -484,6 +495,9 @@ export const lkUploadFileSource = createServerFn({ method: "POST" })
       import_status: "pending",
       trust_level: trust,
       ingest_mode: "file_upload",
+      provenance_schema_version: 1,
+      content_hash_sha256: contentHashSha256,
+      provenance_captured_at: new Date().toISOString(),
       file_path: path,
       file_name: data.file_name,
       file_mime: data.file_mime,
@@ -703,7 +717,8 @@ export const lkBulkCreateSources = createServerFn({ method: "POST" })
     const uploadedAt = new Date().toISOString();
     const total = data.items.length;
 
-    const rows = data.items.map((it, idx) => {
+    const rows = await Promise.all(data.items.map(async (it, idx) => {
+      const contentHashSha256 = await sha256Hex(it.content);
       const trust = trustLevelOf(it.source_url ?? null);
       return {
         title: it.title,
@@ -726,6 +741,9 @@ export const lkBulkCreateSources = createServerFn({ method: "POST" })
           official_status: "unverified",
           trust_level: trust,
           ingest_mode: "batch_json",
+          provenance_schema_version: 1,
+          content_hash_sha256: contentHashSha256,
+          provenance_captured_at: uploadedAt,
           chunk_index: idx,
           chunks_total: total,
           is_source_head: true,
@@ -733,7 +751,7 @@ export const lkBulkCreateSources = createServerFn({ method: "POST" })
           uploaded_by: userId,
         },
       };
-    });
+    }));
 
     const { error } = await supabaseAdmin.from("legal_knowledge_chunks").insert(rows);
     if (error) throw new Error(error.message);
