@@ -100,7 +100,7 @@ function hash32(input: string): string {
 
 function normalizeCaseNumber(value: string | null): string | null {
   const normalized = value?.replace(/s+/g, "").toUpperCase() ?? null;
-  return normalized && /^Аd+-d+/d{4}$/u.test(normalized) ? normalized : null;
+  return normalized && /^А\d+-\d+\/\d{4}$/u.test(normalized) ? normalized : null;
 }
 
 function searchParameters(plan: ResearchQueryPlan): URLSearchParams | null {
