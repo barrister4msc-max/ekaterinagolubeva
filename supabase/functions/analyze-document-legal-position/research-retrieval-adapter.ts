@@ -8,6 +8,22 @@ import {
   type OfficialSourceResult,
 } from "./official-sources.ts";
 
+export const RESEARCH_RETRIEVAL_ERROR_CODES = [
+  "decision_plan_mismatch",
+  "privacy_external_query_blocked",
+  "transport_not_approved",
+  "provider_not_supported",
+  "integration_mode_not_supported",
+  "capability_not_supported",
+  "transport_identity_missing",
+  "retrieval_timeout",
+  "retrieval_network_error",
+  "retrieval_provider_error",
+  "retrieval_unknown_error",
+] as const;
+
+export type ResearchRetrievalErrorCode = typeof RESEARCH_RETRIEVAL_ERROR_CODES[number];
+
 export type ResearchRetrievalDiagnostics = {
   adapter_version: "08D-v1";
   provider_id: "pravo";
@@ -21,7 +37,7 @@ export type ResearchRetrievalDiagnostics = {
   timeout_ms: number;
   status: "success" | "empty" | "failed" | "blocked";
   candidates_found: number;
-  error_code?: string;
+  error_code?: ResearchRetrievalErrorCode;
   provider_diagnostics?: OfficialSourceDiagnostics;
 };
 
@@ -115,6 +131,31 @@ function validateApprovedPravoPath(plan: ResearchQueryPlan, decision: ResearchTr
   return null;
 }
 
+function gateErrorCode(error: string): ResearchRetrievalErrorCode {
+  return (RESEARCH_RETRIEVAL_ERROR_CODES as readonly string[]).includes(error)
+    ? error as ResearchRetrievalErrorCode
+    : "transport_not_approved";
+}
+
+/** Deliberately never returns provider text, URLs, request payloads, or tokens. */
+export function classifyResearchRetrievalError(error: unknown): ResearchRetrievalErrorCode {
+  if (error instanceof Error && /^retrieval_timeout(?:$|\b)/u.test(error.message)) {
+    return "retrieval_timeout";
+  }
+  if (error instanceof TypeError) return "retrieval_network_error";
+  if (error instanceof Error) return "retrieval_provider_error";
+  return "retrieval_unknown_error";
+}
+
+function redactProviderDiagnostics(diagnostics: OfficialSourceDiagnostics): OfficialSourceDiagnostics {
+  return {
+    ...diagnostics,
+    failures: Array.isArray(diagnostics.failures)
+      ? diagnostics.failures.map(() => "provider_failure")
+      : [],
+  };
+}
+
 function baseDiagnostics(
   plan: ResearchQueryPlan,
   decision: ResearchTransportDecision,
@@ -193,11 +234,11 @@ export async function executeApprovedResearchRetrieval(
   const maxAttempts = Math.max(1, Math.min(input.max_attempts ?? 2, 2));
   const diagnostics = baseDiagnostics(input.plan, input.decision, timeoutMs, maxAttempts);
   const gateError = validateApprovedPravoPath(input.plan, input.decision);
-  if (gateError) return { sources: [], diagnostics: { ...diagnostics, error_code: gateError } };
+  if (gateError) return { sources: [], diagnostics: { ...diagnostics, error_code: gateErrorCode(gateError) } };
 
   const query = queryFromResearchPlan(input.plan);
   const retriever = input.retriever ?? defaultPravoRetriever;
-  let lastError = "retrieval_failed";
+  let lastError: ResearchRetrievalErrorCode = "retrieval_unknown_error";
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     diagnostics.attempts = attempt;
     try {
@@ -210,15 +251,15 @@ export async function executeApprovedResearchRetrieval(
           ...diagnostics,
           status: sources.length > 0 ? "success" : "empty",
           candidates_found: sources.length,
-          provider_diagnostics: result.diagnostics,
+          provider_diagnostics: redactProviderDiagnostics(result.diagnostics),
         },
       };
     } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
+      lastError = classifyResearchRetrievalError(error);
     }
   }
   return {
     sources: [],
-    diagnostics: { ...diagnostics, status: "failed", error_code: lastError.slice(0, 120) },
+    diagnostics: { ...diagnostics, status: "failed", error_code: lastError },
   };
 }
