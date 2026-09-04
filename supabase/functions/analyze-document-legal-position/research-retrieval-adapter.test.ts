@@ -4,6 +4,7 @@ import type { ResearchQuestion } from "./research-routing.ts";
 import { evaluateResearchTransportDecision } from "./research-transport-policy.ts";
 import {
   buildResearchRetrievalIdempotencyKey,
+  classifyResearchRetrievalError,
   executeApprovedResearchRetrieval,
   queryFromResearchPlan,
   type PravoRetriever,
@@ -219,6 +220,37 @@ describe("Prompt 08D bounded Pravo reference adapter", () => {
     expect(result.sources).toEqual([]);
     expect(result.diagnostics.max_attempts).toBe(2);
     expect(result.diagnostics.status).toBe("failed");
-    expect(result.diagnostics.error_code).toBe("persistent_failure");
+    expect(result.diagnostics.error_code).toBe("retrieval_provider_error");
+  });
+
+  test("uses a closed error taxonomy and never exposes provider error text", async () => {
+    const p = plan();
+    const decision = approvedDecision(p);
+    const rawError = "https://provider.example/search?token=secret-token&case=private-case";
+    const retriever: PravoRetriever = async () => {
+      throw new Error(rawError);
+    };
+    const result = await executeApprovedResearchRetrieval({ plan: p, decision, retriever });
+    expect(result.diagnostics.error_code).toBe("retrieval_provider_error");
+    expect(JSON.stringify(result.diagnostics)).not.toContain(rawError);
+    expect(JSON.stringify(result.diagnostics)).not.toContain("secret-token");
+  });
+
+  test("redacts provider diagnostic failure strings and classifies timeout/network errors", async () => {
+    const p = plan();
+    const decision = approvedDecision(p);
+    const retriever: PravoRetriever = async () => ({
+      sources: [],
+      diagnostics: {
+        ...diagnostics(),
+        failures: ["Bearer provider-secret https://provider.example/private"],
+      },
+    });
+    const result = await executeApprovedResearchRetrieval({ plan: p, decision, retriever });
+    expect(result.diagnostics.provider_diagnostics?.failures).toEqual(["provider_failure"]);
+    expect(JSON.stringify(result.diagnostics)).not.toContain("provider-secret");
+    expect(classifyResearchRetrievalError(new Error("retrieval_timeout"))).toBe("retrieval_timeout");
+    expect(classifyResearchRetrievalError(new TypeError("fetch failed"))).toBe("retrieval_network_error");
+    expect(classifyResearchRetrievalError({ reason: "untrusted" })).toBe("retrieval_unknown_error");
   });
 });
