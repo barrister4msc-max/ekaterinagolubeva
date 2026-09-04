@@ -43,6 +43,17 @@ describe("contracted BRAS/KAD shadow consumer", () => {
     expect(telemetry.primary_unchanged).toBe(true);
   });
 
+  test("reports a disabled partner adapter as configuration failure, not policy block", async () => {
+    let calls = 0;
+    const fetcher: BrasKadFetch = async () => { calls += 1; return new Response(); };
+    const telemetry = await runBrasKadPartnerShadow(input({
+      enabled: true, config: { ...config, enabled: false }, fetcher,
+    }));
+    expect(calls).toBe(0);
+    expect(telemetry.transport_status).toBe("approved_retrieval");
+    expect(telemetry.error_code).toBe("shadow_adapter_not_configured");
+  });
+
   test("observes a candidate as discovery-only without changing accepted sources", async () => {
     let calls = 0;
     const fetcher: BrasKadFetch = async () => {
