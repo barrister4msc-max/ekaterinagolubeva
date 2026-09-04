@@ -34,6 +34,7 @@ function plan() {
     legal_analysis_run_id: "run-08d",
     research_issue: question(),
     revision: 1,
+    sensitivity_class: "public_legal_issue",
     applicable_provisions: ["ст. 54.1 НК РФ"],
     temporal_window: { from: "2023-01-01", to: "2024-12-31" },
   });
@@ -153,15 +154,40 @@ describe("Prompt 08D bounded Pravo reference adapter", () => {
     expect(first).toMatch(/^rrj_[0-9a-f]{8}$/);
   });
 
-  test("converts only allowlisted plan facets to the legacy Pravo query", () => {
+  test("converts only structured/redacted facets to the external Pravo query", () => {
     const query = queryFromResearchPlan(plan());
-    expect(query.legal_issues).toContain("Применимость статьи 54.1 НК РФ к налоговой реконструкции");
+    expect(query.legal_issues).toEqual([]);
+    expect(query.semantic_intents).toEqual([]);
+    expect(query.search_hypotheses).toEqual([]);
     expect(query.articles).toEqual(["ст. 54.1 НК РФ"]);
     expect(query.parties).toEqual([]);
     expect(query.organizations).toEqual([]);
     expect(query.inn).toEqual([]);
     expect(query.ogrn).toEqual([]);
     expect(JSON.stringify(query)).not.toContain("служебный маркер");
+    expect(JSON.stringify(query)).not.toContain("налоговой реконструкции");
+  });
+
+  test("does not invoke a retriever when privacy projection is not executable", async () => {
+    const unclassified = buildResearchQueryPlan({
+      matter_id: "matter-private",
+      legal_analysis_run_id: "run-private",
+      research_issue: question(),
+      applicable_provisions: ["ст. 54.1 НК РФ"],
+    });
+    let calls = 0;
+    const retriever: PravoRetriever = async () => {
+      calls += 1;
+      return { sources: [], diagnostics: diagnostics() };
+    };
+    const result = await executeApprovedResearchRetrieval({
+      plan: unclassified,
+      decision: approvedDecision(unclassified),
+      retriever,
+    });
+    expect(calls).toBe(0);
+    expect(result.diagnostics.status).toBe("blocked");
+    expect(result.diagnostics.error_code).toBe("privacy_external_query_blocked");
   });
 
   test("uses bounded retry and succeeds on the second mock attempt", async () => {

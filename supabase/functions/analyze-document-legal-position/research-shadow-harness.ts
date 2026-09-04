@@ -1,6 +1,9 @@
 import type { RawSource } from "./repositories.ts";
 import type { ResearchQuestion } from "./research-routing.ts";
-import { buildResearchQueryPlan } from "./research-query-plan.ts";
+import {
+  buildResearchQueryPlan,
+  type ResearchSensitivityClass,
+} from "./research-query-plan.ts";
 import { evaluateResearchTransportDecision } from "./research-transport-policy.ts";
 import {
   executeApprovedResearchRetrieval,
@@ -60,6 +63,7 @@ export type RunResearchShadowInput = {
   legacy_sources: readonly RawSource[];
   local_sources_for_admission?: readonly RawSource[];
   applicable_provisions?: string[];
+  sensitivity_class?: ResearchSensitivityClass;
   retriever?: PravoRetriever;
   now?: () => number;
 };
@@ -234,6 +238,9 @@ export async function runResearchRetrievalShadow(
       legal_analysis_run_id: input.legal_analysis_run_id,
       research_issue: input.research_issue,
       applicable_provisions: input.applicable_provisions ?? [],
+      // Shadow execution uses the same explicit privacy contract as any future
+      // transport; an unclassified plan must remain non-executable.
+      sensitivity_class: input.sensitivity_class ?? "unclassified",
     });
     planId = plan.plan_id;
 

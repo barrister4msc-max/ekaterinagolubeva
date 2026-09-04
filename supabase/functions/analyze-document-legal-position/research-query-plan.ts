@@ -22,6 +22,7 @@ export type ResearchCourtLevel =
   | "constitutional_court";
 
 export type ResearchSensitivityClass =
+  | "unclassified"
   | "public_legal_issue"
   | "public_case_reference"
   | "restricted_exact_party";
@@ -45,6 +46,14 @@ export type ResearchQueryFacet = {
   value: string;
 };
 
+export type ResearchExternalQuery = {
+  privacy_version: "08G-v1";
+  classification_provenance: "explicit_input" | "unclassified_fail_closed";
+  redaction: "structured_facets_only";
+  facets: readonly ResearchQueryFacet[];
+  external_execution_allowed: boolean;
+};
+
 export type ResearchQueryPlan = {
   plan_id: string;
   plan_version: "08B-v1";
@@ -64,6 +73,7 @@ export type ResearchQueryPlan = {
   adverse_search: boolean;
   allowlisted_facets: ResearchQueryFacet[];
   sensitivity_class: ResearchSensitivityClass;
+  external_query: ResearchExternalQuery;
   query_expansion_proposals: string[];
   planner_provenance: {
     planner: "deterministic_research_query_planner";
@@ -138,6 +148,7 @@ const ISSUE_TYPES = new Set<ResearchIssueArgumentType>([
   "adverse",
 ]);
 const SENSITIVITY = new Set<ResearchSensitivityClass>([
+  "unclassified",
   "public_legal_issue",
   "public_case_reference",
   "restricted_exact_party",
@@ -302,7 +313,9 @@ export function buildResearchQueryPlan(rawInput: unknown): ResearchQueryPlan {
   if (!COURT_LEVELS.has(courtLevel)) throw new Error("invalid_court_level");
   const issueType = input.issue_argument_type ?? (objective === "adverse_search" ? "adverse" : "issue");
   if (!ISSUE_TYPES.has(issueType)) throw new Error("invalid_issue_argument_type");
-  const sensitivity = input.sensitivity_class ?? (caseNumber ? "public_case_reference" : "public_legal_issue");
+  // Classification is not inferred from narrative or the presence of a case number.
+  // Unknown classification is a valid planning state but cannot execute externally.
+  const sensitivity = input.sensitivity_class ?? "unclassified";
   if (!SENSITIVITY.has(sensitivity)) throw new Error("invalid_sensitivity_class");
 
   const provisions = uniq(input.applicable_provisions ?? [], 12);
@@ -334,6 +347,27 @@ export function buildResearchQueryPlan(rawInput: unknown): ResearchQueryPlan {
   if (temporalWindow.from) facets.push({ kind: "temporal_from", value: temporalWindow.from });
   if (temporalWindow.to) facets.push({ kind: "temporal_to", value: temporalWindow.to });
 
+  const externalFacets = facets.filter((facet) =>
+    facet.kind === "case_number" ||
+    facet.kind === "applicable_provision" ||
+    facet.kind === "jurisdiction" ||
+    facet.kind === "court_level" ||
+    facet.kind === "temporal_from" ||
+    facet.kind === "temporal_to"
+  );
+  const hasExternalRequisite = externalFacets.some((facet) =>
+    facet.kind === "case_number" || facet.kind === "applicable_provision"
+  );
+  const externalQuery: ResearchExternalQuery = {
+    privacy_version: "08G-v1",
+    classification_provenance: input.sensitivity_class ? "explicit_input" : "unclassified_fail_closed",
+    redaction: "structured_facets_only",
+    facets: externalFacets,
+    external_execution_allowed:
+      hasExternalRequisite &&
+      (sensitivity === "public_legal_issue" || sensitivity === "public_case_reference"),
+  };
+
   const proposals = uniq(input.model_expansion_proposals ?? [], 8)
     .filter((proposal) => !FORBIDDEN_IDENTIFIER_RE.test(proposal));
 
@@ -351,6 +385,7 @@ export function buildResearchQueryPlan(rawInput: unknown): ResearchQueryPlan {
     adverse_search: objective === "adverse_search" || question.modes.includes("adverse"),
     allowlisted_facets: facets,
     sensitivity_class: sensitivity,
+    external_query: externalQuery,
   };
 
   return {
@@ -368,6 +403,7 @@ export function buildResearchQueryPlan(rawInput: unknown): ResearchQueryPlan {
     adverse_search: identityPayload.adverse_search,
     allowlisted_facets: facets,
     sensitivity_class: sensitivity,
+    external_query: externalQuery,
     // Proposal-only by contract: these values are never copied into facets.
     query_expansion_proposals: proposals,
     planner_provenance: {
