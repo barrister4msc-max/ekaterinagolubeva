@@ -781,6 +781,8 @@ Deno.serve(async (req) => {
     extraction_status: status,
     extraction_method: method,
     text_length: textLength,
+    continuation_required: status === "partial_pages",
+    page_index_progress: pageIndex ? computePageIndexProgress(pageIndex) : null,
     analysis_status: analysisStatus,
     review_status: reviewStatus,
   });
