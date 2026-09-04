@@ -73,7 +73,7 @@ describe("contracted BRAS/KAD API-CLOUD adapter", () => {
     expect(admission.substantive_sources).toEqual([]);
     expect(admission.discovery_candidates).toHaveLength(1);
     expect(admission.decisions[0]).toMatchObject({
-      status: "discovery_only", reason: "document_identity_not_verified", substantive_use_allowed: false,
+      status: "discovery_only", reason: "verification_observation_missing", substantive_use_allowed: false,
     });
   });
 });

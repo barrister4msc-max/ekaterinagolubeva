@@ -251,6 +251,49 @@ export function mergeOfficialWithLocalSources(
   let linked = 0;
   let substantiveExternal = 0;
   const standalone: RawSource[] = [];
+  const standaloneByCanonical = new Map<string, RawSource>();
+
+  const provenanceFor = (source: RawSource | OfficialSourceResult) => {
+    const metadata = source.metadata ?? {};
+    const prior = Array.isArray(metadata.official_provider_provenance)
+      ? metadata.official_provider_provenance.filter((value): value is Record<string, unknown> =>
+        Boolean(value) && typeof value === "object" && !Array.isArray(value)
+      )
+      : [];
+    const provider = typeof metadata.provider_id === "string"
+      ? metadata.provider_id
+      : typeof metadata.provider === "string" ? metadata.provider : null;
+    const current = provider
+      ? { provider_id: provider, source_id: source.source_id, official_url: source.official_url }
+      : null;
+    const all = current ? [...prior, current] : prior;
+    const seen = new Set<string>();
+    return all.filter((item) => {
+      const providerId = typeof item.provider_id === "string" ? item.provider_id : "";
+      const sourceId = typeof item.source_id === "string" ? item.source_id : "";
+      const url = typeof item.official_url === "string" ? item.official_url : "";
+      const identity = `${providerId}|${sourceId}|${url}`;
+      if (!providerId || !sourceId || seen.has(identity)) return false;
+      seen.add(identity);
+      return true;
+    });
+  };
+
+  const recordProvenance = (target: RawSource, official: OfficialSourceResult) => {
+    target.metadata = {
+      ...target.metadata,
+      official_provider_provenance: provenanceFor({
+        ...target,
+        metadata: {
+          ...target.metadata,
+          official_provider_provenance: [
+            ...provenanceFor(target),
+            ...provenanceFor(official),
+          ],
+        },
+      }),
+    };
+  };
 
   for (const official of officialSources) {
     const key = officialCanonicalKey(official);
@@ -267,11 +310,25 @@ export function mergeOfficialWithLocalSources(
         official_verification: safety,
         official_publication_url: official.official_url,
       };
+      recordProvenance(local, official);
       continue;
     }
     if (safety?.substantive_use_allowed === true) {
-      standalone.push(official as RawSource);
-      substantiveExternal++;
+      const existing = key ? standaloneByCanonical.get(key) : undefined;
+      if (existing) {
+        recordProvenance(existing, official);
+      } else {
+        const normalized = {
+          ...(official as RawSource),
+          metadata: {
+            ...(official.metadata ?? {}),
+            official_provider_provenance: provenanceFor(official),
+          },
+        };
+        standalone.push(normalized);
+        if (key) standaloneByCanonical.set(key, normalized);
+        substantiveExternal++;
+      }
     }
   }
 

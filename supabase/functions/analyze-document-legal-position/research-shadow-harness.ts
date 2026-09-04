@@ -12,6 +12,7 @@ import {
 import {
   admitResearchRetrievalCandidates,
   type ResearchSourceUseDecision,
+  type VerificationObservation,
 } from "./research-source-admission.ts";
 import { sourceFamilyForType } from "./source-family-contract.ts";
 
@@ -65,6 +66,12 @@ export type RunResearchShadowInput = {
   applicable_provisions?: string[];
   sensitivity_class?: ResearchSensitivityClass;
   retriever?: PravoRetriever;
+  /**
+   * Independent verification evidence. Deliberately separate from retriever
+   * payloads so a provider cannot self-promote a candidate into substantive
+   * use by populating its own metadata.
+   */
+  verification_observations?: readonly VerificationObservation[];
   now?: () => number;
 };
 
@@ -263,6 +270,7 @@ export async function runResearchRetrievalShadow(
     const admission = admitResearchRetrievalCandidates(
       [...(input.local_sources_for_admission ?? input.legacy_sources)],
       retrieval.sources,
+      input.verification_observations,
     );
     const latency = now() - started;
     const redactedError = retrievalErrorCode(retrieval.diagnostics.status);
