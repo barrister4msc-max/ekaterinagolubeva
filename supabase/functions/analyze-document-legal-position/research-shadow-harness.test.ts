@@ -86,6 +86,7 @@ function input(retriever?: PravoRetriever) {
     research_issue: question(),
     legacy_sources: legacy(),
     applicable_provisions: ["ст. 54.1 НК РФ"],
+    sensitivity_class: "public_legal_issue" as const,
     retriever,
   };
 }

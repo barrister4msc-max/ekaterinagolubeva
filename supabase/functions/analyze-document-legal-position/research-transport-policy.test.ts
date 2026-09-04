@@ -21,7 +21,7 @@ function question(buckets: ResearchQuestion["buckets"] = ["laws", "court_practic
   };
 }
 
-function plan(options: { sensitivity?: "public_legal_issue" | "restricted_exact_party" } = {}) {
+function plan(options: { sensitivity?: "unclassified" | "public_legal_issue" | "restricted_exact_party" } = {}) {
   return buildResearchQueryPlan({
     matter_id: "matter-08c",
     legal_analysis_run_id: "run-08c",
@@ -140,7 +140,19 @@ describe("Prompt 08C Research Transport/Compliance Gate", () => {
     expect(result.network_allowed).toBe(false);
   });
 
-  test("allows separately authorized restricted search only when transport policy is otherwise valid", () => {
+  test("blocks unclassified plans and does not let restricted plans opt into external traffic", () => {
+    const unclassified = evaluateResearchTransportDecision({
+      plan: plan({ sensitivity: "unclassified" }),
+      provider_id: "pravo",
+      provider_capabilities: ["laws"],
+      required_capability: "laws",
+      integration_mode: "direct_api",
+      transport_id: "pravo_official_api",
+      transport_version: "existing-v1",
+    });
+    expect(unclassified.status).toBe("blocked");
+    expect(unclassified.reason).toBe("sensitivity_unclassified");
+
     const result = evaluateResearchTransportDecision({
       plan: plan({ sensitivity: "restricted_exact_party" }),
       provider_id: "pravo",
@@ -152,8 +164,9 @@ describe("Prompt 08C Research Transport/Compliance Gate", () => {
       sensitive_exact_party_authorized: true,
     });
 
-    expect(result.status).toBe("approved_retrieval");
-    expect(result.network_allowed).toBe(true);
+    expect(result.status).toBe("blocked");
+    expect(result.reason).toBe("sensitive_exact_party_not_authorized");
+    expect(result.network_allowed).toBe(false);
   });
 
   test("supports disabled, shadow and degraded operational states without accidental execution", () => {

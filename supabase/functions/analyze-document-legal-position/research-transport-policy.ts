@@ -18,6 +18,8 @@ export type ResearchTransportReason =
   | "policy_disabled"
   | "capability_not_required"
   | "provider_capability_missing"
+  | "sensitivity_unclassified"
+  | "external_query_not_allowed"
   | "sensitive_exact_party_not_authorized"
   | "manual_import_only"
   | "machine_interface_not_documented"
@@ -147,11 +149,14 @@ export function evaluateResearchTransportDecision(
     return decision(input, "blocked", "provider_capability_missing", registryId);
   }
 
-  if (
-    input.plan.sensitivity_class === "restricted_exact_party" &&
-    input.sensitive_exact_party_authorized !== true
-  ) {
+  if (input.plan.sensitivity_class === "unclassified") {
+    return decision(input, "blocked", "sensitivity_unclassified", registryId);
+  }
+  if (input.plan.sensitivity_class === "restricted_exact_party") {
     return decision(input, "blocked", "sensitive_exact_party_not_authorized", registryId);
+  }
+  if (!input.plan.external_query.external_execution_allowed) {
+    return decision(input, "blocked", "external_query_not_allowed", registryId);
   }
 
   // Manual import is always non-network and never upgraded by a caller-provided status.

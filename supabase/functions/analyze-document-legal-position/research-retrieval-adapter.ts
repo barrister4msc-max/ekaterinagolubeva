@@ -70,15 +70,16 @@ export function buildResearchRetrievalIdempotencyKey(
   ].join("|"))}`;
 }
 
-function values(plan: ResearchQueryPlan, kind: ResearchQueryPlan["allowlisted_facets"][number]["kind"]): string[] {
-  return plan.allowlisted_facets.filter((facet) => facet.kind === kind).map((facet) => facet.value);
+function values(
+  plan: ResearchQueryPlan,
+  kind: ResearchQueryPlan["external_query"]["facets"][number]["kind"],
+): string[] {
+  return plan.external_query.facets.filter((facet) => facet.kind === kind).map((facet) => facet.value);
 }
 
-/** Build the legacy Pravo query only from 08B allowlisted facets. */
+/** Build an external query only from the 08G structured/redacted projection. */
 export function queryFromResearchPlan(plan: ResearchQueryPlan): ResearchQuery {
-  const legalIssues = values(plan, "legal_issue");
   const provisions = values(plan, "applicable_provision");
-  const modes = values(plan, "research_mode");
   const dates = [plan.temporal_window.from, plan.temporal_window.to].filter((v): v is string => Boolean(v));
   return {
     practice_area: null,
@@ -89,22 +90,23 @@ export function queryFromResearchPlan(plan: ResearchQueryPlan): ResearchQuery {
     amounts: [],
     dates,
     temporal_anchors: [],
-    legal_issues: legalIssues,
-    research_topics: legalIssues,
+    legal_issues: [],
+    research_topics: [],
     keywords: provisions,
     articles: provisions,
     organizations: [],
     inn: [],
     ogrn: [],
-    semantic_intents: legalIssues,
+    semantic_intents: [],
     legal_concepts: provisions,
     metadata_terms: [...provisions, ...dates],
-    search_hypotheses: modes.includes("issue_argument") ? legalIssues : [],
+    search_hypotheses: [],
   };
 }
 
 function validateApprovedPravoPath(plan: ResearchQueryPlan, decision: ResearchTransportDecision): string | null {
   if (decision.plan_id !== plan.plan_id || decision.plan_version !== plan.plan_version) return "decision_plan_mismatch";
+  if (!plan.external_query.external_execution_allowed) return "privacy_external_query_blocked";
   if (decision.status !== "approved_retrieval" || !decision.executable || !decision.network_allowed) return "transport_not_approved";
   if (decision.provider_id !== "pravo" || decision.registry_provider_id !== "pravo") return "provider_not_supported";
   if (decision.integration_mode !== "direct_api") return "integration_mode_not_supported";

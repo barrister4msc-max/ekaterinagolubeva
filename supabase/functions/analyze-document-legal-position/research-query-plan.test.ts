@@ -65,6 +65,26 @@ describe("Prompt 08B ResearchQueryPlan", () => {
     expect(facetValues).not.toContain("ООО «Секретный клиент»");
   });
 
+  test("fails closed until sensitivity is classified and projects only structured facets externally", () => {
+    const unclassified = buildResearchQueryPlan(baseInput());
+    expect(unclassified.sensitivity_class).toBe("unclassified");
+    expect(unclassified.external_query.classification_provenance).toBe("unclassified_fail_closed");
+    expect(unclassified.external_query.external_execution_allowed).toBe(false);
+
+    const publicPlan = buildResearchQueryPlan({
+      ...baseInput(),
+      sensitivity_class: "public_legal_issue",
+      research_issue: question({
+        issue: "Спор по документам клиента и обстоятельствам конкретного эпизода",
+      }),
+    });
+    expect(publicPlan.external_query.external_execution_allowed).toBe(true);
+    expect(publicPlan.external_query.redaction).toBe("structured_facets_only");
+    expect(publicPlan.external_query.facets.map((facet) => facet.kind)).not.toContain("legal_issue");
+    expect(publicPlan.external_query.facets.map((facet) => facet.value))
+      .not.toContain("Спор по документам клиента и обстоятельствам конкретного эпизода");
+  });
+
   test("marks adverse search without turning model expansion proposals into executable facets", () => {
     const plan = buildResearchQueryPlan({
       ...baseInput(),
