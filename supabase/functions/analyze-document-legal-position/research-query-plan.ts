@@ -1,5 +1,5 @@
 import type { Bucket } from "./repositories.ts";
-import type { ResearchMode, ResearchQuestion } from "./research-routing.ts";
+import type { ResearchMode, ResearchQuestion, ResearchSourceRole } from "./research-routing.ts";
 
 export type ResearchQueryObjective =
   | "exact_case"
@@ -20,6 +20,15 @@ export type ResearchCourtLevel =
   | "cassation"
   | "supreme_court"
   | "constitutional_court";
+
+export type ResearchProcedureStage =
+  | "any"
+  | "pretrial"
+  | "first_instance"
+  | "appeal"
+  | "cassation"
+  | "supervisory"
+  | "enforcement";
 
 export type ResearchSensitivityClass =
   | "unclassified"
@@ -65,7 +74,9 @@ export type ResearchQueryPlan = {
   };
   objective: ResearchQueryObjective;
   required_capabilities: Bucket[];
+  source_roles: ResearchSourceRole[];
   jurisdiction: ResearchJurisdiction;
+  procedure_stage: ResearchProcedureStage;
   court_level: ResearchCourtLevel;
   issue_argument_type: ResearchIssueArgumentType;
   applicable_provisions: string[];
@@ -95,6 +106,7 @@ export type ResearchQueryPlanInput = {
   revision?: number;
   objective?: ResearchQueryObjective;
   jurisdiction?: ResearchJurisdiction;
+  procedure_stage?: ResearchProcedureStage;
   court_level?: ResearchCourtLevel;
   issue_argument_type?: ResearchIssueArgumentType;
   applicable_provisions?: string[];
@@ -141,6 +153,12 @@ const COURT_LEVELS = new Set<ResearchCourtLevel>([
   "supreme_court",
   "constitutional_court",
 ]);
+const PROCEDURE_STAGES = new Set<ResearchProcedureStage>([
+  "any", "pretrial", "first_instance", "appeal", "cassation", "supervisory", "enforcement",
+]);
+const SOURCE_ROLES = new Set<ResearchSourceRole>([
+  "normative", "official_explanation", "judicial", "fact_pattern", "adverse", "temporal", "factual_data", "secondary_discovery",
+]);
 const ISSUE_TYPES = new Set<ResearchIssueArgumentType>([
   "issue",
   "argument",
@@ -175,6 +193,7 @@ const ALLOWED_INPUT_KEYS = new Set([
   "revision",
   "objective",
   "jurisdiction",
+  "procedure_stage",
   "court_level",
   "issue_argument_type",
   "applicable_provisions",
@@ -275,8 +294,11 @@ function validateQuestion(value: unknown): ResearchQuestion {
   if (!Array.isArray(question.buckets) || question.buckets.length === 0 || question.buckets.some((bucket) => !BUCKETS.has(bucket))) {
     throw new Error("invalid_research_capabilities");
   }
+  if (!Array.isArray(question.source_roles) || question.source_roles.length === 0 || question.source_roles.some((role) => !SOURCE_ROLES.has(role))) {
+    throw new Error("invalid_research_source_roles");
+  }
   if (!Array.isArray(question.temporal_anchors)) throw new Error("invalid_temporal_anchors");
-  return { ...question, id, issue };
+  return { ...question, id, issue, source_roles: [...new Set(question.source_roles)] };
 }
 
 function assertInputBoundary(input: unknown): asserts input is ResearchQueryPlanInput {
@@ -309,6 +331,8 @@ export function buildResearchQueryPlan(rawInput: unknown): ResearchQueryPlan {
 
   const jurisdiction = input.jurisdiction ?? (caseNumber ? "RU_ARBITRATION" : "RU");
   if (!JURISDICTIONS.has(jurisdiction)) throw new Error("invalid_query_jurisdiction");
+  const procedureStage = input.procedure_stage ?? "any";
+  if (!PROCEDURE_STAGES.has(procedureStage)) throw new Error("invalid_procedure_stage");
   const courtLevel = input.court_level ?? "any";
   if (!COURT_LEVELS.has(courtLevel)) throw new Error("invalid_court_level");
   const issueType = input.issue_argument_type ?? (objective === "adverse_search" ? "adverse" : "issue");
@@ -377,7 +401,9 @@ export function buildResearchQueryPlan(rawInput: unknown): ResearchQueryPlan {
     lineage: { matter_id: matterId, legal_analysis_run_id: runId, research_issue_id: question.id },
     objective,
     required_capabilities: requiredCapabilities,
+    source_roles: question.source_roles,
     jurisdiction,
+    procedure_stage: procedureStage,
     court_level: courtLevel,
     issue_argument_type: issueType,
     applicable_provisions: provisions,
@@ -395,7 +421,9 @@ export function buildResearchQueryPlan(rawInput: unknown): ResearchQueryPlan {
     lineage: identityPayload.lineage,
     objective,
     required_capabilities: requiredCapabilities,
+    source_roles: question.source_roles,
     jurisdiction,
+    procedure_stage: procedureStage,
     court_level: courtLevel,
     issue_argument_type: issueType,
     applicable_provisions: provisions,

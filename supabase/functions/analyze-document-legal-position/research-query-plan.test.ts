@@ -63,6 +63,8 @@ describe("Prompt 08B ResearchQueryPlan", () => {
     const facetValues = plan.allowlisted_facets.map((facet) => facet.value);
     expect(facetValues).not.toContain("7701234567");
     expect(facetValues).not.toContain("ООО «Секретный клиент»");
+    expect(plan.source_roles).toEqual(["normative", "judicial", "adverse", "temporal"]);
+    expect(plan.procedure_stage).toBe("any");
   });
 
   test("fails closed until sensitivity is classified and projects only structured facets externally", () => {
@@ -160,5 +162,15 @@ describe("Prompt 08B ResearchQueryPlan", () => {
       ...baseInput(),
       research_issue: { ...question(), buckets: ["unknown_bucket"] },
     })).toThrow("invalid_research_capabilities");
+
+    expect(() => buildResearchQueryPlan({
+      ...baseInput(),
+      procedure_stage: "unknown_stage",
+    })).toThrow("invalid_procedure_stage");
+
+    expect(() => buildResearchQueryPlan({
+      ...baseInput(),
+      research_issue: { ...question(), source_roles: ["unknown_role"] },
+    })).toThrow("invalid_research_source_roles");
   });
 });
