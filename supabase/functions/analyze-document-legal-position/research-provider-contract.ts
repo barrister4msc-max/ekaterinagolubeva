@@ -10,7 +10,13 @@ export type ResearchProviderIntegrationMode =
   | "partner_api"
   | "mcp"
   | "user_session"
-  | "manual_import";
+  | "manual_import"
+  // These are transport descriptions only. They do not imply that an adapter
+  // exists, that a site permits automated access, or that a route is enabled.
+  | "official_download"
+  | "official_rss"
+  | "official_web_document"
+  | "browser_handoff";
 
 export type ResearchProviderSourceClass =
   | "native"
