@@ -39,4 +39,23 @@ describe("P0-C page-aware indexing", () => {
     expect(progress.complete).toBe(false);
     expect(progress.pendingUnits).toBe(92);
   });
+
+  test("a 600-page plan requires continuation until every bounded batch completes", () => {
+    let state = createPageIndexState(600);
+    let invocations = 0;
+    while (!computePageIndexProgress(state).complete && invocations < 20) {
+      const units = selectUnitsForInvocation(state);
+      expect(units.length).toBeGreaterThan(0);
+      for (const unit of units) state = applyUnitResult(state, unit.start, { text: `pages-${unit.start}-${unit.end}` });
+      invocations += 1;
+    }
+    expect(invocations).toBe(13);
+    expect(computePageIndexProgress(state)).toMatchObject({
+      totalPages: 600,
+      indexedPages: 600,
+      percent: 100,
+      complete: true,
+      pendingUnits: 0,
+    });
+  });
 });
