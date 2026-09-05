@@ -25,6 +25,8 @@ export type VsrfManualDocument = {
   document_kind: VsrfManualDocumentKind;
   court_instance?: VsrfCourtInstance;
   text_status: VsrfTextStatus;
+  /** Required when text_status is complete; supplied manually, never fetched. */
+  full_text?: string | null;
   case_number?: string | null;
   document_number?: string | null;
   document_date?: string | null;
@@ -64,7 +66,7 @@ function candidate(document: VsrfManualDocument): ExternalResearchCandidate | nu
   const url = officialUrl(document.url);
   const title = text(document.title);
   const identity = text(document.case_number) ?? text(document.document_number) ?? text(document.citation);
-  if (!url || !title || !identity) return null;
+  if (!url || !title || !identity || (document.text_status === "complete" && !text(document.full_text))) return null;
   return {
     title,
     url,
@@ -73,6 +75,7 @@ function candidate(document: VsrfManualDocument): ExternalResearchCandidate | nu
     document_number: text(document.document_number),
     document_date: text(document.document_date),
     excerpt: text(document.excerpt),
+    full_text: text(document.full_text),
     source_type: document.document_kind === "case_card" ? "vsrf_case_card" : "vsrf_court_act",
     court_document_kind: document.document_kind,
     court_instance: document.court_instance ?? "unknown",
