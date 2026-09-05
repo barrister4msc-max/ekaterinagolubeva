@@ -126,6 +126,7 @@ describe("external legal research import", () => {
         court_document_kind: "individual_act",
         court_instance: "cassation",
         text_status: "complete",
+        full_text: "Полный текст судебного акта. ".repeat(20),
         adverse: true,
         later_act: true,
       }],
