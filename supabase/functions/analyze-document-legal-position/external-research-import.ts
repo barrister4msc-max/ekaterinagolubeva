@@ -7,6 +7,8 @@ export type ExternalResearchCandidate = {
   url?: string | null;
   citation?: string | null;
   excerpt?: string | null;
+  /** Full manually supplied act text; never verified by the importer. */
+  full_text?: string | null;
   source_type?: string | null;
   bucket?: Bucket | null;
   code?: string | null;
@@ -203,7 +205,8 @@ function normalizedCandidate(
   if (
     provider === "vsrf" &&
     (!candidate.url || !isVsrfUrl(candidate.url) ||
-      !candidate.court_document_kind || !candidate.text_status)
+      !candidate.court_document_kind || !candidate.text_status ||
+      (candidate.text_status === "complete" && !text(candidate.full_text)))
   ) {
     return null;
   }
@@ -211,6 +214,7 @@ function normalizedCandidate(
   const bucket = provider === "bras_kad" || provider === "vsrf" ? "court_practice" : inferBucket(candidate);
   const issueIds = uniq([...(candidate.research_issue_ids ?? []), ...inheritedIssueIds]);
   const excerpt = text(candidate.excerpt);
+  const fullText = text(candidate.full_text);
 
   return {
     bucket,
@@ -221,7 +225,8 @@ function normalizedCandidate(
     // Imported URLs are references, not verified official URLs.
     official_url: null,
     citation,
-    snippet: excerpt?.slice(0, 1800) ?? "",
+    snippet: (fullText ?? excerpt)?.slice(0, 1800) ?? "",
+    content_text: provider === "vsrf" ? fullText : null,
     metadata: {
       provider_id: provider,
       discovered_via_providers: [provider],
@@ -232,6 +237,8 @@ function normalizedCandidate(
       court_document_kind: candidate.court_document_kind ?? null,
       court_instance: candidate.court_instance ?? null,
       text_status: candidate.text_status ?? null,
+      full_text_present: Boolean(fullText),
+      full_text_length: fullText?.length ?? 0,
       adverse: candidate.adverse === true,
       later_act: candidate.later_act === true,
       external_research_import: true,
