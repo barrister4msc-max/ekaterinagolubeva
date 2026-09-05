@@ -121,6 +121,13 @@ export type OfficialSourceDiagnostics = {
   failures: string[];
 };
 
+/**
+ * Legacy callers retain the rollout flag. An already-approved transport has
+ * passed the query privacy policy and must not depend on a second, unrelated
+ * environment switch.
+ */
+export type OfficialSourceExecutionMode = "legacy_opt_in" | "approved_automatic";
+
 export type FederalLawRef = {
   number: string;
   date: string | null;
@@ -511,12 +518,15 @@ async function searchPravoByContext(text: string): Promise<OfficialSourceResult[
   return mapped.filter(Boolean) as OfficialSourceResult[];
 }
 
-export async function searchOfficialLegalSources(query: ResearchQuery): Promise<{
+export async function searchOfficialLegalSources(
+  query: ResearchQuery,
+  options: { execution_mode?: OfficialSourceExecutionMode } = {},
+): Promise<{
   sources: OfficialSourceResult[];
   diagnostics: OfficialSourceDiagnostics;
   research_plan: SemanticResearchPlan;
 }> {
-  const enabled = officialSourcesEnabled();
+  const enabled = options.execution_mode === "approved_automatic" || officialSourcesEnabled();
   const researchPlan = buildSemanticResearchPlan(query);
   const diagnostics: OfficialSourceDiagnostics = {
     enabled,
