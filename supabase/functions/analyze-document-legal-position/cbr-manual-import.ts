@@ -14,6 +14,8 @@ export type CbrManualDocument = {
   withdrawn?: boolean;
   draft?: boolean;
   duplicate_of?: string | null;
+  authority: string;
+  authority_class: "regulator" | "guidance" | "administrative" | "unknown";
   full_text_available: boolean;
   full_text?: string | null;
   document_number?: string | null;
@@ -46,7 +48,8 @@ function candidate(document: CbrManualDocument): ExternalResearchCandidate | nul
   const url = officialUrl(document.url);
   const title = text(document.title);
   const identity = text(document.document_number) ?? text(document.citation);
-  if (!url || !title || !identity || typeof document.full_text_available !== "boolean") return null;
+  const authority = text(document.authority);
+  if (!url || !title || !identity || !authority || typeof document.full_text_available !== "boolean") return null;
   if (document.full_text_available && !text(document.full_text)) return null;
   return {
     title,
@@ -65,6 +68,8 @@ function candidate(document: CbrManualDocument): ExternalResearchCandidate | nul
     withdrawn: document.withdrawn === true,
     draft: document.draft === true || document.document_status === "draft",
     duplicate_of: text(document.duplicate_of),
+    authority,
+    authority_class: document.authority_class,
     full_text_available: document.full_text_available,
   };
 }
