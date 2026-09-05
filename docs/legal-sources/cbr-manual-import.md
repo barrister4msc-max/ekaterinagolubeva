@@ -5,8 +5,8 @@ existing provider-neutral research admission contract.
 
 The adapter accepts only manually supplied HTTPS references on `cbr.ru` or
 `www.cbr.ru`. It preserves the CBR source family separately from laws and court
-practice, including document kind, effective status/date, language, version,
-withdrawn/draft flags, duplicate publication identity and full-text availability.
+practice, including document kind, effective status/date, language, version, explicit authority
+and authority class, withdrawn/draft flags, duplicate publication identity and full-text availability.
 
 A document marked `full_text_available: true` must include the supplied full text.
 No official host is treated as verification; all imports remain discovery-only with
