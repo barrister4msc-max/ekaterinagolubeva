@@ -10,6 +10,8 @@ export type ConsultantApiContractEvidence = {
   rate_limit_per_minute: number;
   retention_policy: string;
   machine_use_allowed: true;
+  attestation_id: string;
+  attested_by: string;
 };
 
 export type ConsultantContractGateResult = {
@@ -30,6 +32,8 @@ const REQUIRED_KEYS = [
   "rate_limit_per_minute",
   "retention_policy",
   "machine_use_allowed",
+  "attestation_id",
+  "attested_by",
 ] as const;
 
 /**
@@ -74,6 +78,8 @@ export function evaluateConsultantContractGate(value: unknown): ConsultantContra
     rate_limit_per_minute: raw.rate_limit_per_minute as number,
     retention_policy: String(raw.retention_policy).trim(),
     machine_use_allowed: true,
+    attestation_id: String(raw.attestation_id).trim(),
+    attested_by: String(raw.attested_by).trim(),
   };
 
   return {
