@@ -218,7 +218,9 @@ function toRawSource(
 }
 
 async function defaultPravoRetriever(query: ResearchQuery): Promise<PravoRetrieverResult> {
-  const result = await searchOfficialLegalSources(query);
+  // This function is reachable only after validateApprovedPravoPath(), which
+  // binds the call to a privacy-safe plan and a documented transport.
+  const result = await searchOfficialLegalSources(query, { execution_mode: "approved_automatic" });
   return { sources: result.sources, diagnostics: result.diagnostics };
 }
 
