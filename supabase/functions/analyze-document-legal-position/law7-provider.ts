@@ -185,6 +185,10 @@ function sourceFromToolResult(
       requested_as_of_date: asOfDate,
       version_date: versionDate,
       amendment_external_id: sourceAmendment,
+      // Preserve the actual full article text in the produced source shape so
+      // the deterministic Pravo ↔ Law7 verifier can compare it. This remains
+      // intermediary evidence until an official content observation matches.
+      article_text: fullTextSection(output),
       // Law7 is an intermediary. Its text must be canonicalized/verified before
       // becoming an official substantive source in KATI.
       official_origin_verified: false,

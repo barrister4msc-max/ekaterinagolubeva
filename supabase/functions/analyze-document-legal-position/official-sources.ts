@@ -1,4 +1,6 @@
 import type { ResearchQuery } from "./fact-extraction.ts";
+import { fetchPravoPublicBlocks } from "./pravo-public-blocks.ts";
+import { toOfficialContentObservation } from "./pravo-content-observation.ts";
 
 export type OfficialProviderId = "pravo" | "fns" | "minfin" | "vsrf" | "kad" | "kremlin";
 
@@ -402,12 +404,41 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
   const officialUrl = buildPravoDocumentUrl(eoNumber);
   if (!isOfficialLegalUrl(officialUrl)) return null;
   const detail = await getPravoDetails(eoNumber);
+  const source = detail ?? item;
   const documentText =
-    searchMode === "exact" || searchMode === "context"
+    searchMode === "exact"
       ? await getPravoDocumentText(eoNumber)
       : null;
   const documentTextHash = documentText ? await sha256HexText(documentText) : null;
-  const source = detail ?? item;
+  // Only exact, uniquely identified candidates may request the documented
+  // PublicBlocks content envelope. Context/discovery results stay cheap and
+  // discovery-only; they can never become substantive by this path.
+  let contentObservation: ReturnType<typeof toOfficialContentObservation> = null;
+  if (identityVerified) {
+    try {
+      const publicBlocks = await fetchPravoPublicBlocks(eoNumber, {
+        baseUrl: pravoApiBase(),
+        relayToken: env("PRAVO_RELAY_TOKEN") ?? null,
+      });
+      const blockRecord =
+        publicBlocks && typeof publicBlocks === "object"
+          ? publicBlocks as Record<string, unknown>
+          : null;
+      const observedCode = asText(blockRecord?.code_id) ?? asText(blockRecord?.codeId);
+      const observedArticle = asText(blockRecord?.article);
+      if (observedCode && observedArticle) {
+        contentObservation = toOfficialContentObservation(publicBlocks, {
+          eoNumber,
+          officialSourceId: `pravo:${eoNumber}`,
+          officialUrl,
+          codeId: observedCode,
+          article: observedArticle,
+        });
+      }
+    } catch {
+      contentObservation = null;
+    }
+  }
   const title = asText(source?.complexName) ?? asText(source?.name) ?? asText(source?.title) ?? "Правовой акт";
   const documentNumber = asText(source?.number);
   const documentDate = normalizeDate(asText(source?.documentDate));
@@ -465,7 +496,8 @@ async function mapPravoItem(item: any, identityVerified: boolean, searchMode: "e
       document_text_length: documentText?.length ?? 0,
       document_text_sha256: documentTextHash,
       document_text_retrieved_at: documentText ? new Date().toISOString() : null,
-      content_verification_status: "not_verified",
+      content_verification_status: contentObservation ? "observed" : "not_verified",
+      ...(contentObservation ? { content_observation: contentObservation } : {}),
       content_retrieval_stage:
         searchMode === "exact" ? "exact_candidate" : "bounded_context_candidate",
     },
