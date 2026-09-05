@@ -9,6 +9,8 @@ describe("CBR manual import adapter", () => {
       url: "https://www.cbr.ru/finmarkets/?doc=123#section",
       document_kind: "regulation",
       document_status: "effective",
+      authority: "Банк России",
+      authority_class: "regulator",
       effective_from: "2026-01-01",
       language: "ru",
       version: "v3",
@@ -24,6 +26,8 @@ describe("CBR manual import adapter", () => {
     expect(source.content_text).toContain("Полный текст");
     expect(source.metadata.source_family).toBe("cbr_official");
     expect(source.metadata.document_status).toBe("effective");
+    expect(source.metadata.authority).toBe("Банк России");
+    expect(source.metadata.authority_class).toBe("regulator");
     expect(source.metadata.effective_from).toBe("2026-01-01");
     expect(source.metadata.language).toBe("ru");
     expect(source.metadata.version).toBe("v3");
@@ -37,6 +41,8 @@ describe("CBR manual import adapter", () => {
       url: "https://cbr.ru/press/event/?id=7",
       document_kind: "position",
       document_status: "draft",
+      authority: "Банк России",
+      authority_class: "guidance",
       withdrawn: true,
       draft: true,
       full_text_available: false,
@@ -51,6 +57,8 @@ describe("CBR manual import adapter", () => {
       url: "https://cbr.ru/doc",
       document_kind: "regulation",
       document_status: "effective",
+      authority: "Банк России",
+      authority_class: "regulator",
       full_text_available: true,
       document_number: "123",
     }])).toBeNull();
@@ -62,6 +70,8 @@ describe("CBR manual import adapter", () => {
       url: "https://example.test/doc",
       document_kind: "regulation",
       document_status: "effective",
+      authority: "Банк России",
+      authority_class: "regulator",
       full_text_available: false,
       document_number: "123",
     }])).toBeNull();
