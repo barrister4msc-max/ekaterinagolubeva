@@ -9,6 +9,8 @@ describe("Consultant API contract gate", () => {
     expect(result.executable).toBe(false);
     expect(result.reasons).toContain("api_endpoint");
     expect(result.reasons).toContain("machine_use_allowed");
+    expect(result.reasons).toContain("attestation_id");
+    expect(result.reasons).toContain("attested_by");
   });
 
   test("rejects non-vault credential mode", () => {
