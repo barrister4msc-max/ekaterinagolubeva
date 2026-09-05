@@ -64,6 +64,7 @@ import { AllModelsFailedError, FatalGeminiError, type ModelAttempt } from "./gem
 import { authorizeAnalyzerRequest } from "./auth-boundary.ts";
 import { readBrasKadApiCloudConfig } from "./bras-kad-api-cloud.ts";
 import { runBrasKadPartnerShadow } from "./bras-kad-shadow-harness.ts";
+import { buildBrasKadBrowserHandoff } from "./bras-kad-browser-handoff.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -189,6 +190,7 @@ Deno.serve(async (req) => {
     if (sessErr) throw new Error(`session: ${sessErr.message}`);
 
     const sessionMetadata = ((session as any).metadata ?? {}) as Record<string, unknown>;
+    const brasKadBrowserHandoff = buildBrasKadBrowserHandoff(body?.bras_kad_case_number);
     const externalResearchInputs = [
       ...parseExternalResearchImportInputs(sessionMetadata.external_legal_research_imports),
       ...parseExternalResearchImportInputs(body?.external_research_imports),
@@ -347,6 +349,7 @@ Deno.serve(async (req) => {
             company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
             company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
             external_research: stagedExternalResearchSnapshot,
+          bras_kad_browser_handoff: brasKadBrowserHandoff?.handoff ?? null,
           } as any,
         })
         .eq("id", runId);
@@ -695,6 +698,7 @@ Deno.serve(async (req) => {
       final_model: model,
       fallback_used,
       external_research_import: externalResearchRunSnapshot,
+      bras_kad_browser_handoff: brasKadBrowserHandoff?.handoff ?? null,
       bras_kad_partner_shadow: brasKadShadow,
     };
 
