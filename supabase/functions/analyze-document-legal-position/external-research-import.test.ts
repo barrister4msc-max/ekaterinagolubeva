@@ -113,6 +113,46 @@ describe("external legal research import", () => {
     expect(result.sources[0].metadata.substantive_use_allowed).toBe(false);
   });
 
+  test("accepts strict ВС manual act metadata only from official hosts", () => {
+    const result = normalizeExternalResearchImport({
+      provider: "vsrf",
+      candidates: [{
+        title: "Определение Судебной коллегии по экономическим спорам ВС РФ",
+        url: "https://vsrf.ru/stor_pdf.php?id=123",
+        citation: "Дело А40-123/2024",
+        case_number: "А40-123/2024",
+        document_number: "305-ЭС25-1234",
+        document_date: "2025-06-01",
+        court_document_kind: "individual_act",
+        court_instance: "cassation",
+        text_status: "complete",
+        adverse: true,
+        later_act: true,
+      }],
+    });
+    const source = result.sources[0];
+    expect(source.bucket).toBe("court_practice");
+    expect(source.metadata.source_family).toBe("vsrf");
+    expect(source.metadata.court_document_kind).toBe("individual_act");
+    expect(source.metadata.court_instance).toBe("cassation");
+    expect(source.metadata.text_status).toBe("complete");
+    expect(source.metadata.adverse).toBe(true);
+    expect(source.metadata.later_act).toBe(true);
+    expect(source.metadata.substantive_use_allowed).toBe(false);
+  });
+
+  test("rejects ВС candidates without an official URL or act-level metadata", () => {
+    const result = normalizeExternalResearchImport({
+      provider: "vsrf",
+      candidates: [{
+        title: "Карточка дела",
+        url: "https://example.test/case/123",
+        case_number: "А40-123/2024",
+      }],
+    });
+    expect(result.sources).toEqual([]);
+  });
+
   test("deduplicates same reference and preserves issue provenance", () => {
     const result = normalizeExternalResearchImport({
       provider: "strizh",
