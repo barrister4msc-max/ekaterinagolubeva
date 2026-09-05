@@ -7,6 +7,7 @@ import {
   isOfficialLegalUrl,
   officialSourcesEnabledFromValue,
   resolvePravoApiBase,
+  searchOfficialLegalSources,
   type OfficialSourceResult,
 } from "./official-sources.ts";
 import { mergeOfficialWithLocalSources, type RawSource } from "./repositories.ts";
@@ -43,6 +44,40 @@ describe("Official Source Safety Contract", () => {
     expect(officialSourcesEnabledFromValue("false")).toBe(false);
     expect(officialSourcesEnabledFromValue("true")).toBe(true);
     expect(officialSourcesEnabledFromValue("1")).toBe(true);
+  });
+
+  test("approved automatic Pravo retrieval does not depend on the legacy feature flag", async () => {
+    const originalFetch = globalThis.fetch;
+    const eoNumber = "0001202511280001";
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname.endsWith("/Documents")) {
+        return Response.json({ items: [{
+          eoNumber,
+          number: "425-ФЗ",
+          documentDate: "2025-11-28",
+          complexName: "Федеральный закон",
+        }] });
+      }
+      if (url.pathname.endsWith("/DocumentText")) return Response.json({ text: "Официальный текст" });
+      if (url.pathname.endsWith("/Document")) return Response.json({
+        eoNumber,
+        number: "425-ФЗ",
+        documentDate: "2025-11-28",
+        complexName: "Федеральный закон",
+      });
+      return new Response("not found", { status: 404 });
+    }) as typeof fetch;
+    try {
+      const result = await searchOfficialLegalSources(query({
+        research_topics: ["Федеральный закон от 28.11.2025 № 425-ФЗ"],
+      }), { execution_mode: "approved_automatic" });
+      expect(result.diagnostics.enabled).toBe(true);
+      expect(result.sources).toHaveLength(1);
+      expect(result.sources[0]?.source_id).toBe(`pravo:${eoNumber}`);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
   test("accepts only registered official HTTPS hosts, rejecting lookalikes", () => {
