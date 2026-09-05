@@ -18,6 +18,7 @@ describe("ВС РФ manual document adapter", () => {
         document_kind: "individual_act",
         court_instance: "cassation",
         text_status: "complete",
+        full_text: "Полный текст определения ВС РФ. " .repeat(20),
         case_number: "А40-123/2024",
         document_number: "305-ЭС25-1234",
         document_date: "2025-06-01",
@@ -39,10 +40,21 @@ describe("ВС РФ manual document adapter", () => {
     expect(result?.candidates).toHaveLength(3);
     expect(result?.candidates?.[0]?.court_document_kind).toBe("case_card");
     expect(result?.candidates?.[1]?.court_instance).toBe("cassation");
+    expect(result?.candidates?.[1]?.full_text).toContain("Полный текст");
     expect(result?.candidates?.[1]?.adverse).toBe(true);
     expect(result?.candidates?.[2]?.text_status).toBe("redacted");
     expect(result?.candidates?.[2]?.later_act).toBe(true);
     expect(result?.research_issue_ids).toEqual(["issue-1"]);
+  });
+
+  test("requires full text when an act is marked complete", () => {
+    expect(buildVsrfManualImport([{
+      title: "Акт без текста",
+      url: "https://vsrf.ru/act-missing-text",
+      document_kind: "court_act",
+      text_status: "complete",
+      case_number: "А40-123/2024",
+    }])).toBeNull();
   });
 
   test("rejects non-official URLs, missing identity and empty input", () => {
