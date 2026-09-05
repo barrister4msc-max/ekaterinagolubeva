@@ -16,6 +16,8 @@ export type ExternalResearchCandidate = {
   withdrawn?: boolean;
   draft?: boolean;
   duplicate_of?: string | null;
+  authority?: string | null;
+  authority_class?: "regulator" | "guidance" | "administrative" | "unknown" | null;
   full_text_available?: boolean;
   source_type?: string | null;
   bucket?: Bucket | null;
@@ -241,6 +243,8 @@ function normalizedCandidate(
       withdrawn: candidate.withdrawn === true,
       draft: candidate.draft === true,
       duplicate_of: text(candidate.duplicate_of),
+      authority: text(candidate.authority),
+      authority_class: candidate.authority_class ?? null,
       full_text_available: candidate.full_text_available ?? null,
       external_research_import: true,
       imported_reference_only: true,
