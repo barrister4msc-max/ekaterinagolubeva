@@ -22,6 +22,8 @@ describe("Consultant API contract gate", () => {
       rate_limit_per_minute: 10,
       retention_policy: "contractual",
       machine_use_allowed: true,
+      attestation_id: "att-1",
+      attested_by: "security-review",
     });
     expect(result.status).toBe("blocked_until_contract_verified");
     expect(result.reasons).toContain("credential_mode:vault_secret_ref");
