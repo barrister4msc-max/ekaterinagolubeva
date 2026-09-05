@@ -1,6 +1,6 @@
 import type { Bucket, RawSource } from "./repositories.ts";
 
-export type ExternalResearchProviderId = "bras_kad" | "strizh" | "garant" | "consultant" | "other";
+export type ExternalResearchProviderId = "bras_kad" | "vsrf" | "strizh" | "garant" | "consultant" | "other";
 
 export type ExternalResearchCandidate = {
   title?: string | null;
@@ -15,6 +15,11 @@ export type ExternalResearchCandidate = {
   case_number?: string | null;
   document_number?: string | null;
   document_date?: string | null;
+  court_document_kind?: "case_card" | "court_act" | "review" | "plenum" | "individual_act" | null;
+  court_instance?: "first_instance" | "appeal" | "cassation" | "supervisory" | "unknown" | null;
+  text_status?: "complete" | "redacted" | "incomplete" | "missing" | null;
+  adverse?: boolean;
+  later_act?: boolean;
   research_issue_ids?: string[];
 };
 
@@ -83,7 +88,7 @@ export type ExternalResearchRunSnapshot = {
   }>;
 };
 
-const PROVIDERS = new Set<ExternalResearchProviderId>(["bras_kad", "strizh", "garant", "consultant", "other"]);
+const PROVIDERS = new Set<ExternalResearchProviderId>(["bras_kad", "vsrf", "strizh", "garant", "consultant", "other"]);
 const MAX_IMPORTS = 20;
 const MAX_LINKS_PER_IMPORT = 50;
 const MAX_CANDIDATES_PER_IMPORT = 50;
@@ -117,6 +122,13 @@ function isBrasKadUrl(value: unknown): boolean {
   const hostname = new URL(url).hostname.toLowerCase();
   return hostname === "kad.arbitr.ru" || hostname.endsWith(".kad.arbitr.ru") ||
     hostname === "ras.arbitr.ru" || hostname.endsWith(".ras.arbitr.ru");
+}
+function isVsrfUrl(value: unknown): boolean {
+  const url = normalizeUrl(value);
+  if (!url) return false;
+  const hostname = new URL(url).hostname.toLowerCase();
+  return hostname === "vsrf.ru" || hostname === "www.vsrf.ru" ||
+    hostname === "supcourt.ru" || hostname === "www.supcourt.ru";
 }
 
 function isArbitrationCaseNumber(value: unknown): boolean {
@@ -188,7 +200,15 @@ function normalizedCandidate(
     return null;
   }
 
-  const bucket = provider === "bras_kad" ? "court_practice" : inferBucket(candidate);
+  if (
+    provider === "vsrf" &&
+    (!candidate.url || !isVsrfUrl(candidate.url) ||
+      !candidate.court_document_kind || !candidate.text_status)
+  ) {
+    return null;
+  }
+
+  const bucket = provider === "bras_kad" || provider === "vsrf" ? "court_practice" : inferBucket(candidate);
   const issueIds = uniq([...(candidate.research_issue_ids ?? []), ...inheritedIssueIds]);
   const excerpt = text(candidate.excerpt);
 
@@ -208,7 +228,12 @@ function normalizedCandidate(
       provider_type: "research",
       provider_integration_mode: "manual_import",
       provider_source_class: "retrieval_intermediary",
-      source_family: provider === "bras_kad" ? "bras_kad" : undefined,
+      source_family: provider === "bras_kad" ? "bras_kad" : provider === "vsrf" ? "vsrf" : undefined,
+      court_document_kind: candidate.court_document_kind ?? null,
+      court_instance: candidate.court_instance ?? null,
+      text_status: candidate.text_status ?? null,
+      adverse: candidate.adverse === true,
+      later_act: candidate.later_act === true,
       external_research_import: true,
       imported_reference_only: true,
       imported_url: importedUrl,
