@@ -146,6 +146,30 @@ function supportTone(s: string | null | undefined): string {
   if (s === "none" || s === "unsupported" || s === "weak") return RED;
   return NEUTRAL;
 }
+
+// The UI mirrors the Analyzer → Generator trust boundary. For the explicit
+// contract, a missing flag is not permission: only use_in_generation=true and
+// needs_source!=true can be shown as usable.
+function argumentAllowed(arg: Record<string, any>): boolean {
+  return arg.use_in_generation === true && arg.needs_source !== true;
+}
+
+function conclusionBlocked(
+  conclusion: {
+    provenance?: {
+      use_in_generation?: boolean;
+      needs_source?: boolean;
+    };
+  },
+  explicitContract: boolean,
+): boolean {
+  if (conclusion.provenance?.needs_source === true) return true;
+  if (conclusion.provenance?.use_in_generation === false) return true;
+  // New runs carry explicit generation/blocked arrays and must fail closed.
+  // Legacy runs intentionally keep the Generator compatibility fallback.
+  return explicitContract && conclusion.provenance?.use_in_generation !== true;
+}
+
 type Props = {
   sessionId: string | null;
   onEnsureSession: () => Promise<string>;
@@ -499,7 +523,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                 <div className="db-section-label">Аргументация и доказательная база</div>
                 <div className="mt-2 db-subcard space-y-3">
                   {argMap.slice(0, 12).map((arg, idx) => {
-                    const allowed = !!arg.use_in_generation;
+                    const allowed = argumentAllowed(arg);
                     return (
                       <div
                         key={arg.argument_id ?? idx}
@@ -988,7 +1012,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             }
 
             const re = ((a as any).reasoning_engine ?? {}) as { selected_strategy_id?: string };
-            const selectedStrategyId = re.selected_strategy_id ?? "";
+            const selectedStrategyId = selectedStrategyOverrideId ?? re.selected_strategy_id ?? "";
 
             const evidenceStatusLabel = (st?: string) =>
               st === "proven" ? "Доказано" : st === "partial" ? "Частично доказано" : st === "missing" ? "Не доказано" : "—";
@@ -1001,7 +1025,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                     Показан путь рассуждения AI по каждому ключевому аргументу: от факта дела до влияния на выбранную стратегию.
                   </div>
                   {argMap.slice(0, 12).map((arg, idx) => {
-                    const allowed = !!arg.use_in_generation;
+                    const allowed = argumentAllowed(arg);
                     const unsupported = String(arg.support_level ?? "") === "unsupported"
                       || String(arg.support_level ?? "") === "none"
                       || String(arg.support_level ?? "") === "weak";
@@ -1177,13 +1201,13 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
           {(() => {
             const missingEvidence = (a.missing_evidence ?? []) as string[];
             const argMap = ((a as any).argument_map ?? []) as Array<Record<string, any>>;
-            const blockedArgs = argMap.filter((x) => x.use_in_generation === false);
-            const supportedArgs = argMap.filter((x) => x.use_in_generation !== false);
+            const blockedArgs = argMap.filter((x) => !argumentAllowed(x));
+            const supportedArgs = argMap.filter(argumentAllowed);
             const re = ((a as any).reasoning_engine ?? {}) as {
               selected_strategy_id?: string;
               considered_positions?: Array<Record<string, any>>;
             };
-            const selectedId = re.selected_strategy_id ?? "";
+            const selectedId = selectedStrategyOverrideId ?? re.selected_strategy_id ?? "";
             const positions = re.considered_positions ?? [];
             const selectedPos = positions.find((p) => String(p.id ?? "") === selectedId);
             const alternatives = positions.filter((p) => String(p.id ?? "") !== selectedId);
@@ -1194,9 +1218,19 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             };
             const unresolved = challenge.unresolved_risks ?? [];
             const requiredChanges = challenge.required_changes ?? [];
-            const conclusions = ((a as any).conclusions ?? []) as Array<{ statement: string; provenance?: { sufficiency?: { status?: string; reason?: string } } }>;
-            const blockedConclusions = conclusions.filter(
-              (c) => c.provenance?.sufficiency?.status && c.provenance.sufficiency.status !== "sufficient",
+            const conclusions = ((a as any).conclusions ?? []) as Array<{
+              statement: string;
+              provenance?: {
+                use_in_generation?: boolean;
+                needs_source?: boolean;
+                sufficiency?: { status?: string; reason?: string };
+              };
+            }>;
+            const explicitConclusionContract =
+              Array.isArray((a as any).generation_conclusions) ||
+              Array.isArray((a as any).blocked_conclusions);
+            const blockedConclusions = conclusions.filter((c) =>
+              conclusionBlocked(c, explicitConclusionContract),
             );
 
             const nothingToShow =
@@ -1391,19 +1425,26 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
               selected_strategy_id?: string;
               considered_positions?: Array<Record<string, any>>;
             };
-            const selectedId = re.selected_strategy_id ?? "";
+            const selectedId = selectedStrategyOverrideId ?? re.selected_strategy_id ?? "";
             const selectedPos = (re.considered_positions ?? []).find(
               (p) => String(p.id ?? "") === selectedId,
             );
             const missingEvidence = (a.missing_evidence ?? []) as string[];
             const argMap = ((a as any).argument_map ?? []) as Array<Record<string, any>>;
-            const blockedArgs = argMap.filter((x) => x.use_in_generation === false);
+            const blockedArgs = argMap.filter((x) => !argumentAllowed(x));
             const conclusions = ((a as any).conclusions ?? []) as Array<{
               statement: string;
-              provenance?: { sufficiency?: { status?: string; reason?: string } };
+              provenance?: {
+                use_in_generation?: boolean;
+                needs_source?: boolean;
+                sufficiency?: { status?: string; reason?: string };
+              };
             }>;
-            const insufficientConclusions = conclusions.filter(
-              (c) => c.provenance?.sufficiency?.status && c.provenance.sufficiency.status !== "sufficient",
+            const explicitConclusionContract =
+              Array.isArray((a as any).generation_conclusions) ||
+              Array.isArray((a as any).blocked_conclusions);
+            const insufficientConclusions = conclusions.filter((c) =>
+              conclusionBlocked(c, explicitConclusionContract),
             );
             const challenge = ((a as any).challenge_result ?? {}) as {
               required_changes?: string[];
