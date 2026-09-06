@@ -146,6 +146,47 @@ function supportTone(s: string | null | undefined): string {
   if (s === "none" || s === "unsupported" || s === "weak") return RED;
   return NEUTRAL;
 }
+
+type UiConclusion = {
+  statement: string;
+  provenance?: {
+    unsupported_reason?: string | null;
+    sufficiency?: { status?: string; reason?: string };
+  };
+};
+
+function argumentAllowedForUi(argument: Record<string, any>): boolean {
+  // New analyses carry an explicit generation contract. If that flag
+  // is present, only literal true is allowed. Historical argument-map
+  // rows may predate the flag, so preserve their legacy readability.
+  if (!Object.prototype.hasOwnProperty.call(argument, "use_in_generation")) return true;
+  return argument.use_in_generation === true;
+}
+
+function blockedConclusionsForUi(
+  analysis: unknown,
+  conclusions: UiConclusion[],
+): UiConclusion[] {
+  // New runs persist the authoritative blocked_conclusions projection.
+  // An explicit empty array is meaningful and must not fall back to a
+  // heuristic. Historical runs without this field retain the former
+  // sufficiency-based display behavior.
+  const explicit = (analysis as { blocked_conclusions?: unknown })?.blocked_conclusions;
+  if (Array.isArray(explicit)) return explicit as UiConclusion[];
+  return conclusions.filter((conclusion) => {
+    const status = conclusion.provenance?.sufficiency?.status;
+    return Boolean(status && status !== "sufficient");
+  });
+}
+
+function conclusionBlockReasonForUi(conclusion: UiConclusion): string | null {
+  return (
+    conclusion.provenance?.unsupported_reason ??
+    conclusion.provenance?.sufficiency?.reason ??
+    null
+  );
+}
+
 type Props = {
   sessionId: string | null;
   onEnsureSession: () => Promise<string>;
@@ -499,7 +540,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                 <div className="db-section-label">Аргументация и доказательная база</div>
                 <div className="mt-2 db-subcard space-y-3">
                   {argMap.slice(0, 12).map((arg, idx) => {
-                    const allowed = !!arg.use_in_generation;
+                    const allowed = argumentAllowedForUi(arg);
                     return (
                       <div
                         key={arg.argument_id ?? idx}
@@ -988,7 +1029,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             }
 
             const re = ((a as any).reasoning_engine ?? {}) as { selected_strategy_id?: string };
-            const selectedStrategyId = re.selected_strategy_id ?? "";
+            const selectedStrategyId = selectedStrategyOverrideId ?? re.selected_strategy_id ?? "";
 
             const evidenceStatusLabel = (st?: string) =>
               st === "proven" ? "Доказано" : st === "partial" ? "Частично доказано" : st === "missing" ? "Не доказано" : "—";
@@ -1001,7 +1042,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                     Показан путь рассуждения AI по каждому ключевому аргументу: от факта дела до влияния на выбранную стратегию.
                   </div>
                   {argMap.slice(0, 12).map((arg, idx) => {
-                    const allowed = !!arg.use_in_generation;
+                    const allowed = argumentAllowedForUi(arg);
                     const unsupported = String(arg.support_level ?? "") === "unsupported"
                       || String(arg.support_level ?? "") === "none"
                       || String(arg.support_level ?? "") === "weak";
@@ -1177,13 +1218,13 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
           {(() => {
             const missingEvidence = (a.missing_evidence ?? []) as string[];
             const argMap = ((a as any).argument_map ?? []) as Array<Record<string, any>>;
-            const blockedArgs = argMap.filter((x) => x.use_in_generation === false);
-            const supportedArgs = argMap.filter((x) => x.use_in_generation !== false);
+            const blockedArgs = argMap.filter((x) => !argumentAllowedForUi(x));
+            const supportedArgs = argMap.filter((x) => argumentAllowedForUi(x));
             const re = ((a as any).reasoning_engine ?? {}) as {
               selected_strategy_id?: string;
               considered_positions?: Array<Record<string, any>>;
             };
-            const selectedId = re.selected_strategy_id ?? "";
+            const selectedId = selectedStrategyOverrideId ?? re.selected_strategy_id ?? "";
             const positions = re.considered_positions ?? [];
             const selectedPos = positions.find((p) => String(p.id ?? "") === selectedId);
             const alternatives = positions.filter((p) => String(p.id ?? "") !== selectedId);
@@ -1194,10 +1235,8 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             };
             const unresolved = challenge.unresolved_risks ?? [];
             const requiredChanges = challenge.required_changes ?? [];
-            const conclusions = ((a as any).conclusions ?? []) as Array<{ statement: string; provenance?: { sufficiency?: { status?: string; reason?: string } } }>;
-            const blockedConclusions = conclusions.filter(
-              (c) => c.provenance?.sufficiency?.status && c.provenance.sufficiency.status !== "sufficient",
-            );
+            const conclusions = ((a as any).conclusions ?? []) as UiConclusion[];
+            const blockedConclusions = blockedConclusionsForUi(a, conclusions);
 
             const nothingToShow =
               missingEvidence.length === 0 &&
@@ -1260,10 +1299,10 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
                         {blockedConclusions.map((c, i) => (
                           <div key={`bc-${i}`} className="rounded-md border border-white/10 bg-white/5 p-2 text-[12px] text-white/85">
                             <div className="whitespace-pre-wrap">{c.statement}</div>
-                            {c.provenance?.sufficiency?.reason && (
+                            {conclusionBlockReasonForUi(c) && (
                               <div className="mt-1 text-red-200">
                                 <span className="text-white/55">Причина: </span>
-                                {c.provenance.sufficiency.reason}
+                                {conclusionBlockReasonForUi(c)}
                               </div>
                             )}
                           </div>
@@ -1391,20 +1430,15 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
               selected_strategy_id?: string;
               considered_positions?: Array<Record<string, any>>;
             };
-            const selectedId = re.selected_strategy_id ?? "";
+            const selectedId = selectedStrategyOverrideId ?? re.selected_strategy_id ?? "";
             const selectedPos = (re.considered_positions ?? []).find(
               (p) => String(p.id ?? "") === selectedId,
             );
             const missingEvidence = (a.missing_evidence ?? []) as string[];
             const argMap = ((a as any).argument_map ?? []) as Array<Record<string, any>>;
-            const blockedArgs = argMap.filter((x) => x.use_in_generation === false);
-            const conclusions = ((a as any).conclusions ?? []) as Array<{
-              statement: string;
-              provenance?: { sufficiency?: { status?: string; reason?: string } };
-            }>;
-            const insufficientConclusions = conclusions.filter(
-              (c) => c.provenance?.sufficiency?.status && c.provenance.sufficiency.status !== "sufficient",
-            );
+            const blockedArgs = argMap.filter((x) => !argumentAllowedForUi(x));
+            const conclusions = ((a as any).conclusions ?? []) as UiConclusion[];
+            const insufficientConclusions = blockedConclusionsForUi(a, conclusions);
             const challenge = ((a as any).challenge_result ?? {}) as {
               required_changes?: string[];
               unresolved_risks?: string[];
@@ -1760,7 +1794,7 @@ export function LegalAnalysisPanel({ sessionId, onEnsureSession }: Props) {
             if (!positions.length) return null;
 
             const aiSelectedId = String(re.selected_strategy_id ?? "");
-            const lawyerOverrideId = savedOverrideId ?? null;
+            const lawyerOverrideId = selectedStrategyOverrideId ?? savedOverrideId ?? null;
             const workingId = lawyerOverrideId ?? aiSelectedId;
 
             const strategyTitle = (p: Record<string, any>) =>
