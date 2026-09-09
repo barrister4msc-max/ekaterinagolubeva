@@ -225,7 +225,7 @@ jobs:
                   )
                   sync = cur.fetchone()
                   cur.execute(
-                      "select code, count(*) from law7_mirror.article_versions "
+                      "select code_id, count(*) from law7_mirror.article_versions "
                       "where code_id in ('NK_RF','NK_RF_2') group by code order by code"
                   )
                   counts = cur.fetchall()
