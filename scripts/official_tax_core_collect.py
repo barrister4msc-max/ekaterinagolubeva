@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Download the requested official Tax Core corpus without database writes.
 
-Sources are restricted to official FNS, Minfin and VSRF hosts. Original file
-names are preserved; folders are used to avoid filename collisions. The output
-contains the original files, index.csv, manifest.json and errors.csv.
+Each official card may expose an original attachment, an inline official text,
+or both.  These are deliberately kept as distinct source artefacts: an HTML
+snapshot is never represented as a source DOCX/PDF, and an original attachment
+is never renamed.  The output contains original files, card snapshots,
+index.csv, manifest.json and errors.csv.
 """
 from __future__ import annotations
 
@@ -76,6 +78,55 @@ class Page(HTMLParser):
             self._anchor_parts.append(value)
 
 
+class OfficialText(HTMLParser):
+    """Extract visible document body text while excluding site chrome/forms."""
+
+    _SKIP = {"script", "style", "noscript", "svg", "form", "nav", "header", "footer"}
+    _CONTENT_HINT = re.compile(r"(?:article|content|document|detail|news|text|main)", re.I)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: list[str] = []
+        self._skip_depth = 0
+        self._content_depth = 0
+        self._stack: list[tuple[str, bool]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attrs_d = dict(attrs)
+        if tag in self._SKIP:
+            self._skip_depth += 1
+            return
+        if self._skip_depth:
+            return
+        marker = " ".join(filter(None, [attrs_d.get("id"), attrs_d.get("class")]))
+        is_content = tag in {"main", "article"} or bool(self._CONTENT_HINT.search(marker))
+        self._stack.append((tag, is_content))
+        if is_content:
+            self._content_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in self._SKIP and self._skip_depth:
+            self._skip_depth -= 1
+            return
+        if self._skip_depth:
+            return
+        if not self._stack:
+            return
+        open_tag, was_content = self._stack.pop()
+        if open_tag != tag:
+            # Malformed markup: retain a fail-closed extraction rather than
+            # guessing an element hierarchy.
+            self._stack.clear()
+            self._content_depth = 0
+            return
+        if was_content and self._content_depth:
+            self._content_depth -= 1
+
+    def handle_data(self, value: str) -> None:
+        if not self._skip_depth and self._content_depth:
+            self.parts.append(value)
+
+
 def clean(value: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(value)).strip()
 
@@ -118,6 +169,20 @@ def parse_page(payload: bytes) -> Page:
     return parser
 
 
+def extract_official_text(payload: bytes) -> str:
+    """Return a conservative main-text extraction suitable for a HTML snapshot."""
+    parser = OfficialText()
+    parser.feed(payload.decode("utf-8", errors="replace"))
+    return clean(" ".join(parser.parts))
+
+
+def has_substantive_official_text(text: str) -> bool:
+    """Avoid treating navigation, search results, or a bare card header as a document."""
+    if len(text) < 800:
+        return False
+    return bool(re.search(r"\b(?:письм|приказ|постановлен|определени|налог|суд|стать[ья])", text, re.I))
+
+
 def identity(text: str) -> tuple[str, str]:
     number = NUMBER_RE.search(text)
     date = DATE_RE.search(text)
@@ -145,9 +210,29 @@ def write_file(provider_dir: Path, page_key: str, url: str, payload: bytes) -> s
     return path.as_posix()
 
 
+def write_raw_snapshot(provider_dir: Path, page_key: str, payload: bytes) -> str:
+    """Persist the official card as received; it is not an attachment substitute."""
+    folder = provider_dir / page_key
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / "card.html"
+    path.write_bytes(payload)
+    return path.as_posix()
+
+
+def canonical_document_identity(provider: str, card_url: str, number: str, date: str, title: str) -> str:
+    """Stable identity shared by a card's attachment and inline HTML artefacts."""
+    # The official card is the canonical binding point.  Attachment labels may
+    # differ from the card title, so deliberately do not include them here.
+    key = "|".join([provider, canonical_url(card_url), clean(number), clean(date)])
+    return f"{provider}:{hashlib.sha256(key.encode('utf-8')).hexdigest()}"
+
+
 def add_record(records: list[dict], *, provider: str, source_type: str, title: str,
-               number: str, date: str, card_url: str, file_url: str, file_path: str,
-               payload: bytes, status: str = "") -> None:
+               number: str, date: str, card_url: str, attachment_url: str = "",
+               attachment_path: str = "", raw_snapshot: str = "", content: bytes = b"",
+               status: str = "") -> None:
+    identity_key = canonical_document_identity(provider, card_url, number, date, title)
+    content_sha256 = hashlib.sha256(content).hexdigest() if content else ""
     records.append({
         "organ": {"fns": "ФНС России", "minfin": "Минфин России", "vsrf": "Верховный Суд РФ"}[provider],
         "provider": provider,
@@ -155,11 +240,17 @@ def add_record(records: list[dict], *, provider: str, source_type: str, title: s
         "number": number,
         "date": date,
         "title": title,
+        "canonical_document_id": identity_key,
         "card_url": card_url,
-        "file_url": file_url,
-        "file": file_path,
+        # Legacy aliases are retained for the existing importer; new callers use
+        # the explicit attachment/raw-snapshot fields below.
+        "file_url": attachment_url,
+        "file": attachment_path,
+        "attachment_url": attachment_url,
+        "raw_snapshot": raw_snapshot,
         "status": status,
-        "sha256": hashlib.sha256(payload).hexdigest(),
+        "source_file_sha256": content_sha256 if source_type == "official_attachment" else "",
+        "content_sha256": content_sha256,
         "retrieved_at": datetime.now(timezone.utc).isoformat(),
         "official_origin_verified": True,
         "content_verified": False,
@@ -230,19 +321,28 @@ def collect_fns(out: Path, records: list[dict], errors: list[dict]) -> dict:
             title = clean(page.title) or f"Письмо ФНС {number}".strip()
             status = "Утратило актуальность" if "Утратило актуальность" in text and "Актуально" not in text[:400] else ""
             atts = attachments("fns", final, page)
-            if not atts:
-                errors.append({"provider": "fns", "stage": "attachment", "url": final, "error": "no official attachment"})
-                continue
-            # FNS cards normally expose one full-text file. Preserve every official attachment if several exist.
+            page_key = card_id
+            inline_text = extract_official_text(payload)
+            raw_snapshot = write_raw_snapshot(provider_dir, page_key, payload) if has_substantive_official_text(inline_text) else ""
+            saved_attachments = 0
+            # Preserve every official attachment with its original filename.
             for file_url, link_text in atts:
                 try:
                     file_final, _, file_payload = fetch("fns", file_url)
-                    file_path = write_file(provider_dir, card_id, file_final, file_payload)
-                    add_record(records, provider="fns", source_type="fns_letter", title=link_text or title,
-                               number=number, date=date, card_url=final, file_url=file_final,
-                               file_path=file_path, payload=file_payload, status=status)
+                    file_path = write_file(provider_dir, page_key, file_final, file_payload)
+                    add_record(records, provider="fns", source_type="official_attachment", title=title,
+                               number=number, date=date, card_url=final, attachment_url=file_final,
+                               attachment_path=file_path, raw_snapshot=raw_snapshot, content=file_payload, status=status)
+                    saved_attachments += 1
                 except Exception as exc:  # noqa: BLE001
                     errors.append({"provider": "fns", "stage": "file", "url": file_url, "error": str(exc)})
+            if raw_snapshot:
+                add_record(records, provider="fns", source_type="inline_official_html", title=title,
+                           number=number, date=date, card_url=final, raw_snapshot=raw_snapshot,
+                           content=inline_text.encode("utf-8"), status=status)
+            if not saved_attachments and not raw_snapshot:
+                errors.append({"provider": "fns", "stage": "content", "url": final,
+                               "error": "no official attachment and no substantive inline official text"})
             if idx % 100 == 0:
                 print(f"FNS cards processed: {idx}/{len(cards)}", flush=True)
         except Exception as exc:  # noqa: BLE001
@@ -271,6 +371,10 @@ def collect_minfin(out: Path, records: list[dict], errors: list[dict]) -> dict:
             text = clean(" ".join(page.parts))
             number, date = identity(text)
             title = clean(page.title)
+            page_key = hashlib.sha256(final.encode()).hexdigest()[:12]
+            inline_text = extract_official_text(payload)
+            raw_snapshot = write_raw_snapshot(provider_dir, page_key, payload) if has_substantive_official_text(inline_text) else ""
+            saved_attachments = 0
             for href, link_text in page.links:
                 absolute = urljoin(final, href)
                 if not is_allowed("minfin", absolute):
@@ -283,15 +387,23 @@ def collect_minfin(out: Path, records: list[dict], errors: list[dict]) -> dict:
                     file_seen.add(fkey)
                     try:
                         file_final, _, file_payload = fetch("minfin", absolute)
-                        page_key = hashlib.sha256(final.encode()).hexdigest()[:12]
                         file_path = write_file(provider_dir, page_key, file_final, file_payload)
-                        add_record(records, provider="minfin", source_type="minfin_letter",
-                                   title=link_text or title, number=number, date=date, card_url=final,
-                                   file_url=file_final, file_path=file_path, payload=file_payload)
+                        add_record(records, provider="minfin", source_type="official_attachment",
+                                   title=title or link_text, number=number, date=date, card_url=final,
+                                   attachment_url=file_final, attachment_path=file_path,
+                                   raw_snapshot=raw_snapshot, content=file_payload)
+                        saved_attachments += 1
                     except Exception as exc:  # noqa: BLE001
                         errors.append({"provider": "minfin", "stage": "file", "url": absolute, "error": str(exc)})
                 elif path.startswith("/ru/perfomance/tax_relations/Answers/"):
                     queue.append(absolute)
+            if raw_snapshot:
+                add_record(records, provider="minfin", source_type="inline_official_html",
+                           title=title, number=number, date=date, card_url=final,
+                           raw_snapshot=raw_snapshot, content=inline_text.encode("utf-8"))
+            if (number or date) and not saved_attachments and not raw_snapshot:
+                errors.append({"provider": "minfin", "stage": "content", "url": final,
+                               "error": "no official attachment and no substantive inline official text"})
         except Exception as exc:  # noqa: BLE001
             errors.append({"provider": "minfin", "stage": "page", "url": url, "error": str(exc)})
     if queue:
@@ -367,8 +479,9 @@ def collect_vsrf(out: Path, records: list[dict], errors: list[dict]) -> dict:
                 if not any(k in text_hint for k in keywords):
                     continue
                 file_path = write_file(provider_dir, hashlib.sha256(detail.encode()).hexdigest()[:12], final, payload)
-                add_record(records, provider="vsrf", source_type="vsrf_case", title=safe_basename(final),
-                           number="", date="", card_url=final, file_url=final, file_path=file_path, payload=payload)
+                add_record(records, provider="vsrf", source_type="official_attachment", title=safe_basename(final),
+                           number="", date="", card_url=final, attachment_url=final,
+                           attachment_path=file_path, content=payload)
                 continue
             page = parse_page(payload)
             text = clean(" ".join(page.parts))
@@ -379,7 +492,6 @@ def collect_vsrf(out: Path, records: list[dict], errors: list[dict]) -> dict:
             number, date = identity(text)
             title = clean(page.title)
             lower_title = title.casefold()
-            source_type = "vsrf_plenum" if "пленум" in lower_title else "vsrf_review" if "обзор" in lower_title else "vsrf_case"
             atts = attachments("vsrf", final, page)
             # VSRF sometimes exposes a direct stor_pdf link without an extension.
             for href, link_text in page.links:
@@ -387,19 +499,27 @@ def collect_vsrf(out: Path, records: list[dict], errors: list[dict]) -> dict:
                 if is_allowed("vsrf", absolute) and "/lk/practice/stor_pdf" in urlparse(absolute).path:
                     if all(canonical_url(absolute) != canonical_url(x[0]) for x in atts):
                         atts.append((absolute, link_text))
-            if not atts:
-                errors.append({"provider": "vsrf", "stage": "attachment", "url": final, "error": "matched document has no downloadable file"})
-                continue
             page_key = re.sub(r"\D", "", urlparse(final).path)[-12:] or hashlib.sha256(final.encode()).hexdigest()[:12]
+            inline_text = extract_official_text(payload)
+            raw_snapshot = write_raw_snapshot(provider_dir, page_key, payload) if has_substantive_official_text(inline_text) else ""
+            saved_attachments = 0
             for file_url, link_text in atts:
                 try:
                     file_final, _, file_payload = fetch("vsrf", file_url)
                     file_path = write_file(provider_dir, page_key, file_final, file_payload)
-                    add_record(records, provider="vsrf", source_type=source_type, title=link_text or title,
-                               number=number, date=date, card_url=final, file_url=file_final,
-                               file_path=file_path, payload=file_payload)
+                    add_record(records, provider="vsrf", source_type="official_attachment", title=title or link_text,
+                               number=number, date=date, card_url=final, attachment_url=file_final,
+                               attachment_path=file_path, raw_snapshot=raw_snapshot, content=file_payload)
+                    saved_attachments += 1
                 except Exception as exc:  # noqa: BLE001
                     errors.append({"provider": "vsrf", "stage": "file", "url": file_url, "error": str(exc)})
+            if raw_snapshot:
+                add_record(records, provider="vsrf", source_type="inline_official_html", title=title,
+                           number=number, date=date, card_url=final, raw_snapshot=raw_snapshot,
+                           content=inline_text.encode("utf-8"))
+            if not saved_attachments and not raw_snapshot:
+                errors.append({"provider": "vsrf", "stage": "content", "url": final,
+                               "error": "no official attachment and no substantive inline official text"})
             if idx % 100 == 0:
                 print(f"VSRF candidate details processed: {idx}/{len(detail_urls)}", flush=True)
         except Exception as exc:  # noqa: BLE001
@@ -419,7 +539,12 @@ def collect_vsrf(out: Path, records: list[dict], errors: list[dict]) -> dict:
 
 
 def write_outputs(out: Path, records: list[dict], errors: list[dict], stats: dict) -> None:
-    fieldnames = ["organ", "number", "date", "title", "card_url", "file", "file_url", "provider", "source_type", "status", "sha256"]
+    fieldnames = [
+        "organ", "provider", "source_type", "canonical_document_id", "number", "date", "title", "status",
+        "card_url", "attachment_url", "raw_snapshot", "content_sha256", "source_file_sha256",
+        # Compatibility aliases for the existing importer contract.
+        "file", "file_url",
+    ]
     with (out / "index.csv").open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
