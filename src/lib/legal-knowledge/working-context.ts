@@ -1,4 +1,6 @@
-export type SourceMetadata = Record<string, unknown>;
+import type { Json } from "@/integrations/supabase/types";
+
+export type SourceMetadata = { [key: string]: Json | undefined };
 
 const INDEPENDENTLY_VERIFIED = new Set([
   "official_verified",
