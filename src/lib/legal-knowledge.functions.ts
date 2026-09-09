@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { approveForWorkingContext } from "@/lib/legal-knowledge/working-context";
 
 
 async function assertAdmin(supabase: any, userId: string) {
@@ -420,7 +421,8 @@ export const lkCreateUrlSource = createServerFn({ method: "POST" })
       document_date: data.document_date ?? null,
       edition_date: data.edition_date ?? null,
       source_url: data.source_url,
-      official_status: trust === "high" ? "official" : "unverified",
+      // A URL on an official domain is a lead, not independent verification.
+      official_status: "unverified",
       verification_status: "needs_review",
       import_status: "pending",
       trust_level: trust,
@@ -740,7 +742,7 @@ export const lkBulkCreateSources = createServerFn({ method: "POST" })
     return { ok: true, source_group_id: groupId, count: total };
   });
 
-// 11) Approve an entire batch (or any source group) — sets official_verified + completed
+// 11) Approve a batch for working context. This does not certify official origin or substantive legal use.
 export const lkApproveBatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ source_group_id: z.string().uuid() }).parse(d))
@@ -755,11 +757,11 @@ export const lkApproveBatch = createServerFn({ method: "POST" })
     if (fErr) throw new Error(fErr.message);
     if (!chunks?.length) throw new Error("Партия не найдена");
     for (const c of chunks) {
-      const merged = {
-        ...(c.metadata as Record<string, unknown>),
-        verification_status: "official_verified",
-        import_status: "completed",
-      };
+      const merged = approveForWorkingContext(
+        c.metadata as Record<string, unknown>,
+        userId,
+        new Date().toISOString(),
+      );
       const { error } = await supabaseAdmin
         .from("legal_knowledge_chunks")
         .update({ metadata: merged })
