@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Test collector provenance and representation handling
+        run: python scripts/test_official_tax_core_collect.py
       - name: Download requested official Tax Core corpus
         run: python scripts/official_tax_core_collect.py --output-dir official-tax-core
       - name: Package original files and audit indexes
