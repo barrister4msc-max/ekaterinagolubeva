@@ -85,7 +85,7 @@ def query_audit(database_url: str) -> dict[str, Any]:
     )
     select
       (to_regnamespace('law7_mirror') is not null
-       and to_regprocedure('law7_mirror.law7_mirror_is_available()') is not null) as contract_present,
+       and to_regprocedure('public.law7_mirror_is_available()') is not null) as contract_present,
       coalesce((select status from law7_mirror.sync_state where dataset_key = %s), '') as status,
       coalesce((select source_repository from law7_mirror.sync_state where dataset_key = %s), '') as source_repository,
       coalesce((select source_commit from law7_mirror.sync_state where dataset_key = %s), '') as source_commit,
@@ -99,8 +99,8 @@ def query_audit(database_url: str) -> dict[str, Any]:
       (select count(*) from law7_mirror.article_versions where text_hash is null or btrim(text_hash) = '') as missing_hashes,
       (select count(*) from law7_mirror.article_versions where text_hash <> encode(digest(article_text, 'sha256'), 'hex')) as hash_mismatches,
       (select count(*) from law7_mirror.temporal_verifications) as temporal_verifications,
-      (select count(*) from law7_mirror.get_article_versions_as_of('NK_RF', '54.1', current_date)) as latest_retrieval,
-      (select count(*) from law7_mirror.get_article_versions_as_of('NK_RF', '54.1', date '2021-01-01')) as historical_retrieval,
+      (select count(*) from public.law7_mirror_get_article_version('NK_RF', '54.1', null)) as latest_retrieval,
+      (select count(*) from public.law7_mirror_get_article_version('NK_RF', '54.1', date '2021-01-01')) as historical_retrieval,
       actual.manifest
     from actual
     """
