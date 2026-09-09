@@ -1,81 +1,463 @@
 #!/usr/bin/env python3
-"""Build a fail-closed official Tax Core manifest; no database writes."""
+"""Download the requested official Tax Core corpus without database writes.
+
+Sources are restricted to official FNS, Minfin and VSRF hosts. Original file
+names are preserved; folders are used to avoid filename collisions. The output
+contains the original files, index.csv, manifest.json and errors.csv.
+"""
 from __future__ import annotations
-import argparse, hashlib, html, json, re, subprocess, tempfile, zipfile
+
+import argparse
+import csv
+import hashlib
+import html
+import json
+import re
+import time
+from collections import deque
 from datetime import datetime, timezone
 from html.parser import HTMLParser
-from io import BytesIO
 from pathlib import Path
-from typing import Any
-from urllib.parse import urljoin, urlparse
+from typing import Iterable
+from urllib.parse import parse_qsl, quote_plus, urlencode, urljoin, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
-DATASET_KEY = "official_tax_core"
-ALLOWED_HOSTS = {"fns":{"nalog.gov.ru","www.nalog.gov.ru"},"minfin":{"minfin.gov.ru","www.minfin.gov.ru"},"vsrf":{"vsrf.ru","www.vsrf.ru"}}
-ALLOWED_TYPES = {"fns":{"fns_letter"},"minfin":{"minfin_letter"},"vsrf":{"vsrf_plenum","vsrf_review","vsrf_case"}}
+FNS_ROOT = "https://www.nalog.gov.ru/rn77/about_fts/about_nalog/"
+MINFIN_ROOT = "https://minfin.gov.ru/ru/perfomance/tax_relations/Answers/"
+VSRF_ROOT = "https://vsrf.ru/"
+VSRF_QUERIES = [
+    "налог", "налоговый", "НК РФ", "54.1", "НДС", "дробление бизнеса",
+    "налоговая выгода", "взыскание", "камеральная проверка",
+    "выездная проверка", "требование", "ЕНС", "жалоба",
+]
+ALLOWED = {
+    "fns": {"nalog.gov.ru", "www.nalog.gov.ru"},
+    "minfin": {"minfin.gov.ru", "www.minfin.gov.ru"},
+    "vsrf": {"vsrf.ru", "www.vsrf.ru"},
+}
+ATTACHMENT_RE = re.compile(r"\.(?:docx?|pdf|rtf|odt|xlsx?|zip)(?:$|[?#])", re.I)
+FNS_CARD_RE = re.compile(r"/rn\d+/about_fts/about_nalog/(\d+)/?$")
+VSRF_DOC_RE = re.compile(r"/(?:documents/(?:all|reviews|own|arbitration)|files)/(\d+)/?$")
+DATE_RE = re.compile(r"(?:от|Дата(?:\s+письма)?\s*:)\s*(\d{2}\.\d{2}\.\d{4})", re.I)
+NUMBER_RE = re.compile(r"(?:№|N)\s*([А-ЯA-Z0-9@./-]+)")
+
 
 class Page(HTMLParser):
     def __init__(self) -> None:
-        super().__init__(); self.parts:list[str]=[]; self.links:list[str]=[]; self.title=""; self.in_title=False
-    def handle_starttag(self, tag:str, attrs:list[tuple[str,str|None]]) -> None:
-        if tag=="title": self.in_title=True
-        if tag=="a" and (href:=dict(attrs).get("href")): self.links.append(href)
-    def handle_endtag(self, tag:str) -> None:
-        if tag=="title": self.in_title=False
-    def handle_data(self, value:str) -> None:
-        self.parts.append(value)
-        if self.in_title: self.title+=value
+        super().__init__()
+        self.parts: list[str] = []
+        self.links: list[tuple[str, str]] = []
+        self._anchor_href: str | None = None
+        self._anchor_parts: list[str] = []
+        self.title = ""
+        self._in_title = False
 
-def clean(value:str)->str: return re.sub(r"\s+"," ",html.unescape(re.sub(r"<[^>]+>"," ",value))).strip()
-def allowed(provider:str, value:str)->bool:
-    parsed=urlparse(value); return parsed.scheme=="https" and parsed.hostname in ALLOWED_HOSTS[provider]
-def digest(value:bytes)->str: return hashlib.sha256(value).hexdigest()
-def fetch(provider:str, value:str)->tuple[str,str,bytes]:
-    if not allowed(provider,value): raise ValueError("URL is outside the official provider allow-list")
-    with urlopen(Request(value,headers={"User-Agent":"KATI-Lawyer-Official-Collector/1.0"}),timeout=45) as response: # nosec B310
-        final=response.geturl()
-        if not allowed(provider,final): raise ValueError("redirect left official host allow-list")
-        return final,response.headers.get_content_type(),response.read()
-def extract(content_type:str,payload:bytes)->str:
-    if content_type in {"text/html","text/plain"}:
-        page=Page(); page.feed(payload.decode("utf-8",errors="replace")); return clean(" ".join(page.parts))
-    if content_type=="application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        with zipfile.ZipFile(BytesIO(payload)) as archive: return clean(archive.read("word/document.xml").decode("utf-8",errors="replace"))
-    command=["antiword","-m","UTF-8.txt"] if content_type=="application/msword" else ["pdftotext","-","-"] if content_type=="application/pdf" else None
-    if command is None: raise ValueError(f"unsupported official content type: {content_type}")
-    if content_type=="application/pdf":
-        return clean(subprocess.run(command,input=payload,capture_output=True,check=True).stdout.decode("utf-8",errors="replace"))
-    with tempfile.NamedTemporaryFile(suffix=".doc") as source:
-        source.write(payload); source.flush(); return clean(subprocess.run(command+[source.name],capture_output=True,check=True,text=True).stdout)
-def find_attachment(provider:str,page_url:str,links:list[str])->str:
-    matches=[urljoin(page_url,x) for x in links if re.search(r"\.(?:docx?|pdf)(?:$|[?#])",x,re.I)]
-    matches=[x for x in matches if allowed(provider,x)]
-    if len(matches)!=1: raise ValueError("official page has no unique allow-listed document link")
-    return matches[0]
-def identity(value:str)->tuple[str|None,str|None]:
-    number=re.search(r"(?:№|N)\s*([А-ЯA-Z0-9@./-]+)",value); dated=re.search(r"(?:от|Дата(?:\s+письма)?\s*:)\s*(\d{2}\.\d{2}\.\d{4})",value)
-    return (number.group(1) if number else None,dated.group(1) if dated else None)
-def collect(seed:dict[str,Any])->dict[str,Any]:
-    if seed.get("dataset_key")!=DATASET_KEY or not isinstance(seed.get("sources"),list): raise ValueError("seed must contain official_tax_core sources")
-    records=[]; seen=set()
-    for item in seed["sources"]:
-        provider,source_type,page_url=item.get("provider"),item.get("source_type"),item.get("official_url")
-        if provider not in ALLOWED_HOSTS or source_type not in ALLOWED_TYPES[provider] or not isinstance(page_url,str): raise ValueError("unsupported provider/source type")
-        source_page,kind,page_payload=fetch(provider,page_url)
-        if kind!="text/html": raise ValueError("official source page must be HTML")
-        page=Page(); page.feed(page_payload.decode("utf-8",errors="replace"))
-        document_url=item.get("document_url") or find_attachment(provider,source_page,page.links)
-        if not isinstance(document_url,str): raise ValueError("missing official document URL")
-        document_url,document_kind,file_payload=fetch(provider,document_url); content=extract(document_kind,file_payload)
-        number,page_date=identity(clean(" ".join(page.parts)))
-        number=item.get("document_number") or number; published=item.get("publication_date") or (datetime.strptime(page_date,"%d.%m.%Y").date().isoformat() if page_date else None)
-        title=clean(str(item.get("title") or page.title))
-        if not title or not isinstance(number,str) or not isinstance(published,str) or len(content)<200: raise ValueError("official document lacks verifiable identity or full text")
-        key=(provider,number,published)
-        if key in seen: raise ValueError("duplicate official source identity")
-        seen.add(key); records.append({"provider":provider,"source_type":source_type,"title":title,"official_url":document_url,"document_number":number,"publication_date":published,"content":content,"content_sha256":hashlib.sha256(content.encode()).hexdigest(),"provenance":{"source_page_url":source_page,"document_url":document_url,"source_file_sha256":digest(file_payload),"retrieved_at":datetime.now(timezone.utc).isoformat(),"official_origin_verified":True,"content_verified":True,"temporal_verified":False,"substantive_use_allowed":False}})
-    return {"dataset_key":DATASET_KEY,"sources":records}
-def main()->int:
-    parser=argparse.ArgumentParser(); parser.add_argument("--seed",type=Path,required=True); parser.add_argument("--output",type=Path,required=True); args=parser.parse_args()
-    manifest=collect(json.loads(args.seed.read_text(encoding="utf-8"))); args.output.parent.mkdir(parents=True,exist_ok=True); args.output.write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8"); print(json.dumps({"records":len(manifest["sources"]),"db_writes":False})); return 0
-if __name__=="__main__": raise SystemExit(main())
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attrs_d = dict(attrs)
+        if tag == "title":
+            self._in_title = True
+        if tag == "a" and attrs_d.get("href"):
+            self._anchor_href = attrs_d["href"]
+            self._anchor_parts = []
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "title":
+            self._in_title = False
+        if tag == "a" and self._anchor_href:
+            self.links.append((self._anchor_href, clean(" ".join(self._anchor_parts))))
+            self._anchor_href = None
+            self._anchor_parts = []
+
+    def handle_data(self, value: str) -> None:
+        self.parts.append(value)
+        if self._in_title:
+            self.title += value
+        if self._anchor_href:
+            self._anchor_parts.append(value)
+
+
+def clean(value: str) -> str:
+    return re.sub(r"\s+", " ", html.unescape(value)).strip()
+
+
+def canonical_url(value: str) -> str:
+    p = urlparse(value)
+    query = urlencode(sorted(parse_qsl(p.query, keep_blank_values=True)), doseq=True)
+    return urlunparse((p.scheme, p.netloc.lower(), p.path, "", query, ""))
+
+
+def is_allowed(provider: str, value: str) -> bool:
+    p = urlparse(value)
+    return p.scheme == "https" and (p.hostname or "").lower() in ALLOWED[provider]
+
+
+def fetch(provider: str, url: str, *, retries: int = 4) -> tuple[str, str, bytes]:
+    if not is_allowed(provider, url):
+        raise ValueError(f"outside allow-list: {url}")
+    last: Exception | None = None
+    for attempt in range(retries):
+        try:
+            req = Request(url, headers={"User-Agent": "KATI-Lawyer-Official-Collector/1.1 (+official-source archival)"})
+            with urlopen(req, timeout=60) as response:  # nosec B310: strict host allow-list above
+                final = response.geturl()
+                if not is_allowed(provider, final):
+                    raise ValueError(f"redirect left allow-list: {final}")
+                payload = response.read()
+                ctype = response.headers.get_content_type() or "application/octet-stream"
+                time.sleep(0.18)
+                return final, ctype, payload
+        except Exception as exc:  # noqa: BLE001 - recorded in errors.csv
+            last = exc
+            time.sleep(1.5 * (attempt + 1))
+    raise RuntimeError(f"fetch failed: {url}: {last}")
+
+
+def parse_page(payload: bytes) -> Page:
+    parser = Page()
+    parser.feed(payload.decode("utf-8", errors="replace"))
+    return parser
+
+
+def identity(text: str) -> tuple[str, str]:
+    number = NUMBER_RE.search(text)
+    date = DATE_RE.search(text)
+    return (number.group(1) if number else "", date.group(1) if date else "")
+
+
+def safe_basename(url: str) -> str:
+    name = Path(urlparse(url).path).name
+    return name or ""
+
+
+def write_file(provider_dir: Path, page_key: str, url: str, payload: bytes) -> str:
+    basename = safe_basename(url)
+    if not basename:
+        raise ValueError(f"attachment has no filename: {url}")
+    folder = provider_dir / page_key
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / basename
+    if path.exists() and path.read_bytes() != payload:
+        # Never rename an official file. Put a collision into a distinct URL-hash folder.
+        folder = provider_dir / page_key / hashlib.sha256(url.encode()).hexdigest()[:12]
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / basename
+    path.write_bytes(payload)
+    return path.as_posix()
+
+
+def add_record(records: list[dict], *, provider: str, source_type: str, title: str,
+               number: str, date: str, card_url: str, file_url: str, file_path: str,
+               payload: bytes, status: str = "") -> None:
+    records.append({
+        "organ": {"fns": "ФНС России", "minfin": "Минфин России", "vsrf": "Верховный Суд РФ"}[provider],
+        "provider": provider,
+        "source_type": source_type,
+        "number": number,
+        "date": date,
+        "title": title,
+        "card_url": card_url,
+        "file_url": file_url,
+        "file": file_path,
+        "status": status,
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+        "official_origin_verified": True,
+        "content_verified": False,
+        "temporal_verified": False,
+        "substantive_use_allowed": False,
+    })
+
+
+def attachments(provider: str, page_url: str, page: Page) -> list[tuple[str, str]]:
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for href, text in page.links:
+        absolute = urljoin(page_url, href)
+        if not is_allowed(provider, absolute) or not ATTACHMENT_RE.search(absolute):
+            continue
+        key = canonical_url(absolute)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((absolute, text))
+    return out
+
+
+def collect_fns(out: Path, records: list[dict], errors: list[dict]) -> dict:
+    cards: dict[str, str] = {}
+    live_total = None
+    empty_pages = 0
+    for page_no in range(1, 250):
+        url = FNS_ROOT if page_no == 1 else f"{FNS_ROOT}{page_no}.html"
+        try:
+            final, ctype, payload = fetch("fns", url)
+            if ctype != "text/html":
+                raise ValueError(f"catalog page is {ctype}")
+            page = parse_page(payload)
+            text = clean(" ".join(page.parts))
+            if page_no == 1:
+                m = re.search(r"всего:\s*(\d+)", text, re.I)
+                live_total = int(m.group(1)) if m else None
+            before = len(cards)
+            for href, _ in page.links:
+                absolute = urljoin(final, href)
+                m = FNS_CARD_RE.search(urlparse(absolute).path.rstrip("/") + "/")
+                if m:
+                    cards[m.group(1)] = absolute
+            if len(cards) == before:
+                empty_pages += 1
+                if empty_pages >= 2:
+                    break
+            else:
+                empty_pages = 0
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"provider": "fns", "stage": "catalog", "url": url, "error": str(exc)})
+            if page_no > 120:
+                break
+
+    provider_dir = out / "fns"
+    for idx, (card_id, card_url) in enumerate(sorted(cards.items(), key=lambda x: int(x[0])), 1):
+        try:
+            final, ctype, payload = fetch("fns", card_url)
+            if ctype != "text/html":
+                raise ValueError(f"card is {ctype}")
+            page = parse_page(payload)
+            text = clean(" ".join(page.parts))
+            number, date = identity(text)
+            h1 = re.search(r"Письмо\s+от\s+\d{2}\.\d{2}\.\d{4}\s+№\s*([^\s]+)", text, re.I)
+            if h1 and not number:
+                number = h1.group(1)
+            title = clean(page.title) or f"Письмо ФНС {number}".strip()
+            status = "Утратило актуальность" if "Утратило актуальность" in text and "Актуально" not in text[:400] else ""
+            atts = attachments("fns", final, page)
+            if not atts:
+                errors.append({"provider": "fns", "stage": "attachment", "url": final, "error": "no official attachment"})
+                continue
+            # FNS cards normally expose one full-text file. Preserve every official attachment if several exist.
+            for file_url, link_text in atts:
+                try:
+                    file_final, _, file_payload = fetch("fns", file_url)
+                    file_path = write_file(provider_dir, card_id, file_final, file_payload)
+                    add_record(records, provider="fns", source_type="fns_letter", title=link_text or title,
+                               number=number, date=date, card_url=final, file_url=file_final,
+                               file_path=file_path, payload=file_payload, status=status)
+                except Exception as exc:  # noqa: BLE001
+                    errors.append({"provider": "fns", "stage": "file", "url": file_url, "error": str(exc)})
+            if idx % 100 == 0:
+                print(f"FNS cards processed: {idx}/{len(cards)}", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"provider": "fns", "stage": "card", "url": card_url, "error": str(exc)})
+    return {"catalog_total": live_total, "cards_discovered": len(cards)}
+
+
+def collect_minfin(out: Path, records: list[dict], errors: list[dict]) -> dict:
+    provider_dir = out / "minfin"
+    queue = deque([MINFIN_ROOT])
+    visited: set[str] = set()
+    file_seen: set[str] = set()
+    pages = 0
+    while queue and pages < 5000:
+        url = queue.popleft()
+        key = canonical_url(url)
+        if key in visited:
+            continue
+        visited.add(key)
+        try:
+            final, ctype, payload = fetch("minfin", url)
+            if ctype != "text/html":
+                continue
+            pages += 1
+            page = parse_page(payload)
+            text = clean(" ".join(page.parts))
+            number, date = identity(text)
+            title = clean(page.title)
+            for href, link_text in page.links:
+                absolute = urljoin(final, href)
+                if not is_allowed("minfin", absolute):
+                    continue
+                path = urlparse(absolute).path
+                if ATTACHMENT_RE.search(absolute):
+                    fkey = canonical_url(absolute)
+                    if fkey in file_seen:
+                        continue
+                    file_seen.add(fkey)
+                    try:
+                        file_final, _, file_payload = fetch("minfin", absolute)
+                        page_key = hashlib.sha256(final.encode()).hexdigest()[:12]
+                        file_path = write_file(provider_dir, page_key, file_final, file_payload)
+                        add_record(records, provider="minfin", source_type="minfin_letter",
+                                   title=link_text or title, number=number, date=date, card_url=final,
+                                   file_url=file_final, file_path=file_path, payload=file_payload)
+                    except Exception as exc:  # noqa: BLE001
+                        errors.append({"provider": "minfin", "stage": "file", "url": absolute, "error": str(exc)})
+                elif path.startswith("/ru/perfomance/tax_relations/Answers/"):
+                    queue.append(absolute)
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"provider": "minfin", "stage": "page", "url": url, "error": str(exc)})
+    if queue:
+        errors.append({"provider": "minfin", "stage": "crawl", "url": MINFIN_ROOT, "error": "5000-page safety cap reached"})
+    return {"pages_crawled": pages, "files_discovered": len(file_seen)}
+
+
+def vsrf_search_url(query: str) -> str:
+    return (
+        "https://vsrf.ru/search/?keyword=" + quote_plus(query) +
+        "&search_section_active=documents&search_sections%5B%5D=documents"
+    )
+
+
+def collect_vsrf(out: Path, records: list[dict], errors: list[dict]) -> dict:
+    provider_dir = out / "vsrf"
+    detail_urls: set[str] = set()
+    search_pages = 0
+    for query in VSRF_QUERIES:
+        queue = deque([vsrf_search_url(query)])
+        visited: set[str] = set()
+        while queue and len(visited) < 80:
+            url = queue.popleft()
+            key = canonical_url(url)
+            if key in visited:
+                continue
+            visited.add(key)
+            try:
+                final, ctype, payload = fetch("vsrf", url)
+                if ctype != "text/html":
+                    continue
+                search_pages += 1
+                page = parse_page(payload)
+                for href, _ in page.links:
+                    absolute = urljoin(final, href)
+                    if not is_allowed("vsrf", absolute):
+                        continue
+                    path = urlparse(absolute).path.rstrip("/") + "/"
+                    if VSRF_DOC_RE.search(path):
+                        detail_urls.add(absolute)
+                    elif path.startswith("/search/") and "keyword=" in urlparse(absolute).query:
+                        queue.append(absolute)
+            except Exception as exc:  # noqa: BLE001
+                errors.append({"provider": "vsrf", "stage": "search", "url": url, "error": str(exc)})
+
+    # Add plenums/reviews category pages by year so historically important materials are not search-ranking dependent.
+    for year in range(2014, datetime.now().year + 1):
+        for seed in (
+            f"https://vsrf.ru/documents/own/?category=resolutions_plenum_supreme_court_russian&year={year}",
+            f"https://vsrf.ru/documents/reviews/?category=practice&year={year}",
+        ):
+            try:
+                final, ctype, payload = fetch("vsrf", seed)
+                if ctype != "text/html":
+                    continue
+                page = parse_page(payload)
+                for href, _ in page.links:
+                    absolute = urljoin(final, href)
+                    if is_allowed("vsrf", absolute) and VSRF_DOC_RE.search(urlparse(absolute).path.rstrip("/") + "/"):
+                        # Filter later by tax keywords; plenums 53/57 references are also retained if matched.
+                        detail_urls.add(absolute)
+            except Exception as exc:  # noqa: BLE001
+                errors.append({"provider": "vsrf", "stage": "category", "url": seed, "error": str(exc)})
+
+    keywords = [q.casefold() for q in VSRF_QUERIES]
+    matched_details = 0
+    for idx, detail in enumerate(sorted(detail_urls), 1):
+        try:
+            final, ctype, payload = fetch("vsrf", detail)
+            if ctype != "text/html":
+                # Direct official file discovered from search.
+                text_hint = detail.casefold()
+                if not any(k in text_hint for k in keywords):
+                    continue
+                file_path = write_file(provider_dir, hashlib.sha256(detail.encode()).hexdigest()[:12], final, payload)
+                add_record(records, provider="vsrf", source_type="vsrf_case", title=safe_basename(final),
+                           number="", date="", card_url=final, file_url=final, file_path=file_path, payload=payload)
+                continue
+            page = parse_page(payload)
+            text = clean(" ".join(page.parts))
+            folded = text.casefold()
+            if not any(k in folded for k in keywords):
+                continue
+            matched_details += 1
+            number, date = identity(text)
+            title = clean(page.title)
+            lower_title = title.casefold()
+            source_type = "vsrf_plenum" if "пленум" in lower_title else "vsrf_review" if "обзор" in lower_title else "vsrf_case"
+            atts = attachments("vsrf", final, page)
+            # VSRF sometimes exposes a direct stor_pdf link without an extension.
+            for href, link_text in page.links:
+                absolute = urljoin(final, href)
+                if is_allowed("vsrf", absolute) and "/lk/practice/stor_pdf" in urlparse(absolute).path:
+                    if all(canonical_url(absolute) != canonical_url(x[0]) for x in atts):
+                        atts.append((absolute, link_text))
+            if not atts:
+                errors.append({"provider": "vsrf", "stage": "attachment", "url": final, "error": "matched document has no downloadable file"})
+                continue
+            page_key = re.sub(r"\D", "", urlparse(final).path)[-12:] or hashlib.sha256(final.encode()).hexdigest()[:12]
+            for file_url, link_text in atts:
+                try:
+                    file_final, _, file_payload = fetch("vsrf", file_url)
+                    file_path = write_file(provider_dir, page_key, file_final, file_payload)
+                    add_record(records, provider="vsrf", source_type=source_type, title=link_text or title,
+                               number=number, date=date, card_url=final, file_url=file_final,
+                               file_path=file_path, payload=file_payload)
+                except Exception as exc:  # noqa: BLE001
+                    errors.append({"provider": "vsrf", "stage": "file", "url": file_url, "error": str(exc)})
+            if idx % 100 == 0:
+                print(f"VSRF candidate details processed: {idx}/{len(detail_urls)}", flush=True)
+        except Exception as exc:  # noqa: BLE001
+            errors.append({"provider": "vsrf", "stage": "detail", "url": detail, "error": str(exc)})
+
+    # Explicit historical markers requested by the user. We do not fabricate a file URL:
+    # if not discovered on VSRF, they remain a gap in errors.csv for manual official-source resolution.
+    required_historic = [
+        ("ВАС РФ Пленум № 53", "12.10.2006", "обоснованность налоговой выгоды"),
+        ("ВАС РФ Пленум № 57", "30.07.2013", "части первой Налогового кодекса"),
+    ]
+    corpus_text = "\n".join((r["title"] + " " + r["number"] + " " + r["date"]).casefold() for r in records if r["provider"] == "vsrf")
+    for label, date, marker in required_historic:
+        if marker.casefold() not in corpus_text and label.split("№")[-1].strip().casefold() not in corpus_text:
+            errors.append({"provider": "vsrf", "stage": "required_historic", "url": VSRF_ROOT, "error": f"not resolved to a downloadable official VSRF file: {label} ({date})"})
+    return {"search_pages": search_pages, "candidate_details": len(detail_urls), "matched_details": matched_details}
+
+
+def write_outputs(out: Path, records: list[dict], errors: list[dict], stats: dict) -> None:
+    fieldnames = ["organ", "number", "date", "title", "card_url", "file", "file_url", "provider", "source_type", "status", "sha256"]
+    with (out / "index.csv").open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(records)
+    err_fields = ["provider", "stage", "url", "error"]
+    with (out / "errors.csv").open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=err_fields)
+        writer.writeheader()
+        writer.writerows(errors)
+    manifest = {
+        "dataset_key": "official_tax_core_archive",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "official_only": True,
+        "db_writes": False,
+        "records": records,
+        "stats": stats,
+        "errors_count": len(errors),
+    }
+    (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-dir", type=Path, default=Path("official-tax-core"))
+    args = parser.parse_args()
+    out = args.output_dir
+    out.mkdir(parents=True, exist_ok=True)
+    records: list[dict] = []
+    errors: list[dict] = []
+    stats = {
+        "fns": collect_fns(out, records, errors),
+        "minfin": collect_minfin(out, records, errors),
+        "vsrf": collect_vsrf(out, records, errors),
+    }
+    write_outputs(out, records, errors, stats)
+    print(json.dumps({"records": len(records), "errors": len(errors), "stats": stats, "db_writes": False}, ensure_ascii=False), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
