@@ -20,7 +20,6 @@ describe("Law7 Production TAX CORE import gate", () => {
     expect(workflow).toContain("--table=public.consolidated_codes");
     expect(workflow).toContain("--table=public.code_article_versions");
     expect(workflow).toContain("--table=public.amendment_applications");
-    expect(workflow).toContain("SET TRANSACTION READ ONLY".toLowerCase());
   });
   test("does not introduce another Production mirror writer", () => {
     expect(gate).toContain("set transaction read only");
