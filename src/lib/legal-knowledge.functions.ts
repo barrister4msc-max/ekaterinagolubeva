@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { approveForWorkingContext } from "@/lib/legal-knowledge/working-context";
+import { approveForWorkingContext, type SourceMetadata } from "@/lib/legal-knowledge/working-context";
 
 
 async function assertAdmin(supabase: any, userId: string) {
@@ -758,7 +758,7 @@ export const lkApproveBatch = createServerFn({ method: "POST" })
     if (!chunks?.length) throw new Error("Партия не найдена");
     for (const c of chunks) {
       const merged = approveForWorkingContext(
-        c.metadata as Record<string, unknown>,
+        c.metadata as SourceMetadata,
         userId,
         new Date().toISOString(),
       );
