@@ -159,8 +159,8 @@ export function BulkSourceUploadDialog({ onCreated }: { onCreated?: () => void }
           <DialogTitle>Массовая загрузка источников (JSON)</DialogTitle>
           <DialogDescription>
             Вставьте JSON-массив. Каждый элемент станет отдельной записью в <b>legal_knowledge_chunks</b> со статусом{" "}
-            <b>needs_review</b> / <b>pending</b>. Embeddings не запускаются автоматически. Источники не используются
-            в юридических заключениях до одобрения.
+            <b>needs_review</b> / <b>pending</b>. Embeddings не запускаются автоматически. После допуска источник
+            доступен для исследования, но не становится официально подтверждённым и сам по себе не обосновывает юридический вывод.
           </DialogDescription>
         </DialogHeader>
 
