@@ -1,0 +1,54 @@
+name: Law7 Production TAX CORE Import
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_import:
+        description: Type IMPORT_LAW7_TAX_CORE_TO_PRODUCTION to continue
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: law7-production-tax-core-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_production_import == 'IMPORT_LAW7_TAX_CORE_TO_PRODUCTION'
+    runs-on: ubuntu-latest
+    environment:
+      name: law7-production
+    env:
+      LAW7_SOURCE_DATABASE_URL: ${{ secrets.LAW7_SOURCE_DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.LAW7_PRODUCTION_MIRROR_DATABASE_URL }}
+      EXPECTED_SOURCE_COMMIT: 70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install importer dependencies
+        run: pip install --require-hashes -r scripts/requirements-law7.txt
+      - name: Export approved TAX CORE corpus from read-only source
+        run: |
+          python scripts/law7_controlled_export.py \
+            --source-repository mikhashev/law7 \
+            --source-commit "$EXPECTED_SOURCE_COMMIT" \
+            --output verified-tax-core.json \
+            --code NK_RF --code NK_RF_2 --code APK_RF --code KoAP_RF \
+            --code BK_RF --code GK_RF --code GK_RF_2 --code KONST_RF
+      - name: Dry-run the only Law7 mirror writer
+        run: python scripts/law7_mirror_import.py --input verified-tax-core.json
+      - name: Verify payload equals the Preview-audited corpus
+        run: python scripts/law7_tax_core_production_gate.py --dataset verified-tax-core.json
+      - name: Read-only Production preflight
+        run: python scripts/law7_tax_core_production_gate.py --database-phase preflight
+      - name: Import with the existing sole writer
+        run: python scripts/law7_mirror_import.py --input verified-tax-core.json --apply
+      - name: Read-only post-import audit
+        run: python scripts/law7_tax_core_production_gate.py --database-phase post-import
