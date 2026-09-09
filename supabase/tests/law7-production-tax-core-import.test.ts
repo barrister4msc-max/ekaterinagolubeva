@@ -28,7 +28,7 @@ describe("Law7 Production TAX CORE import gate", () => {
     expect(workflow).toContain("cancel-in-progress: false");
   });
   test("is a pure audit contract, not an import", () => {
-    const script = "import importlib.util; s=importlib.util.spec_from_file_location('g','scripts/law7_tax_core_production_gate.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); a={'contract_present':True,'codes':1,'article_versions':0,'amendments':0};\ntry:\n m.validate_preflight(a)\nexcept ValueError:\n raise SystemExit(0)\nraise SystemExit(1)";
+    const script = "import importlib.util; s=importlib.util.spec_from_file_location('g','scripts/law7_tax_core_production_gate.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); a={'contract_present':True,'codes':1,'article_versions':0,'amendments':0,'status':'','source_repository':'','source_commit':''};\ntry:\n m.validate_preflight(a)\nexcept ValueError:\n raise SystemExit(0)\nraise SystemExit(1)";
     const result = spawnSync("python", ["-c", script], { encoding: "utf8" });
     expect(result.status).toBe(0);
   });
