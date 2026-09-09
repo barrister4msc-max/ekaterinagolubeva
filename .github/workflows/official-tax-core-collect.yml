@@ -1,0 +1,30 @@
+name: Official Tax Core Collector
+on:
+  workflow_dispatch:
+    inputs:
+      seed_url:
+        description: HTTPS URL of the reviewed official-source seed JSON
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch source seed
+        env:
+          SEED_URL: ${{ inputs.seed_url }}
+        run: |
+          case "$SEED_URL" in https://*) ;; *) exit 1 ;; esac
+          curl --fail --location --silent --show-error "$SEED_URL" -o official-tax-core-seed.json
+      - name: Build manifest
+        run: python scripts/official_tax_core_collect.py --seed official-tax-core-seed.json --output official-tax-core.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: official-tax-core-manifest
+          path: official-tax-core.json
