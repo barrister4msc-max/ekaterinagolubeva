@@ -31,6 +31,8 @@ export type RawSource = {
   official_url: string | null;
   citation: string | null;
   snippet: string;
+  /** Optional raw manually supplied text retained for later verification; never authority by itself. */
+  content_text?: string | null;
   metadata: Record<string, unknown>;
   code?: string | null;
   article?: string | null;
