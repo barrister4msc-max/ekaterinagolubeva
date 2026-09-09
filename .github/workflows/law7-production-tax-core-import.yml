@@ -33,15 +33,13 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install importer dependencies
-        run: pip install --require-hashes -r scripts/requirements-law7.txt
+        run: python -m pip install "psycopg[binary]>=3.2,<4"
       - name: Export approved TAX CORE corpus from read-only source
         run: |
           python scripts/law7_controlled_export.py \
-            --source-repository mikhashev/law7 \
             --source-commit "$EXPECTED_SOURCE_COMMIT" \
             --output verified-tax-core.json \
-            --code NK_RF --code NK_RF_2 --code APK_RF --code KoAP_RF \
-            --code BK_RF --code GK_RF --code GK_RF_2 --code KONST_RF
+            --codes NK_RF NK_RF_2 APK_RF KoAP_RF BK_RF GK_RF GK_RF_2 KONST_RF
       - name: Dry-run the only Law7 mirror writer
         run: python scripts/law7_mirror_import.py --input verified-tax-core.json
       - name: Verify payload equals the Preview-audited corpus
