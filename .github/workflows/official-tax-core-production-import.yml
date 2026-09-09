@@ -1,0 +1,60 @@
+name: Official Tax Core Production Import
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_url:
+        description: Signed URL to a reviewed official-tax-core JSON manifest
+        required: true
+        type: string
+      apply_to_production:
+        description: Write to Production after validation
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    if: ${{ inputs.apply_to_production }}
+    runs-on: ubuntu-latest
+    environment: Production
+    env:
+      DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL driver
+        run: python -m pip install --disable-pip-version-check "psycopg[binary]==3.2.3"
+      - name: Fetch reviewed manifest
+        env:
+          MANIFEST_URL: ${{ inputs.manifest_url }}
+        run: |
+          case "$MANIFEST_URL" in
+            https://*) ;;
+            *) echo "manifest_url must be HTTPS" >&2; exit 1 ;;
+          esac
+          curl --fail --location --silent --show-error "$MANIFEST_URL" -o official-tax-core.json
+      - name: Validate manifest
+        run: python scripts/official_tax_core_import.py --input official-tax-core.json
+      - name: Import official Tax Core
+        run: python scripts/official_tax_core_import.py --input official-tax-core.json --apply
+      - name: Post-import audit
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg
+          with psycopg.connect(os.environ["DATABASE_URL"]) as conn, conn.cursor() as cur:
+              cur.execute("""
+                select source_type, count(*)
+                from public.legal_knowledge_chunks
+                where metadata->>'source_namespace' = 'official_tax_core'
+                group by source_type order by source_type
+              """)
+              for source_type, count in cur.fetchall():
+                  print(f"{source_type}={count}")
+          PY
