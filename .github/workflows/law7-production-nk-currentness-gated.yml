@@ -1,0 +1,246 @@
+name: Law7 Production NK Currentness-Gated Import
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: "Exact immutable Law7 commit or verified backup SHA256"
+        required: true
+        type: string
+      expected_payload_sha256:
+        description: "SHA256 of the reviewed normalized NK I/II JSON"
+        required: true
+        type: string
+      verified_as_of:
+        description: "Date when the consolidated text was checked against official acts (YYYY-MM-DD)"
+        required: true
+        type: string
+      verification_reference:
+        description: "Review record or artifact identifying the official verification evidence"
+        required: true
+        type: string
+      apply_to_production:
+        description: "Run the existing KATI mirror importer against Production"
+        required: true
+        default: false
+        type: boolean
+      confirmation:
+        description: "For apply, enter exactly IMPORT_NK_RF_AND_NK_RF_2"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  EXPORT_PATH: ${{ runner.temp }}/law7_nk_rf_currentness_gated.json
+
+jobs:
+  export-and-currentness-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL client dependency
+        run: python -m pip install "psycopg[binary]>=3.2,<4"
+      - name: Export only NK RF parts I and II from the source in read-only mode
+        env:
+          LAW7_SOURCE_DATABASE_URL: ${{ secrets.LAW7_SOURCE_DATABASE_URL }}
+          LAW7_SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: >-
+          python scripts/law7_controlled_export.py
+          --output "$EXPORT_PATH"
+          --codes NK_RF NK_RF_2
+      - name: Validate with the existing KATI importer contract
+        run: python scripts/law7_mirror_import.py --input "$EXPORT_PATH"
+      - name: Fail closed on identity, integrity, freshness attestation and reviewed hash
+        env:
+          EXPECTED_PAYLOAD_SHA256: ${{ inputs.expected_payload_sha256 }}
+          VERIFIED_AS_OF: ${{ inputs.verified_as_of }}
+          VERIFICATION_REFERENCE: ${{ inputs.verification_reference }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        shell: bash
+        run: |
+          python - "$EXPORT_PATH" <<'PY'
+          import datetime as dt
+          import hashlib
+          import json
+          import os
+          import re
+          import sys
+          from collections import Counter
+
+          path = sys.argv[1]
+          raw = open(path, "rb").read()
+          actual_hash = hashlib.sha256(raw).hexdigest()
+          expected_hash = os.environ["EXPECTED_PAYLOAD_SHA256"].strip().lower()
+          if not re.fullmatch(r"[0-9a-f]{64}", expected_hash):
+              raise SystemExit("expected_payload_sha256 must be exactly 64 lowercase hex characters")
+          if actual_hash != expected_hash:
+              raise SystemExit(f"reviewed payload hash mismatch: expected {expected_hash}, got {actual_hash}")
+
+          verified_as_of = dt.date.fromisoformat(os.environ["VERIFIED_AS_OF"].strip())
+          today = dt.date.today()
+          age = (today - verified_as_of).days
+          if age < 0 or age > 14:
+              raise SystemExit(f"official actuality attestation is outside the 14-day gate: age={age}")
+          if not os.environ["VERIFICATION_REFERENCE"].strip():
+              raise SystemExit("verification_reference is required")
+
+          payload = json.loads(raw)
+          if payload.get("dataset_key") != "law7_codes":
+              raise SystemExit("dataset_key must be law7_codes")
+          if payload.get("source_commit", "").lower() != os.environ["SOURCE_COMMIT"].strip().lower():
+              raise SystemExit("payload source_commit does not match workflow input")
+
+          codes = payload.get("codes", [])
+          code_ids = {str(row.get("code", "")).strip() for row in codes}
+          if code_ids != {"NK_RF", "NK_RF_2"}:
+              raise SystemExit(f"payload must contain exactly NK_RF and NK_RF_2, got {sorted(code_ids)}")
+
+          expected_identity = {
+              "NK_RF": ("146", "1998-07-31"),
+              "NK_RF_2": ("117", "2000-08-05"),
+          }
+          for row in codes:
+              code = row["code"]
+              eo = str(row.get("original_eo_number") or "")
+              if expected_identity[code][0] not in eo:
+                  raise SystemExit(f"{code}: wrong or missing originating federal-law number")
+              if row.get("original_date") != expected_identity[code][1]:
+                  raise SystemExit(f"{code}: wrong originating federal-law date")
+              official_url = str(row.get("official_url") or "").lower()
+              if not (
+                  official_url.startswith("https://pravo.gov.ru/")
+                  or official_url.startswith("https://publication.pravo.gov.ru/")
+              ):
+                  raise SystemExit(f"{code}: official_url must identify an official pravo.gov.ru resource")
+
+          versions = payload.get("article_versions", [])
+          if not versions:
+              raise SystemExit("article_versions must not be empty")
+          keys = set()
+          current_counts = Counter()
+          current_by_code = Counter()
+          for row in versions:
+              code = str(row.get("code_id") or "")
+              article = str(row.get("article_number") or "").strip()
+              version_date = str(row.get("version_date") or "")
+              text = str(row.get("article_text") or "").strip()
+              key = (code, article, version_date)
+              if code not in code_ids or not article or not text:
+                  raise SystemExit(f"invalid or orphan article version: {key}")
+              if key in keys:
+                  raise SystemExit(f"duplicate article version: {key}")
+              keys.add(key)
+              digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+              if str(row.get("text_hash") or "").lower() != digest:
+                  raise SystemExit(f"text hash mismatch: {key}")
+              if row.get("is_current") is True:
+                  current_counts[(code, article)] += 1
+                  current_by_code[code] += 1
+
+          duplicates = [key for key, count in current_counts.items() if count > 1]
+          if duplicates:
+              raise SystemExit(f"multiple current versions: {duplicates[:10]}")
+          if set(current_by_code) != code_ids:
+              raise SystemExit("each NK part must contain at least one current article")
+
+          print(json.dumps({
+              "payload_sha256": actual_hash,
+              "verified_as_of": verified_as_of.isoformat(),
+              "verification_reference": os.environ["VERIFICATION_REFERENCE"],
+              "codes": len(codes),
+              "article_versions": len(versions),
+              "amendments": len(payload.get("amendments", [])),
+              "source_use": "still requires KATI verification/actuality/temporal gates",
+          }, ensure_ascii=False))
+          PY
+      - name: Upload the exact reviewed normalized payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: law7-nk-rf-currentness-gated-${{ inputs.source_commit }}
+          path: ${{ env.EXPORT_PATH }}
+          retention-days: 1
+
+  apply-and-read-only-audit:
+    if: ${{ inputs.apply_to_production }}
+    needs: export-and-currentness-gate
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL client dependency
+        run: python -m pip install "psycopg[binary]>=3.2,<4"
+      - name: Enforce explicit Production confirmation
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: test "$CONFIRMATION" = "IMPORT_NK_RF_AND_NK_RF_2"
+      - name: Refuse a missing dedicated Production database secret
+        env:
+          PRODUCTION_DB: ${{ secrets.LAW7_PRODUCTION_MIRROR_DATABASE_URL }}
+        run: test -n "$PRODUCTION_DB"
+      - name: Re-export exact NK I/II source data read-only
+        env:
+          LAW7_SOURCE_DATABASE_URL: ${{ secrets.LAW7_SOURCE_DATABASE_URL }}
+          LAW7_SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: >-
+          python scripts/law7_controlled_export.py
+          --output "$EXPORT_PATH"
+          --codes NK_RF NK_RF_2
+      - name: Recheck reviewed payload SHA256 immediately before apply
+        env:
+          EXPECTED_PAYLOAD_SHA256: ${{ inputs.expected_payload_sha256 }}
+        run: test "$(sha256sum "$EXPORT_PATH" | cut -d' ' -f1)" = "$EXPECTED_PAYLOAD_SHA256"
+      - name: Apply through the existing and only KATI mirror writer
+        env:
+          DATABASE_URL: ${{ secrets.LAW7_PRODUCTION_MIRROR_DATABASE_URL }}
+        run: python scripts/law7_mirror_import.py --input "$EXPORT_PATH" --apply
+      - name: Read-only post-import audit
+        env:
+          DATABASE_URL: ${{ secrets.LAW7_PRODUCTION_MIRROR_DATABASE_URL }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import psycopg
+
+          with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+              conn.execute("set transaction read only")
+              with conn.cursor() as cur:
+                  cur.execute(
+                      """
+                      select status, source_commit, codes_count, article_versions_count,
+                             amendments_count
+                      from law7_mirror.sync_state
+                      where dataset_key = 'law7_codes'
+                      """
+                  )
+                  sync = cur.fetchone()
+                  cur.execute(
+                      "select code, count(*) from law7_mirror.article_versions "
+                      "where code_id in ('NK_RF','NK_RF_2') group by code order by code"
+                  )
+                  counts = cur.fetchall()
+              conn.rollback()
+
+          if not sync or sync[0] != "completed":
+              raise SystemExit("Production sync_state is not completed")
+          if str(sync[1]).lower() != os.environ["SOURCE_COMMIT"].strip().lower():
+              raise SystemExit("Production source_commit mismatch")
+          if {row[0] for row in counts} != {"NK_RF", "NK_RF_2"}:
+              raise SystemExit("Production does not contain both NK parts")
+          print(json.dumps({
+              "sync_state": sync,
+              "article_versions_by_code": counts,
+              "audit_mode": "read_only",
+              "substantive_use_granted": False,
+          }, ensure_ascii=False, default=str))
+          PY
