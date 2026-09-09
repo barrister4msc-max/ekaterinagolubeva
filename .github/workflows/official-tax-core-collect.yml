@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install official-document text extractors
+        run: sudo apt-get update && sudo apt-get install --yes antiword poppler-utils
       - name: Fetch source seed
         env:
           SEED_URL: ${{ inputs.seed_url }}
