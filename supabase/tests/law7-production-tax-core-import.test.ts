@@ -12,12 +12,22 @@ describe("Law7 Production TAX CORE import gate", () => {
     expect(gate).toContain('EXPECTED_COUNTS = {"codes": 8, "article_versions": 2866, "amendments": 0}');
     expect(gate).toContain("article text_hash does not match article_text");
   });
-  test("does not introduce another mirror writer", () => {
+  test("reconstructs the read-only source from the exact immutable backup", () => {
+    expect(workflow).not.toContain("secrets.LAW7_SOURCE_DATABASE_URL");
+    expect(workflow).toContain("1DPLpFpuwUZbLZEGo2TxnCAcLRdb2V1aD");
+    expect(workflow).toContain('test "$(sha256sum law7-backup.tar.gz');
+    expect(workflow).toContain("postgresql/law7.dump");
+    expect(workflow).toContain("--table=public.consolidated_codes");
+    expect(workflow).toContain("--table=public.code_article_versions");
+    expect(workflow).toContain("--table=public.amendment_applications");
+    expect(workflow).toContain("SET TRANSACTION READ ONLY".toLowerCase());
+  });
+  test("does not introduce another Production mirror writer", () => {
     expect(gate).toContain("set transaction read only");
     expect(gate).not.toMatch(/\b(insert|update|delete|truncate|alter|create)\b/i);
-    expect(workflow).not.toContain("psql");
-    expect(workflow).not.toContain("supabase db");
     expect(workflow).toContain("scripts/law7_mirror_import.py --input verified-tax-core.json --apply");
+    expect(workflow).not.toContain("psql \"$DATABASE_URL\"");
+    expect(workflow).not.toContain("pg_restore --dbname \"$DATABASE_URL\"");
   });
   test("requires manual main-branch confirmation and protected environment", () => {
     expect(workflow).toContain("workflow_dispatch:");
@@ -27,7 +37,7 @@ describe("Law7 Production TAX CORE import gate", () => {
     expect(workflow).toContain("LAW7_PRODUCTION_MIRROR_DATABASE_URL");
     expect(workflow).toContain("cancel-in-progress: false");
   });
-  test("is a pure audit contract, not an import", () => {
+  test("rejects a partial mirror before the sole writer could run", () => {
     const script = "import importlib.util; s=importlib.util.spec_from_file_location('g','scripts/law7_tax_core_production_gate.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); a={'contract_present':True,'codes':1,'article_versions':0,'amendments':0,'status':'','source_repository':'','source_commit':''};\ntry:\n m.validate_preflight(a)\nexcept ValueError:\n raise SystemExit(0)\nraise SystemExit(1)";
     const result = spawnSync("python", ["-c", script], { encoding: "utf8" });
     expect(result.status).toBe(0);
