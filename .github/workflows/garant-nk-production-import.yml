@@ -1,0 +1,138 @@
+name: Guarded GARANT NK Production Import
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_odt_url:
+        description: "Signed URL to the user-uploaded ODT in KATI communication-attachments"
+        required: true
+        type: string
+      snapshot_date:
+        description: "Intake date to record in provenance (YYYY-MM-DD)"
+        required: true
+        type: string
+      confirm_license:
+        description: "Enter I_CONFIRM_LICENSED_GARANT_INTERNAL_USE exactly"
+        required: true
+        type: string
+      apply_to_production:
+        description: "Write the validated 799-article snapshot to the existing internal KB"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_ODT_SHA256: f5c87e70bb16c38165e978f2416978fd9eb8bad5ff0b17d2835623346429226f
+  SOURCE_URL_PREFIX: https://wiylzbdbjokignwvizxt.supabase.co/storage/v1/object/sign/communication-attachments/
+  ARTIFACT_NAME: garant-nk-validated-payload
+
+jobs:
+  stage-and-validate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Refuse a non-KATI storage URL or missing license confirmation
+        env:
+          SOURCE_ODT_URL: ${{ inputs.source_odt_url }}
+          CONFIRM_LICENSE: ${{ inputs.confirm_license }}
+        shell: bash
+        run: |
+          test "$CONFIRM_LICENSE" = "I_CONFIRM_LICENSED_GARANT_INTERNAL_USE"
+          case "$SOURCE_ODT_URL" in
+            "$SOURCE_URL_PREFIX"*) ;;
+            *) echo "source_odt_url must be a signed KATI communication-attachments URL" >&2; exit 1 ;;
+          esac
+      - name: Download and pin the exact user-supplied ODT
+        env:
+          SOURCE_ODT_URL: ${{ inputs.source_odt_url }}
+        shell: bash
+        run: |
+          curl --fail --location --proto '=https' --tlsv1.2             --output "$RUNNER_TEMP/garant-nk.odt" "$SOURCE_ODT_URL"
+          actual="$(sha256sum "$RUNNER_TEMP/garant-nk.odt" | awk '{print $1}')"
+          test "$actual" = "$EXPECTED_ODT_SHA256"
+      - name: Convert deterministically and validate the admission contract
+        shell: bash
+        run: |
+          python scripts/garant_odt_nk_export.py             --input "$RUNNER_TEMP/garant-nk.odt"             --output "$RUNNER_TEMP/garant-nk.json"             --snapshot-date "${{ inputs.snapshot_date }}"
+          python scripts/garant_nk_internal_kb_import.py             --input "$RUNNER_TEMP/garant-nk.json"
+          python - "$RUNNER_TEMP/garant-nk.json" <<'PY'
+          import json, sys
+          payload = json.load(open(sys.argv[1], encoding="utf-8"))
+          counts = {}
+          for row in payload["article_versions"]:
+              counts[row["code_id"]] = counts.get(row["code_id"], 0) + 1
+          assert counts == {"NK_RF": 273, "NK_RF_2": 526}, counts
+          assert payload["provenance"]["substantive_use_allowed"] is False
+          print({"rows": sum(counts.values()), "counts": counts})
+          PY
+      - name: Retain only the validated private payload for this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/garant-nk.json
+          retention-days: 1
+          if-no-files-found: error
+
+  apply-and-audit:
+    if: ${{ inputs.apply_to_production && github.ref == 'refs/heads/main' }}
+    needs: stage-and-validate
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install the PostgreSQL driver
+        run: python -m pip install "psycopg[binary]>=3.2,<4"
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/payload
+      - name: Refuse a missing internal-KB connection
+        env:
+          DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
+        shell: bash
+        run: test -n "$DATABASE_URL"
+      - name: Apply only through the guarded internal-KB writer
+        env:
+          DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
+        run: >-
+          python scripts/garant_nk_internal_kb_import.py
+          --input "${{ runner.temp }}/payload/garant-nk.json"
+          --apply
+          --confirm-license I_CONFIRM_LICENSED_GARANT_INTERNAL_USE
+      - name: Read-only post-import audit
+        env:
+          DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg
+
+          with psycopg.connect(os.environ["DATABASE_URL"]) as connection:
+              with connection.cursor() as cursor:
+                  cursor.execute("""
+                    select
+                      count(*) as total,
+                      count(*) filter (where part = 'I') as part_i,
+                      count(*) filter (where part = 'II') as part_ii,
+                      count(*) filter (where metadata->>'substantive_use_allowed' = 'false') as retrieval_only
+                    from public.legal_law_chunks
+                    where metadata->>'source_namespace' = 'garant_user_supplied_nk'
+                  """)
+                  total, part_i, part_ii, retrieval_only = cursor.fetchone()
+          expected = (799, 273, 526, 799)
+          actual = (total, part_i, part_ii, retrieval_only)
+          if actual != expected:
+              raise SystemExit(f"post-import audit failed: {actual!r}, expected {expected!r}")
+          print({"total": total, "part_i": part_i, "part_ii": part_ii,
+                 "retrieval_only": retrieval_only, "law7_mirror_touched": False})
+          PY
