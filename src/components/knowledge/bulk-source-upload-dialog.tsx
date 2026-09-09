@@ -135,7 +135,7 @@ export function BulkSourceUploadDialog({ onCreated }: { onCreated?: () => void }
     if (!lastGroupId) return;
     try {
       await approveBatch({ data: { source_group_id: lastGroupId } });
-      toast.success("Партия одобрена (official_verified)");
+      toast.success("Партия допущена в рабочий контекст");
       onCreated?.();
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -166,7 +166,7 @@ export function BulkSourceUploadDialog({ onCreated }: { onCreated?: () => void }
 
         <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
           <AlertTriangle size={14} className="mt-0.5 text-amber-600" />
-          <div>Партия загружается под одним <code>source_group_id</code>. Одобрение/деактивация применяется ко всей партии.</div>
+          <div>Партия загружается под одним <code>source_group_id</code>. Допуск/деактивация применяется ко всей партии. Допуск — это рабочий контекст, а не верификация официального источника.</div>
         </div>
 
         <div>
@@ -225,7 +225,7 @@ export function BulkSourceUploadDialog({ onCreated }: { onCreated?: () => void }
           <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs">
             <div className="mb-2">Загружено источников: <b>{lastCount}</b>. Group: <code>{lastGroupId}</code></div>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={approve}><CheckCircle2 size={14} /> Одобрить всю партию</Button>
+              <Button size="sm" onClick={approve}><CheckCircle2 size={14} /> Допустить в рабочий контекст</Button>
               <Button size="sm" variant="outline" onClick={deactivate}><Power size={14} /> Деактивировать всю партию</Button>
             </div>
           </div>
