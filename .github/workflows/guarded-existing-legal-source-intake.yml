@@ -25,15 +25,32 @@ permissions:
   contents: read
 
 jobs:
+  validate_dispatch:
+    name: Fail-closed dispatch validation
+    runs-on: ubuntu-latest
+    env:
+      CONFIRM_INTAKE: ${{ inputs.confirm_intake }}
+      EXPECTED_SHA256: ${{ inputs.manifest_sha256 }}
+      APPLY_TO_PRODUCTION: ${{ inputs.apply_to_production }}
+    steps:
+      - name: Require main, explicit write intent, confirmation and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF}" = "refs/heads/main"
+          test "${APPLY_TO_PRODUCTION}" = "true"
+          test "${CONFIRM_INTAKE}" = "I_CONFIRM_USER_SUPPLIED_RETRIEVAL_INTAKE"
+          [[ "${EXPECTED_SHA256}" =~ ^[0-9a-fA-F]{64}$ ]]
+
   intake:
     name: Guarded existing Storage intake
+    needs: validate_dispatch
     runs-on: ubuntu-latest
     environment: Production
-    if: ${{ inputs.apply_to_production }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.apply_to_production }}
     env:
       MANIFEST_URL: ${{ inputs.manifest_url }}
       EXPECTED_SHA256: ${{ inputs.manifest_sha256 }}
-      CONFIRM_INTAKE: ${{ inputs.confirm_intake }}
       DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
     steps:
       - uses: actions/checkout@v4
@@ -44,14 +61,6 @@ jobs:
 
       - name: Install PostgreSQL driver
         run: python -m pip install --disable-pip-version-check "psycopg[binary]>=3.2,<4"
-
-      - name: Require exact confirmation and a safe manifest hash
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "${CONFIRM_INTAKE}" = "I_CONFIRM_USER_SUPPLIED_RETRIEVAL_INTAKE"
-          [[ "${EXPECTED_SHA256}" =~ ^[0-9a-fA-F]{64}$ ]]
-
       - name: Fetch and verify manifest
         shell: bash
         run: |
@@ -92,6 +101,7 @@ jobs:
                   select
                     count(distinct metadata->>'source_group_id'),
                     count(*),
+                    count(*) filter (where (metadata->>'is_source_head') = 'true'),
                     bool_and((metadata->>'source_class') = 'user_supplied_retrieval_snapshot'),
                     bool_and((metadata->>'official_origin_verified') = 'false'),
                     bool_and((metadata->>'content_verified') = 'false'),
@@ -102,12 +112,14 @@ jobs:
                   """,
                   (group_ids,),
               )
-              groups, chunks, source_class_ok, origin_ok, content_ok, substantive_ok, generation_ok = cur.fetchone()
+              groups, chunks, source_heads, source_class_ok, origin_ok, content_ok, substantive_ok, generation_ok = cur.fetchone()
           assert groups == len(rows), f"expected {len(rows)} source groups, got {groups}"
+          assert source_heads == len(rows), f"expected {len(rows)} source heads, got {source_heads}"
           assert chunks == sum(len(row["chunks"]) for row in rows), "chunk count mismatch"
           assert all((source_class_ok, origin_ok, content_ok, substantive_ok, generation_ok)), "fail-closed audit failed"
           print(json.dumps({
               "source_groups": groups,
+              "source_heads": source_heads,
               "chunks": chunks,
               "fail_closed": True,
               "legal_law_chunks_touched": False,
