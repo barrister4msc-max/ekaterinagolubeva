@@ -6,6 +6,8 @@ on:
       - 'scripts/backfill_legal_embeddings.py'
       - 'supabase/functions/analyze-document-legal-position/internal-source-runtime-verification.ts'
       - 'supabase/functions/analyze-document-legal-position/internal-source-runtime-verification.test.ts'
+      - 'supabase/functions/analyze-document-legal-position/official-collector-artifacts.ts'
+      - 'supabase/functions/analyze-document-legal-position/official-collector-artifacts.test.ts'
       - '.github/workflows/legal-source-index-freshness-tests.yml'
 
 permissions:
@@ -23,6 +25,6 @@ jobs:
       - name: Install JS dependencies
         run: bun install --frozen-lockfile
       - name: Runtime verification contract tests
-        run: bun test supabase/functions/analyze-document-legal-position/internal-source-runtime-verification.test.ts
+        run: bun test supabase/functions/analyze-document-legal-position/internal-source-runtime-verification.test.ts supabase/functions/analyze-document-legal-position/official-collector-artifacts.test.ts
       - name: Embedding worker syntax check
         run: python -m py_compile scripts/backfill_legal_embeddings.py
