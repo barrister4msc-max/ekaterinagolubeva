@@ -59,7 +59,14 @@ def test_attachment_and_inline_share_identity() -> None:
     check(records[0]["source_file_sha256"] and not records[1]["source_file_sha256"], "attachment and inline hashes were conflated")
 
 
-def test_fail_closed_only_when_both_representations_absent() -> None:
+def def test_malformed_html_and_vsrf_discovery_patterns() -> None:
+    broken = ("<div class='publication-content'><p>Письмо ФНС " + ("налоговый текст " * 120) + "<br><p>конец").encode()
+    check(collector.has_substantive_official_text(collector.extract_official_text(broken)), "unbalanced official HTML was discarded")
+    check(collector.is_vsrf_detail_url("https://vsrf.ru/documents/own/12345/"), "published VSRF detail URL rejected")
+    check(not collector.is_vsrf_detail_url("https://vsrf.ru/documents/own/?category=made_up"), "VSRF catalogue listing treated as detail")
+
+
+test_fail_closed_only_when_both_representations_absent() -> None:
     check(not collector.has_substantive_official_text("Короткая карточка"), "short card must not pass as full document")
     check(collector.is_allowed("fns", "https://www.nalog.gov.ru/rn77/about_fts/about_nalog/10687108/"), "official host rejected")
     check(not collector.is_allowed("fns", "https://example.invalid/document.docx"), "foreign host accepted")
@@ -80,4 +87,4 @@ test_inline_text_only()
 test_attachment_and_inline_share_identity()
 test_fail_closed_only_when_both_representations_absent()
 test_output_columns_match_manifest_contract()
-print("4 pass")
+print("5 pass")
