@@ -302,6 +302,15 @@ export function mergeOfficialWithLocalSources(
     if (local && safety?.official_origin_verified) {
       linked++;
       local.official_url = official.official_url;
+      // This is a run-local freshness producer, not a persistent mutation.
+      // #167's sole consumer-side admission gate reads these projected fields
+      // only after canonical metadata has been carried into TrustedSource.
+      const freshnessStatus =
+        safety.actuality_status === "verified"
+          ? "verified"
+          : safety.actuality_status === "not_applicable"
+            ? "not_applicable"
+            : "verification_unavailable";
       local.metadata = {
         ...local.metadata,
         canonical_document_key: key,
@@ -309,6 +318,15 @@ export function mergeOfficialWithLocalSources(
         official_retrieved_at: official.metadata?.retrieved_at,
         official_verification: safety,
         official_publication_url: official.official_url,
+        official_origin_verified: safety.official_origin_verified,
+        content_verified: safety.content_verified,
+        temporal_verified:
+          safety.actuality_status === "verified" ||
+          safety.actuality_status === "not_applicable",
+        substantive_use_allowed: safety.substantive_use_allowed,
+        freshness_status: freshnessStatus,
+        source_checked_at:
+          s(official.metadata?.retrieved_at) ?? s(local.metadata.source_checked_at),
       };
       recordProvenance(local, official);
       continue;
