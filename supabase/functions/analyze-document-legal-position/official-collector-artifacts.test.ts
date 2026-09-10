@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { searchOfficialCollectorArtifacts } from "./official-collector-artifacts.ts";
+import { applyRuntimeSourceAdmission } from "./source-use-admission.ts";
 
 function chain(result: any[]) {
   const api: any = {
@@ -149,4 +150,48 @@ test("non-official host cannot self-promote even with positive metadata", async 
     substantive_use_allowed: false,
     verification_level: "discovery",
   });
+});
+
+
+test("synthetic tax issue admits all four verified families and blocks missing official evidence", async () => {
+  const law = {
+    source_ref: "law:nk:54.1",
+    source_id: "law-54.1",
+    metadata: {
+      substantive_use_allowed: true,
+      content_verified: true,
+      temporal_verified: true,
+      freshness_status: "verified",
+    },
+  };
+  const court = await searchOfficialCollectorArtifacts(
+    fakeSb([artifact("vsrf_plenum")], [registry("vsrf_plenum", "vsrf")]),
+    query,
+    "court_practice",
+  );
+  const fns = await searchOfficialCollectorArtifacts(
+    fakeSb([artifact("fns_letter")], [registry("fns_letter", "fns")]),
+    query,
+    "fns_letters",
+  );
+  const minfin = await searchOfficialCollectorArtifacts(
+    fakeSb([artifact("minfin_letter")], [registry("minfin_letter", "minfin")]),
+    query,
+    "minfin_letters",
+  );
+  const missing = await searchOfficialCollectorArtifacts(fakeSb([], []), query, "fns_letters");
+
+  const sources = applyRuntimeSourceAdmission([
+    law,
+    ...court.sources,
+    ...fns.sources,
+    ...minfin.sources,
+  ] as any);
+
+  expect(sources).toHaveLength(4);
+  expect(sources.every((source: any) => source.use_in_generation === true)).toBe(true);
+  expect(sources.every((source: any) => source.metadata.source_use_admission.status === "admitted")).toBe(true);
+  expect(missing.coverage_gaps).toEqual([
+    { bucket: "fns_letters", reason: "official_collector_result_missing" },
+  ]);
 });
