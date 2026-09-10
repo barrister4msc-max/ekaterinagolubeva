@@ -39,6 +39,11 @@ function bool(value: unknown): boolean {
   return value === true || value === "true";
 }
 
+function registryId(meta: Record<string, unknown>): string | null {
+  return str(meta.legal_source_registry_id, meta.source_registry_id);
+}
+
+
 function searchTerms(query: ResearchQuery): string[] {
   const raw = [
     ...(query.articles ?? []),
@@ -179,7 +184,7 @@ export async function searchOfficialCollectorArtifacts(
   }
 
   const registryIds = chunks
-    .map((row) => str((row.metadata ?? {}).source_registry_id))
+    .map((row) => registryId((row.metadata ?? {}) as Record<string, unknown>))
     .filter((value): value is string => Boolean(value));
   if (registryIds.length === 0) {
     return {
@@ -197,8 +202,8 @@ export async function searchOfficialCollectorArtifacts(
   const sources: OfficialSourceResult[] = [];
   for (const chunk of chunks) {
     const chunkMeta = (chunk.metadata ?? {}) as Record<string, unknown>;
-    const registryId = str(chunkMeta.source_registry_id);
-    const registry = registryId ? registryById.get(registryId) as Record<string, unknown> | undefined : undefined;
+    const linkedRegistryId = registryId(chunkMeta);
+    const registry = linkedRegistryId ? registryById.get(linkedRegistryId) as Record<string, unknown> | undefined : undefined;
     if (!registry) continue;
     const canonicalKey = registryCanonicalKey(supported, registry);
     if (!canonicalKey) continue;
@@ -221,7 +226,7 @@ export async function searchOfficialCollectorArtifacts(
         provider_id: EXPECTED_PROVIDER[supported],
         collector_artifact: true,
         source_namespace: "official_tax_core",
-        source_registry_id: registryId,
+        legal_source_registry_id: linkedRegistryId,
         canonical_document_key: canonicalKey,
         document_number: documentNumber,
         document_date: publicationDate,
