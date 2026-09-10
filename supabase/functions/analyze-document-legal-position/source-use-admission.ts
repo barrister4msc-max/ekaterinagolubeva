@@ -5,7 +5,8 @@ export type SourceAdmissionStatus =
   | "retrieval_only"
   | "verification_unavailable"
   | "temporal_unresolved"
-  | "outdated";
+  | "outdated"
+  | "freshness_unresolved";
 
 function bool(value: unknown): boolean | null {
   return typeof value === "boolean" ? value : value === "true" ? true : value === "false" ? false : null;
@@ -41,18 +42,23 @@ export function applyRuntimeSourceAdmission(sources: TrustedSource[]): TrustedSo
     const temporal = bool(value(record, meta, "temporal_verified"));
     const freshness = String(value(record, meta, "freshness_status") ?? "").trim();
 
+    const freshnessVerified =
+      freshness === "current" ||
+      freshness === "verified" ||
+      freshness === "not_applicable";
+
     const admitted =
       substantive === true &&
       content === true &&
       temporal === true &&
-      freshness !== "outdated" &&
-      freshness !== "verification_unavailable";
+      freshnessVerified;
 
     let status: SourceAdmissionStatus;
     if (freshness === "outdated") status = "outdated";
     else if (freshness === "verification_unavailable") status = "verification_unavailable";
     else if (substantive !== true || content !== true) status = "retrieval_only";
     else if (temporal !== true) status = "temporal_unresolved";
+    else if (!freshnessVerified) status = "freshness_unresolved";
     else status = "admitted";
 
     return {
