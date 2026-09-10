@@ -13,6 +13,7 @@ import { executeResearchProvider, type ResearchProviderDiagnostics } from "./res
 import { SupabaseLaw7ResearchProvider, SupabaseLaw7Transport } from "./law7-supabase-transport.ts";
 import { applyLaw7OfficialVerification } from "./official-verification-resolver.ts";
 import { sourceFamilyMetadataForType, sourceTypesForBucket } from "./source-family-contract.ts";
+import { searchOfficialCollectorArtifacts } from "./official-collector-artifacts.ts";
 
 export type Bucket =
   | "laws"
@@ -302,6 +303,15 @@ export function mergeOfficialWithLocalSources(
     if (local && safety?.official_origin_verified) {
       linked++;
       local.official_url = official.official_url;
+      // This is a run-local freshness producer, not a persistent mutation.
+      // #167's sole consumer-side admission gate reads these projected fields
+      // only after canonical metadata has been carried into TrustedSource.
+      const freshnessStatus =
+        safety.actuality_status === "verified"
+          ? "verified"
+          : safety.actuality_status === "not_applicable"
+            ? "not_applicable"
+            : "verification_unavailable";
       local.metadata = {
         ...local.metadata,
         canonical_document_key: key,
@@ -309,6 +319,15 @@ export function mergeOfficialWithLocalSources(
         official_retrieved_at: official.metadata?.retrieved_at,
         official_verification: safety,
         official_publication_url: official.official_url,
+        official_origin_verified: safety.official_origin_verified,
+        content_verified: safety.content_verified,
+        temporal_verified:
+          safety.actuality_status === "verified" ||
+          safety.actuality_status === "not_applicable",
+        substantive_use_allowed: safety.substantive_use_allowed,
+        freshness_status: freshnessStatus,
+        source_checked_at:
+          s(official.metadata?.retrieved_at) ?? s(local.metadata.source_checked_at),
       };
       recordProvenance(local, official);
       continue;
@@ -543,13 +562,27 @@ export async function runAllRepositories(
   const searchOfficialPerIssue = async (): Promise<{
     sources: OfficialSourceResult[];
     diagnostics: OfficialSourceDiagnostics;
+    collector_found: number;
+    collector_coverage_gaps: number;
   }> => {
-    const questions = researchPlan.questions.filter((question) => question.buckets.includes("laws"));
+    const questions = researchPlan.questions;
     const results = await Promise.all(
-      questions.map(async (question) => ({
-        question,
-        result: await searchOfficialLegalSources(queryForQuestion(query, question)),
-      })),
+      questions.map(async (question) => {
+        const issueQuery = queryForQuestion(query, question);
+        const collectorBuckets = question.buckets.filter((bucket): bucket is "court_practice" | "fns_letters" | "minfin_letters" =>
+          bucket === "court_practice" || bucket === "fns_letters" || bucket === "minfin_letters"
+        );
+        const [result, ...collectorResults] = await Promise.all([
+          searchOfficialLegalSources(issueQuery),
+          ...collectorBuckets.map((bucket) => searchOfficialCollectorArtifacts(sb, issueQuery, bucket)),
+        ]);
+        return {
+          question,
+          result,
+          collectorSources: collectorResults.flatMap((item) => item.sources),
+          collectorCoverageGaps: collectorResults.flatMap((item) => item.coverage_gaps),
+        };
+      }),
     );
 
     const annotated: OfficialSourceResult[] = [];
@@ -559,15 +592,20 @@ export async function runAllRepositories(
     let pravoContextAttempted = 0;
     let pravoAmbiguous = 0;
     let registeredProviders = 0;
+    let collectorFound = 0;
+    let collectorCoverageGaps = 0;
 
-    for (const { question, result } of results) {
+    for (const { question, result, collectorSources, collectorCoverageGaps: gaps } of results) {
       enabled ||= result.diagnostics.enabled;
       pravoExactAttempted += result.diagnostics.pravo_exact_attempted;
       pravoContextAttempted += result.diagnostics.pravo_context_attempted;
       pravoAmbiguous += result.diagnostics.pravo_ambiguous;
       registeredProviders = Math.max(registeredProviders, result.diagnostics.registered_providers);
       failures.push(...result.diagnostics.failures.map((failure) => `${question.id}:${failure}`));
-      for (const source of result.sources) {
+      collectorFound += collectorSources.length;
+      collectorCoverageGaps += gaps.length;
+      failures.push(...gaps.map((gap) => `${question.id}:${gap.bucket}:${gap.reason}`));
+      for (const source of [...result.sources, ...collectorSources]) {
         annotated.push({
           ...source,
           metadata: {
@@ -590,11 +628,13 @@ export async function runAllRepositories(
 
     return {
       sources: merged,
+      collector_found: collectorFound,
+      collector_coverage_gaps: collectorCoverageGaps,
       diagnostics: {
         enabled,
         pravo_exact_attempted: pravoExactAttempted,
         pravo_context_attempted: pravoContextAttempted,
-        pravo_found: merged.length,
+        pravo_found: merged.filter((source) => source.metadata?.collector_artifact !== true).length,
         pravo_identity_verified: identityVerified,
         pravo_ambiguous: pravoAmbiguous,
         substantive_usable: substantiveUsable,
@@ -642,6 +682,8 @@ export async function runAllRepositories(
     official_pravo_found: official.diagnostics.pravo_found,
     official_pravo_identity_verified: official.diagnostics.pravo_identity_verified,
     official_pravo_ambiguous: official.diagnostics.pravo_ambiguous,
+    official_collector_sources_found: official.collector_found,
+    official_collector_coverage_gaps: official.collector_coverage_gaps,
     official_source_failures: official.diagnostics.failures.length,
     semantic_intents_count: query.semantic_intents?.length ?? 0,
     legal_concepts_count: query.legal_concepts?.length ?? 0,

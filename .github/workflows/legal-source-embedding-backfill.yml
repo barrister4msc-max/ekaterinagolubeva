@@ -1,0 +1,91 @@
+name: Guarded Legal Source Embedding Backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      table:
+        description: Target table
+        required: true
+        type: choice
+        options:
+          - legal_law_chunks
+          - legal_knowledge_chunks
+        default: legal_law_chunks
+      source_namespace:
+        description: Exact metadata.source_namespace to index
+        required: true
+        type: string
+        default: garant_user_supplied_nk
+      limit:
+        description: Maximum pending rows
+        required: true
+        type: number
+        default: 1000
+      apply_to_production:
+        description: Actually write embeddings in Production
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    environment: Production
+    env:
+      DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PostgreSQL driver
+        run: python -m pip install --disable-pip-version-check 'psycopg[binary]==3.2.3'
+      - name: Inspect pending rows only
+        run: >-
+          python scripts/backfill_legal_embeddings.py
+          --table '${{ inputs.table }}'
+          --source-namespace '${{ inputs.source_namespace }}'
+          --limit '${{ inputs.limit }}'
+
+  apply:
+    if: ${{ inputs.apply_to_production }}
+    needs: dry-run
+    runs-on: ubuntu-latest
+    environment: Production
+    env:
+      DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PostgreSQL driver
+        run: python -m pip install --disable-pip-version-check 'psycopg[binary]==3.2.3'
+      - name: Guarded embedding apply
+        run: >-
+          python scripts/backfill_legal_embeddings.py
+          --table '${{ inputs.table }}'
+          --source-namespace '${{ inputs.source_namespace }}'
+          --limit '${{ inputs.limit }}'
+          --apply
+      - name: Post-index audit
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg
+          ns = '${{ inputs.source_namespace }}'
+          table = '${{ inputs.table }}'
+          if table not in {'legal_law_chunks','legal_knowledge_chunks'}:
+              raise SystemExit('invalid table')
+          with psycopg.connect(os.environ['DATABASE_URL']) as conn, conn.cursor() as cur:
+              cur.execute(f'''select count(*) filter (where embedding is not null),
+                                     count(*) filter (where embedding is null)
+                              from public.{table}
+                              where metadata->>'source_namespace'=%s''', (ns,))
+              completed, pending = cur.fetchone()
+              print(f'namespace={ns} completed_embeddings={completed} pending_embeddings={pending}')
+          PY
