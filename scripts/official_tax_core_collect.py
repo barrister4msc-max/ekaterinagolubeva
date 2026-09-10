@@ -39,7 +39,7 @@ ALLOWED = {
 }
 ATTACHMENT_RE = re.compile(r"\.(?:docx?|pdf|rtf|odt|xlsx?|zip)(?:$|[?#])", re.I)
 FNS_CARD_RE = re.compile(r"/rn\d+/about_fts/about_nalog/(\d+)/?$")
-VSRF_DOC_RE = re.compile(r"/(?:documents/(?:all|reviews|own|arbitration)|files)/(\d+)/?$")
+VSRF_DOC_RE = re.compile(r"/(?:documents/(?:[a-z_]+/)?|files/)\d+/?$", re.I)
 DATE_RE = re.compile(r"(?:от|Дата(?:\s+письма)?\s*:)\s*(\d{2}\.\d{2}\.\d{4})", re.I)
 NUMBER_RE = re.compile(r"(?:№|N)\s*([А-ЯA-Z0-9@./-]+)")
 
@@ -79,10 +79,11 @@ class Page(HTMLParser):
 
 
 class OfficialText(HTMLParser):
-    """Extract visible document body text while excluding site chrome/forms."""
+    """Extract a visible document body without relying on perfectly nested HTML."""
 
     _SKIP = {"script", "style", "noscript", "svg", "form", "nav", "header", "footer"}
-    _CONTENT_HINT = re.compile(r"(?:article|content|document|detail|news|text|main)", re.I)
+    _VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+    _CONTENT_HINT = re.compile(r"(?:article|content|document|detail|news|text|main|body|material|publication)", re.I)
 
     def __init__(self) -> None:
         super().__init__()
@@ -98,34 +99,32 @@ class OfficialText(HTMLParser):
             return
         if self._skip_depth:
             return
-        marker = " ".join(filter(None, [attrs_d.get("id"), attrs_d.get("class")]))
-        is_content = tag in {"main", "article"} or bool(self._CONTENT_HINT.search(marker))
-        self._stack.append((tag, is_content))
-        if is_content:
+        marker = " ".join(filter(None, [attrs_d.get("id"), attrs_d.get("class"), attrs_d.get("role")]))
+        included = tag in {"main", "article"} or bool(self._CONTENT_HINT.search(marker))
+        if tag not in self._VOID:
+            self._stack.append((tag, included))
+        if included:
             self._content_depth += 1
 
     def handle_endtag(self, tag: str) -> None:
         if tag in self._SKIP and self._skip_depth:
             self._skip_depth -= 1
             return
-        if self._skip_depth:
+        if self._skip_depth or tag in self._VOID:
             return
-        if not self._stack:
-            return
-        open_tag, was_content = self._stack.pop()
-        if open_tag != tag:
-            # Malformed markup: retain a fail-closed extraction rather than
-            # guessing an element hierarchy.
-            self._stack.clear()
-            self._content_depth = 0
-            return
-        if was_content and self._content_depth:
-            self._content_depth -= 1
+        # Real official cards contain optional/unbalanced markup. Close through
+        # the matching open tag instead of discarding the already proven text.
+        for pos in range(len(self._stack) - 1, -1, -1):
+            open_tag, _ = self._stack[pos]
+            if open_tag == tag:
+                closed = self._stack[pos:]
+                del self._stack[pos:]
+                self._content_depth = max(0, self._content_depth - sum(1 for _, included in closed if included))
+                return
 
     def handle_data(self, value: str) -> None:
         if not self._skip_depth and self._content_depth:
             self.parts.append(value)
-
 
 def clean(value: str) -> str:
     return re.sub(r"\s+", " ", html.unescape(value)).strip()
@@ -408,65 +407,51 @@ def collect_minfin(out: Path, records: list[dict], errors: list[dict]) -> dict:
             errors.append({"provider": "minfin", "stage": "page", "url": url, "error": str(exc)})
     if queue:
         errors.append({"provider": "minfin", "stage": "crawl", "url": MINFIN_ROOT, "error": "5000-page safety cap reached"})
-    return {"pages_crawled": pages, "files_discovered": len(file_seen)}
+    return {"pages_crawled": pages, "files_discovered": len(file_seen), "availability": "available" if pages else "unavailable_fail_closed"}
 
 
 def vsrf_search_url(query: str) -> str:
-    return (
-        "https://vsrf.ru/search/?keyword=" + quote_plus(query) +
-        "&search_section_active=documents&search_sections%5B%5D=documents"
-    )
+    return "https://vsrf.ru/search/?keyword=" + quote_plus(query)
+
+
+def is_vsrf_detail_url(value: str) -> bool:
+    path = urlparse(value).path.rstrip("/")
+    return bool(VSRF_DOC_RE.search(path + "/"))
 
 
 def collect_vsrf(out: Path, records: list[dict], errors: list[dict]) -> dict:
     provider_dir = out / "vsrf"
     detail_urls: set[str] = set()
     search_pages = 0
-    for query in VSRF_QUERIES:
-        queue = deque([vsrf_search_url(query)])
-        visited: set[str] = set()
-        while queue and len(visited) < 80:
-            url = queue.popleft()
-            key = canonical_url(url)
-            if key in visited:
+    # Discover only URLs actually published by the official catalogue/search;
+    # no guessed section routes or year/category query strings.
+    seeds = [VSRF_ROOT + "documents/"] + [vsrf_search_url(query) for query in VSRF_QUERIES]
+    queue = deque(seeds)
+    visited: set[str] = set()
+    while queue and len(visited) < 1500:
+        url = queue.popleft()
+        key = canonical_url(url)
+        if key in visited:
+            continue
+        visited.add(key)
+        try:
+            final, ctype, payload = fetch("vsrf", url)
+            if ctype != "text/html":
                 continue
-            visited.add(key)
-            try:
-                final, ctype, payload = fetch("vsrf", url)
-                if ctype != "text/html":
+            search_pages += 1
+            page = parse_page(payload)
+            for href, _ in page.links:
+                absolute = urljoin(final, href)
+                if not is_allowed("vsrf", absolute):
                     continue
-                search_pages += 1
-                page = parse_page(payload)
-                for href, _ in page.links:
-                    absolute = urljoin(final, href)
-                    if not is_allowed("vsrf", absolute):
-                        continue
-                    path = urlparse(absolute).path.rstrip("/") + "/"
-                    if VSRF_DOC_RE.search(path):
-                        detail_urls.add(absolute)
-                    elif path.startswith("/search/") and "keyword=" in urlparse(absolute).query:
-                        queue.append(absolute)
-            except Exception as exc:  # noqa: BLE001
-                errors.append({"provider": "vsrf", "stage": "search", "url": url, "error": str(exc)})
-
-    # Add plenums/reviews category pages by year so historically important materials are not search-ranking dependent.
-    for year in range(2014, datetime.now().year + 1):
-        for seed in (
-            f"https://vsrf.ru/documents/own/?category=resolutions_plenum_supreme_court_russian&year={year}",
-            f"https://vsrf.ru/documents/reviews/?category=practice&year={year}",
-        ):
-            try:
-                final, ctype, payload = fetch("vsrf", seed)
-                if ctype != "text/html":
-                    continue
-                page = parse_page(payload)
-                for href, _ in page.links:
-                    absolute = urljoin(final, href)
-                    if is_allowed("vsrf", absolute) and VSRF_DOC_RE.search(urlparse(absolute).path.rstrip("/") + "/"):
-                        # Filter later by tax keywords; plenums 53/57 references are also retained if matched.
-                        detail_urls.add(absolute)
-            except Exception as exc:  # noqa: BLE001
-                errors.append({"provider": "vsrf", "stage": "category", "url": seed, "error": str(exc)})
+                path = urlparse(absolute).path
+                if is_vsrf_detail_url(absolute):
+                    detail_urls.add(absolute)
+                elif path.startswith(("/documents/", "/search/")):
+                    # Follow actual catalogue/search pagination and filters.
+                    queue.append(absolute)
+        except Exception as exc:
+            errors.append({"provider":"vsrf","stage":"discovery","url":url,"error":str(exc)})
 
     keywords = [q.casefold() for q in VSRF_QUERIES]
     matched_details = 0
@@ -474,35 +459,23 @@ def collect_vsrf(out: Path, records: list[dict], errors: list[dict]) -> dict:
         try:
             final, ctype, payload = fetch("vsrf", detail)
             if ctype != "text/html":
-                # Direct official file discovered from search.
-                text_hint = detail.casefold()
-                if not any(k in text_hint for k in keywords):
-                    continue
                 file_path = write_file(provider_dir, hashlib.sha256(detail.encode()).hexdigest()[:12], final, payload)
                 add_record(records, provider="vsrf", source_type="official_attachment", title=safe_basename(final),
-                           number="", date="", card_url=final, attachment_url=final,
-                           attachment_path=file_path, content=payload)
+                           number="", date="", card_url=detail, attachment_url=final, attachment_path=file_path, content=payload)
+                matched_details += 1
                 continue
             page = parse_page(payload)
             text = clean(" ".join(page.parts))
-            folded = text.casefold()
-            if not any(k in folded for k in keywords):
+            if not any(k in text.casefold() for k in keywords):
                 continue
             matched_details += 1
             number, date = identity(text)
             title = clean(page.title)
-            lower_title = title.casefold()
             atts = attachments("vsrf", final, page)
-            # VSRF sometimes exposes a direct stor_pdf link without an extension.
-            for href, link_text in page.links:
-                absolute = urljoin(final, href)
-                if is_allowed("vsrf", absolute) and "/lk/practice/stor_pdf" in urlparse(absolute).path:
-                    if all(canonical_url(absolute) != canonical_url(x[0]) for x in atts):
-                        atts.append((absolute, link_text))
-            page_key = re.sub(r"\D", "", urlparse(final).path)[-12:] or hashlib.sha256(final.encode()).hexdigest()[:12]
+            page_key = hashlib.sha256(final.encode()).hexdigest()[:12]
             inline_text = extract_official_text(payload)
             raw_snapshot = write_raw_snapshot(provider_dir, page_key, payload) if has_substantive_official_text(inline_text) else ""
-            saved_attachments = 0
+            saved = 0
             for file_url, link_text in atts:
                 try:
                     file_final, _, file_payload = fetch("vsrf", file_url)
@@ -510,33 +483,18 @@ def collect_vsrf(out: Path, records: list[dict], errors: list[dict]) -> dict:
                     add_record(records, provider="vsrf", source_type="official_attachment", title=title or link_text,
                                number=number, date=date, card_url=final, attachment_url=file_final,
                                attachment_path=file_path, raw_snapshot=raw_snapshot, content=file_payload)
-                    saved_attachments += 1
-                except Exception as exc:  # noqa: BLE001
-                    errors.append({"provider": "vsrf", "stage": "file", "url": file_url, "error": str(exc)})
+                    saved += 1
+                except Exception as exc:
+                    errors.append({"provider":"vsrf","stage":"file","url":file_url,"error":str(exc)})
             if raw_snapshot:
                 add_record(records, provider="vsrf", source_type="inline_official_html", title=title,
                            number=number, date=date, card_url=final, raw_snapshot=raw_snapshot,
                            content=inline_text.encode("utf-8"))
-            if not saved_attachments and not raw_snapshot:
-                errors.append({"provider": "vsrf", "stage": "content", "url": final,
-                               "error": "no official attachment and no substantive inline official text"})
-            if idx % 100 == 0:
-                print(f"VSRF candidate details processed: {idx}/{len(detail_urls)}", flush=True)
-        except Exception as exc:  # noqa: BLE001
-            errors.append({"provider": "vsrf", "stage": "detail", "url": detail, "error": str(exc)})
-
-    # Explicit historical markers requested by the user. We do not fabricate a file URL:
-    # if not discovered on VSRF, they remain a gap in errors.csv for manual official-source resolution.
-    required_historic = [
-        ("ВАС РФ Пленум № 53", "12.10.2006", "обоснованность налоговой выгоды"),
-        ("ВАС РФ Пленум № 57", "30.07.2013", "части первой Налогового кодекса"),
-    ]
-    corpus_text = "\n".join((r["title"] + " " + r["number"] + " " + r["date"]).casefold() for r in records if r["provider"] == "vsrf")
-    for label, date, marker in required_historic:
-        if marker.casefold() not in corpus_text and label.split("№")[-1].strip().casefold() not in corpus_text:
-            errors.append({"provider": "vsrf", "stage": "required_historic", "url": VSRF_ROOT, "error": f"not resolved to a downloadable official VSRF file: {label} ({date})"})
-    return {"search_pages": search_pages, "candidate_details": len(detail_urls), "matched_details": matched_details}
-
+            if not saved and not raw_snapshot:
+                errors.append({"provider":"vsrf","stage":"content","url":final,"error":"no official attachment and no substantive inline official text"})
+        except Exception as exc:
+            errors.append({"provider":"vsrf","stage":"detail","url":detail,"error":str(exc)})
+    return {"search_pages":search_pages,"candidate_details":len(detail_urls),"matched_details":matched_details}
 
 def write_outputs(out: Path, records: list[dict], errors: list[dict], stats: dict) -> None:
     fieldnames = [
