@@ -1,0 +1,25 @@
+name: User Supplied Legal Source Intake Tests
+
+on:
+  pull_request:
+    paths:
+      - "scripts/user_supplied_legal_source_intake.py"
+      - "scripts/test_user_supplied_legal_source_intake.py"
+      - ".github/workflows/user-supplied-legal-source-intake-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile importer
+        run: python -m py_compile scripts/user_supplied_legal_source_intake.py
+      - name: Run contract tests
+        run: python scripts/test_user_supplied_legal_source_intake.py
