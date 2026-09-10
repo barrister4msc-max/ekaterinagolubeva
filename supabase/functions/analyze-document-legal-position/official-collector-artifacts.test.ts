@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { searchOfficialCollectorArtifacts } from "./official-collector-artifacts.ts";
+import { mergeOfficialWithLocalSources } from "./repositories.ts";
 import { applyRuntimeSourceAdmission } from "./source-use-admission.ts";
 
 function chain(result: any[]) {
@@ -181,13 +182,22 @@ test("synthetic tax issue admits all four verified families and blocks missing o
   );
   const missing = await searchOfficialCollectorArtifacts(fakeSb([], []), query, "fns_letters");
 
-  const sources = applyRuntimeSourceAdmission([
-    law,
-    ...court.sources,
-    ...fns.sources,
-    ...minfin.sources,
-  ] as any);
+  const officialSources = [...court.sources, ...fns.sources, ...minfin.sources];
+  const localSources = officialSources.map((official, index) => ({
+    bucket: official.bucket,
+    source_table: "legal_knowledge_chunks",
+    source_id: `local-${index}`,
+    source_type: official.source_type,
+    title: official.title,
+    official_url: null,
+    citation: official.citation,
+    snippet: "internal retrieval snapshot",
+    metadata: { canonical_document_key: official.metadata.canonical_document_key },
+  }));
+  const linked = mergeOfficialWithLocalSources(localSources as any, officialSources);
+  const sources = applyRuntimeSourceAdmission([law, ...linked.sources] as any);
 
+  expect(linked.linked).toBe(3);
   expect(sources).toHaveLength(4);
   expect(sources.every((source: any) => source.use_in_generation === true)).toBe(true);
   expect(sources.every((source: any) => source.metadata.source_use_admission.status === "admitted")).toBe(true);
