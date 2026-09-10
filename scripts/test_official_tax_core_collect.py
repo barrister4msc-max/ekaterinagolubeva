@@ -83,6 +83,13 @@ def test_output_columns_match_manifest_contract() -> None:
             check(field in headers, f"index.csv missing {field}")
 
 
+def test_malformed_html_and_vsrf_discovery_patterns() -> None:
+    broken = ("<div class='publication-content'><p>Письмо ФНС " + ("налоговый текст " * 120) + "<br><p>конец").encode()
+    extracted = collector.extract_official_text(broken)
+    check(collector.has_substantive_official_text(extracted), "unbalanced official HTML was discarded")
+    check(collector.is_vsrf_detail_url("https://vsrf.ru/documents/own/12345/"), "published VSRF detail URL rejected")
+    check(not collector.is_vsrf_detail_url("https://vsrf.ru/documents/own/?category=made_up"), "catalogue listing treated as detail")
+
 test_inline_text_only()
 test_attachment_and_inline_share_identity()
 test_fail_closed_only_when_both_representations_absent()
