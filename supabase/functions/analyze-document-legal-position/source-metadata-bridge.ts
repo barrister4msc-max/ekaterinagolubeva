@@ -314,6 +314,26 @@ export function projectRegistryMetadata(
       registry_official_status: text(registryMeta.official_status),
       registry_trust_level: text(registryMeta.trust_level),
       registry_legacy_verification_status: text(registryMeta.verification_status),
+      // Safety/temporal flags are projected verbatim; this bridge never
+      // upgrades a source. Their absence remains fail-closed at runtime.
+      official_origin_verified:
+        bool(registryMeta.official_origin_verified) ??
+        bool(source.metadata?.official_origin_verified),
+      content_verified:
+        bool(registryMeta.content_verified) ??
+        bool(source.metadata?.content_verified),
+      temporal_verified:
+        bool(registryMeta.temporal_verified) ??
+        bool(source.metadata?.temporal_verified),
+      substantive_use_allowed:
+        bool(registryMeta.substantive_use_allowed) ??
+        bool(source.metadata?.substantive_use_allowed),
+      freshness_status:
+        text(registryMeta.freshness_status) ??
+        text(source.metadata?.freshness_status),
+      source_checked_at:
+        text(registryMeta.source_checked_at) ??
+        text(source.metadata?.source_checked_at),
       // Existing Safety Contract remains the only source of official-origin/content permission.
       registry_metadata: registryMeta,
     },
@@ -399,6 +419,10 @@ const TRUSTED_METADATA_KEYS = [
   "official_origin_verified",
   "document_identity_verified",
   "content_verified",
+  "temporal_verified",
+  "official_metadata_verified",
+  "freshness_status",
+  "source_checked_at",
   "actuality_status",
   "substantive_use_allowed",
   "legal_authority_class",

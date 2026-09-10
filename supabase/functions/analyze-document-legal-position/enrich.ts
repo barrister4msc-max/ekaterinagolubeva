@@ -525,7 +525,27 @@ export function setActuallyUsedInGeneration(
     ])
       used.add(r);
   }
-  for (const s of trusted) s.actually_used_in_generation = used.has(s.source_ref);
+  for (const s of trusted) {
+    const actuallyUsed = used.has(s.source_ref);
+    s.actually_used_in_generation = actuallyUsed;
+    const record = s as unknown as Record<string, unknown>;
+    const metadata =
+      record.metadata && typeof record.metadata === "object"
+        ? (record.metadata as Record<string, unknown>)
+        : {};
+    const admission =
+      metadata.source_use_admission && typeof metadata.source_use_admission === "object"
+        ? (metadata.source_use_admission as Record<string, unknown>)
+        : {};
+    record.metadata = {
+      ...metadata,
+      source_use_admission: {
+        ...admission,
+        selected_for_run: actuallyUsed,
+        actually_used_in_generation: actuallyUsed,
+      },
+    };
+  }
   return trusted;
 }
 
