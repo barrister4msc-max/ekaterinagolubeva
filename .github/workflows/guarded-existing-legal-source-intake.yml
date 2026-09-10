@@ -1,0 +1,116 @@
+name: Guarded Existing Legal Sources Intake
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_url:
+        description: "Short-lived HTTPS URL for the private intake manifest"
+        required: true
+        type: string
+      manifest_sha256:
+        description: "Expected SHA-256 of the exact manifest"
+        required: true
+        type: string
+      confirm_intake:
+        description: "Type I_CONFIRM_USER_SUPPLIED_RETRIEVAL_INTAKE exactly"
+        required: true
+        type: string
+      apply_to_production:
+        description: "Write the five manifest sources to Production"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  intake:
+    name: Guarded existing Storage intake
+    runs-on: ubuntu-latest
+    environment: Production
+    if: ${{ inputs.apply_to_production }}
+    env:
+      MANIFEST_URL: ${{ inputs.manifest_url }}
+      EXPECTED_SHA256: ${{ inputs.manifest_sha256 }}
+      CONFIRM_INTAKE: ${{ inputs.confirm_intake }}
+      DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PostgreSQL driver
+        run: python -m pip install --disable-pip-version-check "psycopg[binary]>=3.2,<4"
+
+      - name: Require exact confirmation and a safe manifest hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${CONFIRM_INTAKE}" = "I_CONFIRM_USER_SUPPLIED_RETRIEVAL_INTAKE"
+          [[ "${EXPECTED_SHA256}" =~ ^[0-9a-fA-F]{64}$ ]]
+
+      - name: Fetch and verify manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="${RUNNER_TEMP}/intake-manifest.json"
+          curl --fail --silent --show-error --location --proto '=https' \
+            --connect-timeout 15 --max-time 120 --max-filesize 5242880 \
+            --output "${manifest}" "${MANIFEST_URL}"
+          printf '%s  %s\n' "${EXPECTED_SHA256,,}" "${manifest}" | sha256sum --check --status
+          chmod 600 "${manifest}"
+          echo "MANIFEST_PATH=${manifest}" >> "${GITHUB_ENV}"
+
+      - name: Validate manifest without a write
+        run: python scripts/user_supplied_legal_source_intake.py --input "${MANIFEST_PATH}"
+
+      - name: Apply one guarded transaction
+        run: python scripts/user_supplied_legal_source_intake.py --input "${MANIFEST_PATH}" --apply
+
+      - name: Read-only post-intake audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "${MANIFEST_PATH}" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+          import psycopg
+
+          sys.path.insert(0, "scripts")
+          import user_supplied_legal_source_intake as intake
+
+          rows = [intake.normalize(x) for x in intake.load_manifest(Path(sys.argv[1]))]
+          group_ids = [row["source_group_id"] for row in rows]
+          with psycopg.connect(os.environ["DATABASE_URL"]) as conn, conn.cursor() as cur:
+              cur.execute(
+                  """
+                  select
+                    count(distinct metadata->>'source_group_id'),
+                    count(*),
+                    bool_and((metadata->>'source_class') = 'user_supplied_retrieval_snapshot'),
+                    bool_and((metadata->>'official_origin_verified') = 'false'),
+                    bool_and((metadata->>'content_verified') = 'false'),
+                    bool_and((metadata->>'substantive_use_allowed') = 'false'),
+                    bool_and((metadata->>'use_in_generation') = 'false')
+                  from public.legal_knowledge_chunks
+                  where metadata->>'source_group_id' = any(%s)
+                  """,
+                  (group_ids,),
+              )
+              groups, chunks, source_class_ok, origin_ok, content_ok, substantive_ok, generation_ok = cur.fetchone()
+          assert groups == len(rows), f"expected {len(rows)} source groups, got {groups}"
+          assert chunks == sum(len(row["chunks"]) for row in rows), "chunk count mismatch"
+          assert all((source_class_ok, origin_ok, content_ok, substantive_ok, generation_ok)), "fail-closed audit failed"
+          print(json.dumps({
+              "source_groups": groups,
+              "chunks": chunks,
+              "fail_closed": True,
+              "legal_law_chunks_touched": False,
+              "legal_source_registry_touched": False,
+          }))
+          PY
