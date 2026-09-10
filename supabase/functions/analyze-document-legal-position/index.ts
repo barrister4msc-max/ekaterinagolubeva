@@ -45,6 +45,7 @@ import {
 } from "./enrich.ts";
 import { evaluateOfficialExplanationsCoverage } from "./research-coverage.ts";
 import { evaluateTemporalApplicability } from "./temporal-applicability.ts";
+import { applyRuntimeSourceAdmission } from "./source-use-admission.ts";
 import { runChallenge } from "./challenge.ts";
 import { readCanonicalRelationsFeatureFlags } from "../_shared/legal-analysis/canonical-relations/index.ts";
 import { computeCanonicalRelationsShadow } from "./canonical-shadow.ts";
@@ -534,7 +535,7 @@ Deno.serve(async (req) => {
     );
 
     // Layer 7: ENRICH — stable IDs, trust score, priority/supersede.
-    let trusted = enrichSources(merged);
+    let trusted = applyRuntimeSourceAdmission(enrichSources(merged));
     carryCanonicalMetadataToTrusted(trusted, merged);
     // P0-E4: canonical fact identity built once from parsed.facts, and the
     // model-emitted fact_key → fact_id map is carried into Evidence Matrix.
@@ -572,7 +573,7 @@ Deno.serve(async (req) => {
         });
         const mergedExtra = dedupe([...scored, ...extraScored]);
         const mergedLimited = limitSources(mergedExtra);
-        trusted = enrichSources(mergedLimited);
+        trusted = applyRuntimeSourceAdmission(enrichSources(mergedLimited));
         carryCanonicalMetadataToTrusted(trusted, mergedLimited);
         provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
         validatedConclusions = validateConclusions(provBuild.conclusions, trusted);
