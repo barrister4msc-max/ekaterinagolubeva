@@ -535,8 +535,9 @@ Deno.serve(async (req) => {
     );
 
     // Layer 7: ENRICH — stable IDs, trust score, priority/supersede.
-    let trusted = applyRuntimeSourceAdmission(enrichSources(merged));
+    let trusted = enrichSources(merged);
     carryCanonicalMetadataToTrusted(trusted, merged);
+    trusted = applyRuntimeSourceAdmission(trusted);
     // P0-E4: canonical fact identity built once from parsed.facts, and the
     // model-emitted fact_key → fact_id map is carried into Evidence Matrix.
     const { records: factsRecords, keyToId: factKeyToId } = buildFactRecords(parsed.facts);
@@ -573,8 +574,9 @@ Deno.serve(async (req) => {
         });
         const mergedExtra = dedupe([...scored, ...extraScored]);
         const mergedLimited = limitSources(mergedExtra);
-        trusted = applyRuntimeSourceAdmission(enrichSources(mergedLimited));
+        trusted = enrichSources(mergedLimited);
         carryCanonicalMetadataToTrusted(trusted, mergedLimited);
+        trusted = applyRuntimeSourceAdmission(trusted);
         provBuild = buildConclusionsAndIndex(parsed, trusted, facts);
         validatedConclusions = validateConclusions(provBuild.conclusions, trusted);
         officialExplanationsCoverage = evaluateOfficialExplanationsCoverage({ plan: researchPlan, trusted });
