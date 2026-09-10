@@ -59,6 +59,7 @@ export function applyRuntimeSourceAdmission(sources: TrustedSource[]): TrustedSo
       ...source,
       // Existing validator consumes this ephemeral, per-run eligibility field.
       use_in_generation: admitted,
+      actually_used_in_generation: false,
       metadata: {
         ...meta,
         source_use_admission: {
