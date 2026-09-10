@@ -1,0 +1,28 @@
+name: Legal Source Index + Freshness Tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/backfill_legal_embeddings.py'
+      - 'supabase/functions/analyze-document-legal-position/internal-source-runtime-verification.ts'
+      - 'supabase/functions/analyze-document-legal-position/internal-source-runtime-verification.test.ts'
+      - '.github/workflows/legal-source-index-freshness-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install JS dependencies
+        run: bun install --frozen-lockfile
+      - name: Runtime verification contract tests
+        run: bun test supabase/functions/analyze-document-legal-position/internal-source-runtime-verification.test.ts
+      - name: Embedding worker syntax check
+        run: python -m py_compile scripts/backfill_legal_embeddings.py
