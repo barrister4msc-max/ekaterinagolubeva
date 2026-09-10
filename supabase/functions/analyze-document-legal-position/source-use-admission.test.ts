@@ -36,6 +36,16 @@ test("provider verification outage remains fail-closed", () => {
   expect(source.metadata.source_use_admission.status).toBe("verification_unavailable");
 });
 
+test("missing freshness status remains fail-closed", () => {
+  const source = one({
+    substantive_use_allowed: true,
+    content_verified: true,
+    temporal_verified: true,
+  });
+  expect(source.use_in_generation).toBe(false);
+  expect(source.metadata.source_use_admission.status).toBe("freshness_unresolved");
+});
+
 test("fully verified current source is eligible only in this analysis run", () => {
   const source = one({
     substantive_use_allowed: true,
