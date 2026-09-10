@@ -5,6 +5,7 @@ on:
       - feat/official-tax-core-collector
     paths:
       - scripts/official_tax_core_collect.py
+      - scripts/test_official_tax_core_collect.py
       - .github/workflows/official-tax-core-collect.yml
   workflow_dispatch:
 permissions:
