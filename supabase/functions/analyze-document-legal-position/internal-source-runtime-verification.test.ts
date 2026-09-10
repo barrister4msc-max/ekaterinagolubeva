@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { RawSource } from "./repositories.ts";
+import { mergeOfficialWithLocalSources, type RawSource } from "./repositories.ts";
 import type { OfficialSourceResult, OfficialSourceSafety } from "./official-sources.ts";
 import {
   buildInternalSourceVerificationObservation,
@@ -68,6 +68,19 @@ describe("internal legal source runtime verification", () => {
 
   test("normalizes harmless whitespace and soft hyphen differences", () => {
     expect(compareLegalText("Статья 54.1\nНК\u00ad РФ", "  статья 54.1 НК РФ  ").exact_normalized_match).toBe(true);
+  });
+
+  test("projects verified official freshness onto the matching internal source for this run", () => {
+    const result = mergeOfficialWithLocalSources([local()], [verified()]);
+    expect(result.linked).toBe(1);
+    expect(result.sources).toHaveLength(1);
+    expect(result.sources[0].metadata).toMatchObject({
+      official_origin_verified: true,
+      content_verified: true,
+      temporal_verified: true,
+      substantive_use_allowed: true,
+      freshness_status: "verified",
+    });
   });
 
   test("bridges independently verified official evidence to the matching internal source", () => {
