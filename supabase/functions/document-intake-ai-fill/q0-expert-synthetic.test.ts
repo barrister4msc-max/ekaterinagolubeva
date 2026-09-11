@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { FLAGSHIP_TEMPLATE_CODES_09A } from "./evaluation-baseline.ts";
+import { FLAGSHIP_TEMPLATE_CODES_09A, TEMPLATE_BENCHMARK_PROFILES_09A } from "./evaluation-baseline.ts";
 import {
   Q0_EXPERT_SYNTHETIC_TRUTH_09C,
   Q0_EXPERT_SYNTHETIC_VERSION,
@@ -25,6 +25,18 @@ describe("Prompt 09C-1 expert synthetic ground truth", () => {
     expect(all.some((field) => field.negation_present)).toBe(true);
     expect(all.some((field) => field.conflict_present && field.expected_value === null)).toBe(true);
     expect(all.some((field) => field.manual_override.applied && field.manual_override.accepted_explicitly)).toBe(true);
+  });
+
+  test("covers every required profile field with an explicit expert annotation", () => {
+    for (const item of Q0_EXPERT_SYNTHETIC_TRUTH_09C) {
+      const ids = new Set(item.fields.map((field) => field.field_id));
+      const required = TEMPLATE_BENCHMARK_PROFILES_09A[item.template_code].fields
+        .filter((rule) => rule.applicability === "required")
+        .map((rule) => rule.field_id);
+      for (const fieldId of required) {
+        expect(ids.has(fieldId)).toBe(true);
+      }
+    }
   });
 
   test("fails closed when a synthetic case claims legal review, accuracy, invalid roles or unsupported fields", () => {
