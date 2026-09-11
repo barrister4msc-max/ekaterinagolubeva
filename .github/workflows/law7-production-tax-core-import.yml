@@ -1,0 +1,89 @@
+name: Law7 Production TAX CORE Import
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_import:
+        description: Type IMPORT_LAW7_TAX_CORE_TO_PRODUCTION to continue
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: law7-production-tax-core-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      inputs.confirm_production_import == 'IMPORT_LAW7_TAX_CORE_TO_PRODUCTION'
+    runs-on: ubuntu-latest
+    environment:
+      name: law7-production
+    services:
+      law7_source:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: law7-temporary-runner-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: ${{ secrets.LAW7_PRODUCTION_MIRROR_DATABASE_URL }}
+      EXPECTED_SOURCE_COMMIT: 70a1d8fc6b27b67ad7f12f03f017d02b5f68a0c895447159039800965895f8b2
+      LAW7_BACKUP_URL: https://drive.usercontent.google.com/download?id=1DPLpFpuwUZbLZEGo2TxnCAcLRdb2V1aD&export=download&confirm=t
+      LAW7_SOURCE_DATABASE_URL: postgresql://postgres:law7-temporary-runner-only@127.0.0.1:5432/law7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install importer and restore dependencies
+        run: |
+          python -m pip install "psycopg[binary]>=3.2,<4"
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+      - name: Download and verify immutable Law7 source backup
+        run: |
+          curl --fail --location --retry 3 --output law7-backup.tar.gz "$LAW7_BACKUP_URL"
+          test "$(sha256sum law7-backup.tar.gz | awk '{print $1}')" = "$EXPECTED_SOURCE_COMMIT"
+          tar --list --gzip --file law7-backup.tar.gz | grep -Eq '(^|/)postgresql/law7\.dump$'
+      - name: Restore only the controlled source contract into the temporary runner database
+        env:
+          PGPASSWORD: law7-temporary-runner-only
+        run: |
+          mkdir extracted-law7
+          tar --extract --gzip --file law7-backup.tar.gz --directory extracted-law7 \
+            --wildcards --no-anchored 'postgresql/law7.dump'
+          LAW7_DUMP="$(find extracted-law7 -type f -path '*/postgresql/law7.dump' -print -quit)"
+          test -n "$LAW7_DUMP"
+          createdb --host 127.0.0.1 --username postgres law7
+          pg_restore --host 127.0.0.1 --username postgres --dbname law7 \
+            --no-owner --no-privileges --exit-on-error \
+            --table=public.consolidated_codes \
+            --table=public.code_article_versions \
+            --table=public.amendment_applications \
+            "$LAW7_DUMP"
+      - name: Export approved TAX CORE corpus from read-only source
+        run: |
+          python scripts/law7_controlled_export.py \
+            --source-commit "$EXPECTED_SOURCE_COMMIT" \
+            --output verified-tax-core.json \
+            --codes NK_RF NK_RF_2 APK_RF KoAP_RF BK_RF GK_RF GK_RF_2 KONST_RF
+      - name: Dry-run the only Law7 mirror writer
+        run: python scripts/law7_mirror_import.py --input verified-tax-core.json
+      - name: Verify payload equals the Preview-audited corpus
+        run: python scripts/law7_tax_core_production_gate.py --dataset verified-tax-core.json
+      - name: Read-only Production preflight
+        run: python scripts/law7_tax_core_production_gate.py --database-phase preflight
+      - name: Import with the existing sole writer
+        run: python scripts/law7_mirror_import.py --input verified-tax-core.json --apply
+      - name: Read-only post-import audit
+        run: python scripts/law7_tax_core_production_gate.py --database-phase post-import
