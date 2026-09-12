@@ -99,10 +99,8 @@ class IntakeContractTests(unittest.TestCase):
             intake.preflight_storage([row])
             request = mocked.call_args.args[0]
             self.assertEqual(request.full_url, "https://verifier.example.test")
-            self.assertEqual(
-                request.get_header("x-kati-intake-verifier-token"),
-                "test-token",
-            )
+            headers = {key.lower(): value for key, value in request.header_items()}
+            self.assertEqual(headers["x-kati-intake-verifier-token"], "test-token")
 
     def test_storage_preflight_rejects_incomplete_inventory(self):
         row = intake.normalize(base_item())
