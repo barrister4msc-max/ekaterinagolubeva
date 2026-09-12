@@ -19,6 +19,7 @@ def base_item():
     fake_pdf_sha = "a" * 64
     return {
         "storage_object_name": "KATI_TEST.pdf",
+        "storage_signed_url": "https://wiylzbdbjokignwvizxt.supabase.co/storage/v1/object/sign/communication-attachments/KATI_TEST.pdf?token=test",
         "storage_size_bytes": 1234,
         "normalized_file_name": "Тестовый_акт.pdf",
         "original_file_name": "original.pdf",
@@ -60,6 +61,15 @@ class IntakeContractTests(unittest.TestCase):
         item = base_item()
         item["storage_object_name"] = "../KATI_TEST.pdf"
         with self.assertRaisesRegex(ValueError, "unsafe Storage object name"):
+            intake.normalize(item)
+
+    def test_rejects_storage_signed_url_for_another_object(self):
+        item = base_item()
+        item["storage_signed_url"] = (
+            "https://wiylzbdbjokignwvizxt.supabase.co/storage/v1/object/sign/"
+            "communication-attachments/OTHER.pdf?token=test"
+        )
+        with self.assertRaisesRegex(ValueError, "storage_signed_url"):
             intake.normalize(item)
 
     def test_rejects_missing_text(self):
