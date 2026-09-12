@@ -26,9 +26,13 @@ import re
 import uuid
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import unquote, urlparse
+from urllib.request import Request, urlopen
 
 DATASET_KEY = "user_supplied_legal_sources"
 BUCKET = "communication-attachments"
+STORAGE_HOST = "wiylzbdbjokignwvizxt.supabase.co"
 ROW_NAMESPACE = uuid.UUID("094c0d1f-45cb-4f8a-b3d6-476383c52009")
 ALLOWED_SOURCE_TYPES = {"court_practice", "vs_review"}
 ALLOWED_VERIFICATION = {
@@ -80,6 +84,7 @@ def chunk_text(text: str, target: int = 1800) -> list[str]:
 def normalize(item: dict[str, Any]) -> dict[str, Any]:
     required_strings = (
         "storage_object_name",
+        "storage_signed_url",
         "normalized_file_name",
         "title",
         "authority",
@@ -104,6 +109,17 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
     object_name = item["storage_object_name"].strip()
     if "/" in object_name or not SAFE_OBJECT_NAME.fullmatch(object_name):
         raise ValueError(f"unsafe Storage object name: {object_name}")
+
+    signed_url = item["storage_signed_url"].strip()
+    parsed_url = urlparse(signed_url)
+    expected_path = f"/storage/v1/object/sign/{BUCKET}/{object_name}"
+    if (
+        parsed_url.scheme != "https"
+        or parsed_url.hostname != STORAGE_HOST
+        or unquote(parsed_url.path) != expected_path
+        or not parsed_url.query
+    ):
+        raise ValueError("storage_signed_url must be an HTTPS signed URL for the declared object")
 
     source_type = item["source_type"].strip()
     if source_type not in ALLOWED_SOURCE_TYPES:
@@ -140,6 +156,7 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
     return {
         **item,
         "storage_object_name": object_name,
+        "storage_signed_url": signed_url,
         "source_type": source_type,
         "text_content": text,
         "text_sha256": item["text_sha256"].lower(),
@@ -150,22 +167,42 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def preflight_storage(cur: Any, rows: list[dict[str, Any]]) -> None:
-    names = [r["storage_object_name"] for r in rows]
-    cur.execute(
-        """
-        select name, nullif(metadata->>'size','')::bigint
-        from storage.objects
-        where bucket_id = %s and name = any(%s)
-        """,
-        (BUCKET, names),
+def _size_from_headers(headers: Any) -> int | None:
+    content_range = headers.get("Content-Range")
+    if content_range:
+        match = re.fullmatch(r"bytes \\d+-\\d+/(\\d+)", content_range.strip())
+        if match:
+            return int(match.group(1))
+    content_length = headers.get("Content-Length")
+    if content_length and content_length.isdigit():
+        return int(content_length)
+    return None
+
+
+def signed_object_size(url: str, object_name: str) -> int:
+    # Prefer a HEAD request; some gateways omit its length, so use a one-byte
+    # range fallback. The URL was already pinned to this project/bucket/object.
+    attempts = (
+        Request(url, method="HEAD"),
+        Request(url, headers={"Range": "bytes=0-0"}, method="GET"),
     )
-    found = {name: size for name, size in cur.fetchall()}
-    if set(found) != set(names):
-        missing = sorted(set(names) - set(found))
-        raise ValueError(f"Storage objects missing: {missing}")
+    failure: Exception | None = None
+    for request in attempts:
+        try:
+            with urlopen(request, timeout=30) as response:
+                size = _size_from_headers(response.headers)
+                if size is not None:
+                    return size
+                if request.method == "GET":
+                    response.read(1)
+        except (HTTPError, URLError, TimeoutError, ValueError) as exc:
+            failure = exc
+    raise ValueError(f"could not verify signed Storage object: {object_name}") from failure
+
+
+def preflight_storage(rows: list[dict[str, Any]]) -> None:
     for row in rows:
-        actual = found[row["storage_object_name"]]
+        actual = signed_object_size(row["storage_signed_url"], row["storage_object_name"])
         expected = row["storage_size_bytes"]
         if actual != expected:
             raise ValueError(
@@ -201,7 +238,7 @@ def apply(rows: list[dict[str, Any]]) -> dict[str, Any]:
         # Fail before any write if a Storage object, size, duplicate identity,
         # or text/hash contract is wrong. The enclosing transaction keeps the
         # batch all-or-nothing.
-        preflight_storage(cur, rows)
+        preflight_storage(rows)
         preflight_duplicates(cur, rows)
 
         sql = """
