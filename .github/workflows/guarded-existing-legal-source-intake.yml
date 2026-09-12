@@ -52,6 +52,8 @@ jobs:
       MANIFEST_URL: ${{ inputs.manifest_url }}
       EXPECTED_SHA256: ${{ inputs.manifest_sha256 }}
       DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
+      KATI_STORAGE_VERIFIER_URL: https://wiylzbdbjokignwvizxt.supabase.co/functions/v1/verify-guarded-legal-source-storage
+      KATI_GUARDED_INTAKE_VERIFY_TOKEN: ${{ secrets.KATI_GUARDED_INTAKE_VERIFY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 

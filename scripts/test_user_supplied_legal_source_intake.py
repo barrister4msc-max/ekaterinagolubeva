@@ -4,6 +4,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 SCRIPT = Path(__file__).with_name("user_supplied_legal_source_intake.py")
@@ -19,7 +20,6 @@ def base_item():
     fake_pdf_sha = "a" * 64
     return {
         "storage_object_name": "KATI_TEST.pdf",
-        "storage_signed_url": "https://wiylzbdbjokignwvizxt.supabase.co/storage/v1/object/sign/communication-attachments/KATI_TEST.pdf?token=test",
         "storage_size_bytes": 1234,
         "normalized_file_name": "Тестовый_акт.pdf",
         "original_file_name": "original.pdf",
@@ -63,14 +63,72 @@ class IntakeContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unsafe Storage object name"):
             intake.normalize(item)
 
-    def test_rejects_storage_signed_url_for_another_object(self):
-        item = base_item()
-        item["storage_signed_url"] = (
-            "https://wiylzbdbjokignwvizxt.supabase.co/storage/v1/object/sign/"
-            "communication-attachments/OTHER.pdf?token=test"
-        )
-        with self.assertRaisesRegex(ValueError, "storage_signed_url"):
-            intake.normalize(item)
+    def test_manifest_does_not_require_per_object_signed_urls(self):
+        self.assertNotIn("storage_signed_url", intake.normalize(base_item()))
+
+    def test_storage_preflight_requires_scoped_verifier_configuration(self):
+        with patch.dict("os.environ", {}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "verifier configuration"):
+                intake.preflight_storage([intake.normalize(base_item())])
+
+    def test_storage_preflight_accepts_exact_scoped_inventory(self):
+        row = intake.normalize(base_item())
+
+        class Response:
+            def read(self):
+                return json.dumps({
+                    "verified": True,
+                    "bucket": "communication-attachments",
+                    "objects": [{"name": "KATI_TEST.pdf", "size_bytes": 1234}],
+                }).encode("utf-8")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        with patch.dict(
+            "os.environ",
+            {
+                "KATI_STORAGE_VERIFIER_URL": "https://verifier.example.test",
+                "KATI_GUARDED_INTAKE_VERIFY_TOKEN": "test-token",
+            },
+            clear=True,
+        ), patch.object(intake, "urlopen", return_value=Response()) as mocked:
+            intake.preflight_storage([row])
+            request = mocked.call_args.args[0]
+            self.assertEqual(request.full_url, "https://verifier.example.test")
+            headers = {key.lower(): value for key, value in request.header_items()}
+            self.assertEqual(headers["x-kati-intake-verifier-token"], "test-token")
+
+    def test_storage_preflight_rejects_incomplete_inventory(self):
+        row = intake.normalize(base_item())
+
+        class Response:
+            def read(self):
+                return json.dumps({
+                    "verified": True,
+                    "bucket": "communication-attachments",
+                    "objects": [],
+                }).encode("utf-8")
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        with patch.dict(
+            "os.environ",
+            {
+                "KATI_STORAGE_VERIFIER_URL": "https://verifier.example.test",
+                "KATI_GUARDED_INTAKE_VERIFY_TOKEN": "test-token",
+            },
+            clear=True,
+        ), patch.object(intake, "urlopen", return_value=Response()):
+            with self.assertRaisesRegex(ValueError, "invalid source inventory"):
+                intake.preflight_storage([row])
 
     def test_rejects_missing_text(self):
         item = base_item()

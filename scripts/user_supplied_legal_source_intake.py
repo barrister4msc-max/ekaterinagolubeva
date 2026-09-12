@@ -27,12 +27,12 @@ import uuid
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 
 DATASET_KEY = "user_supplied_legal_sources"
 BUCKET = "communication-attachments"
-STORAGE_HOST = "wiylzbdbjokignwvizxt.supabase.co"
+STORAGE_VERIFIER_URL_ENV = "KATI_STORAGE_VERIFIER_URL"
+STORAGE_VERIFIER_TOKEN_ENV = "KATI_GUARDED_INTAKE_VERIFY_TOKEN"
 ROW_NAMESPACE = uuid.UUID("094c0d1f-45cb-4f8a-b3d6-476383c52009")
 ALLOWED_SOURCE_TYPES = {"court_practice", "vs_review"}
 ALLOWED_VERIFICATION = {
@@ -84,7 +84,6 @@ def chunk_text(text: str, target: int = 1800) -> list[str]:
 def normalize(item: dict[str, Any]) -> dict[str, Any]:
     required_strings = (
         "storage_object_name",
-        "storage_signed_url",
         "normalized_file_name",
         "title",
         "authority",
@@ -109,17 +108,6 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
     object_name = item["storage_object_name"].strip()
     if "/" in object_name or not SAFE_OBJECT_NAME.fullmatch(object_name):
         raise ValueError(f"unsafe Storage object name: {object_name}")
-
-    signed_url = item["storage_signed_url"].strip()
-    parsed_url = urlparse(signed_url)
-    expected_path = f"/storage/v1/object/sign/{BUCKET}/{object_name}"
-    if (
-        parsed_url.scheme != "https"
-        or parsed_url.hostname != STORAGE_HOST
-        or unquote(parsed_url.path) != expected_path
-        or not parsed_url.query
-    ):
-        raise ValueError("storage_signed_url must be an HTTPS signed URL for the declared object")
 
     source_type = item["source_type"].strip()
     if source_type not in ALLOWED_SOURCE_TYPES:
@@ -156,7 +144,6 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
     return {
         **item,
         "storage_object_name": object_name,
-        "storage_signed_url": signed_url,
         "source_type": source_type,
         "text_content": text,
         "text_sha256": item["text_sha256"].lower(),
@@ -167,48 +154,55 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _size_from_headers(headers: Any) -> int | None:
-    content_range = headers.get("Content-Range")
-    if content_range:
-        match = re.fullmatch(r"bytes \\d+-\\d+/(\\d+)", content_range.strip())
-        if match:
-            return int(match.group(1))
-    content_length = headers.get("Content-Length")
-    if content_length and content_length.isdigit():
-        return int(content_length)
-    return None
-
-
-def signed_object_size(url: str, object_name: str) -> int:
-    # Prefer a HEAD request; some gateways omit its length, so use a one-byte
-    # range fallback. The URL was already pinned to this project/bucket/object.
-    attempts = (
-        Request(url, method="HEAD"),
-        Request(url, headers={"Range": "bytes=0-0"}, method="GET"),
-    )
-    failure: Exception | None = None
-    for request in attempts:
-        try:
-            with urlopen(request, timeout=30) as response:
-                size = _size_from_headers(response.headers)
-                if size is not None:
-                    return size
-                if request.method == "GET":
-                    response.read(1)
-        except (HTTPError, URLError, TimeoutError, ValueError) as exc:
-            failure = exc
-    raise ValueError(f"could not verify signed Storage object: {object_name}") from failure
-
-
 def preflight_storage(rows: list[dict[str, Any]]) -> None:
-    for row in rows:
-        actual = signed_object_size(row["storage_signed_url"], row["storage_object_name"])
-        expected = row["storage_size_bytes"]
-        if actual != expected:
-            raise ValueError(
-                f"Storage size mismatch for {row['storage_object_name']}: "
-                f"expected={expected} actual={actual}"
-            )
+    verifier_url = os.environ.get(STORAGE_VERIFIER_URL_ENV, "").strip()
+    verifier_token = os.environ.get(STORAGE_VERIFIER_TOKEN_ENV, "").strip()
+    if not verifier_url or not verifier_token:
+        raise RuntimeError("guarded Storage verifier configuration is required")
+
+    expected = {
+        row["storage_object_name"]: row["storage_size_bytes"]
+        for row in rows
+    }
+    payload = json.dumps(
+        {
+            "bucket": BUCKET,
+            "objects": [
+                {"name": name, "size_bytes": size}
+                for name, size in expected.items()
+            ],
+        }
+    ).encode("utf-8")
+    request = Request(
+        verifier_url,
+        data=payload,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "x-kati-intake-verifier-token": verifier_token,
+        },
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            result = json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, ValueError, json.JSONDecodeError) as exc:
+        raise ValueError("guarded Storage verifier did not confirm source objects") from exc
+
+    received = result.get("objects") if isinstance(result, dict) else None
+    actual: dict[str, int] = {}
+    if isinstance(received, list):
+        for item in received:
+            if isinstance(item, dict) and isinstance(item.get("name"), str) and isinstance(item.get("size_bytes"), int):
+                actual[item["name"]] = item["size_bytes"]
+
+    if (
+        not isinstance(result, dict)
+        or result.get("verified") is not True
+        or result.get("bucket") != BUCKET
+        or actual != expected
+        or len(received or []) != len(expected)
+    ):
+        raise ValueError("guarded Storage verifier returned an invalid source inventory")
 
 
 def preflight_duplicates(cur: Any, rows: list[dict[str, Any]]) -> None:
@@ -235,7 +229,7 @@ def apply(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     inserted_rows = 0
     with psycopg.connect(db) as conn, conn.cursor() as cur:
-        # Fail before any write if a Storage object, size, duplicate identity,
+        # Fail before any write if the scoped Storage verifier, duplicate identity,
         # or text/hash contract is wrong. The enclosing transaction keeps the
         # batch all-or-nothing.
         preflight_storage(rows)

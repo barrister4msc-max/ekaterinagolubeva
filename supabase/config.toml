@@ -32,3 +32,8 @@ verify_jwt = false
 
 [functions.review-generated-legal-document]
 verify_jwt = false
+# This endpoint is invoked only by the guarded Production intake workflow with a
+# separate verifier token. It checks a maximum of five named objects and returns
+# only their names and byte sizes; it never serves Storage content.
+[functions.verify-guarded-legal-source-storage]
+verify_jwt = false
