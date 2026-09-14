@@ -1,0 +1,73 @@
+name: Guarded User-Source Official Origin Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply_to_production:
+        description: Persist only official-origin and identity observations
+        required: true
+        type: boolean
+        default: false
+      confirmation:
+        description: Type I_CONFIRM_GUARDED_USER_SOURCE_OFFICIAL_ORIGIN exactly
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  fail-closed-dispatch-validation:
+    runs-on: ubuntu-latest
+    env:
+      CONFIRMATION: ${{ inputs.confirmation }}
+    steps:
+      - name: Require main and exact confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${GITHUB_REF}" == "refs/heads/main" ]]
+          [[ "${CONFIRMATION}" == "I_CONFIRM_GUARDED_USER_SOURCE_OFFICIAL_ORIGIN" ]]
+
+  dry-run:
+    needs: fail-closed-dispatch-validation
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read fixed official URLs and validate exact identity
+        run: >-
+          python scripts/verify_guarded_user_source_official_origin.py
+          --output official-origin-verification.json
+      - name: Upload verification report
+        uses: actions/upload-artifact@v4
+        with:
+          name: guarded-user-source-official-origin-verification
+          path: official-origin-verification.json
+          if-no-files-found: error
+
+  apply:
+    if: ${{ inputs.apply_to_production }}
+    needs: dry-run
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL driver
+        run: python -m pip install --disable-pip-version-check "psycopg[binary]==3.2.3"
+      - name: Persist one guarded observation transaction
+        env:
+          DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
+        run: >-
+          python scripts/verify_guarded_user_source_official_origin.py
+          --apply
+          --output official-origin-verification.json
+      - name: Upload applied verification report
+        uses: actions/upload-artifact@v4
+        with:
+          name: guarded-user-source-official-origin-verification
+          path: official-origin-verification.json
+          if-no-files-found: error
