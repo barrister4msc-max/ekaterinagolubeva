@@ -60,6 +60,8 @@ def metadata_value(row: dict[str, Any], key: str) -> str | None:
     if not isinstance(metadata, dict):
         return None
     value = metadata.get(key)
+    if isinstance(value, bool):
+        return "true" if value else "false"
     return value if isinstance(value, str) else None
 
 

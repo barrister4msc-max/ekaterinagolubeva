@@ -54,5 +54,22 @@ class ExactGroupContractTests(unittest.TestCase):
             )
 
 
+    def test_json_boolean_metadata_is_normalized_for_fail_closed_contract(self) -> None:
+        boolean_row = row(GROUPS[0])
+        for key in (
+            "official_origin_verified",
+            "content_verified",
+            "substantive_use_allowed",
+            "use_in_generation",
+        ):
+            boolean_row["metadata"][key] = False
+        backfill.validate_rows(
+            [boolean_row, row(GROUPS[1])],
+            GROUPS,
+            expected_groups=2,
+            expected_chunks=2,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
