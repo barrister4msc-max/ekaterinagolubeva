@@ -164,51 +164,15 @@ def preflight(conn) -> None:
 
 
 def apply(conn, results: list[dict[str, object]]) -> None:
-    checked_at = datetime.now(timezone.utc).isoformat()
+    payload = json.dumps(results, ensure_ascii=False)
     with conn.cursor() as cur:
-        for result in results:
-            observation = {
-                "verifier": VERIFIER,
-                "checked_at": checked_at,
-                "official_url": result["official_url"],
-                "http_status": result["http_status"],
-                "result": result["result"],
-                "content_comparison": "not_performed",
-                "temporal_applicability": "not_verified",
-            }
-            verification_status = str(result["result"])
-            cur.execute(
-                """
-                update public.legal_source_registry
-                set
-                  is_official = %s,
-                  current_status = 'unknown',
-                  verification_status = %s,
-                  last_checked_at = now(),
-                  metadata = metadata || %s::jsonb
-                where metadata->>'canonical_identity_scope' = %s
-                  and metadata->>'source_group_id' = %s
-                  and metadata->>'canonical_document_key' = %s
-                """,
-                (
-                    bool(result["official_origin_verified"]),
-                    verification_status,
-                    json.dumps({
-                        "official_verification_observation": observation,
-                        "official_origin_verified": bool(result["official_origin_verified"]),
-                        "document_identity_verified": bool(result["document_identity_verified"]),
-                        "content_verified": False,
-                        "temporal_verified": False,
-                        "substantive_use_allowed": False,
-                        "freshness_status": "verification_unavailable",
-                    }, ensure_ascii=False),
-                    IDENTITY_SCOPE,
-                    result["source_group_id"],
-                    result["canonical_document_key"],
-                ),
-            )
-            if cur.rowcount != 1:
-                raise RuntimeError(f"expected one registry row for {result['canonical_document_key']}, got {cur.rowcount}")
+        cur.execute(
+            "select public.kati_persist_guarded_user_source_official_origin(%s::jsonb)",
+            (payload,),
+        )
+        (updated_rows,) = cur.fetchone()
+    if updated_rows != EXPECTED_GROUPS:
+        raise RuntimeError(f"guarded origin RPC updated {updated_rows} rows; expected {EXPECTED_GROUPS}")
 
 
 def main() -> int:
