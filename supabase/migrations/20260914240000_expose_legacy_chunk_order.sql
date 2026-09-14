@@ -1,5 +1,7 @@
 -- Add structural-only fields to the bounded legacy read RPC.
 -- This permits deterministic reconstruction checks without exporting source content.
+drop function if exists public.kati_legacy_legal_source_content_rows(text[]);
+
 create or replace function public.kati_legacy_legal_source_content_rows(p_group_ids text[])
 returns table (
   source_group_id text,
