@@ -3,7 +3,7 @@ import pathlib
 import unittest
 
 MODULE_PATH = pathlib.Path(__file__).with_name("audit_legal_source_verification.py")
-MIGRATION_PATH = MODULE_PATH.parent.parent / "supabase" / "migrations" / "20260914153000_legal_source_verification_audit_rpc.sql"
+MIGRATION_PATH = MODULE_PATH.parent.parent / "supabase" / "migrations" / "20260914154500_fix_legal_source_verification_audit_rpc.sql"
 SPEC = importlib.util.spec_from_file_location("audit_legal_source_verification", MODULE_PATH)
 assert SPEC and SPEC.loader
 audit = importlib.util.module_from_spec(SPEC)
@@ -80,7 +80,9 @@ class LegalSourceVerificationAuditTests(unittest.TestCase):
         self.assertNotIn("legal_source_registry", audit.QUERY)
 
         migration = MIGRATION_PATH.read_text(encoding="utf-8").lower()
+        self.assertIn("language sql", migration)
         self.assertIn("security definer", migration)
+        self.assertIn("grouped.title", migration)
         self.assertIn("revoke all on function", migration)
         self.assertIn("grant execute on function", migration)
         self.assertIn("kati_internal_kb_writer", migration)
