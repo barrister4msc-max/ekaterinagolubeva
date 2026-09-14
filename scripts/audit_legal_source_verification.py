@@ -33,8 +33,8 @@ NON_EXTERNAL_TYPES = {
 def normalized_document_number(value: object) -> str:
     """Normalize harmless notation differences without performing fuzzy matching."""
     raw = unicodedata.normalize("NFKC", str(value or "").replace("№", "")).lower()
-    compact = re.sub(r"[^0-9a-zа-я@/\\-]", "", raw)
-    return re.sub(r"^n(?=\\d)", "", compact)
+    compact = re.sub(r"[^0-9a-zа-я@/\-]", "", raw)
+    return re.sub(r"^n(?=\d)", "", compact)
 
 
 def looks_like_review(title: object) -> bool:
