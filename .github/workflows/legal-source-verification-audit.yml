@@ -1,0 +1,54 @@
+name: Legal Source Verification Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Read-only corpus scope"
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - laws
+          - knowledge
+
+permissions:
+  contents: read
+
+jobs:
+  fail-closed-dispatch-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require main
+        run: |
+          test "${GITHUB_REF}" = "refs/heads/main" || {
+            echo "This audit may only run from main." >&2
+            exit 1
+          }
+
+  audit:
+    needs: fail-closed-dispatch-validation
+    if: github.ref == 'refs/heads/main'
+    environment: Production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL driver
+        run: python -m pip install "psycopg[binary]"
+      - name: Produce read-only verification queue
+        env:
+          DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }}
+        run: |
+          python scripts/audit_legal_source_verification.py \
+            --scope "${{ inputs.scope }}" \
+            --output legal-source-verification-audit.json
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: legal-source-verification-audit
+          path: legal-source-verification-audit.json
+          if-no-files-found: error

@@ -89,6 +89,7 @@ test("court_practice gets an official VSRF candidate from collector artifacts", 
   );
   expect(result.coverage_gaps).toEqual([]);
   expect(result.sources).toHaveLength(1);
+  expect(result.sources[0].source_id).toBe("official_tax_core:11111111-1111-1111-1111-111111111111");
   expect(result.sources[0].bucket).toBe("court_practice");
   expect(result.sources[0].metadata.safety).toMatchObject({
     official_origin_verified: true,

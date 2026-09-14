@@ -215,7 +215,7 @@ export async function searchOfficialCollectorArtifacts(
     sources.push({
       bucket: supported,
       source_table: "external_official_source",
-      source_id: `official_tax_core:${registryId}`,
+      source_id: `official_tax_core:${linkedRegistryId}`,
       source_type: str(registry.source_type, chunk.source_type) ?? TYPES[supported][0],
       title: str(registry.title, chunk.title) ?? "Официальный источник",
       official_url: officialUrl,
