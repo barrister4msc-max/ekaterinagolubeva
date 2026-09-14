@@ -80,7 +80,9 @@ class LegalSourceVerificationAuditTests(unittest.TestCase):
         self.assertNotIn("legal_source_registry", audit.QUERY)
 
         migration = MIGRATION_PATH.read_text(encoding="utf-8").lower()
-        self.assertIn("language sql", migration)\n        self.assertIn("security definer", migration)\n        self.assertIn("grouped.title", migration)
+        self.assertIn("language sql", migration)
+        self.assertIn("security definer", migration)
+        self.assertIn("grouped.title", migration)
         self.assertIn("revoke all on function", migration)
         self.assertIn("grant execute on function", migration)
         self.assertIn("kati_internal_kb_writer", migration)
