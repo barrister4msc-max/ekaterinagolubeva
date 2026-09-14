@@ -2,8 +2,13 @@ name: Legacy Legal Source Verification Dry Run
 on: { workflow_dispatch: {} }
 permissions: { contents: read }
 jobs:
+  fail-closed-dispatch-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require current main
+        run: test "$GITHUB_REF" = "refs/heads/main"
   queue:
-    if: github.ref == 'refs/heads/main'
+    needs: fail-closed-dispatch-validation
     environment: Production
     runs-on: ubuntu-latest
     steps:
@@ -11,8 +16,10 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: python -m pip install "psycopg[binary]"
-      - name: Produce read-only manifest queue
+      - name: Produce hash-and-metadata-only read-only queue
         env: { DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }} }
         run: python scripts/prepare_legacy_legal_source_verification.py --manifest config/legacy-legal-source-verification-manifest.json --output legacy-source-queue.json
+      - name: Verify no source content is in the report
+        run: python -m unittest scripts/test_prepare_legacy_legal_source_verification.py
       - uses: actions/upload-artifact@v4
         with: { name: legacy-source-verification-queue, path: legacy-source-queue.json }
