@@ -1,0 +1,18 @@
+name: Legacy Legal Source Verification Dry Run
+on: { workflow_dispatch: {} }
+permissions: { contents: read }
+jobs:
+  queue:
+    if: github.ref == 'refs/heads/main'
+    environment: Production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python -m pip install "psycopg[binary]"
+      - name: Produce read-only manifest queue
+        env: { DATABASE_URL: ${{ secrets.KATI_INTERNAL_KB_DATABASE_URL }} }
+        run: python scripts/prepare_legacy_legal_source_verification.py --manifest config/legacy-legal-source-verification-manifest.json --output legacy-source-queue.json
+      - uses: actions/upload-artifact@v4
+        with: { name: legacy-source-verification-queue, path: legacy-source-queue.json }

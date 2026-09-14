@@ -1,0 +1,82 @@
+{
+  "version": "legacy-legal-source-verification-v1",
+  "mode": "discovery_only",
+  "admission_rule": "No entry is eligible for substantive use until an official publication, normalized content comparison, and temporal verdict are all recorded.",
+  "candidates": [
+    {
+      "source_group_id": "8beec505-4dc5-423a-ac01-f40bea9406af",
+      "kind": "fns_letter",
+      "number": "СД-4-2/11836@",
+      "date": "2024-10-18",
+      "official_url": "https://www.nalog.gov.ru/rn77/promo/na/",
+      "legacy_chunks": 1
+    },
+    {
+      "source_group_id": "306872b7-20b3-470f-9c71-55ef6ad4af4e",
+      "kind": "fns_order",
+      "number": "ЕД-1-23/228@",
+      "date": "2026-04-03",
+      "official_url": "https://www.nalog.gov.ru/rn77/promo/na/",
+      "legacy_chunks": 1
+    },
+    {
+      "source_group_id": "7f3d94f2-46e9-4cfe-8aad-54db9b361701",
+      "kind": "fns_letter",
+      "number": "БВ-4-7/3060@",
+      "date": "2021-03-10",
+      "official_url": "https://www.nalog.gov.ru/rn77/about_fts/about_nalog/10687108/",
+      "legacy_chunks": 1
+    },
+    {
+      "source_group_id": "28f048be-03c0-42c5-ad18-c1541cbfbc70",
+      "kind": "court_review",
+      "date": "2023-12-13",
+      "official_url": "https://www.vsrf.ru/documents/all/33229/",
+      "legacy_chunks": 6
+    },
+    {
+      "source_group_id": "95ad0b44-3e3b-4409-b771-958dfecce61d",
+      "kind": "court_practice",
+      "number": "53",
+      "date": "2006-10-12",
+      "official_url": null,
+      "legacy_chunks": 5
+    },
+    {
+      "source_group_id": "71c59803-4f1c-4d92-b8f6-44f44999fefa",
+      "kind": "court_practice",
+      "number": "25",
+      "date": "2015-06-23",
+      "official_url": null,
+      "legacy_chunks": 80
+    },
+    {
+      "source_group_id": "b3bddf3a-7d00-4732-84f7-e285fcc2a606",
+      "kind": "court_practice",
+      "number": "10/22",
+      "date": "2010-04-29",
+      "official_url": "https://www.vsrf.ru/documents/own/8097/",
+      "legacy_chunks": 1
+    },
+    {
+      "source_group_id": "aa6fb831-c368-4b1d-bd51-0ece1686f37e",
+      "kind": "court_review",
+      "number": "1 (2026)",
+      "date": "2026-03-25",
+      "official_url": "https://vsrf.ru/documents/reviews/35663/",
+      "legacy_chunks": 5
+    }
+  ],
+  "excluded_legacy_families": [
+    {
+      "family": "GARANT copies of NK RF part I",
+      "chunks": 97,
+      "reason": "requires article-level comparison with the guarded NK snapshot"
+    },
+    {
+      "family": "Sudact copies",
+      "chunks": 120,
+      "reason": "secondary discovery source; not an official origin"
+    }
+  ]
+}
