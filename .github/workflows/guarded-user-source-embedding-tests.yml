@@ -1,0 +1,32 @@
+name: Guarded User Source Embedding Tests
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/backfill_user_supplied_legal_embeddings.py'
+      - 'scripts/test_backfill_user_supplied_legal_embeddings.py'
+      - '.github/workflows/guarded-user-supplied-legal-source-embedding-backfill.yml'
+      - '.github/workflows/guarded-user-source-embedding-tests.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/backfill_user_supplied_legal_embeddings.py'
+      - 'scripts/test_backfill_user_supplied_legal_embeddings.py'
+      - '.github/workflows/guarded-user-supplied-legal-source-embedding-backfill.yml'
+      - '.github/workflows/guarded-user-source-embedding-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run exact-group safety-contract tests
+        run: python scripts/test_backfill_user_supplied_legal_embeddings.py
