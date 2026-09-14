@@ -3,6 +3,7 @@ import pathlib
 import unittest
 
 MODULE_PATH = pathlib.Path(__file__).with_name("audit_legal_source_verification.py")
+MIGRATION_PATH = MODULE_PATH.parent.parent / "supabase" / "migrations" / "20260914153000_legal_source_verification_audit_rpc.sql"
 SPEC = importlib.util.spec_from_file_location("audit_legal_source_verification", MODULE_PATH)
 assert SPEC and SPEC.loader
 audit = importlib.util.module_from_spec(SPEC)
@@ -73,6 +74,17 @@ class LegalSourceVerificationAuditTests(unittest.TestCase):
         self.assertFalse(report["persistent_verification_flags_touched"])
         self.assertEqual(report["chunks_by_queue_status"]["not_external_legal_source"], 3)
         self.assertEqual(report["chunks_by_queue_status"]["registry_entry_missing"], 6)
+
+    def test_audit_reads_only_limited_rpc_projection(self):
+        self.assertIn("kati_legal_source_verification_audit_rows", audit.QUERY)
+        self.assertNotIn("legal_source_registry", audit.QUERY)
+
+        migration = MIGRATION_PATH.read_text(encoding="utf-8").lower()
+        self.assertIn("security definer", migration)
+        self.assertIn("revoke all on function", migration)
+        self.assertIn("grant execute on function", migration)
+        self.assertIn("kati_internal_kb_writer", migration)
+        self.assertNotIn("grant select on public.legal_source_registry", migration)
 
 
 if __name__ == "__main__":
