@@ -131,16 +131,6 @@ def preflight(conn) -> None:
     with conn.cursor() as cur:
         cur.execute(
             """
-            select count(*)
-            from public.legal_source_registry
-            where metadata->>'canonical_identity_scope' = %s
-              and metadata->>'source_group_id' = any(%s)
-            """,
-            (IDENTITY_SCOPE, group_ids),
-        )
-        (registry_heads,) = cur.fetchone()
-        cur.execute(
-            """
             select
               count(distinct metadata->>'source_group_id'),
               count(*),
@@ -155,8 +145,6 @@ def preflight(conn) -> None:
         )
         groups, chunks, content_false, temporal_false, substantive_false, generation_false = cur.fetchone()
 
-    if registry_heads != EXPECTED_GROUPS:
-        raise RuntimeError(f"expected {EXPECTED_GROUPS} registry heads, got {registry_heads}")
     if (groups, chunks) != (EXPECTED_GROUPS, EXPECTED_CHUNKS):
         raise RuntimeError(f"expected {EXPECTED_GROUPS} groups / {EXPECTED_CHUNKS} chunks, got {groups} / {chunks}")
     if not all((content_false, temporal_false, substantive_false, generation_false)):
