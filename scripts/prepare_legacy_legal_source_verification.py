@@ -4,8 +4,15 @@ import json
 import os
 from pathlib import Path
 
-def artifact_row(row):
-    safe = {key: value for key, value in row.items() if key != "content"}
+def artifact_row(row, candidate):
+    safe = {
+        key: value
+        for key, value in row.items()
+        if key not in {"content", "official_url"}
+    }
+    safe["stored_source_url"] = row.get("official_url")
+    safe["candidate_official_url"] = candidate.get("official_url")
+    safe["candidate_official_origin_observed"] = False
     safe["content_length"] = len(row.get("content") or "")
     return safe
 
@@ -16,7 +23,12 @@ def main():
     args = parser.parse_args()
 
     manifest = json.loads(Path(args.manifest).read_text())
-    groups = [item["source_group_id"] for item in manifest["candidates"] if "source_group_id" in item]
+    candidates = {
+        item["source_group_id"]: item
+        for item in manifest["candidates"]
+        if "source_group_id" in item
+    }
+    groups = list(candidates)
     if not groups:
         raise SystemExit("manifest candidates require source_group_id")
 
@@ -32,7 +44,7 @@ def main():
         "raw_content_exported": False,
         "substantive_use_allowed": False,
         "manifest_groups": len(groups),
-        "rows": [artifact_row(row) for row in rows],
+        "rows": [artifact_row(row, candidates[row["source_group_id"]]) for row in rows],
     }
     Path(args.output).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
 
