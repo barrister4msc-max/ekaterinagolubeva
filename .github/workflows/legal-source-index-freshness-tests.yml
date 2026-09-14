@@ -11,6 +11,7 @@ on:
       - 'supabase/functions/analyze-document-legal-position/official-collector-artifacts.ts'
       - 'supabase/functions/analyze-document-legal-position/official-collector-artifacts.test.ts'
       - '.github/workflows/legal-source-index-freshness-tests.yml'
+      - '.github/workflows/legal-source-verification-audit.yml'
 
 permissions:
   contents: read
