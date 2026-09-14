@@ -55,6 +55,52 @@ class GuardedOfficialOriginVerifierTests(unittest.TestCase):
         finally:
             verifier.fetch = original_fetch
 
+    def test_apply_uses_narrow_database_rpc(self):
+        class FakeCursor:
+            def __init__(self):
+                self.statement = ""
+                self.params = None
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def execute(self, statement, params):
+                self.statement = statement
+                self.params = params
+
+            def fetchone(self):
+                return (5,)
+
+        class FakeConnection:
+            def __init__(self):
+                self.cursor_instance = FakeCursor()
+
+            def cursor(self):
+                return self.cursor_instance
+
+        results = [
+            {
+                "source_group_id": item.source_group_id,
+                "canonical_document_key": item.canonical_document_key,
+                "official_url": item.url,
+                "http_status": item.expected_http_status,
+                "result": "official_url_unresolved",
+                "official_origin_verified": False,
+                "document_identity_verified": False,
+                "content_verified": False,
+                "temporal_verified": False,
+                "substantive_use_allowed": False,
+            }
+            for item in verifier.SPECS
+        ]
+        connection = FakeConnection()
+        verifier.apply(connection, results)
+        self.assertIn("kati_persist_guarded_user_source_official_origin", connection.cursor_instance.statement)
+        self.assertNotIn("update public.legal_source_registry", connection.cursor_instance.statement)
+
 
 if __name__ == "__main__":
     unittest.main()
