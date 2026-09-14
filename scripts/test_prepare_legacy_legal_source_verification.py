@@ -16,12 +16,21 @@ class TestQueue(unittest.TestCase):
         self.assertEqual(len(manifest["candidates"]), 8)
         self.assertEqual(len({item["source_group_id"] for item in manifest["candidates"]}), 8)
 
-    def test_artifact_excludes_source_content(self):
-        row = {"chunk_id": "chunk-1", "content": "restricted source text", "content_hash": "sha256:abc"}
-        self.assertEqual(
-            module.artifact_row(row),
-            {"chunk_id": "chunk-1", "content_hash": "sha256:abc", "content_length": 22},
-        )
+    def test_artifact_excludes_source_content_and_separates_urls(self):
+        row = {
+            "chunk_id": "chunk-1",
+            "content": "restricted source text",
+            "content_hash": "sha256:abc",
+            "official_url": "https://secondary.example/legacy",
+        }
+        candidate = {"official_url": "https://official.example/document"}
+        result = module.artifact_row(row, candidate)
+        self.assertNotIn("content", result)
+        self.assertNotIn("official_url", result)
+        self.assertEqual(result["stored_source_url"], "https://secondary.example/legacy")
+        self.assertEqual(result["candidate_official_url"], "https://official.example/document")
+        self.assertFalse(result["candidate_official_origin_observed"])
+        self.assertEqual(result["content_length"], 22)
 
 if __name__ == "__main__":
     unittest.main()
