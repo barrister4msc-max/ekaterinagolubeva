@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'scripts/backfill_legal_embeddings.py'
+      - 'scripts/audit_legal_source_verification.py'
+      - 'scripts/test_audit_legal_source_verification.py'
       - 'supabase/functions/analyze-document-legal-position/internal-source-runtime-verification.ts'
       - 'supabase/functions/analyze-document-legal-position/internal-source-runtime-verification.test.ts'
       - 'supabase/functions/analyze-document-legal-position/official-collector-artifacts.ts'
@@ -26,5 +28,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Runtime verification contract tests
         run: bun test supabase/functions/analyze-document-legal-position/internal-source-runtime-verification.test.ts supabase/functions/analyze-document-legal-position/official-collector-artifacts.test.ts
-      - name: Embedding worker syntax check
-        run: python -m py_compile scripts/backfill_legal_embeddings.py
+      - name: Python legal-source audit tests
+        run: |
+          python -m py_compile scripts/backfill_legal_embeddings.py scripts/audit_legal_source_verification.py
+          python scripts/test_audit_legal_source_verification.py
