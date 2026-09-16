@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type ExternalLegalResearchProvider = "strizh" | "garant" | "consultant" | "other";
+export type ExternalLegalResearchProvider = "strizh" | "garant" | "consultant" | "other" | "kad";
 
 export type ExternalLegalResearchCandidateDraft = {
   title?: string | null;
