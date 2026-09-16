@@ -1,0 +1,30 @@
+name: Legacy Legal Source Repair Tests
+
+on:
+  pull_request:
+    paths:
+      - "scripts/repair_legacy_legal_sources.py"
+      - "scripts/test_repair_legacy_legal_sources.py"
+      - ".github/workflows/guarded-legacy-legal-source-repair.yml"
+      - ".github/workflows/legacy-legal-source-repair-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/repair_legacy_legal_sources.py"
+      - "scripts/test_repair_legacy_legal_sources.py"
+      - ".github/workflows/guarded-legacy-legal-source-repair.yml"
+      - ".github/workflows/legacy-legal-source-repair-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m py_compile scripts/repair_legacy_legal_sources.py
+      - run: python scripts/test_repair_legacy_legal_sources.py
