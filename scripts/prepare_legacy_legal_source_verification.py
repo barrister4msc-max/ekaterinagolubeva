@@ -12,6 +12,17 @@ from collections import defaultdict
 from pathlib import Path
 
 
+LEGACY_VERIFICATION_FIELDS = {
+    "verification_status",
+    "official_status",
+    "official_origin_verified",
+    "content_verified",
+    "temporal_verified",
+    "substantive_use_allowed",
+    "verification_basis",
+}
+
+
 def normalized_digest(text: str) -> str:
     normalized = unicodedata.normalize("NFKC", text).replace("\u00a0", " ")
     normalized = re.sub(r"\s+", " ", normalized).strip()
@@ -65,11 +76,51 @@ def group_integrity(rows, candidate):
     }
 
 
+def legacy_verification_metadata_conflict(row):
+    return (
+        row.get("verification_status") == "official_verified"
+        and (
+            row.get("official_status") != "official_verified"
+            or not all(
+                row.get(field) is True
+                for field in (
+                    "official_origin_verified",
+                    "content_verified",
+                    "temporal_verified",
+                    "substantive_use_allowed",
+                )
+            )
+        )
+    )
+
+
 def artifact_row(row, candidate):
-    safe = {key: value for key, value in row.items() if key not in {"content", "official_url"}}
+    safe = {
+        key: value
+        for key, value in row.items()
+        if key not in {"content", "official_url", *LEGACY_VERIFICATION_FIELDS}
+    }
     safe["stored_source_url"] = row.get("official_url")
     safe["candidate_official_url"] = candidate.get("official_url")
     safe["candidate_official_origin_observed"] = False
+    safe["stored_legacy_verification_status"] = row.get("verification_status")
+    safe["stored_legacy_official_status"] = row.get("official_status")
+    safe["stored_legacy_official_origin_observed"] = row.get("official_origin_verified")
+    safe["stored_legacy_content_verified"] = row.get("content_verified")
+    safe["stored_legacy_temporal_verified"] = row.get("temporal_verified")
+    safe["stored_legacy_substantive_use_allowed"] = row.get("substantive_use_allowed")
+    safe["legacy_verification_metadata_conflict"] = legacy_verification_metadata_conflict(row)
+    safe["queue_effective_verification_status"] = "identity_unresolved"
+    safe["queue_effective_official_origin_verified"] = False
+    safe["queue_effective_content_verified"] = False
+    safe["queue_effective_temporal_verified"] = False
+    safe["queue_effective_substantive_use_allowed"] = False
+    safe["queue_required_evidence"] = [
+        "canonical_identity",
+        "official_origin",
+        "exact_normalized_content",
+        "temporal_applicability_and_freshness",
+    ]
     safe["content_length"] = len(row.get("content") or "")
     return safe
 
@@ -96,13 +147,19 @@ def main():
     rows_by_group = defaultdict(list)
     for row in rows:
         rows_by_group[row["source_group_id"]].append(row)
+    artifact_rows = [artifact_row(row, candidates[row["source_group_id"]]) for row in rows]
+    conflicted_groups = sorted(
+        {row["source_group_id"] for row in artifact_rows if row["legacy_verification_metadata_conflict"]}
+    )
     report = {
         "read_only": True,
         "raw_content_exported": False,
         "substantive_use_allowed": False,
         "manifest_groups": len(groups),
+        "legacy_verification_metadata_conflicted_groups": conflicted_groups,
+        "legacy_verification_metadata_conflict_count": len(conflicted_groups),
         "groups": [group_integrity(rows_by_group[group_id], candidate) for group_id, candidate in candidates.items()],
-        "rows": [artifact_row(row, candidates[row["source_group_id"]]) for row in rows],
+        "rows": artifact_rows,
     }
     Path(args.output).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
 
