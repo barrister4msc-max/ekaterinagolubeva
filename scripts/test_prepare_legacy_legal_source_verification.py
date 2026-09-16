@@ -56,6 +56,7 @@ class TestQueue(unittest.TestCase):
         self.assertEqual(result["candidate_official_url"], "https://official.example/document")
         self.assertFalse(result["candidate_official_origin_observed"])
         self.assertEqual(result["stored_legacy_verification_status"], "official_verified")
+        self.assertTrue(result["legacy_verification_metadata_observed"])
         self.assertTrue(result["legacy_verification_metadata_conflict"])
         self.assertEqual(result["queue_effective_verification_status"], "identity_unresolved")
         self.assertFalse(result["queue_effective_substantive_use_allowed"])
@@ -70,6 +71,11 @@ class TestQueue(unittest.TestCase):
             "substantive_use_allowed": True,
         }
         self.assertFalse(module.legacy_verification_metadata_conflict(row))
+
+    def test_missing_rpc_metadata_is_reported_as_unobservable_not_clean(self):
+        result = module.artifact_row({"chunk_id": "chunk-1", "content": "restricted source text"}, self.candidate)
+        self.assertFalse(result["legacy_verification_metadata_observed"])
+        self.assertIsNone(result["legacy_verification_metadata_conflict"])
 
 
 if __name__ == "__main__":
