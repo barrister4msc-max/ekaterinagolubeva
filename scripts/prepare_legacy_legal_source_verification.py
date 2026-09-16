@@ -77,6 +77,8 @@ def group_integrity(rows, candidate):
 
 
 def legacy_verification_metadata_conflict(row):
+    if not {"verification_status", "official_status"}.issubset(row):
+        return None
     return (
         row.get("verification_status") == "official_verified"
         and (
@@ -109,6 +111,14 @@ def artifact_row(row, candidate):
     safe["stored_legacy_content_verified"] = row.get("content_verified")
     safe["stored_legacy_temporal_verified"] = row.get("temporal_verified")
     safe["stored_legacy_substantive_use_allowed"] = row.get("substantive_use_allowed")
+    safe["legacy_verification_metadata_observed"] = {
+        "verification_status",
+        "official_status",
+        "official_origin_verified",
+        "content_verified",
+        "temporal_verified",
+        "substantive_use_allowed",
+    }.issubset(row)
     safe["legacy_verification_metadata_conflict"] = legacy_verification_metadata_conflict(row)
     safe["queue_effective_verification_status"] = "identity_unresolved"
     safe["queue_effective_official_origin_verified"] = False
@@ -151,6 +161,9 @@ def main():
     conflicted_groups = sorted(
         {row["source_group_id"] for row in artifact_rows if row["legacy_verification_metadata_conflict"]}
     )
+    unobservable_groups = sorted(
+        {row["source_group_id"] for row in artifact_rows if not row["legacy_verification_metadata_observed"]}
+    )
     report = {
         "read_only": True,
         "raw_content_exported": False,
@@ -158,6 +171,8 @@ def main():
         "manifest_groups": len(groups),
         "legacy_verification_metadata_conflicted_groups": conflicted_groups,
         "legacy_verification_metadata_conflict_count": len(conflicted_groups),
+        "legacy_verification_metadata_observation_complete": not unobservable_groups,
+        "legacy_verification_metadata_unobservable_groups": unobservable_groups,
         "groups": [group_integrity(rows_by_group[group_id], candidate) for group_id, candidate in candidates.items()],
         "rows": artifact_rows,
     }
