@@ -5,6 +5,7 @@ on:
     paths:
       - "scripts/repair_legacy_legal_sources.py"
       - "scripts/test_repair_legacy_legal_sources.py"
+      - "supabase/migrations/20260917220605_guarded_legacy_legal_source_repair_rpc.sql"
       - ".github/workflows/guarded-legacy-legal-source-repair.yml"
       - ".github/workflows/legacy-legal-source-repair-tests.yml"
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - "scripts/repair_legacy_legal_sources.py"
       - "scripts/test_repair_legacy_legal_sources.py"
+      - "supabase/migrations/20260917220605_guarded_legacy_legal_source_repair_rpc.sql"
       - ".github/workflows/guarded-legacy-legal-source-repair.yml"
       - ".github/workflows/legacy-legal-source-repair-tests.yml"
 
