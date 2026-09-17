@@ -34,6 +34,8 @@ STORAGE_VERIFIER_TOKEN_ENV = "KATI_GUARDED_INTAKE_VERIFY_TOKEN"
 SAFE_OBJECT_NAME = re.compile(r"^[A-Za-z0-9._-]+$")
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 FAIL_CLOSED_STATUS = "metadata_officially_verified_content_pending"
+REPAIR_RPC = "private.kati_apply_guarded_legacy_legal_source_repair"
+AUDIT_RPC = "private.kati_guarded_legacy_legal_source_repair_audit"
 
 # This table is the complete scope of this repair.  A manifest that introduces
 # another document, modifies a legacy identity or assigns a different official
@@ -267,111 +269,26 @@ def preflight_storage(rows: list[dict[str, Any]]) -> None:
         raise ValueError("guarded Storage verifier returned an invalid hash inventory")
 
 
-def preflight_database(cur: Any, rows: list[dict[str, Any]]) -> None:
-    new_group_ids = [row["source_group_id"] for row in rows]
-    cur.execute(
-        """
-        select distinct metadata->>'source_group_id'
-        from public.legal_knowledge_chunks
-        where metadata->>'source_group_id' = any(%s)
-        """,
-        (new_group_ids,),
-    )
-    existing_new = [value for (value,) in cur.fetchall() if value]
-    if existing_new:
-        raise ValueError(f"replacement group already exists: {existing_new}")
+def rpc_payload(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return the deliberately minimal input accepted by the private RPC.
 
-    legacy_group_ids = [row["legacy_source_group_id"] for row in rows]
-    cur.execute(
-        """
-        select
-          metadata->>'source_group_id',
-          count(*),
-          bool_and(coalesce(metadata->>'ingest_mode', '') = 'manual_text'),
-          bool_and(coalesce((metadata->>'content_verified')::boolean, false) = false),
-          bool_and(coalesce((metadata->>'temporal_verified')::boolean, false) = false),
-          bool_and(coalesce((metadata->>'substantive_use_allowed')::boolean, false) = false),
-          bool_and(coalesce((metadata->>'use_in_generation')::boolean, false) = false)
-        from public.legal_knowledge_chunks
-        where is_active = true and metadata->>'source_group_id' = any(%s)
-        group by metadata->>'source_group_id'
-        """,
-        (legacy_group_ids,),
-    )
-    actual = {group: values for group, *values in cur.fetchall()}
-    for row in rows:
-        expected_rows = REPAIR_SPECS[row["canonical_document_key"]]["legacy_rows"]
-        values = actual.get(row["legacy_source_group_id"])
-        if not values or values[0] != expected_rows:
-            raise ValueError(f"legacy group does not have expected active row count: {row['legacy_source_group_id']}")
-        if not all(values[1:]):
-            raise ValueError(f"legacy group is not eligible for fail-closed replacement: {row['legacy_source_group_id']}")
-
-
-def insert_snapshot(cur: Any, row: dict[str, Any]) -> int:
-    chunks = row["chunks"]
-    base = {
-        "source_group_id": row["source_group_id"],
-        "supersedes_source_group_id": row["legacy_source_group_id"],
-        "canonical_document_key": row["canonical_document_key"],
-        "source_type": row["source_type"],
-        "source_class": "user_supplied_retrieval_snapshot",
-        "title": row["title"],
-        "authority": row["authority"],
-        "document_type": row["document_type"],
-        "document_number": row["document_number"],
-        "document_date": row["document_date"],
-        "historical_VAS": bool(row.get("historical_VAS", False)),
-        "source_url": row["source_url"],
-        "official_source_domain": row["official_source_domain"],
-        # A matching official card is evidence, not a complete source-content
-        # or temporal verdict.  These two observations never unlock a source.
-        "official_origin_observed": True,
-        "official_metadata_verified": True,
-        "document_identity_verified": False,
-        "storage_bucket": BUCKET,
-        "storage_object_name": row["storage_object_name"],
-        "original_file_name": row.get("original_file_name"),
-        "normalized_file_name": row["normalized_file_name"],
-        "file_mime": row["file_mime"],
-        "storage_size_bytes": row["storage_size_bytes"],
-        "original_sha256": row["original_sha256"],
-        "normalized_sha256": row["normalized_sha256"],
-        "storage_sha256": row["storage_sha256"],
-        "text_sha256": row["text_sha256"],
-        "pages_total": row.get("pages_total"),
-        "extraction_method": row["extraction_method"],
-        "ocr_required": bool(row.get("ocr_required", False)),
-        "ocr_status": "completed",
-        "extraction_status": "completed",
-        "ocr_text_length": len(row["text_content"]),
-        "metadata_status": row["metadata_status"],
-        "verification_status": FAIL_CLOSED_STATUS,
-        "official_origin_verified": False,
-        "content_verified": False,
-        "temporal_verified": False,
-        "substantive_use_allowed": False,
-        "use_in_generation": False,
-        "trust_level": row.get("trust_level", "high"),
-        "ingest_mode": "guarded_legacy_repair_v1",
-        "embedding_status": "pending",
-        "chunks_total": len(chunks),
-        "notes": row.get("notes"),
-    }
-    inserted = 0
-    for index, content in enumerate(chunks):
-        metadata = {**base, "chunk_index": index, "is_source_head": index == 0}
-        row_id = str(uuid.uuid5(ROW_NAMESPACE, f"chunk:{row['source_group_id']}:{index}"))
-        cur.execute(
-            """
-            insert into public.legal_knowledge_chunks
-              (id, category, title, content, metadata, is_active, source_type)
-            values (%s, 'tax', %s, %s, %s::jsonb, true, %s)
-            """,
-            (row_id, row["title"], content, json.dumps(metadata, ensure_ascii=False), row["source_type"]),
-        )
-        inserted += 1
-    return inserted
+    Source identity, verification state, source type and all other metadata are
+    pinned in the database function.  The workflow supplies only the already
+    hash-verified Storage reference and content chunks whose digests are also
+    pinned by that function.
+    """
+    return [
+        {
+            "canonical_document_key": row["canonical_document_key"],
+            "source_group_id": row["source_group_id"],
+            "legacy_source_group_id": row["legacy_source_group_id"],
+            "storage_object_name": row["storage_object_name"],
+            "storage_size_bytes": row["storage_size_bytes"],
+            "storage_sha256": row["storage_sha256"],
+            "chunks": [{"content": content} for content in row["chunks"]],
+        }
+        for row in rows
+    ]
 
 
 def apply(rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -383,32 +300,47 @@ def apply(rows: list[dict[str, Any]]) -> dict[str, Any]:
     with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
         # This external preflight completes before the first database mutation.
         preflight_storage(rows)
-        preflight_database(cursor, rows)
-        for row in rows:
-            cursor.execute(
-                """
-                update public.legal_knowledge_chunks
-                set is_active = false,
-                    metadata = metadata || jsonb_build_object(
-                      'superseded_by_source_group_id', %s,
-                      'supersession_reason', 'guarded_complete_snapshot_repair'
-                    )
-                where is_active = true and metadata->>'source_group_id' = %s
-                """,
-                (row["source_group_id"], row["legacy_source_group_id"]),
-            )
-            if cursor.rowcount != REPAIR_SPECS[row["canonical_document_key"]]["legacy_rows"]:
-                raise RuntimeError("legacy deactivation changed an unexpected number of rows")
-        inserted = sum(insert_snapshot(cursor, row) for row in rows)
+        cursor.execute(
+            f"select {REPAIR_RPC}(%s::jsonb)",
+            (json.dumps(rpc_payload(rows), ensure_ascii=False),),
+        )
+        (result,) = cursor.fetchone()
+    if not isinstance(result, dict) or result.get("fail_closed") is not True:
+        raise RuntimeError("guarded repair RPC did not return a fail-closed result")
+    return result
 
-    return {"sources": len(rows), "chunks": inserted, "legacy_groups_deactivated": len(rows)}
+
+def audit() -> dict[str, Any]:
+    database_url = os.environ.get("DATABASE_URL", "").strip()
+    if not database_url:
+        raise RuntimeError("DATABASE_URL is required for --audit")
+    import psycopg
+
+    with psycopg.connect(database_url) as connection, connection.cursor() as cursor:
+        cursor.execute(f"select {AUDIT_RPC}()")
+        (result,) = cursor.fetchone()
+    if not isinstance(result, dict):
+        raise RuntimeError("guarded repair audit RPC returned an invalid result")
+    if not (
+        result.get("source_groups") == 2
+        and result.get("heads") == 2
+        and isinstance(result.get("chunks"), int)
+        and result["chunks"] > 2
+        and result.get("legacy_active_rows") == 0
+        and result.get("fail_closed") is True
+    ):
+        raise RuntimeError("guarded repair audit did not prove the required fail-closed state")
+    return result
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--audit", action="store_true")
     args = parser.parse_args()
+    if args.apply and args.audit:
+        parser.error("--apply and --audit cannot be used together")
     rows = normalize_all(args.input)
     result: dict[str, Any] = {
         "mode": "dry_run",
@@ -423,6 +355,8 @@ def main() -> int:
     }
     if args.apply:
         result = {"mode": "apply", **apply(rows), **{k: v for k, v in result.items() if k not in {"mode", "sources", "expected_chunks"}}}
+    elif args.audit:
+        result = {"mode": "audit", **audit(), **{k: v for k, v in result.items() if k not in {"mode", "sources", "expected_chunks"}}}
     print(json.dumps(result, ensure_ascii=False))
     return 0
 
