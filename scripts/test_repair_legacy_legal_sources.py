@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 
 SCRIPT = Path(__file__).with_name("repair_legacy_legal_sources.py")
+MIGRATION = SCRIPT.parent.parent / "supabase/migrations/20260917220605_guarded_legacy_legal_source_repair_rpc.sql"
 spec = importlib.util.spec_from_file_location("repair", SCRIPT)
 repair = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
@@ -114,6 +115,39 @@ class RepairContractTests(unittest.TestCase):
     def test_group_ids_are_deterministic(self):
         key = next(iter(repair.REPAIR_SPECS))
         self.assertEqual(repair.normalize(item(key))["source_group_id"], repair.normalize(item(key))["source_group_id"])
+
+    def test_rpc_payload_is_minimal_and_exactly_scoped(self):
+        rows = [repair.normalize(item(key)) for key in repair.REPAIR_SPECS]
+        payload = repair.rpc_payload(rows)
+        self.assertEqual(len(payload), 2)
+        self.assertEqual(
+            set(payload[0]),
+            {
+                "canonical_document_key",
+                "source_group_id",
+                "legacy_source_group_id",
+                "storage_object_name",
+                "storage_size_bytes",
+                "storage_sha256",
+                "chunks",
+            },
+        )
+        self.assertTrue(all(set(chunk) == {"content"} for row in payload for chunk in row["chunks"]))
+
+    def test_private_rpc_migration_is_narrow_and_fail_closed(self):
+        sql = MIGRATION.read_text(encoding="utf-8")
+        self.assertIn("private.kati_apply_guarded_legacy_legal_source_repair", sql)
+        self.assertIn("private.kati_guarded_legacy_legal_source_repair_audit", sql)
+        self.assertIn("security definer", sql)
+        self.assertIn("set search_path = pg_catalog, public, extensions", sql)
+        self.assertIn("revoke all on schema private from public", sql)
+        self.assertIn("grant execute on function private.kati_apply_guarded_legacy_legal_source_repair", sql)
+        self.assertIn("'content_verified', false", sql)
+        self.assertIn("'temporal_verified', false", sql)
+        self.assertIn("'substantive_use_allowed', false", sql)
+        self.assertIn("'use_in_generation', false", sql)
+        self.assertNotIn("legal_law_chunks\n", sql)
+        self.assertNotIn("legal_source_registry\n", sql)
 
     def test_long_unbroken_paragraph_is_bounded(self):
         chunks = repair.chunk_text(("слово " * 1000).strip(), target=200)
