@@ -43,7 +43,7 @@ AUDIT_RPC = "private.kati_guarded_legacy_legal_source_repair_audit"
 REPAIR_SPECS: dict[str, dict[str, Any]] = {
     "ru:fns:letter:BV-4-7/3060@:2021-03-10": {
         "legacy_source_group_id": "7f3d94f2-46e9-4cfe-8aad-54db9b361701",
-        "legacy_rows": 2,
+        "legacy_rows": 1,
         "source_type": "fns_letter",
         "document_type": "fns_letter",
         "authority": "ФНС России",
@@ -54,7 +54,7 @@ REPAIR_SPECS: dict[str, dict[str, Any]] = {
     },
     "ru:court_practice:plenum_vas:53:2006-10-12": {
         "legacy_source_group_id": "95ad0b44-3e3b-4409-b771-958dfecce61d",
-        "legacy_rows": 6,
+        "legacy_rows": 5,
         "source_type": "court_practice",
         "document_type": "plenum_resolution",
         "authority": "Высший Арбитражный Суд Российской Федерации",
