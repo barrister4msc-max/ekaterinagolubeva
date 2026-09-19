@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 SCRIPT = Path(__file__).with_name("repair_legacy_legal_sources.py")
 MIGRATION = SCRIPT.parent.parent / "supabase/migrations/20260917220605_guarded_legacy_legal_source_repair_rpc.sql"
+COUNT_FIX_MIGRATION = SCRIPT.parent.parent / "supabase/migrations/20260919100000_fix_guarded_legacy_repair_legacy_counts.sql"
 spec = importlib.util.spec_from_file_location("repair", SCRIPT)
 repair = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
@@ -148,6 +149,30 @@ class RepairContractTests(unittest.TestCase):
         self.assertIn("'use_in_generation', false", sql)
         self.assertNotIn("legal_law_chunks\n", sql)
         self.assertNotIn("legal_source_registry\n", sql)
+
+    def test_corrective_migration_has_only_the_observed_legacy_cardinality_change(self):
+        original = MIGRATION.read_text(encoding="utf-8")
+        corrective = COUNT_FIX_MIGRATION.read_text(encoding="utf-8")
+        original_function = original[original.index("create or replace function private.kati_apply"):original.index("$function$;", original.index("create or replace function private.kati_apply")) + len("$function$;")]
+        corrective_function = corrective[corrective.index("create or replace function private.kati_apply"):corrective.index("$function$;", corrective.index("create or replace function private.kati_apply")) + len("$function$;")]
+        self.assertIn("v_expected_legacy_rows := 1;", corrective_function)
+        self.assertIn("v_expected_legacy_rows := 5;", corrective_function)
+        self.assertEqual(
+            corrective_function
+            .replace("v_expected_legacy_rows := 1;", "v_expected_legacy_rows := 2;")
+            .replace("v_expected_legacy_rows := 5;", "v_expected_legacy_rows := 6;"),
+            original_function,
+        )
+
+    def test_repair_spec_matches_observed_production_legacy_cardinality(self):
+        self.assertEqual(
+            repair.REPAIR_SPECS["ru:fns:letter:BV-4-7/3060@:2021-03-10"]["legacy_rows"],
+            1,
+        )
+        self.assertEqual(
+            repair.REPAIR_SPECS["ru:court_practice:plenum_vas:53:2006-10-12"]["legacy_rows"],
+            5,
+        )
 
     def test_long_unbroken_paragraph_is_bounded(self):
         chunks = repair.chunk_text(("слово " * 1000).strip(), target=200)
