@@ -1,0 +1,84 @@
+name: Guarded Official-Origin RPC ACL Tests
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20260920075803_revoke_guarded_official_origin_rpc_public_execute.sql'
+      - 'scripts/test_guarded_official_origin_rpc_acl_migration.py'
+      - '.github/workflows/guarded-official-origin-rpc-acl-tests.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/20260920075803_revoke_guarded_official_origin_rpc_public_execute.sql'
+      - 'scripts/test_guarded_official_origin_rpc_acl_migration.py'
+      - '.github/workflows/guarded-official-origin-rpc-acl-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check privilege-only migration contract
+        run: python scripts/test_guarded_official_origin_rpc_acl_migration.py
+      - name: Replay ACL migration and prove positive and negative privileges
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          db_url='postgresql://postgres:postgres@localhost:5432/postgres'
+          psql "$db_url" -v ON_ERROR_STOP=1 <<'SQL'
+          create role anon login;
+          create role authenticated login;
+          create role service_role login;
+          create role kati_internal_kb_writer login;
+
+          create function public.kati_persist_guarded_user_source_official_origin(jsonb)
+          returns integer
+          language sql
+          security definer
+          set search_path = public
+          as 'select 0';
+
+          grant execute on function public.kati_persist_guarded_user_source_official_origin(jsonb)
+            to public, anon, authenticated, service_role;
+          SQL
+          psql "$db_url" -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260920075803_revoke_guarded_official_origin_rpc_public_execute.sql
+          psql "$db_url" -v ON_ERROR_STOP=1 \
+            -f supabase/migrations/20260920075803_revoke_guarded_official_origin_rpc_public_execute.sql
+          psql "$db_url" -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if has_function_privilege('public', 'public.kati_persist_guarded_user_source_official_origin(jsonb)', 'EXECUTE')
+              or has_function_privilege('anon', 'public.kati_persist_guarded_user_source_official_origin(jsonb)', 'EXECUTE')
+              or has_function_privilege('authenticated', 'public.kati_persist_guarded_user_source_official_origin(jsonb)', 'EXECUTE')
+              or has_function_privilege('service_role', 'public.kati_persist_guarded_user_source_official_origin(jsonb)', 'EXECUTE') then
+              raise exception 'API role retains EXECUTE after ACL migration replay';
+            end if;
+
+            if not has_function_privilege('kati_internal_kb_writer', 'public.kati_persist_guarded_user_source_official_origin(jsonb)', 'EXECUTE') then
+              raise exception 'internal writer lacks EXECUTE after ACL migration replay';
+            end if;
+          end
+          $$;
+          SQL
