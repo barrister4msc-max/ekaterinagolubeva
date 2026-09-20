@@ -63,6 +63,18 @@ REPAIR_SPECS: dict[str, dict[str, Any]] = {
         "source_url": "https://vsrf.ru/documents/arbitration/18938/",
         "official_source_domain": "vsrf.ru",
         "historical_VAS": True,
+        # This exact transcript is derived from the raw PDF whose immutable
+        # Storage hash is pinned again by the private RPC. It remains
+        # retrieval-only and cannot confer content verification or admission.
+        "expected_text_sha256": "bcd100705214768ec63a91401359e954277a97ad04f47a63bc66f41edb62d96e",
+        "expected_chunk_sha256": [
+            "2d9959f5ed0ce77860e4de349330ddcc5d103ac9dfc839e65783a24862f87541",
+            "b232401c49bfb68f2f2787a2a34a7a221a6de55f71a0a640c978c6d9f0b44d53",
+            "4fddb7e1efd0b8b4aa4bff9a4812aeb741e39cde902ad776bf26b5723da40e27",
+            "54c9ca14a2e5e6ff6422cf10da176932214036fab4d54f8bca615b2f0640daaf",
+            "9e961a9a66139a65ce4f9a241308070c66d5d147df7408a421ac3c25ee23f058",
+            "50cdaa4f6a56ff78a0f4405c7d4176d1ee7dc5065a7fc5d2506ed8c1b801e8b9",
+        ],
     },
 }
 
@@ -192,6 +204,13 @@ def normalize(item: dict[str, Any]) -> dict[str, Any]:
     chunks = chunk_text(text)
     if not chunks:
         raise ValueError("text_content produced no chunks")
+    expected_text_sha = spec.get("expected_text_sha256")
+    expected_chunk_sha = spec.get("expected_chunk_sha256")
+    if expected_text_sha is not None and (
+        text_hash != expected_text_sha
+        or [text_sha256(chunk) for chunk in chunks] != expected_chunk_sha
+    ):
+        raise ValueError("text_content does not match the pinned extraction contract")
 
     return {
         **item,
