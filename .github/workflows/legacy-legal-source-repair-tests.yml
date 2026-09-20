@@ -7,6 +7,7 @@ on:
       - "scripts/test_repair_legacy_legal_sources.py"
       - "supabase/migrations/20260917220605_guarded_legacy_legal_source_repair_rpc.sql"
       - "supabase/migrations/20260919100000_fix_guarded_legacy_repair_legacy_counts.sql"
+      - "supabase/migrations/20260920120000_pin_vas53_rederived_ocr_contract.sql"
       - ".github/workflows/guarded-legacy-legal-source-repair.yml"
       - ".github/workflows/legacy-legal-source-repair-tests.yml"
   push:
@@ -16,6 +17,7 @@ on:
       - "scripts/test_repair_legacy_legal_sources.py"
       - "supabase/migrations/20260917220605_guarded_legacy_legal_source_repair_rpc.sql"
       - "supabase/migrations/20260919100000_fix_guarded_legacy_repair_legacy_counts.sql"
+      - "supabase/migrations/20260920120000_pin_vas53_rederived_ocr_contract.sql"
       - ".github/workflows/guarded-legacy-legal-source-repair.yml"
       - ".github/workflows/legacy-legal-source-repair-tests.yml"
 
