@@ -170,7 +170,6 @@ const hasCompleteExtraction = (document: SessionDocument) =>
 const [isAiFilling, setIsAiFilling] = useState(false);
 const [aiFillFailure, setAiFillFailure] = useState<string | null>(null);
 const [aiFillWarning, setAiFillWarning] = useState<string | null>(null);
-const [allowUnredactedAiFill, setAllowUnredactedAiFill] = useState(false);
 const [aiFillRunId, setAiFillRunId] = useState<string | null>(null);
 const [autoFillStage, setAutoFillStage] = useState<import("@/lib/auto-ai-fill").AutoAiFillStage>("idle");
 const lastAutoFingerprintRef = useRef<string | null>(null);
@@ -895,7 +894,7 @@ const reloadAnswersFromSession = useCallback(async () => {
   };
 
   const handleAiFillFromDocument = async (
-    options: { trigger?: "manual" | "auto"; silent?: boolean; allowUnredactedText?: boolean } = {},
+    options: { trigger?: "manual" | "auto"; silent?: boolean } = {},
   ) => {
     if (!intakeSessionId) {
       alert("Сначала загрузите документы");
@@ -904,19 +903,13 @@ const reloadAnswersFromSession = useCallback(async () => {
     if (aiFillInFlightRef.current) return;
     aiFillInFlightRef.current = true;
     const trigger = options.trigger ?? "manual";
-    // Intake AI-fill intentionally runs before redaction. The user requested
-    // factual form completion from the full uploaded OCR package; redaction
-    // remains a separate post-fill action before external sharing/export.
-    const allowUnredactedText = true;
+    // The server resolves whether original OCR is permissible for this exact
+    // authenticated session/document scope. The browser cannot elevate it.
     try {
       setIsAiFilling(true);
       setAutoFillStage("ai_filling");
       setAiFillFailure(null);
       setAiFillWarning(null);
-      // The raw-text offer is valid only for the current redaction failure.
-      setAllowUnredactedAiFill(false);
-
-
       let currentDocuments = await refreshSessionDocuments(intakeSessionId);
        let readyDocs = currentDocuments.filter(hasCompleteExtraction);
        const documentsWithoutText = currentDocuments.filter(
@@ -955,38 +948,11 @@ const reloadAnswersFromSession = useCallback(async () => {
         );
       }
 
-      // Redaction is an internal preparation step. It is decoupled from
-      // the fill action, but raw OCR is never sent to AI. Each document is
-      // prepared independently so one unsafe document cannot abort filling
-      // from the other safe documents.
-      const redactionIssues: string[] = [];
-      for (const document of readyDocs) {
-        if (allowUnredactedText) continue;
-        try {
-          if (document.redaction_status === "accepted" || document.redaction_status === "not_required") continue;
-          if (document.redacted_text && document.redaction_quality !== "unsafe") {
-            await acceptRedaction(document.id, {});
-          } else {
-            await suggestRedaction(document.id);
-            await acceptRedaction(document.id, {});
-          }
-        } catch (error) {
-          const name = document.file_name ?? document.title ?? document.id;
-          redactionIssues.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-      currentDocuments = await refreshSessionDocuments(intakeSessionId);
-      readyDocs = currentDocuments.filter((document) => {
-        if (!hasExtractedDocumentText(document.ocr_text)) return false;
-        if (allowUnredactedText) return true;
-        if (document.redaction_status === "not_required") return true;
-        return document.redaction_status === "accepted" && typeof document.redacted_text === "string";
-      });
+      // Redaction remains a separate preparation/export action. AI-fill sends
+      // no privacy override: the Edge Function decides the permitted mode.
       if (readyDocs.length === 0) {
         throw new Error(
-          redactionIssues.length > 0
-            ? `Не удалось безопасно подготовить документы для AI: ${redactionIssues.join("; ")}`
-            : "Нет документов, безопасных для AI-заполнения.",
+          "Нет документов с завершённым извлечением текста для AI-заполнения.",
         );
       }
 
@@ -1012,7 +978,6 @@ const reloadAnswersFromSession = useCallback(async () => {
             session_id: intakeSessionId,
             document_ids: readyDocs.map((document) => document.id),
             trigger,
-            allow_unredacted_text: allowUnredactedText,
           },
         });
 
@@ -1079,14 +1044,9 @@ const reloadAnswersFromSession = useCallback(async () => {
         );
       }
     } catch (e) {
-      console.error("AI fill failed", e);
+      console.error("AI fill failed", { error_code: "request_failed" });
       const message = e instanceof Error ? e.message : String(e);
       setAiFillFailure(message);
-      if (!options.allowUnredactedText && /redaction|обезлич/i.test(message)) {
-        setAllowUnredactedAiFill(true);
-      } else {
-        setAllowUnredactedAiFill(false);
-      }
       setAutoFillStage("failed");
     } finally {
       aiFillInFlightRef.current = false;
@@ -1320,19 +1280,6 @@ const reloadAnswersFromSession = useCallback(async () => {
                 <div className="mt-1 text-muted-foreground">
                   Можно нажать «Повторить AI-заполнение»: комплект и уже сохранённые ответы не потеряются.
                 </div>
-                {allowUnredactedAiFill && (
-                  <button
-                    type="button"
-                    className="mt-2 rounded-md border border-rose-400 px-3 py-1.5 font-medium"
-                    onClick={() => {
-                      setAllowUnredactedAiFill(false);
-                      void handleAiFillFromDocument({ trigger: "manual", allowUnredactedText: true });
-                    }}
-                    disabled={isAiFilling || isProcessingDocuments}
-                  >
-                    Разрешить исходный текст для AI
-                  </button>
-                )}
               </div>
             )}
 

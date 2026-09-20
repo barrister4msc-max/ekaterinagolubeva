@@ -6,6 +6,8 @@ import {
   extractProtectedAnswerCandidates,
   prepareSafeAiFillDocuments,
 } from "./redaction-safety.ts";
+import { resolveAiFillPrivacyDecision } from "./privacy-policy.ts";
+import { safeRuntimeErrorCode } from "../_shared/ai-privacy-diagnostics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,7 +54,7 @@ serve(async (req) => {
       return json({ success: false, error: "Forbidden" }, 403);
     }
 
-    const { session_id, document_id, document_ids, trigger, allow_unredacted_text } = await req.json();
+    const { session_id, document_id, document_ids, trigger } = await req.json();
     const requestedDocumentIds = Array.from(
       new Set(
         (Array.isArray(document_ids) ? document_ids : [document_id])
@@ -96,11 +98,40 @@ serve(async (req) => {
       }
     }
 
+    const privacyDecision = resolveAiFillPrivacyDecision({
+      authenticated: true,
+      isAdmin: isAdmin === true,
+      userId: user.id,
+      // The default preserves the current sole-user workflow. A future server
+      // configuration may set this false without granting the client a bypass.
+      serverOriginalOcrEnabled:
+        Deno.env.get("KATI_AI_FILL_ORIGINAL_BY_PERMISSION")?.trim().toLowerCase() !== "false",
+      session: {
+        id: session.id,
+        created_by: session.created_by,
+        matter_id: session.matter_id,
+        client_id: session.client_id,
+      },
+      documents: documents.map((document) => {
+        const metadata = (document.metadata ?? {}) as Record<string, unknown>;
+        return {
+          intake_session_id: typeof metadata.intake_session_id === "string"
+            ? metadata.intake_session_id
+            : null,
+          uploaded_by: document.uploaded_by,
+          matter_id: document.matter_id,
+          client_id: document.client_id,
+        };
+      }),
+    });
+
+    if (privacyDecision.mode === "blocked") {
+      return json({ success: false, error: "AI fill request is outside the permitted document scope." }, 403);
+    }
+
     let readyDocuments;
     try {
-      readyDocuments = allow_unredacted_text === true
-        ? prepareSafeAiFillDocuments(documents, { allowUnredactedText: true })
-        : prepareSafeAiFillDocuments(documents);
+      readyDocuments = prepareSafeAiFillDocuments(documents, privacyDecision.mode);
     } catch (error) {
       if (error instanceof AiFillRedactionError) {
         return json({ success: false, error: error.message }, 409);
@@ -202,6 +233,9 @@ serve(async (req) => {
           document_ids: readyDocuments.map((item) => item.document.id),
           template_code: session.template_code,
           trigger: typeof trigger === "string" ? trigger : "manual",
+          privacy_mode: privacyDecision.mode,
+          privacy_basis: privacyDecision.basis,
+          provider_mode: privacyDecision.provider_mode,
         },
         model_name: "gemini",
       })
@@ -231,7 +265,7 @@ serve(async (req) => {
         .from("document_intake_ai_runs")
         .update({
           status: "failed",
-          error_message: error instanceof Error ? error.message : String(error),
+          error_message: "provider_failed",
           completed_at: new Date().toISOString(),
         })
         .eq("id", aiFillRunId);
@@ -424,12 +458,14 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error("document-intake-ai-fill error:", error);
+    console.error("document-intake-ai-fill failed", {
+      error_code: safeRuntimeErrorCode(error),
+    });
 
     return json(
       {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: "AI fill could not be completed. Retry with the same session after checking document extraction.",
       },
       500,
     );
@@ -589,22 +625,22 @@ ${documentText.slice(0, 120000)}
     );
 
     if (!response.ok) {
-      const errorText = await response.text();
-      lastError = errorText;
+      await response.text();
+      lastError = `gemini_http_${response.status}`;
 
       const retryable =
         response.status === 404 ||
         response.status === 503 ||
         response.status === 429 ||
-        errorText.includes("UNAVAILABLE") ||
-        errorText.includes("RESOURCE_EXHAUSTED") ||
-        errorText.includes("high demand");
+        response.status === 500 ||
+        response.status === 502 ||
+        response.status === 504;
 
       if (retryable) {
         continue;
       }
 
-      throw new Error(errorText);
+      throw new Error(lastError);
     }
 
     const data = await response.json();

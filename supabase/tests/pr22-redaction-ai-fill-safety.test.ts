@@ -191,9 +191,8 @@ describe("PR22 Gemini AI-fill privacy boundary", () => {
     };
 
     expect(() => selectSafeAiFillText(document)).toThrow(/accepted redaction/);
-    expect(selectSafeAiFillText(document, { allowUnredactedText: true })).toBe(
+    expect(selectSafeAiFillText(document, "original_by_permission")).toBe(
       document.metadata.original_ocr_text,
     );
   });
 });
-

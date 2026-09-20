@@ -54,6 +54,7 @@ import {
   buildCanonicalShadowPersistenceRecord,
   persistCanonicalShadowBestEffort,
 } from "./canonical-shadow-persistence.ts";
+import { parseFailure } from "../_shared/ai-privacy-diagnostics.ts";
 
 import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";
 import { buildCompanyFactualEvidenceMatrix } from "./company-factual-evidence-matrix.ts";
@@ -90,10 +91,8 @@ function json(body: unknown, status = 200) {
 
 function parseFailedResult(message: string, rawResponse: string) {
   return {
-    error: "parse_failed",
-    message,
-    raw_response: rawResponse,
-    raw_response_preview: rawResponse.slice(0, 4000),
+    ...parseFailure(rawResponse),
+    message: "The provider response could not be parsed.",
   };
 }
 
@@ -169,7 +168,7 @@ Deno.serve(async (req) => {
         status: "failed",
         completed_at: new Date().toISOString(),
         model_name: lastModel,
-        error_message: message,
+        error_message: "parse_failed",
         ai_result: aiResult as any,
         source_verification_status: "no_sources",
         hallucination_risk: "high",
@@ -520,8 +519,8 @@ Deno.serve(async (req) => {
           success: false,
           run_id: runId,
           error: "parse_failed",
-          message: parseMsg,
-          raw_response_preview: diagnostics.raw_response_preview,
+          message: diagnostics.message,
+          diagnostics,
         },
         200,
       );
@@ -870,7 +869,7 @@ Deno.serve(async (req) => {
       const aiResult = {
         error: "all_models_failed",
         model_attempts: e.attempts,
-        last_error: e.lastError,
+        last_error: "provider_failed",
       };
       await sb
         .from("document_intake_ai_runs")
@@ -892,7 +891,7 @@ Deno.serve(async (req) => {
           error: "all_models_failed",
           run_id: runId,
           model_attempts: e.attempts,
-          last_error: e.lastError,
+          last_error: "provider_failed",
         },
         200,
       );
@@ -903,7 +902,7 @@ Deno.serve(async (req) => {
         error: "gemini_fatal",
         http_status: e.httpStatus,
         model_attempts: (e as FatalGeminiError).attempts,
-        last_error: msg,
+        last_error: "provider_failed",
       };
       await sb
         .from("document_intake_ai_runs")
@@ -911,11 +910,11 @@ Deno.serve(async (req) => {
           status: "failed",
           completed_at: new Date().toISOString(),
           model_name: (e as FatalGeminiError).attempts[0]?.model ?? lastModel,
-          error_message: msg,
+          error_message: "provider_failed",
           ai_result: aiResult as any,
         })
         .eq("id", runId);
-      return json({ success: false, error: msg, run_id: runId }, 500);
+      return json({ success: false, error: "provider_failed", run_id: runId }, 500);
     }
 
     if (isParseFailedMessage(msg) && lastRawResponse) {
@@ -925,11 +924,11 @@ Deno.serve(async (req) => {
         .from("document_intake_ai_runs")
         .update({
           status: "failed",
-          error_message: msg,
+          error_message: "analysis_failed",
           completed_at: new Date().toISOString(),
         })
         .eq("id", runId);
     }
-    return json({ success: false, error: msg, run_id: runId }, 500);
+    return json({ success: false, error: "analysis_failed", run_id: runId }, 500);
   }
 });
