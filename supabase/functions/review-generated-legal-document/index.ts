@@ -5,6 +5,7 @@ import {
   resolveReviewProfile,
   renderReviewProfileBlock,
 } from "./review-profiles.ts";
+import { providerException, providerHttpFailure, safeRuntimeErrorCode } from "../_shared/ai-privacy-diagnostics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -514,11 +515,10 @@ ${JSON.stringify(intakeAnswers || []).slice(0, 15000)}
   targetDocumentId,
   intakeSessionId,
   materials_count: resolvedRevisionMaterials.length,
-  materials: resolvedRevisionMaterials.map((m: any) => ({
-    document_id: m.document_id,
-    file_name: m.file_name,
-    ocr_text_length: m.ocr_text_length,
-    has_ocr_text: Boolean(m.ocr_text),
+    materials: resolvedRevisionMaterials.map((m: any) => ({
+      document_id: m.document_id,
+      ocr_text_length: m.ocr_text_length,
+      has_ocr_text: Boolean(m.ocr_text),
   })),
 });  
   const GEMINI_MODELS = [
@@ -528,7 +528,7 @@ ${JSON.stringify(intakeAnswers || []).slice(0, 15000)}
 ];
 
 const callGeminiWithRetry = async () => {
-  let lastErrorText = "";
+  let lastErrorCode = "provider_failed";
 
   for (const model of GEMINI_MODELS) {
     for (let attempt = 1; attempt <= 3; attempt += 1) {
@@ -559,28 +559,25 @@ const callGeminiWithRetry = async () => {
         };
       }
 
-      lastErrorText = await response.text();
+      const rawProviderError = await response.text();
+      const diagnostic = providerHttpFailure(model, response.status, rawProviderError);
+      lastErrorCode = diagnostic.error_code;
 
       console.error("[revision_analysis] Gemini failed", {
         model,
         attempt,
-        status: response.status,
-        body: lastErrorText.slice(0, 1000),
+        ...diagnostic,
       });
 
       if (![429, 500, 502, 503, 504].includes(response.status)) {
-        throw new Error(
-          `Gemini error ${response.status}: ${lastErrorText.slice(0, 1000)}`,
-        );
+        throw new Error(lastErrorCode);
       }
 
       await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
     }
   }
 
-  throw new Error(
-    `Gemini временно недоступен после повторных попыток: ${lastErrorText.slice(0, 1000)}`,
-  );
+  throw new Error(lastErrorCode);
 };
 
 const { response: geminiResponse, model: usedModel } =
@@ -589,7 +586,10 @@ const { response: geminiResponse, model: usedModel } =
   const geminiJson = await geminiResponse.json();
 const raw = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
 
-console.log("[revision_analysis] gemini raw", raw.slice(0, 1000));
+console.log("[revision_analysis] Gemini response received", {
+  model: usedModel,
+  response_chars: raw.length,
+});
 
 let revision: any;
 
@@ -597,13 +597,11 @@ try {
   revision = JSON.parse(raw);
 } catch (parseError) {
   console.error("[revision_analysis] JSON parse error", {
-    error: parseError,
-    raw: raw.slice(0, 3000),
+    error_code: "parse_failed",
+    response_chars: raw.length,
   });
 
-  throw new Error(
-    `Gemini вернул невалидный JSON: ${raw.slice(0, 1000)}`,
-  );
+  throw new Error("parse_failed");
 }
 revision.model = usedModel;
 if (Array.isArray(revision.evidence_roles)) {
@@ -893,33 +891,30 @@ for (const model of GEMINI_REVIEW_MODELS) {
       break;
     }
 
-    const errorText = await response.text();
+    const rawProviderError = await response.text();
+    const diagnostic = providerHttpFailure(model, response.status, rawProviderError);
 
     modelAttempts.push({
       model,
       status: "http_error",
       http_status: response.status,
-      error: errorText,
+      error: diagnostic.error_code,
     });
 
     if (![429, 500, 502, 503, 504].includes(response.status)) {
-      throw new Error(`Gemini fatal error (${model}): ${errorText}`);
+      throw new Error(diagnostic.error_code);
     }
   } catch (error) {
     modelAttempts.push({
       model,
       status: "exception",
-      error: error instanceof Error ? error.message : String(error),
+      error: providerException(model).error_code,
     });
   }
 }
 
 if (!geminiResponse) {
-  const lastError = modelAttempts[modelAttempts.length - 1]?.error ?? "Unknown Gemini error";
-
-  throw new Error(
-    `all_models_failed: ${lastError}\n\nAttempts: ${JSON.stringify(modelAttempts)}`,
-  );
+  throw new Error("all_models_failed");
 }
 
     const geminiJson = await geminiResponse.json();
@@ -1052,10 +1047,11 @@ if (!geminiResponse) {
   updated_document: updated,
 });
     } catch (error) {
-    console.error(error);
+    console.error("review-generated-legal-document failed", {
+      error_code: safeRuntimeErrorCode(error),
+    });
 
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
+    const errorMessage = "review_failed";
 
     try {
       if (supabase && targetDocumentId) {
@@ -1072,10 +1068,7 @@ if (!geminiResponse) {
             source: "review-generated-legal-document",
           },
           ai_result: {
-            error: errorMessage.startsWith("all_models_failed")
-              ? "all_models_failed"
-              : "review_failed",
-            message: errorMessage,
+            error: "review_failed",
             failed_at: new Date().toISOString(),
           },
           needs_lawyer_review: true,

@@ -2,6 +2,8 @@
 // Retries on 429/500/502/503/504 by trying the next model.
 // Fails fast on 400/401/403.
 
+import { providerException, providerHttpFailure } from "../_shared/ai-privacy-diagnostics.ts";
+
 export type ModelAttempt = {
   model: string;
   status: "ok" | "http_error" | "exception";
@@ -101,10 +103,10 @@ export async function callGeminiWithFallback(
         return { text, rawResponse, model, attempts, fallback_used: i > 0 };
       }
 
-      const snippet = rawResponse.slice(0, 500);
-      attempts.push({ model, status: "http_error", http_status: res.status, error: snippet });
-      lastError = `Gemini ${res.status} (${model}): ${snippet}`;
-      console.error("[gemini-fallback]", lastError);
+      const diagnostic = providerHttpFailure(model, res.status, rawResponse);
+      attempts.push({ model, status: "http_error", http_status: res.status, error: diagnostic.error_code });
+      lastError = diagnostic.error_code;
+      console.error("[gemini-fallback]", diagnostic);
 
       if (FATAL.has(res.status)) {
         // Auth/permission/bad-request — do NOT try other models.
@@ -116,10 +118,10 @@ export async function callGeminiWithFallback(
       // else continue to next model
     } catch (e) {
       if (e instanceof FatalGeminiError) throw e;
-      const msg = (e as Error).message ?? String(e);
-      attempts.push({ model, status: "exception", error: msg });
-      lastError = msg;
-      console.error("[gemini-fallback] exception on", model, msg);
+      const diagnostic = providerException(model);
+      attempts.push({ model, status: "exception", error: diagnostic.error_code });
+      lastError = diagnostic.error_code;
+      console.error("[gemini-fallback]", diagnostic);
     }
   }
 

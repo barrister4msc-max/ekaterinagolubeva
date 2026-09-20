@@ -9,6 +9,7 @@ import {
   observeCanonicalShadowParity,
 } from "../_shared/legal-analysis/canonical-shadow-observer.ts";
 import { buildGeneratorPromptInputs } from "./conclusion-contract.ts";
+import { providerHttpFailure, safeRuntimeErrorCode } from "../_shared/ai-privacy-diagnostics.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -768,12 +769,19 @@ and explain in "why_used" what must be checked manually.
     );
 
     if (!geminiResponse.ok) {
-      throw new Error(`Gemini error: ${await geminiResponse.text()}`);
+      const rawProviderError = await geminiResponse.text();
+      const diagnostic = providerHttpFailure("gemini-2.5-flash-lite", geminiResponse.status, rawProviderError);
+      console.error("generate-legal-document provider failed", diagnostic);
+      throw new Error(diagnostic.error_code);
     }
 
     const geminiJson = await geminiResponse.json();
     const raw = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    console.log("RAW GEMINI:", raw);
+    console.log("generate-legal-document response received", {
+      provider: "gemini",
+      model: "gemini-2.5-flash-lite",
+      response_chars: raw.length,
+    });
     const generated = JSON.parse(raw);
     generated.paragraph_provenance ??= [];
     const title =
@@ -1051,13 +1059,17 @@ if (sourceRows.length > 0) {
     );
 
     if (!reviewResponse.ok) {
-      const reviewError = await reviewResponse.text();
-      console.error("Auto AI review failed:", reviewError);
+      const rawReviewError = await reviewResponse.text();
+      console.error("Auto AI review failed", {
+        error_code: "review_request_failed",
+        http_status: reviewResponse.status,
+        response_chars: rawReviewError.length,
+      });
     } else {
       console.log("Auto AI review completed:", inserted.id);
     }
-  } catch (reviewError) {
-    console.error("Auto AI review exception:", reviewError);
+  } catch (_reviewError) {
+    console.error("Auto AI review exception", { error_code: "review_request_failed" });
   }
 } else {
   console.warn(
@@ -1072,10 +1084,10 @@ if (sourceRows.length > 0) {
       generated,
     });
   } catch (error) {
-    console.error(error);
+    console.error("generate-legal-document failed", { error_code: safeRuntimeErrorCode(error) });
     return json({
       success: false,
-      error: error instanceof Error ? error.message : String(error),
+      error: "generation_failed",
     }, 500);
   }
 });

@@ -10,9 +10,7 @@ export type SafeAiFillDocument<T extends AiFillDocument = AiFillDocument> = {
   modelLabel: string;
 };
 
-export type AiFillTextOptions = {
-  allowUnredactedText?: boolean;
-};
+export type AiFillPrivacyMode = "safe" | "original_by_permission" | "blocked";
 
 export class AiFillRedactionError extends Error {
   constructor(message: string) {
@@ -29,9 +27,13 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 export function selectSafeAiFillText(
   document: AiFillDocument,
-  options: AiFillTextOptions = {},
+  privacyMode: AiFillPrivacyMode = "safe",
 ): string {
-  if (options.allowUnredactedText === true) {
+  if (privacyMode === "blocked") {
+    throw new AiFillRedactionError("AI fill blocked: server privacy policy denied this request.");
+  }
+
+  if (privacyMode === "original_by_permission") {
     const metadata = asRecord(document.metadata);
     const originalText = typeof metadata.original_ocr_text === "string"
       ? metadata.original_ocr_text.trim()
@@ -229,11 +231,11 @@ export function extractProtectedAnswerCandidates(
 
 export function prepareSafeAiFillDocuments<T extends AiFillDocument>(
   documents: T[],
-  options: AiFillTextOptions = {},
+  privacyMode: AiFillPrivacyMode = "safe",
 ): SafeAiFillDocument<T>[] {
   return documents.map((document, index) => ({
     document,
-    text: selectSafeAiFillText(document, options),
+    text: selectSafeAiFillText(document, privacyMode),
     modelLabel: `DOCUMENT_${index + 1}`,
   }));
 }
