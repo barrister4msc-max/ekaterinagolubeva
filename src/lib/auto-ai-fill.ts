@@ -11,6 +11,10 @@ export type AutoAiFillDocument = {
   id: string;
   extraction_status: string | null;
   ocr_text_length: number;
+  page_index_progress?: {
+    percent: number;
+    complete: boolean;
+  } | null;
 };
 
 export type AutoAiFillStage =
@@ -28,10 +32,18 @@ export type AutoAiFillDecision =
   | { action: "run"; reason: string; fingerprint: string; documentIds: string[] };
 
 const READY_STATUSES = new Set(["completed", "extracted", "ready"]);
-const FAILED_STATUSES = new Set(["failed", "error", "unsupported", "ocr_required", "ocr_failed", "partial_pages"]);
+const FAILED_STATUSES = new Set(["failed", "error", "unsupported", "ocr_required", "ocr_failed"]);
+const PENDING_STATUSES = new Set(["pending", "processing", "extracting", "partial_pages"]);
+
+function hasCompletePageIndex(doc: AutoAiFillDocument): boolean {
+  const progress = doc.page_index_progress;
+  return !progress || (progress.complete === true && Number(progress.percent) === 100);
+}
 
 export function isExtractionSettled(doc: AutoAiFillDocument): boolean {
   const status = (doc.extraction_status ?? "").toLowerCase();
+  if (PENDING_STATUSES.has(status)) return false;
+  if (!hasCompletePageIndex(doc)) return false;
   if (FAILED_STATUSES.has(status)) return true;
   if (READY_STATUSES.has(status)) return true;
   // No status recorded but text already present → treat as settled.
@@ -40,20 +52,19 @@ export function isExtractionSettled(doc: AutoAiFillDocument): boolean {
 
 export function isExtractionUsable(doc: AutoAiFillDocument): boolean {
   const status = (doc.extraction_status ?? "").toLowerCase();
-  if (FAILED_STATUSES.has(status)) return false;
-  return doc.ocr_text_length > 0;
+  if (FAILED_STATUSES.has(status) || PENDING_STATUSES.has(status)) return false;
+  if (status && !READY_STATUSES.has(status)) return false;
+  return doc.ocr_text_length > 0 && hasCompletePageIndex(doc);
 }
 
 /**
- * Stable identity of the document subset consumed by AI-fill. Failed or
- * otherwise unusable documents are deliberately excluded: removing one broken
- * file from a mixed packet must not trigger a duplicate AI run over identical
- * usable content, while any change to a usable document still starts a new run.
+ * Stable identity of the complete document corpus. Incomplete documents are
+ * intentionally included: a caller must never deduplicate a request that
+ * silently omits one member of the packet.
  */
 export function computeDocumentSetFingerprint(documents: AutoAiFillDocument[]): string {
   return documents
-    .filter(isExtractionUsable)
-    .map((d) => `${d.id}:${d.ocr_text_length}:${(d.extraction_status ?? "none").toLowerCase()}`)
+    .map((d) => `${d.id}:${d.ocr_text_length}:${(d.extraction_status ?? "none").toLowerCase()}:${d.page_index_progress?.complete === true && Number(d.page_index_progress.percent) === 100 ? "complete" : d.page_index_progress ? "incomplete" : "no_page_index"}`)
     .sort()
     .join("|");
 }
@@ -85,31 +96,21 @@ export function evaluateAutoAiFill(input: {
     return { action: "wait", reason: "extraction_pending", fingerprint };
   }
 
-  if (input.lastFingerprint === fingerprint) {
-    return { action: "skip", reason: "already_ran", fingerprint };
+  // A packet is admissible only as a full corpus. A failed OCR document may
+  // be visible to the lawyer, but it cannot be silently omitted from an AI run.
+  if (!input.documents.every(isExtractionUsable)) {
+    return { action: "blocked", reason: "incomplete_corpus", fingerprint };
   }
 
-  const usable = input.documents.filter(isExtractionUsable);
-  if (usable.length === 0) {
-    return { action: "blocked", reason: "no_extracted_text", fingerprint };
-  }
-  if (usable.length !== input.documents.length) {
-    // Run on the usable subset, but let the caller surface the omitted files
-    // as an explicit warning. A single failed OCR document must not freeze
-    // otherwise usable intake data.
-    return {
-      action: "run",
-      reason: "partial_extraction",
-      fingerprint,
-      documentIds: usable.map((d) => d.id),
-    };
+  if (input.lastFingerprint === fingerprint) {
+    return { action: "skip", reason: "already_ran", fingerprint };
   }
 
   return {
     action: "run",
     reason: "ready",
     fingerprint,
-    documentIds: usable.map((d) => d.id),
+    documentIds: input.documents.map((d) => d.id),
   };
 }
 

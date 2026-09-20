@@ -55,6 +55,7 @@ import {
   persistCanonicalShadowBestEffort,
 } from "./canonical-shadow-persistence.ts";
 import { parseFailure } from "../_shared/ai-privacy-diagnostics.ts";
+import { evaluateFullCorpusAdmission } from "../_shared/full-corpus-admission.ts";
 
 import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";
 import { buildCompanyFactualEvidenceMatrix } from "./company-factual-evidence-matrix.ts";
@@ -77,6 +78,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MODEL_NAME = "gemini-2.5-pro";
+const MAX_ANALYSIS_CORPUS_DOCUMENTS = 40;
 
 function enabledFlag(value: string | undefined): boolean {
   return ["1", "true", "on", "yes"].includes(value?.trim().toLowerCase() ?? "");
@@ -189,6 +191,66 @@ Deno.serve(async (req) => {
       .single();
     if (sessErr) throw new Error(`session: ${sessErr.message}`);
 
+    // Stage 13L-1: Legal Analysis must use the complete intake corpus, never
+    // a convenient subset of documents whose OCR happened to finish first.
+    const { data: fullCorpusDocuments, error: fullCorpusError } = await sb
+      .from("documents")
+      .select("id, ocr_text, metadata")
+      .filter("metadata->>intake_session_id", "eq", sessionId);
+    if (fullCorpusError) throw new Error(`documents: ${fullCorpusError.message}`);
+    const corpusAdmission = evaluateFullCorpusAdmission(fullCorpusDocuments ?? []);
+    if ((fullCorpusDocuments ?? []).length > 0 && !corpusAdmission.allowed) {
+      const message = "Для правового анализа требуется полное извлечение текста из всех документов пакета.";
+      await sb
+        .from("document_intake_ai_runs")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          error_message: "full_corpus_incomplete",
+          input_snapshot: { full_corpus_admission: corpusAdmission } as any,
+          needs_lawyer_review: true,
+        })
+        .eq("id", runId);
+      return json(
+        {
+          success: false,
+          run_id: runId,
+          error: "full_corpus_incomplete",
+          message,
+          blocked_document_count: corpusAdmission.blocked_document_count,
+          block_reasons: corpusAdmission.block_reasons,
+        },
+        409,
+      );
+    }
+    if ((fullCorpusDocuments ?? []).length > MAX_ANALYSIS_CORPUS_DOCUMENTS) {
+      const message = "Пакет превышает безопасный лимит полного правового анализа; документы не были частично обработаны.";
+      await sb
+        .from("document_intake_ai_runs")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          error_message: "full_corpus_document_limit",
+          input_snapshot: {
+            full_corpus_admission: corpusAdmission,
+            maximum_document_count: MAX_ANALYSIS_CORPUS_DOCUMENTS,
+          } as any,
+          needs_lawyer_review: true,
+        })
+        .eq("id", runId);
+      return json(
+        {
+          success: false,
+          run_id: runId,
+          error: "full_corpus_document_limit",
+          message,
+          document_count: fullCorpusDocuments?.length ?? 0,
+          maximum_document_count: MAX_ANALYSIS_CORPUS_DOCUMENTS,
+        },
+        409,
+      );
+    }
+
     const sessionMetadata = ((session as any).metadata ?? {}) as Record<string, unknown>;
     const brasKadBrowserHandoff = buildBrasKadBrowserHandoff(body?.bras_kad_case_number);
     const externalResearchInputs = [
@@ -264,9 +326,7 @@ Deno.serve(async (req) => {
       .from("documents")
       .select("id, title, file_name, ocr_text, metadata")
       .filter("metadata->>intake_session_id", "eq", sessionId)
-      .filter("metadata->>extraction_status", "eq", "completed")
-      .not("ocr_text", "is", null)
-      .limit(40);
+      .limit(MAX_ANALYSIS_CORPUS_DOCUMENTS);
     const docMetaById = new Map<string, Record<string, unknown>>();
     let redactionUsedAny = false;
     for (const d of docs ?? []) {
@@ -429,6 +489,7 @@ Deno.serve(async (req) => {
           documents_total: audited.length,
           documents_used: usedDocs.length,
           documents_rejected: rejectedDocs.length,
+          full_corpus_admission: corpusAdmission,
           company_factual_evidence: companyFactualRuntime.company_factual_evidence,
           company_factual_diagnostics: companyFactualRuntime.diagnostics,
           company_tax_debt_evidence: companyFactualRuntime.company_tax_debt_evidence,
