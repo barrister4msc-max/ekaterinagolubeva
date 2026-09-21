@@ -10,6 +10,7 @@ import {
 } from "../_shared/legal-analysis/canonical-shadow-observer.ts";
 import { buildGeneratorPromptInputs } from "./conclusion-contract.ts";
 import { providerHttpFailure, safeRuntimeErrorCode } from "../_shared/ai-privacy-diagnostics.ts";
+import { evaluateFullCorpusAdmission } from "../_shared/full-corpus-admission.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,6 +104,28 @@ const effectiveSessionId = intake_session_id || session_id || null;
         return json({ success: false, error: "Language does not match intake session" }, 409);
       }
       validatedSession = session as Record<string, any>;
+
+      // A draft must not be generated from an intake packet that is still
+      // missing pages. This repeats the gate at the final consumer boundary
+      // so a stale or direct client request cannot bypass AI-fill/analysis.
+      const { data: fullCorpusDocuments, error: fullCorpusError } = await supabase
+        .from("documents")
+        .select("id, ocr_text, metadata")
+        .filter("metadata->>intake_session_id", "eq", effectiveSessionId);
+      if (fullCorpusError) throw fullCorpusError;
+      const corpusAdmission = evaluateFullCorpusAdmission(fullCorpusDocuments ?? []);
+      if ((fullCorpusDocuments ?? []).length > 0 && !corpusAdmission.allowed) {
+        return json(
+          {
+            success: false,
+            error: "full_corpus_incomplete",
+            message: "Для формирования документа требуется полное извлечение текста из всех документов пакета.",
+            blocked_document_count: corpusAdmission.blocked_document_count,
+            block_reasons: corpusAdmission.block_reasons,
+          },
+          409,
+        );
+      }
     }
 
     if (legal_analysis && !legal_analysis_run_id) {

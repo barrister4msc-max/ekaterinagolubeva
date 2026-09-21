@@ -61,7 +61,7 @@ describe("auto AI-fill orchestration", () => {
     expect(second.reason).toBe("already_ran");
   });
 
-  test("OCR-required documents are settled and do not keep auto-fill waiting", () => {
+  test("OCR-required documents block the whole packet", () => {
     const decision = evaluateAutoAiFill({
       sessionId: "s1",
       documents: [doc("a", "completed", 500), doc("b", "ocr_required", 0)],
@@ -69,12 +69,11 @@ describe("auto AI-fill orchestration", () => {
       inFlight: false,
       processing: false,
     });
-    expect(decision.action).toBe("run");
-    if (decision.action !== "run") throw new Error("unreachable");
-    expect(decision.documentIds).toEqual(["a"]);
+    expect(decision.action).toBe("blocked");
+    expect(decision.reason).toBe("incomplete_corpus");
   });
 
-  test("partial page indexing cannot start AI-fill before all required units finish", () => {
+  test("partial page indexing keeps AI-fill waiting before all required units finish", () => {
     const decision = evaluateAutoAiFill({
       sessionId: "s1",
       documents: [doc("large-pdf", "partial_pages", 12_000)],
@@ -82,8 +81,8 @@ describe("auto AI-fill orchestration", () => {
       inFlight: false,
       processing: false,
     });
-    expect(decision.action).toBe("blocked");
-    expect(decision.reason).toBe("no_extracted_text");
+    expect(decision.action).toBe("wait");
+    expect(decision.reason).toBe("extraction_pending");
   });
 
   test("re-render / polling while a run is in flight never triggers a duplicate", () => {
@@ -112,7 +111,7 @@ describe("auto AI-fill orchestration", () => {
     expect(decision.action).toBe("run");
   });
 
-  test("partial OCR failure runs on usable documents with an explicit partial reason", () => {
+  test("a failed document blocks a mixed packet instead of being omitted", () => {
     const decision = evaluateAutoAiFill({
       sessionId: "s1",
       documents: [doc("a", "completed", 500), doc("b", "failed", 0)],
@@ -120,10 +119,26 @@ describe("auto AI-fill orchestration", () => {
       inFlight: false,
       processing: false,
     });
-    expect(decision.action).toBe("run");
-    expect(decision.reason).toBe("partial_extraction");
-    if (decision.action !== "run") throw new Error("unreachable");
-    expect(decision.documentIds).toEqual(["a"]);
+    expect(decision.action).toBe("blocked");
+    expect(decision.reason).toBe("incomplete_corpus");
+  });
+
+  test("a partially indexed PDF cannot be omitted from a mixed packet", () => {
+    const decision = evaluateAutoAiFill({
+      sessionId: "s1",
+      documents: [
+        doc("ready", "completed", 500),
+        {
+          ...doc("large-pdf", "partial_pages", 12_000),
+          page_index_progress: { complete: false, percent: 50 },
+        },
+      ],
+      lastFingerprint: null,
+      inFlight: false,
+      processing: false,
+    });
+    expect(decision.action).toBe("wait");
+    expect(decision.reason).toBe("extraction_pending");
   });
 });
 

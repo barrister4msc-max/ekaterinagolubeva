@@ -8,6 +8,7 @@ import {
 } from "./redaction-safety.ts";
 import { resolveAiFillPrivacyDecision } from "./privacy-policy.ts";
 import { safeRuntimeErrorCode } from "../_shared/ai-privacy-diagnostics.ts";
+import { evaluateFullCorpusAdmission } from "../_shared/full-corpus-admission.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -82,20 +83,44 @@ serve(async (req) => {
       throw new Error("Intake session not found");
     }
 
+    // Do not trust a client-selected subset: AI-fill is admissible only when
+    // every document staged in this intake session is complete and selected.
     const { data: documents, error: documentError } = await supabase
       .from("documents")
       .select("*")
-      .in("id", requestedDocumentIds);
+      .filter("metadata->>intake_session_id", "eq", session_id);
 
-    if (documentError || !documents || documents.length !== requestedDocumentIds.length) {
-      throw new Error("One or more documents were not found");
+    if (documentError || !documents || documents.length === 0) {
+      throw new Error("No intake documents were found");
     }
 
-    for (const document of documents) {
-      const metadata = (document.metadata ?? {}) as Record<string, unknown>;
-      if (metadata.intake_session_id !== session_id) {
-        throw new Error("Document does not belong to the intake session");
-      }
+    const sessionDocumentIds = new Set(documents.map((document) => document.id));
+    const requestedExactlyMatchesSession =
+      requestedDocumentIds.length === sessionDocumentIds.size &&
+      requestedDocumentIds.every((id) => sessionDocumentIds.has(id));
+    if (!requestedExactlyMatchesSession) {
+      return json(
+        {
+          success: false,
+          error: "AI fill requires the complete intake document set.",
+          code: "full_corpus_document_set_mismatch",
+        },
+        409,
+      );
+    }
+
+    const corpusAdmission = evaluateFullCorpusAdmission(documents);
+    if (!corpusAdmission.allowed) {
+      return json(
+        {
+          success: false,
+          error: "AI fill requires complete extraction for every intake document.",
+          code: "full_corpus_incomplete",
+          blocked_document_count: corpusAdmission.blocked_document_count,
+          block_reasons: corpusAdmission.block_reasons,
+        },
+        409,
+      );
     }
 
     const privacyDecision = resolveAiFillPrivacyDecision({
@@ -236,6 +261,7 @@ serve(async (req) => {
           privacy_mode: privacyDecision.mode,
           privacy_basis: privacyDecision.basis,
           provider_mode: privacyDecision.provider_mode,
+          full_corpus_admission: corpusAdmission,
         },
         model_name: "gemini",
       })

@@ -25,12 +25,14 @@ describe("document-intake-ai-fill authorization boundary", () => {
     expect(source).not.toMatch(/user_metadata|raw_user_meta_data/);
   });
 
-  test("fills a package in one request and validates document ownership", async () => {
+  test("fills only the complete server-authoritative document package", async () => {
     const source = await Bun.file(functionPath).text();
 
     expect(source).toContain("document_ids");
-    expect(source).toContain("Document does not belong to the intake session");
-    expect(source).toContain("allowedDocumentIds");
+    expect(source).toContain("sessionDocumentIds");
+    expect(source).toContain("requestedExactlyMatchesSession");
+    expect(source).toContain("full_corpus_document_set_mismatch");
+    expect(source).toContain("full_corpus_incomplete");
     expect(source).not.toContain("documentTextForAiFill.length < 50");
   });
 

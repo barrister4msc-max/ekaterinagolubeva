@@ -46,13 +46,13 @@ import { CompanyRegistryCard } from "@/components/document-builder/company-regis
 import { isValidInn } from "@/lib/company-registry";
 
 import {
-  hasExtractedDocumentText,
   suggestTemplatesForPackage,
 } from "@/lib/document-template-suggestions";
 
 import {
   describeAutoAiFillStage,
   evaluateAutoAiFill,
+  isExtractionUsable,
 } from "@/lib/auto-ai-fill";
 import {
   applyFieldRedaction,
@@ -164,7 +164,12 @@ const notifyDocumentsUpdated = () => {
 };
 const isProcessingDocuments = processingDocumentIds.length > 0;
 const hasCompleteExtraction = (document: SessionDocument) =>
-  document.extraction_status !== "partial_pages" && hasExtractedDocumentText(document.ocr_text);
+  isExtractionUsable({
+    id: document.id,
+    extraction_status: document.extraction_status,
+    ocr_text_length: document.ocr_text_length,
+    page_index_progress: document.page_index_progress,
+  });
 
 
 const [isAiFilling, setIsAiFilling] = useState(false);
@@ -911,20 +916,17 @@ const reloadAnswersFromSession = useCallback(async () => {
       setAiFillFailure(null);
       setAiFillWarning(null);
       let currentDocuments = await refreshSessionDocuments(intakeSessionId);
-       let readyDocs = currentDocuments.filter(hasCompleteExtraction);
-       const documentsWithoutText = currentDocuments.filter(
+      let incompleteDocuments = currentDocuments.filter(
          (document) => !hasCompleteExtraction(document),
        );
 
-      // A failed/OCR-required document must not block usable documents.
-      // It remains outside this AI request and is shown as an explicit warning.
-      // Pending documents continue through the background extraction queue.
-
-      // If at least one document is ready, start AI-fill immediately. Remaining OCR jobs
-      // keep using the normal background queue. Only an all-pending package waits once.
-      if (readyDocs.length === 0 && documentsWithoutText.length > 0) {
+      // Full-corpus admission: a partially indexed/failed file is never
+      // omitted from a mixed packet. If no file is currently usable, one
+      // bounded extraction pass may make progress; the final admission below
+      // still requires every document to be complete.
+      if (currentDocuments.every((document) => !hasCompleteExtraction(document)) && incompleteDocuments.length > 0) {
         await runBackgroundExtraction(
-          documentsWithoutText.map((document) => ({
+          incompleteDocuments.map((document) => ({
             id: document.id,
             fileName: document.file_name ?? document.title ?? document.id,
           })),
@@ -939,31 +941,26 @@ const reloadAnswersFromSession = useCallback(async () => {
           },
         );
         currentDocuments = await refreshSessionDocuments(intakeSessionId);
-         readyDocs = currentDocuments.filter(hasCompleteExtraction);
+        incompleteDocuments = currentDocuments.filter(
+          (document) => !hasCompleteExtraction(document),
+        );
       }
 
-      if (readyDocs.length === 0) {
+      if (currentDocuments.length === 0) {
         throw new Error(
-          "Ни из одного файла не удалось извлечь текст. Используйте «Повторить извлечение» у файла.",
+          "Сначала загрузите хотя бы один документ для AI-заполнения.",
+        );
+      }
+
+      if (incompleteDocuments.length > 0) {
+        throw new Error(
+          "AI-заполнение доступно только после полного извлечения текста из всех документов. Завершите или повторите извлечение неполных файлов.",
         );
       }
 
       // Redaction remains a separate preparation/export action. AI-fill sends
       // no privacy override: the Edge Function decides the permitted mode.
-      if (readyDocs.length === 0) {
-        throw new Error(
-          "Нет документов с завершённым извлечением текста для AI-заполнения.",
-        );
-      }
-
-      const omittedNames = currentDocuments
-        .filter((document) => !readyDocs.some((ready) => ready.id === document.id))
-        .map((document) => document.file_name ?? document.title ?? document.id);
-      if (omittedNames.length > 0) {
-        setAiFillWarning(
-          `AI использует ${readyDocs.length} из ${currentDocuments.length} документов. Не включены: ${omittedNames.join(", ")}. Их можно дозагрузить или повторно распознать позже.`,
-        );
-      }
+      const readyDocs = currentDocuments;
 
       await buildCaseIntelligenceIfReady("before_ai_fill", readyDocs);
 
@@ -1064,6 +1061,7 @@ const reloadAnswersFromSession = useCallback(async () => {
         id: d.id,
         extraction_status: d.extraction_status,
         ocr_text_length: d.ocr_text_length,
+        page_index_progress: d.page_index_progress,
       })),
       lastFingerprint: lastAutoFingerprintRef.current,
       inFlight: aiFillInFlightRef.current || isAiFilling,
@@ -1081,8 +1079,8 @@ const reloadAnswersFromSession = useCallback(async () => {
       lastAutoFingerprintRef.current = decision.fingerprint;
       setAutoFillStage("failed");
       setAiFillFailure(
-        decision.reason === "partial_extraction"
-          ? "Не все документы распознаны. Повторите извлечение и запустите AI-заполнение."
+        decision.reason === "incomplete_corpus"
+          ? "AI-заполнение требует полного извлечения текста из всех документов пакета."
           : "Ни из одного файла не удалось извлечь текст. Повторите извлечение.",
       );
       return;
