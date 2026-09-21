@@ -137,7 +137,7 @@ describe("PR23 wiring regression", () => {
     expect(source).not.toContain('accept=".pdf');
     expect(source).toContain("expandSelectedDocumentFiles(selectedFiles)");
     const expandAt = source.indexOf("expandSelectedDocumentFiles(selectedFiles)");
-    const uploadAt = source.indexOf("stageSingleFile(file, session.id, uploadBatchId)");
+    const uploadAt = source.indexOf("stageDocuments(");
     expect(expandAt).toBeGreaterThan(-1);
     expect(uploadAt).toBeGreaterThan(expandAt);
   });

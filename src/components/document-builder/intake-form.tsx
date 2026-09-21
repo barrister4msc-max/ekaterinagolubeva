@@ -42,6 +42,13 @@ import {
   runBackgroundExtraction,
   stageDocuments,
 } from "@/lib/upload-lifecycle";
+import {
+  clearUploadObjectIdentity,
+  resolveUploadObjectIdentity,
+  shouldUseResumableUpload,
+  uploadResumablyToStorage,
+  type UploadObjectIdentity,
+} from "@/lib/resumable-storage-upload";
 import { CompanyRegistryCard } from "@/components/document-builder/company-registry-card";
 import { isValidInn } from "@/lib/company-registry";
 
@@ -134,6 +141,8 @@ const [redactionDocId, setRedactionDocId] = useState<string | null>(null);
 // Staging state only: file expansion + storage upload + `documents` row creation.
 const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 const [lastUploadBatch, setLastUploadBatch] = useState<{ selected:number; prepared:number; staged:number; failed:string[] } | null>(null);
+const [uploadProgress, setUploadProgress] = useState<{ uploaded: number; total: number } | null>(null);
+const uploadProgressRef = useRef(new Map<string, { uploaded: number; total: number }>());
 // Background OCR/extraction state, tracked separately from staging.
 const [processingDocumentIds, setProcessingDocumentIds] = useState<string[]>([]);
 const processingDocumentIdsRef = useRef<Set<string>>(new Set());
@@ -654,20 +663,51 @@ const reloadAnswersFromSession = useCallback(async () => {
   // Staging only: uploads to storage and creates the `documents` row.
   // Extraction is deliberately NOT awaited here so that every selected file
   // is staged before any OCR work begins.
-  const stageSingleFile = async (file: File, sessionIdParam: string, uploadBatchId: string) => {
-    const rawExtension = file.name.includes(".") ? file.name.split(".").pop() : "bin";
-    const extension =
-      String(rawExtension || "bin").toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
-    const storagePath = `builder/${sessionIdParam}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  type UploadCandidate = {
+    file: File;
+    identity: UploadObjectIdentity;
+  };
 
-    const { error: uploadError } = await supabase.storage
-      .from("lead-documents")
-      .upload(storagePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type || "application/octet-stream",
+  const reportUploadProgress = (storagePath: string, uploaded: number, total: number) => {
+    uploadProgressRef.current.set(storagePath, { uploaded, total });
+    const aggregate = Array.from(uploadProgressRef.current.values()).reduce(
+      (sum, current) => ({
+        uploaded: sum.uploaded + current.uploaded,
+        total: sum.total + current.total,
+      }),
+      { uploaded: 0, total: 0 },
+    );
+    if (isMountedRef.current) setUploadProgress(aggregate);
+  };
+
+  const stageSingleFile = async (candidate: UploadCandidate, sessionIdParam: string, uploadBatchId: string) => {
+    const { file, identity } = candidate;
+    const { storagePath } = identity;
+
+    if (shouldUseResumableUpload(file)) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Требуется действующая сессия для загрузки файла.");
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) throw new Error("Не задан адрес защищённого хранилища.");
+      await uploadResumablyToStorage({
+        file,
+        bucket: "lead-documents",
+        storagePath,
+        resumeKey: identity.resumeKey,
+        supabaseUrl,
+        accessToken: session.access_token,
+        onProgress: (uploaded, total) => reportUploadProgress(storagePath, uploaded, total),
       });
-    if (uploadError) throw uploadError;
+    } else {
+      const { error: uploadError } = await supabase.storage
+        .from("lead-documents")
+        .upload(storagePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type || "application/octet-stream",
+        });
+      if (uploadError) throw uploadError;
+    }
 
     const { data: documentRow, error: documentError } = await supabase
       .from("documents")
@@ -699,6 +739,8 @@ const reloadAnswersFromSession = useCallback(async () => {
       await supabase.storage.from("lead-documents").remove([storagePath]).catch(() => undefined);
       throw documentError;
     }
+
+    clearUploadObjectIdentity(identity.resumeKey);
 
     await supabase
       .from("document_intake_sessions")
@@ -758,12 +800,22 @@ const reloadAnswersFromSession = useCallback(async () => {
       });
       if (isMountedRef.current) setIntakeSessionId(session.id);
 
-      // Phase 1 — stage every selected file (storage + documents row) first.
+      // Phase 1 — allocate each immutable object identity before staging. A
+      // stage retry therefore resumes the same object instead of writing a
+      // second storage path.
+      const uploadCandidates = await Promise.all(files.map(async (file) => ({
+        file,
+        identity: await resolveUploadObjectIdentity(session.id, file),
+      })));
+      uploadProgressRef.current.clear();
+      setUploadProgress(null);
+
+      // Stage every selected file (storage + documents row) before OCR starts.
       const { staged, failed: failedFiles } = await stageDocuments(
-        files,
-        (file) => stageSingleFile(file, session.id, uploadBatchId),
+        uploadCandidates,
+        (candidate) => stageSingleFile(candidate, session.id, uploadBatchId),
         {
-          getName: (file) => file.name,
+          getName: (candidate) => candidate.file.name,
           onStaged: async () => {
             await refreshSessionDocuments(session.id);
           },
@@ -820,6 +872,7 @@ const reloadAnswersFromSession = useCallback(async () => {
       alert("Не удалось загрузить документы");
     } finally {
       if (isMountedRef.current) setIsUploadingDocument(false);
+      if (isMountedRef.current) setUploadProgress(null);
       input.value = "";
     }
   };
@@ -1195,7 +1248,11 @@ const reloadAnswersFromSession = useCallback(async () => {
             <div className="flex flex-wrap items-center gap-2">
               <label className="db-ghost cursor-pointer">
                 <Upload size={14} />
-                {isUploadingDocument ? "Загрузка…" : "Загрузить документы"}
+                {isUploadingDocument
+                  ? uploadProgress?.total
+                    ? `Загрузка… ${Math.round((uploadProgress.uploaded / uploadProgress.total) * 100)}%`
+                    : "Загрузка…"
+                  : "Загрузить документы"}
                 <input
                   type="file"
                   multiple
