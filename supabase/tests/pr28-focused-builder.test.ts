@@ -27,8 +27,10 @@ describe("PR28 focused document builder", () => {
     expect(intake).not.toContain("setAiFillAttempt");
   });
 
-  it("uses ready docs immediately and retries only transient transport failures", () => {
-    expect(intake).toContain("if (readyDocs.length === 0 && documentsWithoutText.length > 0)");
+  it("requires the complete corpus and retries only transient transport failures", () => {
+    expect(intake).toContain("if (incompleteDocuments.length > 0)");
+    expect(intake).toContain("AI-заполнение доступно только после полного извлечения текста из всех документов");
+    expect(intake).toContain("const readyDocs = currentDocuments");
     expect(intake).toContain("technicalAttempt < 2");
     expect(intake).toContain("status === 429");
     expect(intake).toContain("status >= 500");
