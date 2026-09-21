@@ -20,8 +20,8 @@ const document = (
 });
 
 describe("Stage 13L-1 full-corpus admission", () => {
-  test("allows a completed packet and records a metadata-only fingerprint", () => {
-    const result = evaluateFullCorpusAdmission([
+  test("allows a completed packet and records a metadata-only fingerprint", async () => {
+    const result = await evaluateFullCorpusAdmission([
       document("a", "completed"),
       document("large", "completed", "полный OCR", {
         complete: true,
@@ -37,8 +37,8 @@ describe("Stage 13L-1 full-corpus admission", () => {
     expect(result.fingerprint).not.toContain("полный OCR");
   });
 
-  test("blocks a partial large PDF even when another packet member is ready", () => {
-    const result = evaluateFullCorpusAdmission([
+  test("blocks a partial large PDF even when another packet member is ready", async () => {
+    const result = await evaluateFullCorpusAdmission([
       document("ready", "completed"),
       document("large", "partial_pages", "частичный текст", {
         complete: false,
@@ -53,8 +53,8 @@ describe("Stage 13L-1 full-corpus admission", () => {
     expect(result.block_reasons).toEqual(["partial_pages"]);
   });
 
-  test("blocks a completed status when its declared page index is incomplete", () => {
-    const result = evaluateFullCorpusAdmission([
+  test("blocks a completed status when its declared page index is incomplete", async () => {
+    const result = await evaluateFullCorpusAdmission([
       document("large", "completed", "частичный текст", {
         complete: false,
         percent: 99,
@@ -67,23 +67,23 @@ describe("Stage 13L-1 full-corpus admission", () => {
     expect(result.block_reasons).toEqual(["page_index_incomplete"]);
   });
 
-  test("changes the fingerprint when any packet member changes admission state", () => {
+  test("changes the fingerprint when any packet member changes admission state", async () => {
     const complete = [document("a", "completed"), document("b", "completed")];
     const pending = [document("a", "completed"), document("b", "pending", "")];
-    expect(buildFullCorpusFingerprint(complete)).not.toBe(buildFullCorpusFingerprint(pending));
+    expect(await buildFullCorpusFingerprint(complete)).not.toBe(await buildFullCorpusFingerprint(pending));
   });
 
-  test("rejects a final corpus snapshot that changed after admission", () => {
-    const admitted = evaluateFullCorpusAdmission([
+  test("rejects a final corpus snapshot that changed after admission", async () => {
+    const admitted = await evaluateFullCorpusAdmission([
       document("a", "completed"),
       document("b", "completed"),
     ]);
-    const afterUpload = evaluateFullCorpusAdmission([
+    const afterUpload = await evaluateFullCorpusAdmission([
       document("a", "completed"),
       document("b", "completed"),
       document("late", "completed"),
     ]);
-    const afterExtractionChanged = evaluateFullCorpusAdmission([
+    const afterExtractionChanged = await evaluateFullCorpusAdmission([
       document("a", "completed"),
       document("b", "partial_pages", "частичный текст"),
     ]);
@@ -93,20 +93,34 @@ describe("Stage 13L-1 full-corpus admission", () => {
     expect(matchesFullCorpusAdmissionSnapshot(admitted, afterExtractionChanged)).toBe(false);
   });
 
+  test("rejects same-length replacement of the exact OCR representation", async () => {
+    const admitted = await evaluateFullCorpusAdmission([
+      document("a", "completed", "один два"),
+    ]);
+    const consumed = await evaluateFullCorpusAdmission([
+      document("a", "completed", "три семь"),
+    ]);
+
+    expect("один два".length).toBe("три семь".length);
+    expect(admitted.fingerprint).not.toContain("один два");
+    expect(consumed.fingerprint).not.toContain("три семь");
+    expect(matchesFullCorpusAdmissionSnapshot(admitted, consumed)).toBe(false);
+  });
+
   test("all AI-consuming server entry points contain the full-corpus guard", async () => {
     const aiFill = await Bun.file("supabase/functions/document-intake-ai-fill/index.ts").text();
     const analysis = await Bun.file("supabase/functions/analyze-document-legal-position/index.ts").text();
     const generator = await Bun.file("supabase/functions/generate-legal-document-v2/index.ts").text();
 
-    expect(aiFill).toContain("evaluateFullCorpusAdmission(documents)");
+    expect(aiFill).toContain("await evaluateFullCorpusAdmission(documents)");
     expect(aiFill).toContain("full_corpus_document_set_mismatch");
     expect(aiFill).toContain("full_corpus_incomplete");
-    expect(analysis).toContain("evaluateFullCorpusAdmission(fullCorpusDocuments ?? [])");
+    expect(analysis).toContain("await evaluateFullCorpusAdmission(fullCorpusDocuments ?? [])");
     expect(analysis).toContain("full_corpus_incomplete");
     expect(analysis).toContain("full_corpus_document_limit");
     expect(analysis).toContain("matchesFullCorpusAdmissionSnapshot(corpusAdmission, consumedCorpusAdmission)");
     expect(analysis).toContain("full_corpus_changed");
-    expect(generator).toContain("evaluateFullCorpusAdmission(fullCorpusDocuments ?? [])");
+    expect(generator).toContain("await evaluateFullCorpusAdmission(fullCorpusDocuments ?? [])");
     expect(generator).toContain("full_corpus_incomplete");
   });
 });

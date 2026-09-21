@@ -20,7 +20,7 @@ export type FullCorpusBlockReason =
 
 export type FullCorpusAdmission = {
   allowed: boolean;
-  version: "13L-1";
+  version: "13L-1B";
   fingerprint: string;
   document_ids: string[];
   blocked_document_count: number;
@@ -43,7 +43,23 @@ function statusOf(document: FullCorpusDocument): string {
 }
 
 function textLengthOf(document: FullCorpusDocument): number {
-  return typeof document.ocr_text === "string" ? document.ocr_text.trim().length : 0;
+  return representationOf(document).text.length;
+}
+
+function representationOf(document: FullCorpusDocument): { version: string; text: string } {
+  const metadata = record(document.metadata);
+  if (metadata.redaction_status === "accepted" && typeof metadata.redacted_text === "string") {
+    return { version: "accepted_redaction_v1", text: metadata.redacted_text.trim() };
+  }
+  return {
+    version: "ocr_text_v1",
+    text: typeof document.ocr_text === "string" ? document.ocr_text.trim() : "",
+  };
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function pageIndexSignature(document: FullCorpusDocument): string {
@@ -76,27 +92,36 @@ function reasonFor(document: FullCorpusDocument): FullCorpusBlockReason | null {
 }
 
 /**
- * The stable packet identity includes every document and its extraction/page
- * state. It never includes document content or a human-readable filename.
+ * The stable packet identity includes every document, its exact model-text
+ * representation, and its extraction/page state. It never includes document
+ * content or a human-readable filename.
  */
-export function buildFullCorpusFingerprint(documents: readonly FullCorpusDocument[]): string {
-  return documents
-    .map((document) => [document.id, statusOf(document) || "legacy", textLengthOf(document), pageIndexSignature(document)].join(":"))
-    .sort()
-    .join("|");
+export async function buildFullCorpusFingerprint(documents: readonly FullCorpusDocument[]): Promise<string> {
+  const identities = await Promise.all(documents.map(async (document) => {
+    const representation = representationOf(document);
+    return [
+      document.id,
+      statusOf(document) || "legacy",
+      representation.version,
+      textLengthOf(document),
+      await sha256Hex(representation.text),
+      pageIndexSignature(document),
+    ].join(":");
+  }));
+  return identities.sort().join("|");
 }
 
-export function evaluateFullCorpusAdmission(
+export async function evaluateFullCorpusAdmission(
   documents: readonly FullCorpusDocument[],
-): FullCorpusAdmission {
+): Promise<FullCorpusAdmission> {
   const blocked = documents
     .map((document) => reasonFor(document))
     .filter((reason): reason is FullCorpusBlockReason => reason !== null);
 
   return {
     allowed: blocked.length === 0,
-    version: "13L-1",
-    fingerprint: buildFullCorpusFingerprint(documents),
+    version: "13L-1B",
+    fingerprint: await buildFullCorpusFingerprint(documents),
     document_ids: documents.map((document) => document.id).sort(),
     blocked_document_count: blocked.length,
     block_reasons: Array.from(new Set(blocked)).sort(),

@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
       .select("id, ocr_text, metadata")
       .filter("metadata->>intake_session_id", "eq", sessionId);
     if (fullCorpusError) throw new Error(`documents: ${fullCorpusError.message}`);
-    const corpusAdmission = evaluateFullCorpusAdmission(fullCorpusDocuments ?? []);
+    const corpusAdmission = await evaluateFullCorpusAdmission(fullCorpusDocuments ?? []);
     if ((fullCorpusDocuments ?? []).length > 0 && !corpusAdmission.allowed) {
       const message = "Для правового анализа требуется полное извлечение текста из всех документов пакета.";
       await sb
@@ -335,7 +335,7 @@ Deno.serve(async (req) => {
     // classified and sent to the model. A concurrent upload, deletion, or
     // extraction-state transition must start a new run, never replace part of
     // an admitted corpus.
-    const consumedCorpusAdmission = evaluateFullCorpusAdmission(docs ?? []);
+    const consumedCorpusAdmission = await evaluateFullCorpusAdmission(docs ?? []);
     if (!matchesFullCorpusAdmissionSnapshot(corpusAdmission, consumedCorpusAdmission)) {
       const message = "Состав или готовность документов изменились; запустите новый правовой анализ после обновления пакета.";
       await sb

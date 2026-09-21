@@ -113,7 +113,7 @@ const effectiveSessionId = intake_session_id || session_id || null;
         .select("id, ocr_text, metadata")
         .filter("metadata->>intake_session_id", "eq", effectiveSessionId);
       if (fullCorpusError) throw fullCorpusError;
-      const corpusAdmission = evaluateFullCorpusAdmission(fullCorpusDocuments ?? []);
+      const corpusAdmission = await evaluateFullCorpusAdmission(fullCorpusDocuments ?? []);
       if ((fullCorpusDocuments ?? []).length > 0 && !corpusAdmission.allowed) {
         return json(
           {

@@ -109,7 +109,7 @@ serve(async (req) => {
       );
     }
 
-    const corpusAdmission = evaluateFullCorpusAdmission(documents);
+    const corpusAdmission = await evaluateFullCorpusAdmission(documents);
     if (!corpusAdmission.allowed) {
       return json(
         {
