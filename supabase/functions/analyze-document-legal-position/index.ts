@@ -55,7 +55,10 @@ import {
   persistCanonicalShadowBestEffort,
 } from "./canonical-shadow-persistence.ts";
 import { parseFailure } from "../_shared/ai-privacy-diagnostics.ts";
-import { evaluateFullCorpusAdmission } from "../_shared/full-corpus-admission.ts";
+import {
+  evaluateFullCorpusAdmission,
+  matchesFullCorpusAdmissionSnapshot,
+} from "../_shared/full-corpus-admission.ts";
 
 import { loadCompanyFactualRuntimeSnapshot } from "./fns-company-factual-runtime.ts";
 import { buildCompanyFactualEvidenceMatrix } from "./company-factual-evidence-matrix.ts";
@@ -322,11 +325,42 @@ Deno.serve(async (req) => {
     );
 
     // documents + audit (also pulls metadata so we can use redacted_text when accepted)
-    const { data: docs } = await sb
+    const { data: docs, error: docsError } = await sb
       .from("documents")
       .select("id, title, file_name, ocr_text, metadata")
-      .filter("metadata->>intake_session_id", "eq", sessionId)
-      .limit(MAX_ANALYSIS_CORPUS_DOCUMENTS);
+      .filter("metadata->>intake_session_id", "eq", sessionId);
+    if (docsError) throw new Error(`documents: ${docsError.message}`);
+
+    // Stage 13L-1B: this final query is the in-memory corpus that will be
+    // classified and sent to the model. A concurrent upload, deletion, or
+    // extraction-state transition must start a new run, never replace part of
+    // an admitted corpus.
+    const consumedCorpusAdmission = evaluateFullCorpusAdmission(docs ?? []);
+    if (!matchesFullCorpusAdmissionSnapshot(corpusAdmission, consumedCorpusAdmission)) {
+      const message = "Состав или готовность документов изменились; запустите новый правовой анализ после обновления пакета.";
+      await sb
+        .from("document_intake_ai_runs")
+        .update({
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          error_message: "full_corpus_changed",
+          input_snapshot: {
+            full_corpus_admission: corpusAdmission,
+            consumed_full_corpus_admission: consumedCorpusAdmission,
+          } as any,
+          needs_lawyer_review: true,
+        })
+        .eq("id", runId);
+      return json(
+        {
+          success: false,
+          run_id: runId,
+          error: "full_corpus_changed",
+          message,
+        },
+        409,
+      );
+    }
     const docMetaById = new Map<string, Record<string, unknown>>();
     let redactionUsedAny = false;
     for (const d of docs ?? []) {

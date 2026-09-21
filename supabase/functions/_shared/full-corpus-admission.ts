@@ -102,3 +102,19 @@ export function evaluateFullCorpusAdmission(
     block_reasons: Array.from(new Set(blocked)).sort(),
   };
 }
+
+/**
+ * The model may consume only the exact complete corpus that passed admission.
+ * Keep the comparison metadata-only so a changed OCR payload cannot be
+ * silently substituted between the admission query and the analysis query.
+ */
+export function matchesFullCorpusAdmissionSnapshot(
+  admitted: FullCorpusAdmission,
+  consumed: FullCorpusAdmission,
+): boolean {
+  return admitted.allowed
+    && consumed.allowed
+    && admitted.fingerprint === consumed.fingerprint
+    && admitted.document_ids.length === consumed.document_ids.length
+    && admitted.document_ids.every((documentId, index) => documentId === consumed.document_ids[index]);
+}

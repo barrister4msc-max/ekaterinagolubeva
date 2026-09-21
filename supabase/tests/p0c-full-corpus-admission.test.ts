@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildFullCorpusFingerprint,
   evaluateFullCorpusAdmission,
+  matchesFullCorpusAdmissionSnapshot,
 } from "../functions/_shared/full-corpus-admission";
 
 const document = (
@@ -72,6 +73,26 @@ describe("Stage 13L-1 full-corpus admission", () => {
     expect(buildFullCorpusFingerprint(complete)).not.toBe(buildFullCorpusFingerprint(pending));
   });
 
+  test("rejects a final corpus snapshot that changed after admission", () => {
+    const admitted = evaluateFullCorpusAdmission([
+      document("a", "completed"),
+      document("b", "completed"),
+    ]);
+    const afterUpload = evaluateFullCorpusAdmission([
+      document("a", "completed"),
+      document("b", "completed"),
+      document("late", "completed"),
+    ]);
+    const afterExtractionChanged = evaluateFullCorpusAdmission([
+      document("a", "completed"),
+      document("b", "partial_pages", "частичный текст"),
+    ]);
+
+    expect(matchesFullCorpusAdmissionSnapshot(admitted, admitted)).toBe(true);
+    expect(matchesFullCorpusAdmissionSnapshot(admitted, afterUpload)).toBe(false);
+    expect(matchesFullCorpusAdmissionSnapshot(admitted, afterExtractionChanged)).toBe(false);
+  });
+
   test("all AI-consuming server entry points contain the full-corpus guard", async () => {
     const aiFill = await Bun.file("supabase/functions/document-intake-ai-fill/index.ts").text();
     const analysis = await Bun.file("supabase/functions/analyze-document-legal-position/index.ts").text();
@@ -83,6 +104,8 @@ describe("Stage 13L-1 full-corpus admission", () => {
     expect(analysis).toContain("evaluateFullCorpusAdmission(fullCorpusDocuments ?? [])");
     expect(analysis).toContain("full_corpus_incomplete");
     expect(analysis).toContain("full_corpus_document_limit");
+    expect(analysis).toContain("matchesFullCorpusAdmissionSnapshot(corpusAdmission, consumedCorpusAdmission)");
+    expect(analysis).toContain("full_corpus_changed");
     expect(generator).toContain("evaluateFullCorpusAdmission(fullCorpusDocuments ?? [])");
     expect(generator).toContain("full_corpus_incomplete");
   });
