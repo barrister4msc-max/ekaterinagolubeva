@@ -36,6 +36,8 @@ const TYPES_BY_BUCKET: Readonly<Record<Bucket, readonly string[]>> = {
     "vs_review",
     "vsrf_act",
     "vsrf_review",
+    "vsrf_case_card",
+    "vsrf_court_act",
     PLENUM_VS_RF_SOURCE_TYPE,
     "kad_case",
     "sudact_case",
@@ -61,6 +63,8 @@ const NEW_FAIL_CLOSED_TYPES = new Set([
   "official_publication_pravo",
   "vsrf_act",
   "vsrf_review",
+  "vsrf_case_card",
+  "vsrf_court_act",
   "kad_case",
   "sudact_case",
   "fns_explanation",
@@ -83,7 +87,7 @@ export function sourceFamilyForType(sourceType: string): LegalResearchSourceFami
   if (["fns_letter", "fns_explanation", "fns_appeal_decision", "minfin_letter", "minfin_explanation"].includes(normalized)) {
     return "official_explanation";
   }
-  if (["court_practice", "vs_review", "vsrf_act", "vsrf_review", "kad_case"].includes(normalized)) {
+  if (["court_practice", "vs_review", "vsrf_act", "vsrf_review", "vsrf_case_card", "vsrf_court_act", "kad_case"].includes(normalized)) {
     return "judicial";
   }
   if (["sudact_case", "klerk_analysis"].includes(normalized)) {
