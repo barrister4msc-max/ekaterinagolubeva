@@ -11,8 +11,10 @@ import { extractXlsxText } from "../_shared/xlsx-text.ts";
 import {
   applyUnitResult,
   computePageIndexProgress,
+  hasExhaustedPageUnit,
   resumePageIndexState,
   selectUnitsForInvocation,
+  UNIT_CONCURRENCY,
   type PageIndexState,
 } from "../_shared/page-index-plan.ts";
 
@@ -31,6 +33,7 @@ type ExtractionStatus =
   | "completed"
   | "partial_pages"
   | "ocr_required"
+  | "needs_manual_review"
   | "failed";
 
 type ExtractionMethod =
@@ -323,7 +326,7 @@ async function extractPdfWithChunkedGemini(
   fileName: string,
   cachedPageIndex: unknown,
   existingText: string,
-): Promise<{ text: string; pageIndex: PageIndexState; complete: boolean }> {
+): Promise<{ text: string; pageIndex: PageIndexState; complete: boolean; needsManualReview: boolean }> {
   const controller = new AbortController();
   const deadlineId = setTimeout(() => controller.abort(), 105_000);
   try {
@@ -380,7 +383,7 @@ async function extractPdfWithChunkedGemini(
       }
     };
 
-    await Promise.all(Array.from({ length: Math.min(3, chunks.length) }, () => worker()));
+    await Promise.all(Array.from({ length: Math.min(UNIT_CONCURRENCY, chunks.length) }, () => worker()));
     let nextState = pageIndex;
     for (const unit of selectedUnits) {
       nextState = applyUnitResult(nextState, unit.start, results.get(unit.start) ?? { error: "unit_not_processed" });
@@ -400,6 +403,7 @@ async function extractPdfWithChunkedGemini(
       text,
       pageIndex: nextState,
       complete: computePageIndexProgress(nextState).complete,
+      needsManualReview: hasExhaustedPageUnit(nextState),
     };
   } finally {
     clearTimeout(deadlineId);
@@ -491,6 +495,75 @@ async function authorizeRequest(
   );
   if (roleError || isAdmin !== true) return { ok: false, status: 403 };
   return { ok: true };
+}
+
+type DurableOcrJob = {
+  job_id: string;
+  acquired: boolean;
+  job_status: "queued" | "running" | "completed" | "needs_manual_review";
+  lease_token: string | null;
+  lease_expires_at: string | null;
+  checkpoint: Record<string, unknown>;
+  invocation_count: number;
+};
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+async function claimDurablePdfOcrJob(supabase: any, documentId: string): Promise<DurableOcrJob> {
+  const { data, error } = await supabase.rpc("kati_claim_document_ocr_job", {
+    p_document_id: documentId,
+    p_lease_seconds: 120,
+  });
+  const row = Array.isArray(data) ? data[0] : data;
+  if (error || !row || typeof row.job_id !== "string" || typeof row.acquired !== "boolean") {
+    console.error("[extract-document-text] durable OCR claim failed", error?.message ?? "invalid_result");
+    throw new Error("durable_ocr_job_claim_failed");
+  }
+  return {
+    job_id: row.job_id,
+    acquired: row.acquired === true,
+    job_status: row.job_status,
+    lease_token: typeof row.lease_token === "string" ? row.lease_token : null,
+    lease_expires_at: typeof row.lease_expires_at === "string" ? row.lease_expires_at : null,
+    checkpoint: asRecord(row.checkpoint),
+    invocation_count: Number(row.invocation_count) || 0,
+  } as DurableOcrJob;
+}
+
+async function persistDurablePdfOcrCheckpoint(params: {
+  supabase: any;
+  documentId: string;
+  job: DurableOcrJob;
+  jobStatus: "queued" | "completed" | "needs_manual_review";
+  checkpoint: Record<string, unknown>;
+  metadataPatch: Record<string, unknown>;
+  ocrText: string | null;
+  analysisStatus: string;
+  reviewStatus: string;
+  lastErrorCode: string | null;
+}): Promise<boolean> {
+  if (!params.job.lease_token) return false;
+  const { data, error } = await params.supabase.rpc("kati_persist_document_ocr_checkpoint", {
+    p_document_id: params.documentId,
+    p_job_id: params.job.job_id,
+    p_lease_token: params.job.lease_token,
+    p_job_status: params.jobStatus,
+    p_checkpoint: params.checkpoint,
+    p_metadata_patch: params.metadataPatch,
+    p_ocr_text: params.ocrText,
+    p_analysis_status: params.analysisStatus,
+    p_review_status: params.reviewStatus,
+    p_last_error_code: params.lastErrorCode,
+  });
+  if (error) {
+    console.error("[extract-document-text] durable OCR checkpoint failed", error.message);
+    return false;
+  }
+  return data === true;
 }
 
 Deno.serve(async (req) => {
@@ -679,14 +752,34 @@ Deno.serve(async (req) => {
     (detected.kind !== "pdf" || !isUsablePdfTextLayer(text));
 
   let pageIndex: PageIndexState | null = null;
+  let durablePdfJob: DurableOcrJob | null = null;
   if (shouldUseGeminiFallback) {
-    let fallback: { text: string; pageIndex?: PageIndexState; complete?: boolean };
+    if (detected.kind === "pdf") {
+      try {
+        durablePdfJob = await claimDurablePdfOcrJob(supabase, documentId);
+      } catch {
+        return json({ error: "durable_ocr_job_unavailable" }, 503);
+      }
+      if (!durablePdfJob.acquired) {
+        return json({
+          ok: true,
+          extraction_status: durablePdfJob.job_status === "needs_manual_review"
+            ? "needs_manual_review"
+            : durablePdfJob.job_status === "completed" ? "completed" : "partial_pages",
+          continuation_required: durablePdfJob.job_status === "queued" || durablePdfJob.job_status === "running",
+          ocr_job_status: durablePdfJob.job_status,
+          lease_expires_at: durablePdfJob.lease_expires_at,
+        });
+      }
+    }
+
+    let fallback: { text: string; pageIndex?: PageIndexState; complete?: boolean; needsManualReview?: boolean };
     try {
       fallback = detected.kind === "pdf"
         ? await extractPdfWithChunkedGemini(
             downloaded.buf,
             doc.file_name || "document",
-            existingMeta.page_index,
+            durablePdfJob?.checkpoint?.page_index ?? existingMeta.page_index,
             typeof doc.ocr_text === "string" ? doc.ocr_text : "",
           )
         : await extractWithGeminiFallback({
@@ -705,8 +798,11 @@ Deno.serve(async (req) => {
     if (detected.kind === "pdf" && pageIndex) {
       text = fallbackText;
       method = "gemini_fallback";
-      status = fallback.complete ? "completed" : "partial_pages";
+      status = fallback.needsManualReview
+        ? "needs_manual_review"
+        : fallback.complete ? "completed" : "partial_pages";
       if (!fallback.complete && !text) extractionError = "pdf_ocr_partial_pages";
+      if (fallback.needsManualReview) extractionError = "pdf_ocr_retry_exhausted";
     } else if (fallbackText.length > 0) {
       text = fallbackText;
       method = "gemini_fallback";
@@ -725,13 +821,25 @@ Deno.serve(async (req) => {
     }
   }
 
+  // A corrupt PDF can fail before it yields a page plan. Bound that recovery
+  // path too; otherwise a reload could create an unbounded sequence of jobs.
+  if (
+    durablePdfJob &&
+    !pageIndex &&
+    status !== "completed" &&
+    durablePdfJob.invocation_count >= 3
+  ) {
+    status = "needs_manual_review";
+    extractionError = "pdf_ocr_retry_exhausted";
+  }
+
   const textLength = text.length;
 
   let analysisStatus: string;
   let reviewStatus: string;
-  if (status === "ocr_required" || status === "partial_pages") {
+  if (status === "ocr_required" || status === "partial_pages" || status === "needs_manual_review") {
     analysisStatus = "needs_review";
-    reviewStatus = status === "partial_pages" ? "needs_review" : "ocr_required";
+    reviewStatus = status === "ocr_required" ? "ocr_required" : "needs_review";
   } else if (status === "failed") {
     analysisStatus = "needs_review";
     reviewStatus = "needs_review";
@@ -750,6 +858,17 @@ Deno.serve(async (req) => {
     extracted_at: new Date().toISOString(),
     text_length: textLength,
     extraction_error: extractionError,
+    ...(durablePdfJob
+      ? {
+          ocr_job: {
+            version: "13L-2B",
+            status: status === "completed"
+              ? "completed"
+              : status === "needs_manual_review" ? "needs_manual_review" : "queued",
+            invocation_count: durablePdfJob.invocation_count,
+          },
+        }
+      : {}),
     ...(pageIndex
       ? {
           page_index: {
@@ -770,11 +889,32 @@ Deno.serve(async (req) => {
     update.ocr_text = text;
   }
 
-  const { error: upErr } = await supabase
-    .from("documents")
-    .update(update)
-    .eq("id", documentId);
-  if (upErr) return json({ error: upErr.message }, 500);
+  if (durablePdfJob) {
+    const jobStatus = status === "completed"
+      ? "completed"
+      : status === "needs_manual_review" ? "needs_manual_review" : "queued";
+    const persisted = await persistDurablePdfOcrCheckpoint({
+      supabase,
+      documentId,
+      job: durablePdfJob,
+      jobStatus,
+      checkpoint: pageIndex
+        ? { version: "13L-2B", page_index: pageIndex }
+        : durablePdfJob.checkpoint,
+      metadataPatch: newMeta,
+      ocrText: Object.prototype.hasOwnProperty.call(update, "ocr_text") ? update.ocr_text : null,
+      analysisStatus,
+      reviewStatus,
+      lastErrorCode: extractionError,
+    });
+    if (!persisted) return json({ error: "ocr_checkpoint_lease_lost" }, 409);
+  } else {
+    const { error: upErr } = await supabase
+      .from("documents")
+      .update(update)
+      .eq("id", documentId);
+    if (upErr) return json({ error: upErr.message }, 500);
+  }
 
   return json({
     ok: true,
@@ -782,6 +922,9 @@ Deno.serve(async (req) => {
     extraction_method: method,
     text_length: textLength,
     continuation_required: status === "partial_pages",
+    ocr_job_status: durablePdfJob
+      ? (status === "completed" ? "completed" : status === "needs_manual_review" ? "needs_manual_review" : "queued")
+      : null,
     page_index_progress: pageIndex ? computePageIndexProgress(pageIndex) : null,
     analysis_status: analysisStatus,
     review_status: reviewStatus,
