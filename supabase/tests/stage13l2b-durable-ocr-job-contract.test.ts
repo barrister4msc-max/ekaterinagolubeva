@@ -8,6 +8,10 @@ const migrationPath = join(
   root,
   "supabase/migrations/20260922120000_stage13l2b_durable_ocr_jobs.sql",
 );
+const leaseCounterFixMigrationPath = join(
+  root,
+  "supabase/migrations/20260922120554_fix_stage13l2b_lease_counter.sql",
+);
 const extractorPath = join(root, "supabase/functions/extract-document-text/index.ts");
 
 describe("Stage 13L-2B durable OCR job contract", () => {
@@ -33,5 +37,12 @@ describe("Stage 13L-2B durable OCR job contract", () => {
     expect(source).toContain('error: "ocr_checkpoint_lease_lost"');
     expect(source).toContain('status = "needs_manual_review"');
     expect(source).toContain('extractionError = "pdf_ocr_retry_exhausted"');
+  });
+
+  test("lease counter update qualifies the table column and cannot collide with the RETURNS TABLE output", async () => {
+    const source = (await Bun.file(leaseCounterFixMigrationPath).text()).replace(/\r\n/g, "\n");
+    expect(source).toContain("create or replace function public.kati_claim_document_ocr_job");
+    expect(source).toContain("as job");
+    expect(source).toContain("invocation_count = job.invocation_count + 1");
   });
 });
