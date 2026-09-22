@@ -70,6 +70,8 @@ const CASES: readonly Q0ExpertSyntheticCase[] = [
     fields: [
       field("company.name", "ООО «Север»", evidence("party_identity", "fixture://09c/response/request", "Заявитель: ООО «Север».", "fixture:09c:response:p1")),
       field("company.inn", "7700000000", evidence("party_identity", "fixture://09c/response/request", "ИНН 7700000000.", "fixture:09c:response:p1")),
+      field("tax.authority_name", "ИФНС России № 1 по г. Москве", evidence("authority_identity", "fixture://09c/response/request", "Направитель: ИФНС России № 1 по г. Москве.", "fixture:09c:response:p1")),
+      field("tax.request_date", "15.08.2026", evidence("procedural_request", "fixture://09c/response/request", "Дата требования: 15.08.2026.", "fixture:09c:response:p2")),
       field("tax.request_number", "12345", evidence("procedural_request", "fixture://09c/response/request", "Требование № 12345", "fixture:09c:response:p2")),
       field("tax.position_summary", "Запрошенные документы представлены в полном объёме.", evidence("procedural_request", "fixture://09c/response/request", "Документы представлены в полном объёме.", "fixture:09c:response:p3")),
     ],
@@ -84,6 +86,8 @@ const CASES: readonly Q0ExpertSyntheticCase[] = [
     eligible_for_model_accuracy_claim: false,
     fields: [
       field("company.name", "ООО «Вектор»", evidence("party_identity", "fixture://09c/explanations/request", "ООО «Вектор»", "fixture:09c:explanations:p1")),
+      field("company.inn", "7722222222", evidence("party_identity", "fixture://09c/explanations/request", "ИНН 7722222222.", "fixture:09c:explanations:p1")),
+      field("tax.authority_name", "ИФНС России № 2 по г. Москве", evidence("authority_identity", "fixture://09c/explanations/request", "Налоговый орган: ИФНС России № 2 по г. Москве.", "fixture:09c:explanations:p1")),
       field("tax.period", "I квартал 2026 года", evidence("procedural_request", "fixture://09c/explanations/request", "за I квартал 2026 года", "fixture:09c:explanations:p2")),
       field("tax.position_summary", "Восстановление расходов по представленным документам не допускается.", evidence("tax_audit_act", "fixture://09c/explanations/act", "Восстановление расходов не допускается.", "fixture:09c:explanations:p5"), { negation_present: true }),
     ],
@@ -97,7 +101,9 @@ const CASES: readonly Q0ExpertSyntheticCase[] = [
     lawyer_reviewed: false,
     eligible_for_model_accuracy_claim: false,
     fields: [
+      field("company.name", "ООО «НДС‑Профиль»", evidence("party_identity", "fixture://09c/vat/request", "Налогоплательщик: ООО «НДС‑Профиль».", "fixture:09c:vat:p1")),
       field("company.inn", "7711111111", evidence("party_identity", "fixture://09c/vat/request", "ИНН 7711111111", "fixture:09c:vat:p1")),
+      field("tax.authority_name", "ИФНС России № 3 по г. Москве", evidence("authority_identity", "fixture://09c/vat/request", "Налоговый орган: ИФНС России № 3 по г. Москве.", "fixture:09c:vat:p1")),
       field("tax.vat_period", "II квартал 2026 года", evidence("tax_return", "fixture://09c/vat/return", "НДС за II квартал 2026 года", "fixture:09c:vat:p2")),
       field("tax.position_summary", null, [], { conflict_present: true }),
     ],
@@ -112,8 +118,10 @@ const CASES: readonly Q0ExpertSyntheticCase[] = [
     eligible_for_model_accuracy_claim: false,
     fields: [
       field("company.name", "ООО «Профиль»", evidence("party_identity", "fixture://09c/strategy/memo", "ООО «Профиль»", "fixture:09c:strategy:p1")),
+      field("company.inn", "7733333333", evidence("party_identity", "fixture://09c/strategy/memo", "ИНН 7733333333.", "fixture:09c:strategy:p1")),
       field("tax.period", "2025 год", evidence("tax_return", "fixture://09c/strategy/return", "за 2025 год", "fixture:09c:strategy:p2")),
       field("tax.contested_amount", null, []),
+      field("tax.position_summary", "Требуется выбрать правовой режим после проверки первичных документов; готовая стратегия не утверждена.", evidence("user_manual_input", "fixture://09c/strategy/manual", "Стратегия не утверждена без проверки первичных документов.", "fixture:09c:strategy:manual"), { conflict_present: true }),
     ],
   },
   {
@@ -126,6 +134,7 @@ const CASES: readonly Q0ExpertSyntheticCase[] = [
     eligible_for_model_accuracy_claim: false,
     fields: [
       field("company.name", "ООО «Арбитр»", evidence("party_identity", "fixture://09c/court/claim", "ООО «Арбитр»", "fixture:09c:court:p1")),
+      field("company.inn", "7744444444", evidence("party_identity", "fixture://09c/court/claim", "ИНН 7744444444.", "fixture:09c:court:p1")),
       field("tax.court_case_number", "А40-12345/2026", evidence("user_manual_input", "fixture://09c/court/manual", "А40-12345/2026", "fixture:09c:court:manual"), {
         manual_override: { applied: true, accepted_explicitly: true, final_value_unchanged: true },
       }),
