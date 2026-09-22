@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
   MAX_UNITS_PER_INVOCATION,
+  MAX_UNIT_ATTEMPTS,
   applyUnitResult,
   computePageIndexProgress,
   createPageIndexState,
+  hasExhaustedPageUnit,
   resumePageIndexState,
   selectUnitsForInvocation,
 } from "../functions/_shared/page-index-plan";
@@ -33,7 +35,8 @@ describe("P0-C page-aware indexing", () => {
 
   test("progress is never 100 percent while required units are incomplete", () => {
     let state = createPageIndexState(600);
-    for (const unit of selectUnitsForInvocation(state)) state = applyUnitResult(state, unit.start, { text: "page" });
+    for (const unit of selectUnitsForInvocation(state))
+      state = applyUnitResult(state, unit.start, { text: "page" });
     const progress = computePageIndexProgress(state);
     expect(progress.percent).toBeLessThan(100);
     expect(progress.complete).toBe(false);
@@ -46,7 +49,8 @@ describe("P0-C page-aware indexing", () => {
     while (!computePageIndexProgress(state).complete && invocations < 20) {
       const units = selectUnitsForInvocation(state);
       expect(units.length).toBeGreaterThan(0);
-      for (const unit of units) state = applyUnitResult(state, unit.start, { text: `pages-${unit.start}-${unit.end}` });
+      for (const unit of units)
+        state = applyUnitResult(state, unit.start, { text: `pages-${unit.start}-${unit.end}` });
       invocations += 1;
     }
     expect(invocations).toBe(13);
@@ -57,5 +61,19 @@ describe("P0-C page-aware indexing", () => {
       complete: true,
       pendingUnits: 0,
     });
+  });
+
+  test("stops retrying an exhausted page window and requires manual review", () => {
+    let state = createPageIndexState(6);
+    for (let attempt = 0; attempt < MAX_UNIT_ATTEMPTS; attempt += 1) {
+      state = applyUnitResult(state, 0, { error: "provider_timeout" });
+      // Simulate the persisted checkpoint being read by the next invocation.
+      state = resumePageIndexState(6, state);
+    }
+
+    expect(state.units[0]?.attempts).toBe(MAX_UNIT_ATTEMPTS);
+    expect(selectUnitsForInvocation(state)).toEqual([]);
+    expect(hasExhaustedPageUnit(state)).toBe(true);
+    expect(computePageIndexProgress(state).complete).toBe(false);
   });
 });
