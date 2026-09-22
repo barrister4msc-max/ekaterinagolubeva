@@ -530,13 +530,15 @@ const reloadAnswersFromSession = useCallback(async () => {
         if (extractionStatus === "completed" && textLength > 0) {
           return { extractionStatus: "completed", textLength };
         }
-         if (extractionStatus === "failed" || extractionStatus === "ocr_required" || extractionStatus === "partial_pages") {
+         if (extractionStatus === "failed" || extractionStatus === "ocr_required" || extractionStatus === "partial_pages" || extractionStatus === "needs_manual_review") {
            return {
              extractionStatus,
              textLength: typeof data.ocr_text === "string" ? data.ocr_text.length : 0,
              error: extractionError || (
                extractionStatus === "partial_pages"
                  ? "Индексация PDF продолжается по блокам страниц"
+                 : extractionStatus === "needs_manual_review"
+                   ? "Автоматические попытки OCR исчерпаны: нужна ручная проверка документа"
                  : extractionStatus === "ocr_required"
                    ? "Для этого PDF требуется отдельный OCR-режим"
                    : "Извлечение текста завершилось с ошибкой"
@@ -587,7 +589,7 @@ const reloadAnswersFromSession = useCallback(async () => {
             attempts: attempt,
           };
         }
-         if (!error && (data?.extraction_status === "failed" || data?.extraction_status === "ocr_required")) {
+         if (!error && (data?.extraction_status === "failed" || data?.extraction_status === "ocr_required" || data?.extraction_status === "needs_manual_review")) {
            return {
              extractionStatus: data.extraction_status,
              textLength: 0,
@@ -595,6 +597,8 @@ const reloadAnswersFromSession = useCallback(async () => {
              error: data?.error || (
                data.extraction_status === "ocr_required"
                  ? "Для этого PDF требуется отдельный OCR-режим"
+                 : data.extraction_status === "needs_manual_review"
+                   ? "Автоматические попытки OCR исчерпаны: нужна ручная проверка документа"
                  : "Извлечение текста завершилось с ошибкой"
              ),
            };
@@ -623,6 +627,7 @@ const reloadAnswersFromSession = useCallback(async () => {
           (persisted.extractionStatus === "completed" && persisted.textLength > 0) ||
            persisted.extractionStatus === "failed" ||
            persisted.extractionStatus === "ocr_required" ||
+           persisted.extractionStatus === "needs_manual_review" ||
            persisted.extractionStatus === "partial_pages"
          ) {
           return {
@@ -1343,6 +1348,7 @@ const reloadAnswersFromSession = useCallback(async () => {
                 {sessionDocuments.map((doc) => {
                    const ready = hasCompleteExtraction(doc);
                    const processing = processingDocumentIds.includes(doc.id) || retryingDocumentId === doc.id;
+                   const needsManualReview = doc.extraction_status === "needs_manual_review";
                   const tone = redactionStatusTone(doc.redaction_status);
                   const showRedactButton =
                     ready &&
@@ -1370,6 +1376,8 @@ const reloadAnswersFromSession = useCallback(async () => {
                                  </span>
                                ) : ready ? (
                                  <span className="text-emerald-700">— Готов</span>
+                               ) : needsManualReview ? (
+                                 <span className="text-rose-700">— Нужна ручная проверка OCR</span>
                                ) : doc.page_index_progress && doc.page_index_progress.totalPages > 0 ? (
                                  <span className="text-amber-700">
                                    — Индексация: {doc.page_index_progress.indexedPages} из {doc.page_index_progress.totalPages} стр. ({doc.page_index_progress.percent}%)
@@ -1393,7 +1401,7 @@ const reloadAnswersFromSession = useCallback(async () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        {!ready && (
+                        {!ready && !needsManualReview && (
                           <button
                             type="button"
                             className="db-ghost"

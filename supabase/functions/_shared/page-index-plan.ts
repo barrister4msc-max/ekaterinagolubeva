@@ -20,6 +20,9 @@ export const MAX_UNITS_PER_INVOCATION = 8;
 /** Concurrency inside one invocation. */
 export const UNIT_CONCURRENCY = 3;
 
+/** A failed page window is attempted at most this many times by the durable job. */
+export const MAX_UNIT_ATTEMPTS = 3;
+
 export type PageUnitStatus = "pending" | "completed" | "failed";
 
 export type PageUnit = {
@@ -130,7 +133,17 @@ export function selectUnitsForInvocation(
   budget = MAX_UNITS_PER_INVOCATION,
 ): PageUnit[] {
   const cap = Math.max(1, Math.min(Math.floor(budget) || 1, MAX_UNITS_PER_INVOCATION));
-  return state.units.filter((u) => u.status !== "completed").slice(0, cap);
+  // A terminally failed unit is deliberately not retried by another browser
+  // reload or invocation. The job moves to needs_manual_review instead.
+  return state.units
+    .filter((u) => u.status !== "completed" && u.attempts < MAX_UNIT_ATTEMPTS)
+    .slice(0, cap);
+}
+
+export function hasExhaustedPageUnit(state: PageIndexState | null | undefined): boolean {
+  return (state?.units ?? []).some(
+    (unit) => unit.status !== "completed" && unit.attempts >= MAX_UNIT_ATTEMPTS,
+  );
 }
 
 export function applyUnitResult(
