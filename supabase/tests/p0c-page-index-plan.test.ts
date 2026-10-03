@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   MAX_UNITS_PER_INVOCATION,
   MAX_UNIT_ATTEMPTS,
+  UNIT_CONCURRENCY,
   applyUnitResult,
   computePageIndexProgress,
   createPageIndexState,
@@ -40,20 +41,21 @@ describe("P0-C page-aware indexing", () => {
     const progress = computePageIndexProgress(state);
     expect(progress.percent).toBeLessThan(100);
     expect(progress.complete).toBe(false);
-    expect(progress.pendingUnits).toBe(92);
+    expect(progress.pendingUnits).toBe(100 - MAX_UNITS_PER_INVOCATION);
   });
 
-  test("a 600-page plan requires continuation until every bounded batch completes", () => {
+  test("a 600-page plan resumes one bounded concurrency wave at a time", () => {
     let state = createPageIndexState(600);
     let invocations = 0;
-    while (!computePageIndexProgress(state).complete && invocations < 20) {
+    while (!computePageIndexProgress(state).complete && invocations < 40) {
       const units = selectUnitsForInvocation(state);
       expect(units.length).toBeGreaterThan(0);
       for (const unit of units)
         state = applyUnitResult(state, unit.start, { text: `pages-${unit.start}-${unit.end}` });
       invocations += 1;
     }
-    expect(invocations).toBe(13);
+    expect(MAX_UNITS_PER_INVOCATION).toBe(UNIT_CONCURRENCY);
+    expect(invocations).toBe(34);
     expect(computePageIndexProgress(state)).toMatchObject({
       totalPages: 600,
       indexedPages: 600,
