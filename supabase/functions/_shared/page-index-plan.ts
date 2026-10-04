@@ -10,15 +10,18 @@
 /** Pages per indexing unit. Matches the existing chunked OCR window. */
 export const PAGE_UNIT_SIZE = 6;
 
-/**
- * Maximum units a single invocation may process. Bounded so one call always
- * finishes inside the function deadline; the remaining units are resumed by
- * the next invocation instead of failing the whole document.
- */
-export const MAX_UNITS_PER_INVOCATION = 8;
-
 /** Concurrency inside one invocation. */
 export const UNIT_CONCURRENCY = 3;
+
+/**
+ * Maximum units a single invocation may process.
+ *
+ * Keep this equal to the OCR concurrency. A unit is an external OCR request;
+ * selecting more units than can run concurrently creates later waves that
+ * share the invocation deadline and are aborted before they begin. The next
+ * durable invocation resumes the remaining windows from its checkpoint.
+ */
+export const MAX_UNITS_PER_INVOCATION = UNIT_CONCURRENCY;
 
 /** A failed page window is attempted at most this many times by the durable job. */
 export const MAX_UNIT_ATTEMPTS = 3;
