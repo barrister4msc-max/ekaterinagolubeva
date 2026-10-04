@@ -189,20 +189,14 @@ export function DocumentAIAnalysisPanel({
 
           let ex = await extract();
           if (!ex) return;
-          let extractionInvocations = 1;
-          while (shouldContinueDurableOcr(ex, extractionInvocations)) {
+          while (shouldContinueDurableOcr(ex)) {
             ex = await extract();
             if (!ex) return;
-            extractionInvocations += 1;
           }
 
           const status = ex.extraction_status;
           const len = Number(ex.text_length || 0);
           await loadDoc();
-          if (ex.continuation_required) {
-            toast.error("OCR не завершился в пределах безопасного лимита");
-            return;
-          }
           if (status === "ocr_required") {
             toast.error("Нужен OCR / скан");
             return;
