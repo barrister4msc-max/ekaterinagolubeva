@@ -1,20 +1,19 @@
 import { describe, expect, test } from "bun:test";
-import {
-  MAX_INLINE_DURABLE_OCR_INVOCATIONS,
-  shouldContinueDurableOcr,
-} from "../../src/lib/document-ocr-continuation.ts";
+import { shouldContinueDurableOcr } from "../../src/lib/document-ocr-continuation.ts";
 
 describe("document OCR continuation", () => {
-  test("continues only while the durable extractor requests another bounded pass", () => {
-    expect(shouldContinueDurableOcr({ continuation_required: true }, 1)).toBe(true);
-    expect(shouldContinueDurableOcr({ continuation_required: false }, 1)).toBe(false);
-    expect(shouldContinueDurableOcr({}, 1)).toBe(false);
-  });
+  test("continues until the durable extractor reports a terminal response", () => {
+    const responses = Array.from({ length: 10 }, () => ({ continuation_required: true }))
+      .concat({ continuation_required: false });
+    let completedInvocations = 1;
+    let extraction = responses[0];
 
-  test("does not exceed the durable OCR retry budget from one UI action", () => {
-    expect(shouldContinueDurableOcr(
-      { continuation_required: true },
-      MAX_INLINE_DURABLE_OCR_INVOCATIONS,
-    )).toBe(false);
+    while (shouldContinueDurableOcr(extraction)) {
+      extraction = responses[completedInvocations];
+      completedInvocations += 1;
+    }
+
+    expect(completedInvocations).toBe(11);
+    expect(shouldContinueDurableOcr({})).toBe(false);
   });
 });
