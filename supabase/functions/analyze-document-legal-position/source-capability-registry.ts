@@ -29,7 +29,7 @@ export type SourceCapabilityTransportKind =
 
 export type SourceCapabilityRegistration = {
   provider_id: string;
-  official_provider_id: "pravo" | "fns" | "minfin" | "vsrf" | "kad" | "kremlin" | null;
+  official_provider_id: "pravo" | "fns" | "minfin" | "vsrf" | "kad" | "kremlin" | "cbr" | null;
   source_families: readonly Bucket[];
   transport_id: string;
   transport_version: string;
@@ -160,6 +160,14 @@ export const SOURCE_CAPABILITY_REGISTRY = createSourceCapabilityRegistry([
     plan_eligibility: "eligible",
     cache_policy: "none", last_verified_at: null, evidence: ["official_provider_registry_no_machine_interface"],
     kill_switch: true, substantive_use_allowed_by_provider: false,
+  },
+  {
+    provider_id: "cbr_manual", official_provider_id: "cbr",
+    source_families: ["manuals"], transport_id: "manual_import", transport_version: "v1", transport_kind: "manual_import",
+    integration_mode: "manual_import", auth_mode: "manual", query_classes: ["exact", "issue", "temporal"],
+    privacy_classes: ["public_legal_issue", "public_case_reference"], operational_status: "manual_import_only",
+    plan_eligibility: "eligible", rate_policy: "manual", cache_policy: "none", last_verified_at: null,
+    evidence: ["08n_cbr_manual_import_contract"], kill_switch: true, substantive_use_allowed_by_provider: false,
   },
   {
     provider_id: "vsrf_official", official_provider_id: "vsrf",
