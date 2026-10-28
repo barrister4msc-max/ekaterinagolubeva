@@ -68,6 +68,7 @@ describe("Stage 01B diagnostics", () => {
       "../functions/document-intake-ai-fill/index.ts",
       "../functions/analyze-document-legal-position/index.ts",
       "../functions/analyze-document-legal-position/gemini-fallback.ts",
+      "../functions/analyze-document-legal-position/fact-extraction.ts",
       "../functions/review-generated-legal-document/index.ts",
       "../functions/review-generated-legal-document/gemini-fallback.ts",
       "../functions/generate-legal-document-v2/index.ts",
@@ -79,5 +80,7 @@ describe("Stage 01B diagnostics", () => {
     expect(joined).not.toContain("raw_response_preview");
     expect(joined).not.toContain("allow_unredacted_text");
     expect(joined).not.toContain("allowUnredactedText");
+    const factExtraction = source[files.indexOf("../functions/analyze-document-legal-position/fact-extraction.ts")];
+    expect(factExtraction).not.toMatch(/console\.error\([^;]*(?:raw\.slice|\(e as Error\)\.message|,\s*error\s*\))/s);
   });
 });
