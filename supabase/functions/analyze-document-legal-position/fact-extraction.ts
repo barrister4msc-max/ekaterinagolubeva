@@ -154,6 +154,7 @@ function mergeQueryWithRegex(q: ResearchQuery, joinedText: string): ResearchQuer
 // ---------- LLM call ----------
 import { callGeminiWithFallback, FLASH_GEMINI_MODELS } from "./gemini-fallback.ts";
 import { normalizeTemporalDate } from "./temporal-date.ts";
+import { parseFailure, providerException } from "../_shared/ai-privacy-diagnostics.ts";
 
 async function callFlashViaGemini(prompt: string): Promise<string | null> {
   if (!GEMINI_API_KEY) return null;
@@ -165,8 +166,11 @@ async function callFlashViaGemini(prompt: string): Promise<string | null> {
       responseMimeType: "application/json",
     });
     return text || null;
-  } catch (e) {
-    console.error("[fact-extraction] gemini fallback exhausted:", (e as Error).message);
+  } catch {
+    console.error("[fact-extraction] gemini fallback exhausted", {
+      error_code: "provider_exception",
+      provider: "gemini",
+    });
     return null;
   }
 }
@@ -253,8 +257,8 @@ ${docsBlock || "(нет документов)"}
   if (raw) {
     try {
       llmQuery = (safeParseJson(raw) as Partial<ResearchQuery>) ?? {};
-    } catch (e) {
-      console.error("[fact-extraction] JSON parse failed", (e as Error).message, raw.slice(0, 500));
+    } catch {
+      console.error("[fact-extraction] JSON parse failed", parseFailure(raw));
     }
   } else {
     console.error("[fact-extraction] no LLM response (GEMINI_API_KEY missing or error)");
@@ -367,8 +371,8 @@ export async function embedQuery(text: string): Promise<number[] | null> {
     const data = await res.json();
     const embedding = data?.embedding?.values;
     return Array.isArray(embedding) && embedding.length === 1536 ? embedding : null;
-  } catch (error) {
-    console.error("[fact-extraction] Gemini embedding exception", error);
+  } catch {
+    console.error("[fact-extraction] Gemini embedding exception", providerException("gemini-embedding-001"));
     return null;
   }
 }
