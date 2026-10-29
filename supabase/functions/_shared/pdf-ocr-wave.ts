@@ -1,5 +1,6 @@
 /** One bounded PDF OCR wave. Caller owns authorization, lease and persistence.
- * This module performs no claim, database write, scheduling or self-invocation.
+ * No claims, scheduling or self-invocation; optional injected attempt hooks
+ * persist each unit under the caller-owned lease.
  */
 import {
   applyUnitResult,
@@ -31,6 +32,11 @@ export type PdfOcrWaveDependencies<Source extends OcrPdfSource, Page> = {
     fileName: string;
     signal: AbortSignal;
   }) => Promise<{ text: string; debug: Record<string, unknown> }>;
+  /** Optional durable protocol. Caller must finish from authoritative DB state. */
+  attempts?: {
+    reserve(unit: { start: number; end: number; pageCount: number }): Promise<string>;
+    settle(start: number, reservation: string, result: { text: string } | { error: string }): Promise<void>;
+  };
 };
 
 export async function processPdfOcrWave<Source extends OcrPdfSource, Page>(
@@ -76,19 +82,31 @@ export async function processPdfOcrWave<Source extends OcrPdfSource, Page>(
         const index = cursor++;
         if (index >= chunks.length) return;
         const chunk = chunks[index];
+        let reservation: string | null = null;
         try {
+          reservation = dependencies.attempts
+            ? await dependencies.attempts.reserve({ start: chunk.start, end: chunk.end, pageCount: pageIndex.page_count })
+            : null;
+          if (dependencies.attempts && controller.signal.aborted)
+            throw new Error("ocr_wave_deadline");
           const result = await dependencies.extract({
             buf: chunk.buf,
             mimeType: "application/pdf",
             fileName: `${fileName}.pages-${chunk.start + 1}-${chunk.end}.pdf`,
             signal: controller.signal,
           });
-          if (controller.signal.aborted || result.debug?.error || !result.text.trim()) {
-            results.set(chunk.start, { error: `pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}` });
-          } else {
-            results.set(chunk.start, { text: result.text.trim() });
-          }
+          const unitResult = controller.signal.aborted || result.debug?.error || !result.text.trim()
+            ? { error: `pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}` }
+            : { text: result.text.trim() };
+          if (dependencies.attempts && reservation)
+            await dependencies.attempts.settle(chunk.start, reservation, unitResult);
+          results.set(chunk.start, unitResult);
         } catch (error) {
+          if (dependencies.attempts && reservation) {
+            try {
+              await dependencies.attempts.settle(chunk.start, reservation, { error: "ocr_unit_failed" });
+            } catch { /* Durable unresolved reservation still consumes the attempt. */ }
+          }
           results.set(chunk.start, {
             error: `pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}`,
           });

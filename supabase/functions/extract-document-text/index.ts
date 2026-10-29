@@ -15,6 +15,7 @@ import {
 } from "../_shared/page-index-plan.ts";
 
 import { processPdfOcrWave } from "../_shared/pdf-ocr-wave.ts";
+import { reservedOcrAttempts } from "../_shared/ocr-reservation-runtime.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +28,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const GEMINI_MODEL = "gemini-2.5-flash";
+// Enable only after migrations and isolated acceptance. Off preserves legacy IO.
+const RESERVED_OCR_ENABLED = Deno.env.get("KATI_OCR_UNIT_RESERVATIONS_ENABLED") === "true";
 type ExtractionStatus =
   | "completed"
   | "partial_pages"
@@ -439,7 +442,8 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 async function claimDurablePdfOcrJob(supabase: any, documentId: string): Promise<DurableOcrJob> {
-  const { data, error } = await supabase.rpc("kati_claim_document_ocr_job", {
+  const { data, error } = await supabase.rpc(RESERVED_OCR_ENABLED
+    ? "kati_claim_reserved_document_ocr_job" : "kati_claim_document_ocr_job", {
     p_document_id: documentId,
     p_lease_seconds: 120,
   });
@@ -685,6 +689,8 @@ Deno.serve(async (req) => {
       } catch {
         return json({ error: "durable_ocr_job_unavailable" }, 503);
       }
+      if (!RESERVED_OCR_ENABLED && durablePdfJob.checkpoint.ocr_protocol === "reserved_v1")
+        return json({ error: "ocr_reservations_required" }, 503);
       if (!durablePdfJob.acquired) {
         return json({
           ok: true,
@@ -706,7 +712,9 @@ Deno.serve(async (req) => {
             doc.file_name || "document",
             durablePdfJob?.checkpoint?.page_index ?? existingMeta.page_index,
             typeof doc.ocr_text === "string" ? doc.ocr_text : "",
-            { pdf: PDFDocument, extract: extractWithGeminiFallback },
+            { pdf: PDFDocument, extract: extractWithGeminiFallback,
+              ...(RESERVED_OCR_ENABLED && durablePdfJob
+                ? { attempts: reservedOcrAttempts(supabase, documentId, durablePdfJob) } : {}) },
           )
         : await extractWithGeminiFallback({
             buf: downloaded.buf,
@@ -816,6 +824,22 @@ Deno.serve(async (req) => {
   }
 
   if (durablePdfJob) {
+    if (RESERVED_OCR_ENABLED) {
+      // Do not send the local page plan/counters/text back: each unit has already
+      // persisted authoritatively and a crash/lost reply may make local state stale.
+      try {
+        const { data, error } = await supabase.rpc("kati_finish_reserved_document_ocr_wave", {
+          p_document_id: documentId, p_job_id: durablePdfJob.job_id,
+          p_lease_token: durablePdfJob.lease_token, p_page_count: pageIndex?.page_count ?? null,
+        });
+        if (error) return json({ error: "ocr_checkpoint_unavailable" }, 503);
+        if (!data || data.persisted !== true)
+          return json({ error: "ocr_checkpoint_lease_lost" }, 409);
+        return json(data.result);
+      } catch {
+        return json({ error: "ocr_checkpoint_unavailable" }, 503);
+      }
+    }
     const jobStatus = status === "completed"
       ? "completed"
       : status === "needs_manual_review" ? "needs_manual_review" : "queued";
