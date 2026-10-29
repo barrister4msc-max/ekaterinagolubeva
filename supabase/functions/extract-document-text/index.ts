@@ -10,14 +10,11 @@ import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
 import { extractXlsxText } from "../_shared/xlsx-text.ts";
 import { providerException, providerHttpFailure } from "../_shared/ai-privacy-diagnostics.ts";
 import {
-  applyUnitResult,
   computePageIndexProgress,
-  hasExhaustedPageUnit,
-  resumePageIndexState,
-  selectUnitsForInvocation,
-  UNIT_CONCURRENCY,
   type PageIndexState,
 } from "../_shared/page-index-plan.ts";
+
+import { processPdfOcrWave } from "../_shared/pdf-ocr-wave.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -336,95 +333,6 @@ async function extractWithGeminiFallback(params: {
     console.error("[extract-document-text] Gemini fallback exception", providerException(GEMINI_MODEL));
     // An archive caller may let this propagate; the exception remains safe.
     throw new Error("ocr_provider_exception");
-  }
-}
-async function extractPdfWithChunkedGemini(
-  buf: ArrayBuffer,
-  fileName: string,
-  cachedPageIndex: unknown,
-  existingText: string,
-): Promise<{ text: string; pageIndex: PageIndexState; complete: boolean; needsManualReview: boolean }> {
-  const controller = new AbortController();
-  const deadlineId = setTimeout(() => controller.abort(), 105_000);
-  try {
-    const source = await PDFDocument.load(buf, { ignoreEncryption: true });
-    const pageIndex = resumePageIndexState(source.getPageCount(), cachedPageIndex);
-    const selectedUnits = selectUnitsForInvocation(pageIndex);
-    const chunks: Array<{ start: number; end: number; buf: ArrayBuffer }> = [];
-
-    // Build only this invocation's page windows. A 600-page PDF is resumed
-    // across bounded calls instead of creating 100 chunks and OCRing them in
-    // one request.
-    for (const unit of selectedUnits) {
-      const part = await PDFDocument.create();
-      const pages = await part.copyPages(
-        source,
-        Array.from({ length: unit.end - unit.start }, (_, offset) => unit.start + offset),
-      );
-      pages.forEach((page) => part.addPage(page));
-      const bytes = await part.save({ useObjectStreams: false });
-      chunks.push({
-        start: unit.start,
-        end: unit.end,
-        buf: bytes.buffer.slice(
-          bytes.byteOffset,
-          bytes.byteOffset + bytes.byteLength,
-        ) as ArrayBuffer,
-      });
-    }
-
-    const results = new Map<number, { text: string } | { error: string }>();
-    let cursor = 0;
-    const worker = async () => {
-      while (true) {
-        const index = cursor++;
-        if (index >= chunks.length) return;
-        const chunk = chunks[index];
-        try {
-          const result = await extractWithGeminiFallback({
-            buf: chunk.buf,
-            mimeType: "application/pdf",
-            fileName: `${fileName}.pages-${chunk.start + 1}-${chunk.end}.pdf`,
-            signal: controller.signal,
-          });
-          if (controller.signal.aborted || result.debug?.error || !result.text.trim()) {
-            results.set(chunk.start, { error: `pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}` });
-          } else {
-            results.set(chunk.start, { text: result.text.trim() });
-          }
-        } catch (error) {
-          results.set(chunk.start, {
-            error: `pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}`,
-          });
-        }
-      }
-    };
-
-    await Promise.all(Array.from({ length: Math.min(UNIT_CONCURRENCY, chunks.length) }, () => worker()));
-    let nextState = pageIndex;
-    for (const unit of selectedUnits) {
-      nextState = applyUnitResult(nextState, unit.start, results.get(unit.start) ?? { error: "unit_not_processed" });
-    }
-
-    // Each completed unit retains its own text so out-of-order successes are
-    // not lost when an earlier unit fails. The existing text is a migration
-    // fallback for rows created before page_index was introduced.
-    const cachedUnitText = nextState.units
-      .filter((unit) => unit.status === "completed" && typeof unit.text === "string")
-      .sort((a, b) => a.start - b.start)
-      .map((unit) => unit.text as string)
-      .join("\n\n");
-    const text = cachedUnitText || existingText.trim();
-
-    return {
-      text,
-      pageIndex: nextState,
-      complete: computePageIndexProgress(nextState).complete,
-      needsManualReview: hasExhaustedPageUnit(nextState),
-    };
-  } finally {
-    clearTimeout(deadlineId);
-    controller.abort();
   }
 }
 
@@ -793,11 +701,12 @@ Deno.serve(async (req) => {
     let fallback: { text: string; pageIndex?: PageIndexState; complete?: boolean; needsManualReview?: boolean };
     try {
       fallback = detected.kind === "pdf"
-        ? await extractPdfWithChunkedGemini(
+        ? await processPdfOcrWave(
             downloaded.buf,
             doc.file_name || "document",
             durablePdfJob?.checkpoint?.page_index ?? existingMeta.page_index,
             typeof doc.ocr_text === "string" ? doc.ocr_text : "",
+            { pdf: PDFDocument, extract: extractWithGeminiFallback },
           )
         : await extractWithGeminiFallback({
             buf: downloaded.buf,
