@@ -1,3 +1,5 @@
+> HISTORICAL / SUPERSEDED для порядка исполнения. Это design snapshot от 27.08.2026, включая исторические имена моделей и прежние следующие шаги. Текущая очередь и проверенные статусы: [MASTER_EXECUTION_STATE](execution/MASTER_EXECUTION_STATE.md). Смена модели и Generator shadow не являются текущим следующим шагом.
+
 # KATI LAWYER — Master Roadmap vNext
 
 Дата сверки: 27 августа 2026 года  
