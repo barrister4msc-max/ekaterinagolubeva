@@ -6,7 +6,7 @@ Master определяет целевое поведение; Git, CI, remote s
 
 ## Проверенная база
 
-- `main` перед OCR privacy change: `eea79a53d96a93c269eef39740c3c6448e43db74`, E02 #206, E03 #207 и E05 ADR #208 merged.
+- `main` перед shared-wave change: `79ed884208b11e990551319e21ef7b0060e14fd4`, E02 #206, E03 #207, E05 ADR #208 и OCR privacy #209 merged. Runtime deploy #209 отдельно не проверен.
 - [E03 PR Quality Gate](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40885673610): Linux quality gate + Workflow validation success; 1008 tests, typecheck/build passed. #207 устранил top-level `runner.temp`; все 17 workflow проходят actionlint 1.7.12. Исторический [invalid Law7 run](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40728412656) относится к прежней базе. Law7 остаётся dispatch-only; export/import не запускались. [Main post-merge CI](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40885898058): обе jobs success; проверено отдельно от PR.
 - PR #202 merged (`033ba12a013eb5a5d7213ee133b46c9c067dba15`); PR #203 открыт на `a73509cde73cd425f99b084b6875776209b2190a`. Клиентское продолжение #203 не является server worker.
 - Production `wiylzbdbjokignwvizxt`: healthy; 78 migrations; последняя `20261028163542_reconcile_canonical_shadow_tables`. E01 #204 deployed/source-verified; #205 applied/catalog-verified. Full authenticated inference E2E не выполнялся.
@@ -35,7 +35,7 @@ Master определяет целевое поведение; Git, CI, remote s
 | E02 Documentation | #206 merged; historical планы сохранены, обновлять при каждом HANDOFF |
 | E03 CI | #207 merged; path fix и workflow validation прошли; без import/secrets/data/settings |
 | E04 Bounded OCR wave | #202 merged; 15 planner/admission/lease tests прошли; deployed v111 содержит одну wave; E06 runtime acceptance ещё не выполнен |
-| E05 Server-owned OCR | [ADR-001](../architecture/ADR-001-server-owned-ocr-continuation.md) выбран; runtime не реализован. OCR diagnostics/canary подготовлен и tested (1009 pass); следующий shared processor/parity, затем durable dispatcher |
+| E05 Server-owned OCR | [ADR-001](../architecture/ADR-001-server-owned-ocr-continuation.md) выбран; runtime не реализован. OCR diagnostics #209 merged; shared wave выделен и локально проверен (1016 tests); следующий gate — ledger reservations/claim-next, затем default-off dispatcher |
 | E06 Large-PDF Preview | После E04/E05; representative 601+ PDF, closed-tab recovery, exact count/order/hash, no loss/duplication |
 | E07 Production vertical E2E | После E06; отдельный synthetic authenticated run и явное разрешение Production actions |
 | E08 Q0 baseline | Не закрыт: capture + независимая lawyer annotation; сохранённый fixture/PDF не доказывает качество |
@@ -74,3 +74,12 @@ E02 #206 и E03 #207 merged; workflow-only diff E03 не меняет product/da
 ## OCR privacy prerequisite после ADR
 
 Raw provider error body заменён кодом, HTTP status и размером; arbitrary exceptions/DB messages заменены фиксированными кодами, file name/storage path и provider response keys исключены из diagnostics. MIME/finish reason проходят allowlist. Success OCR content, model/prompt, TIFF unsupported handling, bounded retries/page plan и auth boundary сохранены. Actual handler canary с fake SDK/DB/provider проверяет logs, response debug, persisted error/checkpoint, provider/parse exceptions и success text preservation; та же canary проверка падает на прежнем source. Local full suite: 1009 passed, 0 failed. Merge, deployed source и live acceptance остаются отдельными фактами; исторические журналы/metadata этим source change не очищались. Следующий этап E05 — shared bounded-wave processor с parity tests; scheduler и worker ещё не включены.
+
+
+## HANDOFF E05 — shared bounded wave
+
+Base: `79ed884208b11e990551319e21ef7b0060e14fd4`. FIRST FAILURE: bounded PDF wave находилась внутри HTTP handler и не могла использоваться dispatcher без второго HTTP claim или дублирования OCR. `pdf-ocr-wave.ts` теперь содержит тот же bounded processor с явными PDF/provider dependencies; legacy authorized endpoint вызывает его после прежнего claim и перед прежним fenced persist. Один deadline 105 s, 6 страниц/unit, максимум 3 units/wave, те же retry/status/text semantics. Модель, prompt, доступ и persistence не менялись.
+
+Локально: 1016 tests passed; differential parity с frozen #209 wave на 1/18/54/601 страницах для success/partial/exhaustion. Дополнительно проверены out-of-order completion, retry только failed unit, byte subarray boundaries, deadline, no mutation/no provider on PDF failure. Offline 601-page adapter scenario — не E06 на настоящем PDF. Полный shared-module strict TypeScript, project typecheck/build — отдельные checks.
+
+Implemented/tested; ещё не merged/deployed/runtime-verified. Этот PR не добавляет scheduler, claim-next, attempt reservations, fingerprint guard или автономное продолжение. Caller по-прежнему владеет authorization/lease/persistence. Следующий FIRST FAILURE: текущие attempts сохраняются только в конце wave и могут теряться при crash после provider call; нужна отдельная ledger migration с SQL role/concurrency/recovery tests до worker enablement. Новые платные окружения и live AI не запускались.
