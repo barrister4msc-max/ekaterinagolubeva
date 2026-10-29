@@ -21,13 +21,13 @@ on:
 permissions:
   contents: read
 
-env:
-  EXPORT_PATH: ${{ runner.temp }}/law7_nk_controlled_poc.json
-
 jobs:
   export-and-validate:
     runs-on: ubuntu-latest
     steps:
+      - name: Set runner-local export path
+        shell: bash
+        run: echo "EXPORT_PATH=$RUNNER_TEMP/law7_nk_controlled_poc.json" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
@@ -70,6 +70,9 @@ jobs:
     needs: export-and-validate
     runs-on: ubuntu-latest
     steps:
+      - name: Set runner-local export path
+        shell: bash
+        run: echo "EXPORT_PATH=$RUNNER_TEMP/law7_nk_controlled_poc.json" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:

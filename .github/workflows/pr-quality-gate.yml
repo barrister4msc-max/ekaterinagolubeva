@@ -18,6 +18,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  workflow-validation:
+    name: Workflow validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned actionlint
+        shell: bash
+        run: |
+          set -euo pipefail
+          actionlint_dir="$RUNNER_TEMP/actionlint-1.7.12"
+          mkdir -p "$actionlint_dir"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$actionlint_dir/actionlint.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $actionlint_dir/actionlint.tar.gz" | sha256sum --check --strict
+          tar -xzf "$actionlint_dir/actionlint.tar.gz" -C "$actionlint_dir" actionlint
+          echo "$actionlint_dir" >> "$GITHUB_PATH"
+
+      - name: Validate all workflow YAML and expression contexts
+        # Scope this gate to Actions syntax, types and expressions. Embedded
+        # shell/Python lint is separate; no workflow error rules are ignored.
+        run: actionlint -shellcheck= -pyflakes=
+
   quality:
     name: Linux quality gate
     runs-on: ubuntu-latest
