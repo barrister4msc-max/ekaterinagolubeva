@@ -13,3 +13,5 @@ Generator model shadow и смена provider/model не входят в эту 
 Старый P0-C/Generator-shadow план сохранён как [historical](../docs/history/2026-08-p0c-generator-shadow-plan.md); его «следующий шаг» superseded.
 
 E05 continuation: #210 remains Draft, GitHub Quality Gate passed. Next stacked change prepares dormant service-only unit reservation/settlement RPCs and executable local PostgreSQL tests. No runtime wiring or remote migration; legacy final persistence must become reservation-aware before any rollout. Current Production retry/crash behavior is not changed by this preparation.
+
+29.10 deployment check: #210 merged, extractor v113 all files match. #211 still open and its RPCs absent in Production. The next stacked runtime change wires per-unit reservation/settlement and authoritative final persistence behind KATI_OCR_UNIT_RESERVATIONS_ENABLED (default off), fences legacy overwrites and preserves checkpoints on rollback. Do not activate before fingerprint/claim-next/concurrency/dispatcher prerequisites and E06 acceptance.
