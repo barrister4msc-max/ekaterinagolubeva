@@ -11,3 +11,5 @@ E02 #206 и E03 #207 merged: активная документация согл�
 Generator model shadow и смена provider/model не входят в эту очередь. До ingestion acceptance и Q0 baseline переход к ним заблокирован. Law7 пока empty/unavailable; BRAS/KAD manual-only. Удаление Preview не доказывает доступность всех источников.
 
 Старый P0-C/Generator-shadow план сохранён как [historical](../docs/history/2026-08-p0c-generator-shadow-plan.md); его «следующий шаг» superseded.
+
+E05 continuation: #210 remains Draft, GitHub Quality Gate passed. Next stacked change prepares dormant service-only unit reservation/settlement RPCs and executable local PostgreSQL tests. No runtime wiring or remote migration; legacy final persistence must become reservation-aware before any rollout. Current Production retry/crash behavior is not changed by this preparation.
