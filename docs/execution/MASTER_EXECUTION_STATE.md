@@ -6,8 +6,8 @@ Master определяет целевое поведение; Git, CI, remote s
 
 ## Проверенная база
 
-- `main`: `fea10d4bb5682b2f6ff861f9cbc357cb296a3130`, PR #205 merged.
-- [Quality Gate main](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40728414717): success. Отдельный [Law7 workflow](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40728412656): failure до jobs из-за недопустимого top-level `runner.temp`. Это FIRST FAILURE E03; общий CI пока нельзя называть полностью зелёным.
+- `main`: `79eaf895a6d5f1c82d91ee5250f9035396197952`, PR #207 merged; E02 #206 merged.
+- [E03 PR Quality Gate](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40885673610): Linux quality gate + Workflow validation success; 1008 tests, typecheck/build passed. #207 устранил top-level `runner.temp`; все 17 workflow проходят actionlint 1.7.12. Исторический [invalid Law7 run](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40728412656) относится к прежней базе. Law7 остаётся dispatch-only; export/import не запускались. [Main post-merge CI](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40885898058): обе jobs success; проверено отдельно от PR.
 - PR #202 merged (`033ba12a013eb5a5d7213ee133b46c9c067dba15`); PR #203 открыт на `a73509cde73cd425f99b084b6875776209b2190a`. Клиентское продолжение #203 не является server worker.
 - Production `wiylzbdbjokignwvizxt`: healthy; 78 migrations; последняя `20261028163542_reconcile_canonical_shadow_tables`. E01 #204 deployed/source-verified; #205 applied/catalog-verified. Full authenticated inference E2E не выполнялся.
 - Три Supabase Preview и отдельный Q0 удалены после backup и dependency audit; повторный inventory содержит только Production/main. Автоматическое создание Preview выключено, Production deploy из `main` включён. GitHub branches/PR #40/#157/#158 сохранены.
@@ -32,10 +32,10 @@ Master определяет целевое поведение; Git, CI, remote s
 | --- | --- |
 | E00 Truth | Snapshot обновлён для этой базы; повторять перед изменениями |
 | E01 Privacy | #204 merged/deployed; canary/regression, 1008 tests на проверенной базе |
-| E02 Documentation | Этот documentation-only этап; сохранять исторические решения, обновлять при каждом HANDOFF |
-| E03 CI | Следующий code change: только path/expression fix Law7 + validation всех workflows; без import/secrets/data |
-| E04 Bounded OCR wave | #202 уже merged; перепроверить against current main и отделить tests/deploy от runtime acceptance |
-| E05 Server-owned OCR | Не закрыт: сначала ADR одного dispatcher и существующего job ledger; fenced lease, recovery, idempotency, retry/kill switch |
+| E02 Documentation | #206 merged; historical планы сохранены, обновлять при каждом HANDOFF |
+| E03 CI | #207 merged; path fix и workflow validation прошли; без import/secrets/data/settings |
+| E04 Bounded OCR wave | #202 merged; 15 planner/admission/lease tests прошли; deployed v111 содержит одну wave; E06 runtime acceptance ещё не выполнен |
+| E05 Server-owned OCR | [ADR-001](../architecture/ADR-001-server-owned-ocr-continuation.md) выбран; runtime не реализован. Сначала OCR diagnostics/canary, затем shared processor и durable dispatcher |
 | E06 Large-PDF Preview | После E04/E05; representative 601+ PDF, closed-tab recovery, exact count/order/hash, no loss/duplication |
 | E07 Production vertical E2E | После E06; отдельный synthetic authenticated run и явное разрешение Production actions |
 | E08 Q0 baseline | Не закрыт: capture + независимая lawyer annotation; сохранённый fixture/PDF не доказывает качество |
@@ -66,3 +66,7 @@ Read-only GitHub snapshot: branch endpoint сообщает `protected=false`, e
 ## HANDOFF каждого следующего этапа
 
 Указать base/head SHA и PR, FIRST FAILURE, минимальный diff, tests evidence, отдельные implemented/tested/merged/applied/deployed/published/runtime статусы, что не выполнялось, остаточный риск и следующий gate. Старые roadmap, audit records и сохранённый [P0-C plan](../history/2026-08-p0c-generator-shadow-plan.md) объясняют происхождение решений, но не управляют очередью.
+
+## HANDOFF E02/E03 → E05 design
+
+E02 #206 и E03 #207 merged; workflow-only diff E03 не меняет product/data. E04 source/deploy contract подтверждён отдельно от настоящего большого PDF. ADR-001 выбирает один Cron/Edge dispatcher и существующий ledger; scheduler, secrets, migration и worker пока не настроены. Новый FIRST FAILURE для следующего code PR: OCR raw provider error body/debug и arbitrary exception diagnostics в `extract-document-text`; нужен metadata-only canary fix перед увеличением автономных вызовов. Это не отменяет подтверждённый узкий E01 Analyzer fix, но запрещает общий claim «весь OCR privacy gate закрыт».
