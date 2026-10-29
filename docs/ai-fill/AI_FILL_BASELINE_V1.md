@@ -1,3 +1,5 @@
+> Baseline-specific audit record. Its historical Prompt 09/10 STOP governs model-quality changes, not the current privacy/CI/OCR repair lane. Current sequence: [MASTER_EXECUTION_STATE](../execution/MASTER_EXECUTION_STATE.md). Q0 lawyer-reviewed quality acceptance remains E08 and is not complete.
+
 # AI-fill baseline v1 — offline audit record
 
 ## Purpose and boundary
