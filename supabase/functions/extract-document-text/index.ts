@@ -8,6 +8,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
 import { extractXlsxText } from "../_shared/xlsx-text.ts";
+import { providerException, providerHttpFailure } from "../_shared/ai-privacy-diagnostics.ts";
 import {
   applyUnitResult,
   computePageIndexProgress,
@@ -212,14 +213,14 @@ async function extractPdfTextLayer(
     });
     return await Promise.race([extraction, deadline]);
   } catch (error) {
-    console.error("[extract-document-text] PDF text-layer extraction failed", error);
+    console.error("[extract-document-text] PDF text-layer extraction failed", { error_code: "pdf_text_extraction_failed" });
     throw error;
   } finally {
     if (timeoutId !== null) clearTimeout(timeoutId);
     try {
       await loadingTask?.destroy?.();
     } catch (error) {
-      console.warn("[extract-document-text] PDF.js destroy failed", error);
+      console.warn("[extract-document-text] PDF.js destroy failed", { error_code: "pdf_destroy_failed" });
     }
   }
 }
@@ -253,6 +254,17 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
   return btoa(binary);
 }
 
+// Diagnostic fields must never echo arbitrary document/provider metadata.
+function diagnosticMime(value: string): string {
+  return ["application/pdf", "image/jpeg", "image/png", "image/tiff", "image/webp"].includes(value)
+    ? value : "application/octet-stream";
+}
+
+function diagnosticFinishReason(value: unknown): string {
+  return typeof value === "string" && ["STOP", "MAX_TOKENS", "SAFETY", "RECITATION", "OTHER", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "MALFORMED_FUNCTION_CALL"].includes(value)
+    ? value : "UNKNOWN";
+}
+
 async function extractWithGeminiFallback(params: {
   buf: ArrayBuffer;
   mimeType: string;
@@ -261,7 +273,7 @@ async function extractWithGeminiFallback(params: {
 }): Promise<{ text: string; debug: Record<string, unknown> }> {
   if (!GEMINI_API_KEY) {
   console.error("[extract-document-text] GEMINI_API_KEY is missing");
-  return { text: "", debug: { error: "GEMINI_API_KEY missing", model: GEMINI_MODEL, mimeType: params.mimeType, byteLength: params.buf.byteLength } };
+  return { text: "", debug: { error: "GEMINI_API_KEY missing", model: GEMINI_MODEL, mimeType: diagnosticMime(params.mimeType), byteLength: params.buf.byteLength } };
 }
 
   const base64 = arrayBufferToBase64(params.buf);
@@ -281,45 +293,50 @@ async function extractWithGeminiFallback(params: {
   },
 ];
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      signal: params.signal ?? AbortSignal.timeout(90_000),
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: {
-          temperature: 0,
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      }),
-    },
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(
-      "[extract-document-text] Gemini fallback failed",
-      errorText,
+        signal: params.signal ?? AbortSignal.timeout(90_000),
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: {
+            temperature: 0,
+          },
+        }),
+      },
     );
-    return { text: "", debug: { error: errorText, model: GEMINI_MODEL, mimeType: params.mimeType, byteLength: params.buf.byteLength } };
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      const failure = providerHttpFailure(GEMINI_MODEL, response.status, errorText);
+      console.error("[extract-document-text] Gemini fallback failed", failure);
+      // Preserve TIFF unsupported-format handling without retaining the body.
+      const error = /unsupported/i.test(errorText) ? "ocr_format_unsupported" : "provider_http_error";
+      return { text: "", debug: { ...failure, error, mimeType: diagnosticMime(params.mimeType), byteLength: params.buf.byteLength } };
+    }
+
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
+    const debug = {
+      finishReason: diagnosticFinishReason(data?.candidates?.[0]?.finishReason),
+      candidate_text_length: text.length,
+      byteLength: params.buf.byteLength,
+      mimeType: diagnosticMime(params.mimeType),
+      model: GEMINI_MODEL,
+    };
+    console.log("[extract-document-text] Gemini OCR response", JSON.stringify(debug));
+
+    return { text, debug };
+  } catch {
+    console.error("[extract-document-text] Gemini fallback exception", providerException(GEMINI_MODEL));
+    // An archive caller may let this propagate; the exception remains safe.
+    throw new Error("ocr_provider_exception");
   }
-
-  const data = await response.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-  const debug = {
-    response_keys: Object.keys(data || {}),
-    finishReason: data?.candidates?.[0]?.finishReason,
-    candidate_text_length: text.length,
-    byteLength: params.buf.byteLength,
-    mimeType: params.mimeType,
-    model: GEMINI_MODEL,
-  };
-  console.log("[extract-document-text] Gemini OCR response", JSON.stringify(debug));
-
-  return { text, debug };
 }
 async function extractPdfWithChunkedGemini(
   buf: ArrayBuffer,
@@ -377,7 +394,7 @@ async function extractPdfWithChunkedGemini(
           }
         } catch (error) {
           results.set(chunk.start, {
-            error: error instanceof Error ? error.message : `pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}`,
+            error: `pdf_ocr_chunk_failed_pages_${chunk.start + 1}_${chunk.end}`,
           });
         }
       }
@@ -520,7 +537,7 @@ async function claimDurablePdfOcrJob(supabase: any, documentId: string): Promise
   });
   const row = Array.isArray(data) ? data[0] : data;
   if (error || !row || typeof row.job_id !== "string" || typeof row.acquired !== "boolean") {
-    console.error("[extract-document-text] durable OCR claim failed", error?.message ?? "invalid_result");
+    console.error("[extract-document-text] durable OCR claim failed", { error_code: "ocr_claim_failed" });
     throw new Error("durable_ocr_job_claim_failed");
   }
   return {
@@ -560,7 +577,7 @@ async function persistDurablePdfOcrCheckpoint(params: {
     p_last_error_code: params.lastErrorCode,
   });
   if (error) {
-    console.error("[extract-document-text] durable OCR checkpoint failed", error.message);
+    console.error("[extract-document-text] durable OCR checkpoint failed", { error_code: "ocr_checkpoint_failed" });
     return false;
   }
   return data === true;
@@ -595,7 +612,7 @@ Deno.serve(async (req) => {
       .select("id, title, storage_path, metadata")
       .eq("id", body.archive_item_id)
       .maybeSingle();
-    if (loadErr) return json({ error: loadErr.message }, 500);
+    if (loadErr) return json({ error: "document_lookup_failed" }, 500);
     if (!item) return json({ error: "not_found" }, 404);
 
     const md = (item.metadata || {}) as Record<string, any>;
@@ -616,9 +633,9 @@ Deno.serve(async (req) => {
       return json({ error: "file_not_found_in_storage" }, 404);
     }
     const byteLength = downloaded.buf.byteLength;
-    console.log("[extract-document-text] archive download", JSON.stringify({ archive_item_id: item.id, storagePath, bucket: downloaded.bucket, byteLength, mimeType: mime, fileName }));
+    console.log("[extract-document-text] archive download", JSON.stringify({ archive_item_id: item.id, byteLength, mimeType: diagnosticMime(mime) }));
     if (byteLength === 0) {
-      const newMd = { ...md, text_extraction_status: "ocr_failed", ocr_error: "storage_empty", ocr_debug: { byteLength, mimeType: mime, model: GEMINI_MODEL }, ocr_last_attempt_at: new Date().toISOString() };
+      const newMd = { ...md, text_extraction_status: "ocr_failed", ocr_error: "storage_empty", ocr_debug: { byteLength, mimeType: diagnosticMime(mime), model: GEMINI_MODEL }, ocr_last_attempt_at: new Date().toISOString() };
       await supabase.from("lawyer_archive_items").update({ metadata: newMd }).eq("id", item.id);
       return json({ ok: false, error: "storage_empty" }, 200);
     }
@@ -654,7 +671,7 @@ Deno.serve(async (req) => {
       .from("lawyer_archive_items")
       .update({ content: text, metadata: newMd })
       .eq("id", item.id);
-    if (upErr) return json({ error: upErr.message }, 500);
+    if (upErr) return json({ error: "document_update_failed" }, 500);
     return json({ ok: true, text_length: text.length });
   }
 
@@ -666,7 +683,7 @@ Deno.serve(async (req) => {
     .select("id, file_name, mime_type, storage_path, ocr_text, metadata")
     .eq("id", documentId)
     .maybeSingle();
-  if (loadErr) return json({ error: loadErr.message }, 500);
+  if (loadErr) return json({ error: "document_lookup_failed" }, 500);
   if (!doc) return json({ error: "not_found" }, 404);
   if (!doc.storage_path) return json({ error: "no_storage_path" }, 400);
 
@@ -735,8 +752,8 @@ Deno.serve(async (req) => {
         extractionError = "unsupported_format";
     }
     } catch (e) {
-    console.error("[extract-document-text] extraction error", e);
-    extractionError = e instanceof Error ? e.message : "extraction_failed";
+    console.error("[extract-document-text] extraction error", { error_code: "extraction_failed" });
+    extractionError = "extraction_failed";
     text = "";
     // A PDF text-layer failure is recoverable through chunked OCR below.
     // Keep the pipeline alive long enough to persist the OCR result/status.
@@ -788,7 +805,7 @@ Deno.serve(async (req) => {
             fileName: doc.file_name || "document",
           });
     } catch (error) {
-      console.error("[extract-document-text] OCR provider fallback failed", error);
+      console.error("[extract-document-text] OCR provider fallback failed", providerException(GEMINI_MODEL));
       fallback = { text: "" };
     }
 
@@ -913,7 +930,7 @@ Deno.serve(async (req) => {
       .from("documents")
       .update(update)
       .eq("id", documentId);
-    if (upErr) return json({ error: upErr.message }, 500);
+    if (upErr) return json({ error: "document_update_failed" }, 500);
   }
 
   return json({

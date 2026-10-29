@@ -6,7 +6,7 @@ Master определяет целевое поведение; Git, CI, remote s
 
 ## Проверенная база
 
-- `main`: `79eaf895a6d5f1c82d91ee5250f9035396197952`, PR #207 merged; E02 #206 merged.
+- `main` перед OCR privacy change: `eea79a53d96a93c269eef39740c3c6448e43db74`, E02 #206, E03 #207 и E05 ADR #208 merged.
 - [E03 PR Quality Gate](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40885673610): Linux quality gate + Workflow validation success; 1008 tests, typecheck/build passed. #207 устранил top-level `runner.temp`; все 17 workflow проходят actionlint 1.7.12. Исторический [invalid Law7 run](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40728412656) относится к прежней базе. Law7 остаётся dispatch-only; export/import не запускались. [Main post-merge CI](https://github.com/barrister4msc-max/ekaterinagolubeva/actions/runs/40885898058): обе jobs success; проверено отдельно от PR.
 - PR #202 merged (`033ba12a013eb5a5d7213ee133b46c9c067dba15`); PR #203 открыт на `a73509cde73cd425f99b084b6875776209b2190a`. Клиентское продолжение #203 не является server worker.
 - Production `wiylzbdbjokignwvizxt`: healthy; 78 migrations; последняя `20261028163542_reconcile_canonical_shadow_tables`. E01 #204 deployed/source-verified; #205 applied/catalog-verified. Full authenticated inference E2E не выполнялся.
@@ -35,7 +35,7 @@ Master определяет целевое поведение; Git, CI, remote s
 | E02 Documentation | #206 merged; historical планы сохранены, обновлять при каждом HANDOFF |
 | E03 CI | #207 merged; path fix и workflow validation прошли; без import/secrets/data/settings |
 | E04 Bounded OCR wave | #202 merged; 15 planner/admission/lease tests прошли; deployed v111 содержит одну wave; E06 runtime acceptance ещё не выполнен |
-| E05 Server-owned OCR | [ADR-001](../architecture/ADR-001-server-owned-ocr-continuation.md) выбран; runtime не реализован. Сначала OCR diagnostics/canary, затем shared processor и durable dispatcher |
+| E05 Server-owned OCR | [ADR-001](../architecture/ADR-001-server-owned-ocr-continuation.md) выбран; runtime не реализован. OCR diagnostics/canary подготовлен и tested (1009 pass); следующий shared processor/parity, затем durable dispatcher |
 | E06 Large-PDF Preview | После E04/E05; representative 601+ PDF, closed-tab recovery, exact count/order/hash, no loss/duplication |
 | E07 Production vertical E2E | После E06; отдельный synthetic authenticated run и явное разрешение Production actions |
 | E08 Q0 baseline | Не закрыт: capture + независимая lawyer annotation; сохранённый fixture/PDF не доказывает качество |
@@ -70,3 +70,7 @@ Read-only GitHub snapshot: branch endpoint сообщает `protected=false`, e
 ## HANDOFF E02/E03 → E05 design
 
 E02 #206 и E03 #207 merged; workflow-only diff E03 не меняет product/data. E04 source/deploy contract подтверждён отдельно от настоящего большого PDF. ADR-001 выбирает один Cron/Edge dispatcher и существующий ledger; scheduler, secrets, migration и worker пока не настроены. Новый FIRST FAILURE для следующего code PR: OCR raw provider error body/debug и arbitrary exception diagnostics в `extract-document-text`; нужен metadata-only canary fix перед увеличением автономных вызовов. Это не отменяет подтверждённый узкий E01 Analyzer fix, но запрещает общий claim «весь OCR privacy gate закрыт».
+
+## OCR privacy prerequisite после ADR
+
+Raw provider error body заменён кодом, HTTP status и размером; arbitrary exceptions/DB messages заменены фиксированными кодами, file name/storage path и provider response keys исключены из diagnostics. MIME/finish reason проходят allowlist. Success OCR content, model/prompt, TIFF unsupported handling, bounded retries/page plan и auth boundary сохранены. Actual handler canary с fake SDK/DB/provider проверяет logs, response debug, persisted error/checkpoint, provider/parse exceptions и success text preservation; та же canary проверка падает на прежнем source. Local full suite: 1009 passed, 0 failed. Merge, deployed source и live acceptance остаются отдельными фактами; исторические журналы/metadata этим source change не очищались. Следующий этап E05 — shared bounded-wave processor с parity tests; scheduler и worker ещё не включены.

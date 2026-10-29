@@ -11,7 +11,7 @@
 - `page-index-plan.ts`: 6 страниц на unit, 3 concurrent units, одна wave на invocation, 3 попытки на failed unit. Тест: 600 страниц → 100 units → 34 invocations при успехе. Targeted planner/admission/lease tests: 15 passed, 0 failed.
 - Production `extract-document-text` v111 содержит этот bounded-wave contract. Это source verification, не приёмка реального 601+ PDF.
 - `intake-form.tsx` запускает extraction из React effect/retry. Открытый #203 расширяет клиентское continuation; закрытая вкладка по-прежнему не исполняет очередь.
-- Отдельный privacy blocker: `extractWithGeminiFallback` сейчас читает raw error body провайдера в `errorText`, пишет его в console и `debug.error`; archive mode может сохранять/возвращать debug. Arbitrary exception messages также попадают в OCR failure paths. Не увеличивать автономные вызовы до metadata-only canary fix. E01 #204 устранил конкретный Analyzer leak, но не доказывает безопасность этого OCR пути.
+- На проверенной базе до OCR privacy fix обнаружен отдельный blocker: `extractWithGeminiFallback` читает raw error body провайдера в `errorText`, пишет его в console и `debug.error`; archive mode может сохранять/возвращать debug. Arbitrary exception messages также попадают в OCR failure paths. Не увеличивать автономные вызовы до metadata-only canary fix. E01 #204 устранил конкретный Analyzer leak, но не доказывает безопасность этого OCR пути.
 
 ## Решение: один scheduler, один bounded worker, существующий ledger
 
@@ -57,7 +57,7 @@ Kill switch по умолчанию off; при off запретить новы�
 
 ## Порядок реализации
 
-Первый отдельный PR — OCR metadata-only diagnostics/canary без behavioral change. Затем shared wave processor с parity tests; ledger claim-next/attempt reservation migration с SQL concurrency/role tests; default-off dispatcher и authorized enqueue/status; UI передаёт ownership orchestration серверу. Каждый FIRST FAILURE — отдельный diff и HANDOFF. Remote enablement после reviewable implementation, не во время этого ADR.
+OCR metadata-only diagnostics/canary реализован отдельным prerequisite change; successful OCR/model/prompt не меняются, ошибки получают safe codes. Local canary/full suite подтверждают source change, но не remote runtime acceptance. Следующий PR — shared wave processor с parity tests; ledger claim-next/attempt reservation migration с SQL concurrency/role tests; default-off dispatcher и authorized enqueue/status; UI передаёт ownership orchestration серверу. Каждый FIRST FAILURE — отдельный diff и HANDOFF. Remote enablement после reviewable implementation, не во время этого ADR.
 
 Не требуется merge #203 для доказательства server ownership; его статус и полезные клиентские regression tests оценить отдельно, не закрывать PR автоматически. Новую платную test branch сейчас не создавать.
 
