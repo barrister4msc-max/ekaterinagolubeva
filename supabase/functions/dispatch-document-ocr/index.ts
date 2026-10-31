@@ -1,3 +1,4 @@
+import { createFreshOcrStorageFetch } from "../_shared/ocr-storage-fetch.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
 import { createGeminiOcrExtractor } from "../_shared/gemini-ocr-provider.ts";
@@ -13,7 +14,7 @@ Deno.serve(createOcrDispatcher({
   token:Deno.env.get("KATI_OCR_DISPATCH_TOKEN")??"",serviceKey,
   client:(signal)=>createClient(url,serviceKey,{
     auth:{persistSession:false,autoRefreshToken:false},
-    global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.any(init?.signal?[signal,init.signal]:[signal])})},
+    global:{fetch:createFreshOcrStorageFetch(url,(input,init)=>fetch(input,{...init,signal:AbortSignal.any(init?.signal?[signal,init.signal]:[signal])}))},
   }),
   wave:{pdf:PDFDocument,extract:createGeminiOcrExtractor(apiKey)},
 }));

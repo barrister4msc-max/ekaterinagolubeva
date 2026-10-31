@@ -13,6 +13,8 @@ on:
       - 'src/components/document-builder/intake-form.tsx'
       - 'supabase/tests/ocr-control.test.ts'
       - 'supabase/tests/server-document-ocr.test.ts'
+      - 'supabase/tests/ocr-source-fingerprint.test.ts'
+      - 'supabase/tests/ocr-storage-fetch.test.ts'
       - 'supabase/tests/fixtures/ocr-control-runner.ts'
       - 'supabase/functions/extract-document-text/**'
       - 'supabase/functions/_shared/*ocr*.ts'
@@ -57,4 +59,4 @@ jobs:
           KATI_OCR_SQL_TEST_URL: postgresql://postgres:local_test_only@127.0.0.1:5432/kati_ocr_claims_test_ci
         run: node supabase/tests/fixtures/ocr-dispatch-pg-runner.mjs
       - name: Dispatcher and closed-tab recovery without live providers
-        run: bun test supabase/tests/ocr-dispatcher.test.ts supabase/tests/ocr-reserved-runtime.test.ts supabase/tests/extract-document-text-privacy.test.ts supabase/tests/ocr-control.test.ts supabase/tests/server-document-ocr.test.ts
+        run: bun test supabase/tests/ocr-dispatcher.test.ts supabase/tests/ocr-reserved-runtime.test.ts supabase/tests/extract-document-text-privacy.test.ts supabase/tests/ocr-control.test.ts supabase/tests/server-document-ocr.test.ts supabase/tests/ocr-source-fingerprint.test.ts supabase/tests/ocr-storage-fetch.test.ts

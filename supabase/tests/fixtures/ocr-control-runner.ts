@@ -21,6 +21,8 @@ let enabled = true,
   parses = 0,
   models = 0;
 let loseFinish = false;
+let beforeRpc: undefined | ((name: string) => Promise<void>);
+let extractHook: undefined | (() => Promise<void>);
 let afterDownload: undefined | (() => Promise<void>), handler: (req: Request) => Promise<Response>;
 const diagnostics: unknown[] = [];
 const output = console.log;
@@ -31,6 +33,7 @@ for (const k of ["log", "warn", "error"] as const)
 const q = async (sql: string, args: any[] = []) => (await db.query(sql, args)).rows as any[];
 const bindings: Record<string, string[]> = {
   is_admin_or_superadmin: ["_user_id"],
+  kati_read_ocr_storage_generation: ["p_bucket", "p_storage_path"],
   kati_ocr_document_access: ["p_actor_id", "p_session_id", "p_document_id"],
   kati_control_document_ocr: [
     "p_action",
@@ -103,6 +106,7 @@ const sb = {
   },
   async rpc(name: string, args: Record<string, unknown>) {
     assert.ok(name in bindings, name);
+    if (beforeRpc) await beforeRpc(name);
     if (loseFinish && name === "kati_finish_reserved_document_ocr_wave")
       return { data: null, error: { message: secret } };
     const values = bindings[name].map((k) => args[k] ?? null);
@@ -181,6 +185,8 @@ const invoke = async (
   const wire = JSON.stringify(body);
   for (const forbidden of [
     secret,
+    "object_id",
+    "generation-a",
     "checkpoint",
     "lease_token",
     "storage_path",
@@ -194,7 +200,13 @@ const state = async () =>
   (await q("select * from document_ocr_jobs where document_id=$1", [doc]))[0];
 const seed = async () => {
   await db.exec("reset role");
-  await db.exec("delete from document_ocr_jobs");
+  await db.exec(
+    "delete from document_ocr_jobs;delete from storage.objects;update storage.buckets set public=false",
+  );
+  await db.query(
+    "insert into storage.objects(id,bucket_id,name,version) values($1,'lead-documents',$2,'generation-a')",
+    ["40000000-0000-4000-8000-000000000001", secret],
+  );
   await db.query("update document_intake_sessions set created_by=$1,archived_at=null where id=$2", [
     actor,
     session,
@@ -209,6 +221,9 @@ const seed = async () => {
   bytes = "source PDF bytes";
   text = "";
   afterDownload = undefined;
+  beforeRpc = undefined;
+  extractHook = undefined;
+  loseFinish = false;
   reads = 0;
   models = 0;
   parses = 0;
@@ -231,6 +246,7 @@ const dispatcher = createOcrDispatcher({
     pdf,
     extract: async () => {
       models++;
+      if (extractHook) await extractHook();
       return { text: "accepted window", debug: {} };
     },
   },
@@ -246,6 +262,12 @@ const wake = async () =>
 try {
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
     grant usage on schema public to anon,authenticated,service_role;
+    create schema storage;grant usage on schema storage to service_role;
+    create table storage.buckets(id text primary key,public boolean default false);
+    create table storage.objects(id uuid primary key,bucket_id text,name text,version text,archived_at timestamptz,is_delete_marker boolean default false);
+    create unique index current_storage_object on storage.objects(bucket_id,name) where archived_at is null;
+    grant select,update on storage.buckets,storage.objects to service_role;
+    insert into storage.buckets values('lead-documents',false),('communication-attachments',false),('hero',true);
     create table documents(id uuid primary key,file_name text,mime_type text,storage_path text,ocr_text text,metadata jsonb,
       analysis_status text,review_status text,updated_at timestamptz,is_archived boolean default false,uploaded_by uuid,matter_id uuid,client_id uuid);
     create table document_intake_sessions(id uuid primary key,created_by uuid,archived_at timestamptz,matter_id uuid,client_id uuid);
@@ -262,6 +284,7 @@ try {
     "20261031135820_e05_ocr_dispatch_claims.sql",
     "20261031141704_e05_ocr_dispatch_release.sql",
     "20261031144205_e05_ocr_enqueue_status.sql",
+    "20261031151327_e05_ocr_storage_generation.sql",
   ])
     await db.exec(await readFile(new URL("../../migrations/" + m, import.meta.url), "utf8"));
   await db.query(
@@ -278,6 +301,7 @@ try {
   for (const role of ["anon", "authenticated"]) {
     await db.exec("reset role;set role " + role);
     for (const sql of [
+      "select kati_read_ocr_storage_generation(null,null)",
       "select kati_ocr_document_access(null,null,null)",
       "select kati_control_document_ocr('status',null,null,null)",
     ])
@@ -472,6 +496,106 @@ try {
     false,
   );
   assert.equal((await q("select ocr_text from documents"))[0].ocr_text, "");
+  // The same bytes/path with a different generation must not be adopted.
+  await seed();
+  afterDownload = async () => {
+    await db.query("update storage.objects set version='generation-b'");
+  };
+  assert.equal((await invoke()).status, 409);
+  assert.equal(await state(), undefined);
+  assert.equal((await q("select ocr_text from documents"))[0].ocr_text, "");
+  // Missing/private/deleted/archived current objects fail before downloading.
+  for (const change of [
+    "update storage.buckets set public=true",
+    "delete from storage.objects",
+    "update storage.objects set archived_at=now()",
+    "update storage.objects set is_delete_marker=true",
+    "update storage.objects set version=null",
+  ]) {
+    await seed();
+    await db.exec("reset role");
+    await db.exec(change);
+    await db.exec("set role service_role");
+    assert.equal((await invoke()).status, 503);
+    assert.equal(reads, 0);
+    assert.equal(models, 0);
+  }
+  assert.equal(
+    (await sb.rpc("kati_read_ocr_storage_generation", { p_bucket: "hero", p_storage_path: secret }))
+      .data,
+    null,
+  );
+  // A new version or delete/recreate is detected before worker Storage/model IO.
+  for (const change of [
+    "update storage.objects set version='generation-b'",
+    "update storage.objects set id='40000000-0000-4000-8000-000000000002'",
+    "delete from storage.objects",
+    "update storage.buckets set public=true",
+    "update document_ocr_jobs set checkpoint=checkpoint#-'{source_fingerprint,generation}'",
+  ]) {
+    await seed();
+    await invoke();
+    const pinned = await state();
+    const beforeReads: number = reads;
+    await db.exec("reset role");
+    await db.exec(change);
+    await db.exec("set role service_role");
+    await wake();
+    assert.equal(reads, beforeReads);
+    assert.equal(models, 0);
+    assert.equal((await state()).last_error_code, "ocr_storage_generation_changed");
+    if (!change.includes("checkpoint"))
+      assert.deepEqual((await state()).checkpoint, pinned.checkpoint);
+  }
+  // A privileged replacement while the downloaded buffer is being processed
+  // cannot settle/publish that buffer under the replacement's generation.
+  await seed();
+  await invoke();
+  extractHook = async () => {
+    extractHook = undefined;
+    await db.query("update storage.objects set version='generation-b'");
+  };
+  await wake();
+  assert.ok(models >= 1 && models <= 3);
+  assert.equal((await state()).status, "needs_manual_review");
+  assert.equal((await q("select ocr_text from documents"))[0].ocr_text, "");
+  // Replacement after accepted units but just before final publication keeps
+  // the previous partial document/checkpoint and removes completion admission.
+  await seed();
+  await invoke();
+  await wake();
+  const partial = (await q("select ocr_text from documents"))[0].ocr_text;
+  beforeRpc = async (name) => {
+    if (name === "kati_finish_reserved_document_ocr_wave") {
+      beforeRpc = undefined;
+      await db.query("update storage.objects set version='generation-b'");
+    }
+  };
+  await wake();
+  assert.equal((await state()).status, "needs_manual_review");
+  assert.equal((await q("select ocr_text from documents"))[0].ocr_text, partial);
+  assert.equal((await invoke("status")).body.state, "needs_manual_review");
+  // A completed result (OCR or native text) is revalidated on status reads;
+  // changed content is never silently rebound, even when bytes are identical.
+  for (const direct of [false, true]) {
+    await seed();
+    if (direct)
+      text =
+        "Readable document with enough ordinary words for the existing quality gate to accept its extracted text layer.";
+    await invoke();
+    if (!direct) {
+      await wake();
+      await wake();
+    }
+    assert.equal((await invoke("status")).body.state, "completed");
+    const acceptedText = (await q("select ocr_text from documents"))[0].ocr_text;
+    await db.query("update storage.objects set version='generation-b'");
+    const result = await invoke("status");
+    assert.equal(result.body.state, "needs_manual_review");
+    assert.equal(result.body.text_length, 0);
+    assert.equal((await q("select ocr_text from documents"))[0].ocr_text, acceptedText);
+    assert.equal((await invoke()).status, 409);
+  }
   assert.ok(!JSON.stringify(diagnostics).includes(secret));
   output("ocr_control_integration_passed");
 } finally {

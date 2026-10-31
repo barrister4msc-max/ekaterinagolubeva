@@ -1,3 +1,4 @@
+import { createFreshOcrStorageFetch } from "../_shared/ocr-storage-fetch.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { isValidOcrDispatchToken } from "../_shared/ocr-dispatcher.ts";
 import { createOcrControl } from "../_shared/ocr-control.ts";
@@ -26,11 +27,12 @@ Deno.serve(
       return createClient(url, key, {
         auth: { persistSession: false, autoRefreshToken: false },
         global: {
-          fetch: (input, init) =>
+          fetch: createFreshOcrStorageFetch(url, (input, init) =>
             fetch(input, {
               ...init,
               signal: AbortSignal.any(init?.signal ? [init.signal, signal] : [signal]),
             }),
+          ),
         },
       });
     },

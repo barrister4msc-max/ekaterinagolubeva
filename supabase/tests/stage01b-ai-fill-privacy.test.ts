@@ -71,6 +71,7 @@ describe("Stage 01B diagnostics", () => {
       "../functions/_shared/leased-pdf-ocr.ts",
       "../functions/_shared/ocr-dispatcher.ts",
       "../functions/_shared/ocr-control.ts",
+      "../functions/_shared/ocr-storage-fetch.ts",
       "../functions/_shared/pdf-text-layer.ts",
       "../functions/document-ocr-control/index.ts",
       "../functions/dispatch-document-ocr/index.ts",

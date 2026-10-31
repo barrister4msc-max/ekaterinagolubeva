@@ -1,6 +1,6 @@
 import { processPdfOcrWave, type OcrPdfSource, type PdfOcrWaveDependencies } from "./pdf-ocr-wave.ts";
 import { reservedOcrAttempts } from "./ocr-reservation-runtime.ts";
-import { ocrSourceFingerprint } from "./ocr-source-fingerprint.ts";
+import { ocrSourceFingerprint, type OcrStorageGeneration } from "./ocr-source-fingerprint.ts";
 
 export type ClaimedPdfJob = {
   document_id: string; job_id: string; lease_token: string;
@@ -59,7 +59,8 @@ export async function runLeasedPdfOcr<Source extends OcrPdfSource, Page>(
       }
       if(!downloaded)return await release(missing?"ocr_source_missing":"ocr_download_unavailable",missing);
     }
-    const source=await ocrSourceFingerprint(downloaded.buf,downloaded.bucket,doc.storage_path);
+    const generation=(job.checkpoint?.source_fingerprint as {generation?:OcrStorageGeneration}|undefined)?.generation;
+    const source=await ocrSourceFingerprint(downloaded.buf,downloaded.bucket,doc.storage_path,generation);
     const {data:admission,error:failure}=await supabase.rpc("kati_guard_reserved_ocr_source",{
       ...args,p_source:source,p_bind:true,
     });
