@@ -46,6 +46,12 @@ try {
   assert.equal(Number((await q("select count(*) n from information_schema.tables where table_schema='public'"))[0].n),0,'database must be empty');
   await admin.query(`create role anon;create role authenticated;create role service_role bypassrls;
     grant usage on schema public to anon,authenticated,service_role;
+    create schema storage;grant usage on schema storage to service_role;
+    create table storage.buckets(id text primary key,public boolean default false);
+    create table storage.objects(id uuid primary key,bucket_id text,name text,version text,archived_at timestamptz,is_delete_marker boolean default false);
+    create unique index current_storage_object on storage.objects(bucket_id,name) where archived_at is null;
+    grant select,update on storage.buckets,storage.objects to service_role;
+    insert into storage.buckets values('lead-documents',false),('communication-attachments',false);
     create table documents(id uuid primary key,storage_path text,ocr_text text,metadata jsonb,analysis_status text,review_status text,updated_at timestamptz,file_name text,mime_type text,is_archived boolean default false,uploaded_by uuid,matter_id uuid,client_id uuid);
     create table document_intake_sessions(id uuid primary key,created_by uuid,archived_at timestamptz,matter_id uuid,client_id uuid);
     create function is_admin_or_superadmin(_user_id uuid) returns boolean language sql as $$select _user_id='20000000-0000-4000-8000-000000000001'::uuid$$;
@@ -58,12 +64,13 @@ try {
   await admin.query(await readFile(new URL('../../migrations/20261031135820_e05_ocr_dispatch_claims.sql',import.meta.url),'utf8'));
   await admin.query(await readFile(new URL('../../migrations/20261031141704_e05_ocr_dispatch_release.sql',import.meta.url),'utf8'));
   await admin.query(await readFile(new URL('../../migrations/20261031144205_e05_ocr_enqueue_status.sql',import.meta.url),'utf8'));
+  await admin.query(await readFile(new URL('../../migrations/20261031151327_e05_ocr_storage_generation.sql',import.meta.url),'utf8'));
   assert.deepEqual(await q('select status,checkpoint,invocation_count from document_ocr_jobs'),before);
   assert.equal((await state(99)).dispatch_enabled,false);
   await reset();
   for(const role of ['anon','authenticated']){
     await admin.query('set role '+role);
-    for(const sql of ['select kati_claim_next_reserved_ocr_job()','select kati_recover_expired_ocr_job(null)','select kati_release_reserved_ocr_job(null,null,null,null)','select kati_ocr_document_access(null,null,null)',
+    for(const sql of ['select kati_claim_next_reserved_ocr_job()','select kati_recover_expired_ocr_job(null)','select kati_release_reserved_ocr_job(null,null,null,null)','select kati_ocr_document_access(null,null,null)','select kati_read_ocr_storage_generation(null,null)',
       "select kati_control_document_ocr('status',null,null,null)"]){
       let code;try{await admin.query(sql);}catch(e){code=e.code;}assert.equal(code,'42501');
     }await admin.query('reset role');
@@ -141,7 +148,9 @@ try {
   const actor='20000000-0000-4000-8000-000000000001',session='30000000-0000-4000-8000-000000000001';
   await admin.query('insert into document_intake_sessions(id,created_by) values($1,$2)',[session,actor]);
   await admin.query("update documents set uploaded_by=$1,mime_type='application/pdf',metadata=$2 where id=$3",[actor,{intake_session_id:session,manual:'preserve'},doc(77)]);
-  const source={version:1,bucket:'lead-documents',storage_path:'path-77',sha256:'a'.repeat(64),byte_length:6};
+  const generation={object_id:'40000000-0000-4000-8000-000000000001',version:'generation-a'};
+  await admin.query("insert into storage.objects(id,bucket_id,name,version) values($1,'lead-documents','path-77',$2)",[generation.object_id,generation.version]);
+  const source={generation,version:1,bucket:'lead-documents',storage_path:'path-77',sha256:'a'.repeat(64),byte_length:6};
   const enqueue=async c=>(await c.query("select kati_control_document_ocr('enqueue',$1,$2,$3,$4) r",[actor,session,doc(77),source])).rows[0].r;
   assert.equal((await Promise.all(pool.map(enqueue))).every(r=>r.allowed&&r.state==='queued'),true);
   assert.equal(Number((await q('select count(*) n from document_ocr_jobs'))[0].n),1);
@@ -154,9 +163,53 @@ try {
   assert.equal((await pool[1].query('select kati_guard_reserved_ocr_source($1,$2,$3,null,false) r',
     [doc(77),queuedClaim.job_id,queuedClaim.lease_token])).rows[0].r.code,'ocr_scope_changed');
   assert.equal((await state(77)).status,'needs_manual_review');
+  const pid1=(await pool[1].query('select pg_backend_pid() p')).rows[0].p;
+  const waitBlocked=async pid=>{
+    for(let i=0;i<50;i++){
+      if((await q('select cardinality(pg_blocking_pids($1))>0 blocked',[pid]))[0].blocked)return;
+      await new Promise(resolve=>setTimeout(resolve,10));
+    }throw new Error('expected Storage metadata row lock wait');
+  };
+  const freshScoped=async()=>{
+    await reset();
+    await admin.query('update document_intake_sessions set archived_at=null');
+    await admin.query("update documents set ocr_text='',metadata=$1 where id=$2",[{intake_session_id:session,manual:'preserve'},doc(77)]);
+    await admin.query("update storage.objects set version='generation-a'");
+    assert.equal((await enqueue(pool[1])).allowed,true);
+    const job=await next(pool[1]);assert.equal(job.acquired,true);
+    const accepted=await reserve(pool[1],77,job);
+    assert.equal(accepted.allowed,true);assert.equal(await settle(pool[1],77,job,accepted,0,'accepted original'),true);
+    return job;
+  };
+  // The publication transaction owns a share lock on the exact current object:
+  // a concurrent Storage generation switch cannot cross that publication.
+  job=await freshScoped();await pool[0].query('begin');
+  assert.equal((await finish(pool[0],77,job)).persisted,true);
+  const writer=pool[1].query("update storage.objects set version='generation-b'");
+  await waitBlocked(pid1);await pool[0].query('commit');await writer;
+  let changed=(await pool[1].query("select kati_control_document_ocr('status',$1,$2,$3) r",[actor,session,doc(77)])).rows[0].r;
+  assert.equal(changed.state,'needs_manual_review');
+  assert.equal((await q('select ocr_text from documents where id=$1',[doc(77)]))[0].ocr_text,'accepted original');
+  // If the writer commits first, a waiting publication sees the new row
+  // generation and is rejected rather than accepting its original snapshot.
+  job=await freshScoped();await pool[0].query('begin');
+  await pool[0].query("update storage.objects set version='generation-b'");
+  const waitingFinish=finish(pool[1],77,job);await waitBlocked(pid1);
+  await pool[0].query('commit');assert.equal((await waitingFinish).persisted,false);
+  assert.equal((await state(77)).last_error_code,'ocr_storage_generation_changed');
+  assert.equal((await q('select ocr_text from documents where id=$1',[doc(77)]))[0].ocr_text,'');
+  // The guard rechecks wall-clock lease expiry AFTER any catalog row wait.
+  job=await freshScoped();
+  await admin.query("update document_ocr_jobs set lease_expires_at=clock_timestamp()+interval '1 second'");
+  await pool[0].query('begin');await pool[0].query('update storage.objects set version=version');
+  const expiredFinish=finish(pool[1],77,job);await waitBlocked(pid1);
+  await new Promise(resolve=>setTimeout(resolve,1100));await pool[0].query('commit');
+  assert.equal((await expiredFinish).persisted,false);
+  assert.equal((await q('select ocr_text from documents where id=$1',[doc(77)]))[0].ocr_text,'');
+  assert.equal((await state(77)).checkpoint.page_index.units[0].text,'accepted original');
   console.log(JSON.stringify({engine:(await q('show server_version'))[0].server_version,
     concurrent_sessions:20,global_cap:'passed',skip_locked:'passed',ordering:'passed',backoff:'passed',
-    expired_recovery:'passed',terminal_no_progress:'passed',stale_fence:'passed',kill_switch:'passed',role_isolation:'passed',preplan_release:'passed',enqueue_idempotency:'passed',scope_recheck:'passed'}));
+    expired_recovery:'passed',terminal_no_progress:'passed',stale_fence:'passed',kill_switch:'passed',role_isolation:'passed',preplan_release:'passed',enqueue_idempotency:'passed',scope_recheck:'passed',storage_generation_fence:'passed',storage_row_lock:'passed',lease_after_storage_wait:'passed'}));
 } finally {
   await Promise.allSettled(clients.map(c=>c.end()));
 }

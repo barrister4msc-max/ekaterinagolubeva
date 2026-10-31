@@ -1,4 +1,4 @@
-import { ocrSourceFingerprint } from "./ocr-source-fingerprint.ts";
+import { ocrSourceFingerprint, type OcrStorageGeneration } from "./ocr-source-fingerprint.ts";
 import { isUsablePdfTextLayer, sanitizeExtractedText } from "./pdf-text-layer.ts";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -80,16 +80,40 @@ export function createOcrControl(config: {
             .endsWith(".pdf")
         )
           return json({ error: "not_pdf" }, 422);
-        let downloaded: { buf: ArrayBuffer; bucket: string } | null = null;
-        for (const bucket of ["lead-documents", "communication-attachments", "hero"]) {
+        let downloaded: {
+          buf: ArrayBuffer;
+          bucket: string;
+          generation: OcrStorageGeneration;
+        } | null = null;
+        for (const bucket of ["lead-documents", "communication-attachments"]) {
+          const { data: generation, error: identityError } = await client.rpc(
+            "kati_read_ocr_storage_generation",
+            {
+              p_bucket: bucket,
+              p_storage_path: doc.storage_path,
+            },
+          );
+          if (identityError) return json({ error: "source_unavailable" }, 503);
+          if (!generation) continue;
+          if (
+            !uuid.test(generation.object_id ?? "") ||
+            typeof generation.version !== "string" ||
+            !generation.version
+          )
+            return json({ error: "source_unavailable" }, 503);
           const { data, error } = await client.storage.from(bucket).download(doc.storage_path);
           if (!error && data) {
-            downloaded = { bucket, buf: await data.arrayBuffer() };
+            downloaded = { bucket, generation, buf: await data.arrayBuffer() };
             break;
           }
         }
         if (!downloaded) return json({ error: "source_unavailable" }, 503);
-        source = await ocrSourceFingerprint(downloaded.buf, downloaded.bucket, doc.storage_path);
+        source = await ocrSourceFingerprint(
+          downloaded.buf,
+          downloaded.bucket,
+          doc.storage_path,
+          downloaded.generation,
+        );
         if (doc.metadata?.ocr_execution_owner !== "server") {
           try {
             const text = sanitizeExtractedText(await config.extractText(downloaded.buf));
