@@ -111,3 +111,22 @@ Prerequisite #211 (head `9f2fb78bf022768e463c88aa46ffd6d22c751ad7`, tree `5c3f0e
 Next gates remain source fingerprint/global cap/claim-next/backoff/kill switch, multi-session concurrency and default-off dispatcher/UI ownership. Same-page-count Storage replacement is not detected by page-count validation: fingerprint admission is required before remote activation. Do not enable this flag or deploy/apply migrations as part of local implementation. E05 autonomous continuation and E06 are not closed.
 
 Local validation for this change: 1018 tests passed, 0 failed; project TypeScript, strict shared-module TypeScript and production build passed. Enabled-mode assertions include three-attempt exhaustion, complete legacy checkpoint seeding with zero provider calls, and corrupt-PDF recovery becoming terminal after three invocations. Final full-suite rerun covers the pre-provider deadline fence. #211 retargeted to main after #210 merged; its Quality Gate has not yet appeared, so do not infer remote CI success from local tests.
+
+
+## HANDOFF E05 — source fingerprint (31.10.2026)
+
+PR #211 and #212 are still open/unmerged. This stacked change is based on #212 head `b13071b50516e6ae6d967f0f2878b63b1dbe3671`, tree `5931b386b67b02c417dfb79046cf4744e393701d` (local equivalent `6f16868`). No source activation or remote database writes.
+
+FIRST FAILURE: page-count checking cannot distinguish a same-size/same-page-count replacement, and an existing durable job could be bypassed through a newly usable PDF text layer. Enabled-mode extractor now checks whether durable work exists, calculates SHA-256 over the actual downloaded bytes, and binds/checks `{version,bucket,storage_path,sha256,byte_length}` under the current fenced job lease before using cached OCR/provider IO. Completed jobs also validate their source before returning completed. Fresh PDFs with a usable text layer retain the existing direct extraction path when no durable job exists. Default-off behavior is unchanged.
+
+`kati_guard_reserved_ocr_source` is SECURITY INVOKER, empty search_path, service-only EXECUTE. It locks the existing job then document, matching the established lock order. Reserve/settle/finalize recheck the pinned document pointer under the lease; a source mismatch atomically moves the job/document admission to needs_manual_review, clears the lease, and preserves checkpoint, OCR text and other metadata. No new registry/queue. Invalid or stale calls do not authorize provider IO.
+
+A first hash cannot prove an old checkpoint/text came from these bytes. Unbound prior work now stops with `ocr_source_unbound_checkpoint`, preserving it for explicit review instead of adopting/resetting it automatically. This supersedes #212's unverified legacy-cache auto-adoption in the new reserved mode only; legacy default-off behavior remains unchanged. No bulk migration/reset is included.
+
+Executable integration covers actual handler + shared wave + PostgreSQL migrations with fake transport: same-length/hash replacement with the same page count, already-completed job validation, pointer replacement before reservation and before final publication, old text/checkpoint preservation, unbound legacy work, role isolation, retry/corrupt-file recovery and privacy canary. A known SHA-256 vector validates the byte digest. This is single-session offline evidence, not multi-session or E06 acceptance.
+
+Limit: same-path external Storage overwrite DURING a single downloaded-buffer invocation is detected on the next download; pinning proves the bytes processed, not that Storage can never be overwritten externally. Existing normal TUS upload uses unique paths and x-upsert=false. Enforced object-generation/Storage immutability still needs review before activation. Source contents/paths/hashes are not added to logs or client diagnostics.
+
+Next FIRST FAILURE: global claim-next/cap/backoff/kill-switch contract and multi-session concurrency tests, then default-off dispatcher/UI ownership and E06. Do not enable KATI_OCR_UNIT_RESERVATIONS_ENABLED or apply migrations/deploy as part of this local source admission change.
+
+Validation: 1019 tests passed, 0 failed; project TypeScript, strict fingerprint-module TypeScript and production build passed. Final SQL guard regression rerun passed after adding a second wall-clock lease check following the document-row lock. Changelog reviewed 31.10.2026: TLS CBC deprecation announced for 10.11+ does not change the Storage/RPC signatures used here; no platform configuration was changed.
