@@ -102,10 +102,12 @@ try{
   await db.query("insert into documents values($1,'scan.pdf','application/pdf','private-path','', $2,'pending','not_started',now())",[docId,{}]);
   await db.exec("set role service_role");await load();
   for(const bad of ["wrong",service])assert.equal((await handler(request("{}",bad))).status,401);
+  assert.equal((await handler(new Request("https://offline.test",{method:"POST",body:"{}"}))).status,401);
   assert.equal((await handler(new Request("https://offline.test",{method:"GET"}))).status,405);
   assert.equal(clients,0);assert.equal(rpcNames.length,0);
   enabled=false;await load();assert.equal((await tick()).body.status,"disabled");assert.equal(clients,0);
   enabled=true;configuredToken=service;await load();assert.equal((await handler(request("{}",service))).status,401);assert.equal(clients,0);
+  configuredToken="";await load();assert.equal((await handler(request())).status,401);assert.equal(clients,0);
   for(const publicKey of ["sb_publishable_"+"x".repeat(40),"eyJfakeHeader.eyJfakePayload."+"x".repeat(40)]){
     configuredToken=publicKey;await load();assert.equal((await handler(request("{}",publicKey))).status,401);assert.equal(clients,0);
   }

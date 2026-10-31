@@ -23,3 +23,5 @@ E05 continuation: #210 remains Draft, GitHub Quality Gate passed. Next stacked c
 E05 #214: native PostgreSQL 17.6 concurrency CI run 41209012007 passed (20 connections, cap/skip-lock/order/backoff/recovery/stale/stop/role checks). Remains Draft; no merge/migration/deploy. Next reviewable gate is the leased dispatcher using the same processor, without a second claim.
 
 31.10 leased dispatcher: new dispatch-document-ocr shares the existing leased PDF processor/provider with the interactive reserved path, uses a dedicated token and two default-off flags, claims once and executes one bounded wave. Offline closed-tab scenario finishes 601 pages across 34 waves. 1020 local tests/typecheck/build passed; current native CI gate pending. No scheduler/secret/deploy enabled. Next: authorized enqueue/status + UI ownership, then explicit Preview/E06 acceptance.
+
+#215 dispatcher acceptance: GitHub run 41210540727 GREEN (PostgreSQL 17.6/20 sessions + pre-plan release + closed-tab dispatcher/privacy scenarios). Draft only; no deployed scheduler. Next: enqueue/status and UI ownership.
