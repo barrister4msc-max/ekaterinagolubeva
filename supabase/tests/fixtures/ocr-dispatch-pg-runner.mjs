@@ -53,12 +53,13 @@ try {
   await admin.query('insert into document_ocr_jobs(document_id,checkpoint) values($1,$2)',[doc(99),{legacy:'preserve'}]);
   const before = (await q('select status,checkpoint,invocation_count from document_ocr_jobs'));
   await admin.query(await readFile(new URL('../../migrations/20261031135820_e05_ocr_dispatch_claims.sql',import.meta.url),'utf8'));
+  await admin.query(await readFile(new URL('../../migrations/20261031141704_e05_ocr_dispatch_release.sql',import.meta.url),'utf8'));
   assert.deepEqual(await q('select status,checkpoint,invocation_count from document_ocr_jobs'),before);
   assert.equal((await state(99)).dispatch_enabled,false);
   await reset();
   for(const role of ['anon','authenticated']){
     await admin.query('set role '+role);
-    for(const sql of ['select kati_claim_next_reserved_ocr_job()','select kati_recover_expired_ocr_job(null)']){
+    for(const sql of ['select kati_claim_next_reserved_ocr_job()','select kati_recover_expired_ocr_job(null)','select kati_release_reserved_ocr_job(null,null,null,null)']){
       let code;try{await admin.query(sql);}catch(e){code=e.code;}assert.equal(code,'42501');
     }await admin.query('reset role');
   }
@@ -116,9 +117,23 @@ try {
   assert.equal((await finish(pool[1],1,job)).result.extraction_status,'completed');
   row=await state(1);assert.equal(row.consecutive_no_progress,0);assert.equal(row.last_progress_pages,6);
   assert.equal(await next(pool[1]),null);
+  // Transient failures before source/page planning release the current lease
+  // without resetting its checkpoint, and cannot spin indefinitely.
+  await reset();await seed(1);
+  for(let attempt=1;attempt<=3;attempt++){
+    job=await next(pool[1]);assert.equal(job.acquired,true);
+    assert.equal((await pool[1].query('select kati_release_reserved_ocr_job($1,$2,$3,$4) r',
+      [doc(1),job.job_id,job.lease_token,'not_an_allowed_reason'])).rows[0].r,false);
+    assert.equal((await pool[1].query('select kati_release_reserved_ocr_job($1,$2,$3,$4) r',
+      [doc(1),job.job_id,job.lease_token,'ocr_download_unavailable'])).rows[0].r,true);
+    row=await state(1);assert.equal(row.consecutive_no_progress,attempt);
+    assert.equal(row.status,attempt===3?'needs_manual_review':'queued');
+    assert.deepEqual(row.checkpoint,{ocr_protocol:'reserved_v1'});
+    assert.equal(await next(pool[1]),null);await due(1);
+  }
   console.log(JSON.stringify({engine:(await q('show server_version'))[0].server_version,
     concurrent_sessions:20,global_cap:'passed',skip_locked:'passed',ordering:'passed',backoff:'passed',
-    expired_recovery:'passed',terminal_no_progress:'passed',stale_fence:'passed',kill_switch:'passed',role_isolation:'passed'}));
+    expired_recovery:'passed',terminal_no_progress:'passed',stale_fence:'passed',kill_switch:'passed',role_isolation:'passed',preplan_release:'passed'}));
 } finally {
   await Promise.allSettled(clients.map(c=>c.end()));
 }

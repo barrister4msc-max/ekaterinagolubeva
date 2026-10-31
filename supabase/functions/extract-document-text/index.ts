@@ -8,14 +8,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import JSZip from "https://esm.sh/jszip@3.10.1";
 import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
 import { extractXlsxText } from "../_shared/xlsx-text.ts";
-import { providerException, providerHttpFailure } from "../_shared/ai-privacy-diagnostics.ts";
+import { providerException } from "../_shared/ai-privacy-diagnostics.ts";
 import {
   computePageIndexProgress,
   type PageIndexState,
 } from "../_shared/page-index-plan.ts";
 
 import { processPdfOcrWave } from "../_shared/pdf-ocr-wave.ts";
-import { reservedOcrAttempts } from "../_shared/ocr-reservation-runtime.ts";
+import { runLeasedPdfOcr } from "../_shared/leased-pdf-ocr.ts";
+import { createGeminiOcrExtractor, diagnosticMime, GEMINI_OCR_MODEL as GEMINI_MODEL } from "../_shared/gemini-ocr-provider.ts";
 import { ocrSourceFingerprint } from "../_shared/ocr-source-fingerprint.ts";
 
 const corsHeaders = {
@@ -28,7 +29,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
-const GEMINI_MODEL = "gemini-2.5-flash";
+const extractWithGeminiFallback = createGeminiOcrExtractor(GEMINI_API_KEY);
 // Enable only after migrations and isolated acceptance. Off preserves legacy IO.
 const RESERVED_OCR_ENABLED = Deno.env.get("KATI_OCR_UNIT_RESERVATIONS_ENABLED") === "true";
 type ExtractionStatus =
@@ -243,101 +244,6 @@ function isUsablePdfTextLayer(value: string): boolean {
   const readable = value.match(/[A-Za-zА-Яа-яЁё0-9\s.,:;!?()'"№%+–—/\-]/g)?.length ?? 0;
   const words = value.match(/[A-Za-zА-Яа-яЁё]{2,}/g)?.length ?? 0;
   return readable / value.length >= 0.82 && words >= 10;
-}
-function arrayBufferToBase64(buf: ArrayBuffer): string {
-  let binary = "";
-  const bytes = new Uint8Array(buf);
-
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-
-  return btoa(binary);
-}
-
-// Diagnostic fields must never echo arbitrary document/provider metadata.
-function diagnosticMime(value: string): string {
-  return ["application/pdf", "image/jpeg", "image/png", "image/tiff", "image/webp"].includes(value)
-    ? value : "application/octet-stream";
-}
-
-function diagnosticFinishReason(value: unknown): string {
-  return typeof value === "string" && ["STOP", "MAX_TOKENS", "SAFETY", "RECITATION", "OTHER", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "MALFORMED_FUNCTION_CALL"].includes(value)
-    ? value : "UNKNOWN";
-}
-
-async function extractWithGeminiFallback(params: {
-  buf: ArrayBuffer;
-  mimeType: string;
-  fileName: string;
-  signal?: AbortSignal;
-}): Promise<{ text: string; debug: Record<string, unknown> }> {
-  if (!GEMINI_API_KEY) {
-  console.error("[extract-document-text] GEMINI_API_KEY is missing");
-  return { text: "", debug: { error: "GEMINI_API_KEY missing", model: GEMINI_MODEL, mimeType: diagnosticMime(params.mimeType), byteLength: params.buf.byteLength } };
-}
-
-  const base64 = arrayBufferToBase64(params.buf);
-
-  
-
-  const parts = [
-  {
-    text:
-      "Извлеки весь читаемый текст с изображения/скана. Верни только текст. Если текста нет — верни пустую строку.",
-  },
-  {
-    inline_data: {
-      mime_type: params.mimeType,
-      data: base64,
-    },
-  },
-];
-
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        signal: params.signal ?? AbortSignal.timeout(90_000),
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: {
-            temperature: 0,
-          },
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      const failure = providerHttpFailure(GEMINI_MODEL, response.status, errorText);
-      console.error("[extract-document-text] Gemini fallback failed", failure);
-      // Preserve TIFF unsupported-format handling without retaining the body.
-      const error = /unsupported/i.test(errorText) ? "ocr_format_unsupported" : "provider_http_error";
-      return { text: "", debug: { ...failure, error, mimeType: diagnosticMime(params.mimeType), byteLength: params.buf.byteLength } };
-    }
-
-    const data = await response.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
-    const debug = {
-      finishReason: diagnosticFinishReason(data?.candidates?.[0]?.finishReason),
-      candidate_text_length: text.length,
-      byteLength: params.buf.byteLength,
-      mimeType: diagnosticMime(params.mimeType),
-      model: GEMINI_MODEL,
-    };
-    console.log("[extract-document-text] Gemini OCR response", JSON.stringify(debug));
-
-    return { text, debug };
-  } catch {
-    console.error("[extract-document-text] Gemini fallback exception", providerException(GEMINI_MODEL));
-    // An archive caller may let this propagate; the exception remains safe.
-    throw new Error("ocr_provider_exception");
-  }
 }
 
 type Detected = {
@@ -706,7 +612,7 @@ Deno.serve(async (req) => {
       }
       if (!RESERVED_OCR_ENABLED && durablePdfJob.checkpoint.ocr_protocol === "reserved_v1")
         return json({ error: "ocr_reservations_required" }, 503);
-      if (RESERVED_OCR_ENABLED && (durablePdfJob.acquired || durablePdfJob.job_status === "completed")) {
+      if (RESERVED_OCR_ENABLED && !durablePdfJob.acquired && durablePdfJob.job_status === "completed") {
         try {
           const source = await ocrSourceFingerprint(downloaded.buf, downloaded.bucket, doc.storage_path);
           const { data, error } = await supabase.rpc("kati_guard_reserved_ocr_source", {
@@ -730,6 +636,14 @@ Deno.serve(async (req) => {
           lease_expires_at: durablePdfJob.lease_expires_at,
         });
       }
+      if (RESERVED_OCR_ENABLED) {
+        if (!durablePdfJob.lease_token) return json({ error: "ocr_checkpoint_lease_lost" }, 409);
+        const result = await runLeasedPdfOcr(supabase, {
+          document_id: documentId, job_id: durablePdfJob.job_id,
+          lease_token: durablePdfJob.lease_token, checkpoint: durablePdfJob.checkpoint,
+        }, { pdf: PDFDocument, extract: extractWithGeminiFallback }, { doc, downloaded });
+        return json(result.body, result.status);
+      }
     }
 
     let fallback: { text: string; pageIndex?: PageIndexState; complete?: boolean; needsManualReview?: boolean };
@@ -740,9 +654,7 @@ Deno.serve(async (req) => {
             doc.file_name || "document",
             durablePdfJob?.checkpoint?.page_index ?? existingMeta.page_index,
             typeof doc.ocr_text === "string" ? doc.ocr_text : "",
-            { pdf: PDFDocument, extract: extractWithGeminiFallback,
-              ...(RESERVED_OCR_ENABLED && durablePdfJob
-                ? { attempts: reservedOcrAttempts(supabase, documentId, durablePdfJob) } : {}) },
+            { pdf: PDFDocument, extract: extractWithGeminiFallback },
           )
         : await extractWithGeminiFallback({
             buf: downloaded.buf,
@@ -852,22 +764,6 @@ Deno.serve(async (req) => {
   }
 
   if (durablePdfJob) {
-    if (RESERVED_OCR_ENABLED) {
-      // Do not send the local page plan/counters/text back: each unit has already
-      // persisted authoritatively and a crash/lost reply may make local state stale.
-      try {
-        const { data, error } = await supabase.rpc("kati_finish_reserved_document_ocr_wave", {
-          p_document_id: documentId, p_job_id: durablePdfJob.job_id,
-          p_lease_token: durablePdfJob.lease_token, p_page_count: pageIndex?.page_count ?? null,
-        });
-        if (error) return json({ error: "ocr_checkpoint_unavailable" }, 503);
-        if (!data || data.persisted !== true)
-          return json({ error: "ocr_checkpoint_lease_lost" }, 409);
-        return json(data.result);
-      } catch {
-        return json({ error: "ocr_checkpoint_unavailable" }, 503);
-      }
-    }
     const jobStatus = status === "completed"
       ? "completed"
       : status === "needs_manual_review" ? "needs_manual_review" : "queued";

@@ -67,6 +67,10 @@ describe("Stage 01B diagnostics", () => {
     const files = [
       "../functions/document-intake-ai-fill/index.ts",
       "../functions/extract-document-text/index.ts",
+      "../functions/_shared/gemini-ocr-provider.ts",
+      "../functions/_shared/leased-pdf-ocr.ts",
+      "../functions/_shared/ocr-dispatcher.ts",
+      "../functions/dispatch-document-ocr/index.ts",
       "../functions/analyze-document-legal-position/index.ts",
       "../functions/analyze-document-legal-position/gemini-fallback.ts",
       "../functions/analyze-document-legal-position/fact-extraction.ts",
@@ -81,7 +85,7 @@ describe("Stage 01B diagnostics", () => {
     expect(joined).not.toContain("raw_response_preview");
     expect(joined).not.toContain("allow_unredacted_text");
     expect(joined).not.toContain("allowUnredactedText");
-    const ocr = source[files.indexOf("../functions/extract-document-text/index.ts")];
+    const ocr = source[files.indexOf("../functions/extract-document-text/index.ts")]+source[files.indexOf("../functions/_shared/gemini-ocr-provider.ts")];
     expect(ocr).not.toMatch(/console\.(?:error|warn)\([^;]*(?:errorText|\.message|,\s*(?:error|e)\s*\))/s);
     expect(ocr).not.toContain("error: errorText");
     expect(ocr).not.toMatch(/(?:extractionError|error:)\s*=?.*\.message/);

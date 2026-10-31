@@ -22,6 +22,7 @@ export interface OcrPdfPart<Source, Page> {
   save(options: { useObjectStreams: boolean }): Promise<Uint8Array>;
 }
 export type PdfOcrWaveDependencies<Source extends OcrPdfSource, Page> = {
+  signal?: AbortSignal;
   pdf: {
     load(buffer: ArrayBuffer, options: { ignoreEncryption: boolean }): Promise<Source>;
     create(): Promise<OcrPdfPart<Source, Page>>;
@@ -47,6 +48,9 @@ export async function processPdfOcrWave<Source extends OcrPdfSource, Page>(
   dependencies: PdfOcrWaveDependencies<Source, Page>,
 ): Promise<{ text: string; pageIndex: PageIndexState; complete: boolean; needsManualReview: boolean }> {
   const controller = new AbortController();
+  const abort=()=>controller.abort();
+  if(dependencies.signal?.aborted)controller.abort();
+  dependencies.signal?.addEventListener("abort",abort,{once:true});
   const deadlineId = setTimeout(() => controller.abort(), 105_000);
   try {
     const source = await dependencies.pdf.load(buf, { ignoreEncryption: true });
@@ -58,6 +62,7 @@ export async function processPdfOcrWave<Source extends OcrPdfSource, Page>(
     // across bounded calls instead of creating 100 chunks and OCRing them in
     // one request.
     for (const unit of selectedUnits) {
+      if(dependencies.signal && controller.signal.aborted)throw new Error("ocr_wave_deadline");
       const part = await dependencies.pdf.create();
       const pages = await part.copyPages(
         source,
@@ -84,6 +89,7 @@ export async function processPdfOcrWave<Source extends OcrPdfSource, Page>(
         const chunk = chunks[index];
         let reservation: string | null = null;
         try {
+          if(dependencies.signal && controller.signal.aborted)throw new Error("ocr_wave_deadline");
           reservation = dependencies.attempts
             ? await dependencies.attempts.reserve({ start: chunk.start, end: chunk.end, pageCount: pageIndex.page_count })
             : null;
@@ -137,6 +143,7 @@ export async function processPdfOcrWave<Source extends OcrPdfSource, Page>(
       needsManualReview: hasExhaustedPageUnit(nextState),
     };
   } finally {
+    dependencies.signal?.removeEventListener("abort",abort);
     clearTimeout(deadlineId);
     controller.abort();
   }
