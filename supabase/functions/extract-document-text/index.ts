@@ -16,6 +16,7 @@ import {
 
 import { processPdfOcrWave } from "../_shared/pdf-ocr-wave.ts";
 import { reservedOcrAttempts } from "../_shared/ocr-reservation-runtime.ts";
+import { ocrSourceFingerprint } from "../_shared/ocr-source-fingerprint.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -602,6 +603,20 @@ Deno.serve(async (req) => {
   const detected = detect(doc.mime_type || "", doc.file_name || "");
   const existingMeta = (doc.metadata || {}) as Record<string, any>;
 
+  // Existing durable work must not bypass source checks through a newly usable
+  // text layer. This read is service-only and follows the existing authorization.
+  let reservedPdfJobExists = false;
+  if (RESERVED_OCR_ENABLED && detected.kind === "pdf") {
+    try {
+      const { data, error } = await supabase.from("document_ocr_jobs").select("id")
+        .eq("document_id", documentId).maybeSingle();
+      if (error) return json({ error: "ocr_source_guard_unavailable" }, 503);
+      reservedPdfJobExists = Boolean(data);
+    } catch {
+      return json({ error: "ocr_source_guard_unavailable" }, 503);
+    }
+  }
+
   
 
   const downloaded = await downloadFile(supabase, doc.storage_path);
@@ -678,7 +693,7 @@ Deno.serve(async (req) => {
     downloaded?.buf &&
     status !== "failed" &&
     (detected.kind === "image" || detected.kind === "pdf" || text.length === 0) &&
-    (detected.kind !== "pdf" || !isUsablePdfTextLayer(text));
+    (detected.kind !== "pdf" || reservedPdfJobExists || !isUsablePdfTextLayer(text));
 
   let pageIndex: PageIndexState | null = null;
   let durablePdfJob: DurableOcrJob | null = null;
@@ -691,6 +706,19 @@ Deno.serve(async (req) => {
       }
       if (!RESERVED_OCR_ENABLED && durablePdfJob.checkpoint.ocr_protocol === "reserved_v1")
         return json({ error: "ocr_reservations_required" }, 503);
+      if (RESERVED_OCR_ENABLED && (durablePdfJob.acquired || durablePdfJob.job_status === "completed")) {
+        try {
+          const source = await ocrSourceFingerprint(downloaded.buf, downloaded.bucket, doc.storage_path);
+          const { data, error } = await supabase.rpc("kati_guard_reserved_ocr_source", {
+            p_document_id: documentId, p_job_id: durablePdfJob.job_id,
+            p_lease_token: durablePdfJob.lease_token, p_source: source, p_bind: true,
+          });
+          if (error) return json({ error: "ocr_source_guard_unavailable" }, 503);
+          if (!data || data.allowed !== true) return json({ error: "ocr_source_rejected" }, 409);
+        } catch {
+          return json({ error: "ocr_source_guard_unavailable" }, 503);
+        }
+      }
       if (!durablePdfJob.acquired) {
         return json({
           ok: true,
