@@ -17,11 +17,12 @@ describe("extract-document-text short text files", () => {
   test("sanitizes binary PDF control bytes and always prefers the OCR fallback for PDFs", async () => {
     const source = (await Bun.file(functionPath).text()).replace(/\r\n/g, "\n");
     expect(source).toContain("sanitizeExtractedText");
-    expect(source).toContain('.replace(/\\u0000/g, "")');
+    const parser = await Bun.file(join(testsDirectory,"../functions/_shared/pdf-text-layer.ts")).text();
+    expect(parser).toContain('.replace(/\\u0000/g, "")');
     expect(source).toMatch(/detected\.kind === "image"\s*\|\|\s*detected\.kind === "pdf"\s*\|\|\s*\(?\s*text\.length === 0/);
     expect(source).toContain("const fallbackText = sanitizeExtractedText(fallback.text)");
     expect(source).toContain("isUsablePdfTextLayer");
-    expect(source).toContain("readable / value.length >= 0.82 && words >= 10");
+    expect(parser).toContain("readable / value.length >= 0.82 && words >= 10");
     expect(source).toContain('status = "ocr_required";\n      text = "";');
   });
 });

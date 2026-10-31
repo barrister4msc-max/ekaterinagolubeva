@@ -17,6 +17,7 @@ import {
 import { processPdfOcrWave } from "../_shared/pdf-ocr-wave.ts";
 import { runLeasedPdfOcr } from "../_shared/leased-pdf-ocr.ts";
 import { createGeminiOcrExtractor, diagnosticMime, GEMINI_OCR_MODEL as GEMINI_MODEL } from "../_shared/gemini-ocr-provider.ts";
+import { createPdfTextLayerExtractor, sanitizeExtractedText, isUsablePdfTextLayer } from "../_shared/pdf-text-layer.ts";
 import { ocrSourceFingerprint } from "../_shared/ocr-source-fingerprint.ts";
 
 const corsHeaders = {
@@ -168,83 +169,10 @@ function extractHtml(buf: ArrayBuffer): string {
     .trim();
 }
 
-async function extractPdfTextLayer(
-  buf: ArrayBuffer,
-  timeoutMs = 30_000,
-): Promise<string> {
-  let loadingTask: any = null;
-  let timeoutId: number | null = null;
-  try {
-    // @ts-ignore Use the bundled Deno build so PDF.js does not request a separate worker module at runtime.
-    const pdfjs = await import("https://esm.sh/pdfjs-dist@4.10.38/deno/legacy/build/pdf.bundle.mjs");
-    loadingTask = pdfjs.getDocument({
-      data: new Uint8Array(buf),
-      disableWorker: true,
-      useSystemFonts: false,
-    });
-    const extraction = (async () => {
-      const pdf = await loadingTask.promise;
-      const pages: string[] = new Array(pdf.numPages).fill("");
-      const batchSize = 8;
-      for (let start = 1; start <= pdf.numPages; start += batchSize) {
-        const pageNumbers = Array.from(
-          { length: Math.min(batchSize, pdf.numPages - start + 1) },
-          (_, offset) => start + offset,
-        );
-        await Promise.all(pageNumbers.map(async (pageNumber) => {
-          const page = await pdf.getPage(pageNumber);
-          const content = await page.getTextContent();
-          pages[pageNumber - 1] = (content.items ?? [])
-            .map((item: any) => typeof item?.str === "string" ? item.str : "")
-            .filter(Boolean)
-            .join(" ");
-          page.cleanup?.();
-        }));
-      }
-      return pages.join("\\n\\n")
-        .replace(/[ \\t]+\\n/g, "\\n")
-        .replace(/\\n{3,}/g, "\\n\\n")
-        .trim();
-    })();
-
-    const deadline = new Promise<string>((_, reject) => {
-      timeoutId = setTimeout(
-        () => reject(new Error("pdf_text_extraction_timeout")),
-        timeoutMs,
-      ) as unknown as number;
-    });
-    return await Promise.race([extraction, deadline]);
-  } catch (error) {
-    console.error("[extract-document-text] PDF text-layer extraction failed", { error_code: "pdf_text_extraction_failed" });
-    throw error;
-  } finally {
-    if (timeoutId !== null) clearTimeout(timeoutId);
-    try {
-      await loadingTask?.destroy?.();
-    } catch (error) {
-      console.warn("[extract-document-text] PDF.js destroy failed", { error_code: "pdf_destroy_failed" });
-    }
-  }
-}
-
-function sanitizeExtractedText(value: string): string {
-  // PostgreSQL text/JSON cannot store NUL. Minimal PDF probes can surface
-  // binary control bytes from compressed streams, so strip those before an
-  // update and before deciding whether the text layer is usable.
-  return value
-    .replace(/\u0000/g, "")
-    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, " ")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function isUsablePdfTextLayer(value: string): boolean {
-  if (value.length < 50) return false;
-  const readable = value.match(/[A-Za-zА-Яа-яЁё0-9\s.,:;!?()'"№%+–—/\-]/g)?.length ?? 0;
-  const words = value.match(/[A-Za-zА-Яа-яЁё]{2,}/g)?.length ?? 0;
-  return readable / value.length >= 0.82 && words >= 10;
-}
+const extractPdfTextLayer = createPdfTextLayerExtractor(async () => {
+  // @ts-ignore Bundled Deno PDF.js build, same parser as before.
+  return await import("https://esm.sh/pdfjs-dist@4.10.38/deno/legacy/build/pdf.bundle.mjs");
+});
 
 type Detected = {
   method: ExtractionMethod;
@@ -508,6 +436,10 @@ Deno.serve(async (req) => {
 
   const detected = detect(doc.mime_type || "", doc.file_name || "");
   const existingMeta = (doc.metadata || {}) as Record<string, any>;
+  // Server-owned jobs are observed through document-ocr-control; browser retries
+  // must not download, claim or start another wave, including after flag rollback.
+  if (existingMeta.ocr_execution_owner === "server")
+    return json({ error: "ocr_server_owned" }, 409);
 
   // Existing durable work must not bypass source checks through a newly usable
   // text layer. This read is service-only and follows the existing authorization.

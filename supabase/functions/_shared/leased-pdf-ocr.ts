@@ -29,6 +29,13 @@ export async function runLeasedPdfOcr<Source extends OcrPdfSource, Page>(
   };
   let doc:any,downloaded:PreparedPdf["downloaded"]|undefined;
   try {
+    // Browser-enqueued work rechecks its pinned actor/session before any private
+    // document or Storage content is loaded. The guard repeats at each unit.
+    if(job.checkpoint.intake_scope){
+      const {data,error:failure}=await supabase.rpc("kati_guard_reserved_ocr_source",{...args,p_source:null,p_bind:false});
+      if(failure)return error("ocr_source_guard_unavailable");
+      if(data?.allowed!==true)return error("ocr_source_rejected",409);
+    }
     if(prepared){doc=prepared.doc;downloaded=prepared.downloaded;}
     else {
       const {data,error:failure}=await supabase.from("documents")

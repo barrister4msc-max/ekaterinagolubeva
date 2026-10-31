@@ -46,7 +46,10 @@ try {
   assert.equal(Number((await q("select count(*) n from information_schema.tables where table_schema='public'"))[0].n),0,'database must be empty');
   await admin.query(`create role anon;create role authenticated;create role service_role bypassrls;
     grant usage on schema public to anon,authenticated,service_role;
-    create table documents(id uuid primary key,storage_path text,ocr_text text,metadata jsonb,analysis_status text,review_status text,updated_at timestamptz);
+    create table documents(id uuid primary key,storage_path text,ocr_text text,metadata jsonb,analysis_status text,review_status text,updated_at timestamptz,file_name text,mime_type text,is_archived boolean default false,uploaded_by uuid,matter_id uuid,client_id uuid);
+    create table document_intake_sessions(id uuid primary key,created_by uuid,archived_at timestamptz,matter_id uuid,client_id uuid);
+    create function is_admin_or_superadmin(_user_id uuid) returns boolean language sql as $$select _user_id='20000000-0000-4000-8000-000000000001'::uuid$$;
+    grant select,update on document_intake_sessions to service_role;
     grant select,update on documents to service_role;`);
   for(const m of migrations) await admin.query(await readFile(new URL('../../migrations/'+m,import.meta.url),'utf8'));
   await admin.query('insert into documents(id,storage_path,ocr_text,metadata) values($1,$2,$3,$4)',[doc(99),'old-path','old OCR',{manual:'preserve'}]);
@@ -54,12 +57,14 @@ try {
   const before = (await q('select status,checkpoint,invocation_count from document_ocr_jobs'));
   await admin.query(await readFile(new URL('../../migrations/20261031135820_e05_ocr_dispatch_claims.sql',import.meta.url),'utf8'));
   await admin.query(await readFile(new URL('../../migrations/20261031141704_e05_ocr_dispatch_release.sql',import.meta.url),'utf8'));
+  await admin.query(await readFile(new URL('../../migrations/20261031144205_e05_ocr_enqueue_status.sql',import.meta.url),'utf8'));
   assert.deepEqual(await q('select status,checkpoint,invocation_count from document_ocr_jobs'),before);
   assert.equal((await state(99)).dispatch_enabled,false);
   await reset();
   for(const role of ['anon','authenticated']){
     await admin.query('set role '+role);
-    for(const sql of ['select kati_claim_next_reserved_ocr_job()','select kati_recover_expired_ocr_job(null)','select kati_release_reserved_ocr_job(null,null,null,null)']){
+    for(const sql of ['select kati_claim_next_reserved_ocr_job()','select kati_recover_expired_ocr_job(null)','select kati_release_reserved_ocr_job(null,null,null,null)','select kati_ocr_document_access(null,null,null)',
+      "select kati_control_document_ocr('status',null,null,null)"]){
       let code;try{await admin.query(sql);}catch(e){code=e.code;}assert.equal(code,'42501');
     }await admin.query('reset role');
   }
@@ -131,9 +136,27 @@ try {
     assert.deepEqual(row.checkpoint,{ocr_protocol:'reserved_v1'});
     assert.equal(await next(pool[1]),null);await due(1);
   }
+  // Twenty browser enqueue retries share the claim mutex and never reset work.
+  await reset();await seed(77);await reset();
+  const actor='20000000-0000-4000-8000-000000000001',session='30000000-0000-4000-8000-000000000001';
+  await admin.query('insert into document_intake_sessions(id,created_by) values($1,$2)',[session,actor]);
+  await admin.query("update documents set uploaded_by=$1,mime_type='application/pdf',metadata=$2 where id=$3",[actor,{intake_session_id:session,manual:'preserve'},doc(77)]);
+  const source={version:1,bucket:'lead-documents',storage_path:'path-77',sha256:'a'.repeat(64),byte_length:6};
+  const enqueue=async c=>(await c.query("select kati_control_document_ocr('enqueue',$1,$2,$3,$4) r",[actor,session,doc(77),source])).rows[0].r;
+  assert.equal((await Promise.all(pool.map(enqueue))).every(r=>r.allowed&&r.state==='queued'),true);
+  assert.equal(Number((await q('select count(*) n from document_ocr_jobs'))[0].n),1);
+  const queuedClaim=await next(pool[1]);assert.equal(queuedClaim.acquired,true);
+  const queuedBefore=await state(77);
+  await Promise.all(pool.map(enqueue));assert.deepEqual(await state(77),queuedBefore);
+  await admin.query('update document_ocr_jobs set dispatch_enabled=false');
+  const stoppedBefore=await state(77);await Promise.all(pool.map(enqueue));assert.deepEqual(await state(77),stoppedBefore);
+  await admin.query('update document_intake_sessions set archived_at=clock_timestamp() where id=$1',[session]);
+  assert.equal((await pool[1].query('select kati_guard_reserved_ocr_source($1,$2,$3,null,false) r',
+    [doc(77),queuedClaim.job_id,queuedClaim.lease_token])).rows[0].r.code,'ocr_scope_changed');
+  assert.equal((await state(77)).status,'needs_manual_review');
   console.log(JSON.stringify({engine:(await q('show server_version'))[0].server_version,
     concurrent_sessions:20,global_cap:'passed',skip_locked:'passed',ordering:'passed',backoff:'passed',
-    expired_recovery:'passed',terminal_no_progress:'passed',stale_fence:'passed',kill_switch:'passed',role_isolation:'passed',preplan_release:'passed'}));
+    expired_recovery:'passed',terminal_no_progress:'passed',stale_fence:'passed',kill_switch:'passed',role_isolation:'passed',preplan_release:'passed',enqueue_idempotency:'passed',scope_recheck:'passed'}));
 } finally {
   await Promise.allSettled(clients.map(c=>c.end()));
 }
