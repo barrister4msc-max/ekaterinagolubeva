@@ -37,3 +37,8 @@ verify_jwt = false
 # only their names and byte sizes; it never serves Storage content.
 [functions.verify-guarded-legal-source-storage]
 verify_jwt = false
+
+# Dedicated dispatcher token is verified in-function; service-role/publishable
+# tokens are not an alternative. Both server flags default off. No cron here.
+[functions.dispatch-document-ocr]
+verify_jwt = false

@@ -119,7 +119,7 @@ try{
       metadata jsonb,analysis_status text,review_status text,updated_at timestamptz);
     grant select,update on documents to service_role;`);
   for(const file of ["20260922120000_stage13l2b_durable_ocr_jobs.sql","20260922120554_fix_stage13l2b_lease_counter.sql",
-    "20261029151613_e05_ocr_attempt_reservations.sql","20261029190337_e05_reserved_ocr_runtime.sql","20261031134647_e05_ocr_source_fingerprint.sql","20261031135820_e05_ocr_dispatch_claims.sql"])
+    "20261029151613_e05_ocr_attempt_reservations.sql","20261029190337_e05_reserved_ocr_runtime.sql","20261031134647_e05_ocr_source_fingerprint.sql","20261031135820_e05_ocr_dispatch_claims.sql","20261031141704_e05_ocr_dispatch_release.sql"])
     await db.exec(await readFile(new URL("../../migrations/"+file,import.meta.url),"utf8"));
   await db.query("insert into documents values($1,'scan.pdf','application/pdf','private-path','', $2,'pending','not_started',now())",[docId,{preserve:"manual"}]);
   for(const role of ["anon","authenticated"]){
