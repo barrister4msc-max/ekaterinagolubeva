@@ -70,6 +70,9 @@ import {
 } from "@/lib/redaction-field-mapping";
 import { saveSessionRedactionState } from "@/lib/document-intake-storage";
 
+import { extractByOwnership, readServerOcr, usesServerOcr, serverOcrLabel, type ServerOcrStatus, type ExtractionOutcome } from "@/lib/server-document-ocr";
+const SERVER_PDF_OCR = import.meta.env.VITE_KATI_SERVER_OCR_ENABLED === "true";
+
 type IntakeContext = {
   matterId?: string | null;
   clientId?: string | null;
@@ -110,6 +113,8 @@ type SessionDocument = {
   id: string;
   title: string | null;
   file_name: string | null;
+  mime_type: string | null;
+  server_ocr_owned: boolean;
   ocr_text_length: number;
   ocr_text: string | null;
   extraction_status: string | null;
@@ -136,6 +141,9 @@ type SessionDocument = {
   } | null;
 };
 const [sessionDocuments, setSessionDocuments] = useState<SessionDocument[]>([]);
+const [serverOcrStatuses,setServerOcrStatuses] = useState<Record<string,ServerOcrStatus>>({});
+const serverEnqueueAttemptsRef=useRef(new Set<string>());
+const [serverOcrStatusErrors,setServerOcrStatusErrors]=useState<Set<string>>(new Set());
 const [redactionDocId, setRedactionDocId] = useState<string | null>(null);
 
 // Staging state only: file expansion + storage upload + `documents` row creation.
@@ -375,7 +383,7 @@ const reloadAnswersFromSession = useCallback(async () => {
     }
     const { data, error } = await supabase
       .from("documents")
-      .select("id, title, file_name, ocr_text, metadata")
+      .select("id, title, file_name, mime_type, ocr_text, metadata")
       .filter("metadata->>intake_session_id", "eq", sid)
       .order("created_at", { ascending: true });
     if (error) {
@@ -391,6 +399,8 @@ const reloadAnswersFromSession = useCallback(async () => {
           id: d.id,
           title: d.title,
           file_name: d.file_name,
+          mime_type: d.mime_type ?? null,
+          server_ocr_owned: meta.ocr_execution_owner === "server",
           ocr_text: typeof d.ocr_text === "string" ? (d.ocr_text as string) : null,
           ocr_text_length: typeof d.ocr_text === "string" ? d.ocr_text.length : 0,
           extraction_status:
@@ -566,7 +576,7 @@ const reloadAnswersFromSession = useCallback(async () => {
     };
   };
 
-  const runExtractionWithRetry = async (documentId: string, maxAttempts = 3) => {
+  const runLegacyExtractionWithRetry = async (documentId: string, maxAttempts = 3): Promise<ExtractionOutcome> => {
     let lastError = "Не удалось извлечь текст";
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const invocation = supabase.functions.invoke("extract-document-text", {
@@ -654,16 +664,42 @@ const reloadAnswersFromSession = useCallback(async () => {
     return { extractionStatus: "failed", textLength: 0, attempts: maxAttempts, error: lastError };
   };
 
+  const runExtractionWithRetry = async (documentId:string,maxAttempts=3,fileNameHint?:string,sessionOverride?:string):Promise<ExtractionOutcome> => {
+    const doc=sessionDocuments.find(d=>d.id===documentId)??{id:documentId,file_name:fileNameHint};
+    if(usesServerOcr(doc,SERVER_PDF_OCR))serverEnqueueAttemptsRef.current.add(documentId);
+    return extractByOwnership(doc,{enabled:SERVER_PDF_OCR,sessionId:sessionOverride??intakeSessionId,client:supabase,
+      legacy:()=>runLegacyExtractionWithRetry(documentId,maxAttempts)});
+  };
+
+  // Polling only observes server work. It never invokes extraction or re-enqueues.
+  const serverPendingKey=sessionDocuments.filter(d=>d.server_ocr_owned && !hasCompleteExtraction(d) && !["needs_manual_review","failed"].includes(d.extraction_status??"")).map(d=>d.id).sort().join(",");
+  useEffect(()=>{
+    if(!intakeSessionId || !serverPendingKey)return;
+    let cancelled=false;let timer:ReturnType<typeof setTimeout>|undefined;
+    const poll=async()=>{
+      const statuses=await Promise.allSettled(serverPendingKey.split(",").map(id=>readServerOcr(supabase,"status",intakeSessionId,id)));
+      if(cancelled)return;
+      const ids=serverPendingKey.split(",");
+      setServerOcrStatusErrors(new Set(ids.filter((_,i)=>statuses[i].status==="rejected")));
+      const updates=statuses.flatMap(r=>r.status==="fulfilled"?[r.value]:[]);
+      setServerOcrStatuses(prev=>({...prev,...Object.fromEntries(updates.map(v=>[v.document_id,v]))}));
+      if(updates.some(v=>["completed","needs_manual_review"].includes(v.state)))await refreshSessionDocuments(intakeSessionId);
+      else setSessionDocuments(prev=>prev.map(d=>{const update=updates.find(v=>v.document_id===d.id);return update?{...d,page_index_progress:update.progress??d.page_index_progress}:d;}));
+      if(!cancelled)timer=setTimeout(()=>{void poll();},4000);
+    };
+    void poll();return()=>{cancelled=true;if(timer)clearTimeout(timer);};
+  },[intakeSessionId,serverPendingKey,refreshSessionDocuments]);
+
   // Resume staged documents after reload/navigation; no saved file may remain silently unprocessed.
   useEffect(() => {
-    if (!intakeSessionId) return;
-    const pending = sessionDocuments.filter((d) => !hasCompleteExtraction(d) && (d.extraction_status === null || d.extraction_status === "pending" || d.extraction_status === "partial_pages") && !processingDocumentIdsRef.current.has(d.id)).map((d) => ({ id:d.id, fileName:d.file_name ?? d.title ?? d.id }));
+    if (!intakeSessionId || (SERVER_PDF_OCR && isUploadingDocument)) return;
+    const pending = sessionDocuments.filter(d=>!d.server_ocr_owned && !(SERVER_PDF_OCR && usesServerOcr(d,true) && serverEnqueueAttemptsRef.current.has(d.id))).filter((d) => !hasCompleteExtraction(d) && (d.extraction_status === null || d.extraction_status === "pending" || d.extraction_status === "partial_pages") && !processingDocumentIdsRef.current.has(d.id)).map((d) => ({ id:d.id, fileName:d.file_name ?? d.title ?? d.id }));
     if (!pending.length) return;
-    void runBackgroundExtraction(pending, async (doc) => { const r=await runExtractionWithRetry(doc.id); return { ok:r.extractionStatus === "completed" && r.textLength > 0 }; }, {
+    void runBackgroundExtraction(pending, async (doc) => { const r=await runExtractionWithRetry(doc.id,3,doc.fileName); return { ok:(r.extractionStatus === "completed" && r.textLength > 0) || r.serverQueued === true }; }, {
       isProcessing:(id)=>processingDocumentIdsRef.current.has(id), onStart:(ids)=>addProcessingDocuments(ids),
       onSettled:async(doc)=>{ removeProcessingDocument(doc.id); if(isMountedRef.current){ await refreshSessionDocuments(intakeSessionId); notifyDocumentsUpdated(); } },
     });
-  }, [intakeSessionId, sessionDocuments, refreshSessionDocuments]);
+  }, [intakeSessionId, sessionDocuments, refreshSessionDocuments, isUploadingDocument]);
 
   // Staging only: uploads to storage and creates the `documents` row.
   // Extraction is deliberately NOT awaited here so that every selected file
@@ -849,9 +885,9 @@ const reloadAnswersFromSession = useCallback(async () => {
       void runBackgroundExtraction(
         staged,
         async (doc) => {
-          const result = await runExtractionWithRetry(doc.id);
+          const result = await runExtractionWithRetry(doc.id,3,doc.fileName,session.id);
           return {
-            ok: result.extractionStatus === "completed" && result.textLength > 0,
+            ok: (result.extractionStatus === "completed" && result.textLength > 0) || result.serverQueued === true,
           };
         },
         {
@@ -909,7 +945,7 @@ const reloadAnswersFromSession = useCallback(async () => {
       setRetryingDocumentId(documentId);
       const result = await runExtractionWithRetry(documentId);
       await refreshSessionDocuments(intakeSessionId);
-      if (result.extractionStatus !== "completed") {
+      if (result.extractionStatus !== "completed" && !result.serverQueued) {
         alert(`Текст не извлечён после ${result.attempts} попыток: ${result.error}`);
       }
     } finally {
@@ -1378,6 +1414,10 @@ const reloadAnswersFromSession = useCallback(async () => {
                                  <span className="text-emerald-700">— Готов</span>
                                ) : needsManualReview ? (
                                  <span className="text-rose-700">— Нужна ручная проверка OCR</span>
+                               ) : doc.server_ocr_owned ? (
+                                 <span className="text-amber-700">— {serverOcrStatusErrors.has(doc.id) ? "Статус временно недоступен" : serverOcrLabel(serverOcrStatuses[doc.id]?.state)}
+                                   {doc.page_index_progress ? ` · ${doc.page_index_progress.indexedPages} из ${doc.page_index_progress.totalPages} стр. (${doc.page_index_progress.percent}%)` : ""}
+                                 </span>
                                ) : doc.page_index_progress && doc.page_index_progress.totalPages > 0 ? (
                                  <span className="text-amber-700">
                                    — Индексация: {doc.page_index_progress.indexedPages} из {doc.page_index_progress.totalPages} стр. ({doc.page_index_progress.percent}%)
@@ -1407,9 +1447,9 @@ const reloadAnswersFromSession = useCallback(async () => {
                             className="db-ghost"
                             onClick={() => handleRetryExtraction(doc.id)}
                             disabled={processing || isAiFilling}
-                            title="Повторить извлечение текста без повторной загрузки файла"
+                            title={doc.server_ocr_owned ? "Проверить статус обработки" : "Повторить извлечение текста без повторной загрузки файла"}
                           >
-                            {processing ? "Извлекаю…" : "Повторить извлечение"}
+                            {processing ? "Проверяю…" : doc.server_ocr_owned ? "Проверить статус" : "Повторить извлечение"}
                           </button>
                         )}
                         {showRedactButton && (

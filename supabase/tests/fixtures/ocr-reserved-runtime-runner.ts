@@ -14,7 +14,7 @@ const logs: unknown[]=[];
 const realLog=console.log;
 for(const method of ["log","warn","error"] as const) console[method]=(...args)=>{logs.push(args);};
 let enabled=true, failFirst=true, denyClaim=false, loseFinish=false, corrupt=false;
-let calls:number[]=[];
+let calls:number[]=[];let storageReads=0;
 let storageBytes="offline PDF", changePointerBeforeReserve=false, changePointerBeforeFinish=false;
 let latestLease:any, firstLease:any;
 let handler:(req:Request)=>Promise<Response>;
@@ -43,7 +43,7 @@ const sb={
     async maybeSingle(){return {data:(await q(table==="documents"?"select * from documents where id=$1":"select id from document_ocr_jobs where document_id=$1",[docId]))[0]??null,error:null};},
     update(){throw new Error("reserved handler must use atomic finish RPC");},
   }),
-  storage:{from:()=>({download:async()=>({data:new Blob([storageBytes]),error:null})})},
+  storage:{from:()=>({download:async()=>{storageReads++;return {data:new Blob([storageBytes]),error:null};}})},
   async rpc(name:string,args:Record<string,any>){
     if(denyClaim && name==="kati_claim_reserved_document_ocr_job") return {data:null,error:{message:canary}};
     if(loseFinish && name==="kati_finish_reserved_document_ocr_wave") return {data:null,error:{message:canary}};
@@ -130,6 +130,13 @@ try{
   }
   await db.exec("set role service_role");await loadHandler("enabled");
   assert.equal((await invoke("invalid")).status,401);assert.equal(calls.length,0);
+  await db.query("update documents set metadata=metadata||'{\"ocr_execution_owner\":\"server\"}'::jsonb where id=$1",[docId]);
+  const beforeStorage=storageReads;
+  assert.equal((await invoke()).status,409);assert.equal(storageReads,beforeStorage);assert.equal(calls.length,0);
+  assert.equal((await q("select count(*) n from document_ocr_jobs"))[0].n,0);
+  enabled=false;await loadHandler("server-owned-disabled");assert.equal((await invoke()).status,409);assert.equal(storageReads,beforeStorage);
+  enabled=true;await loadHandler("server-owned-enabled");
+  await db.query("update documents set metadata=metadata-'ocr_execution_owner' where id=$1",[docId]);
   denyClaim=true;assert.equal((await invoke()).status,503);assert.equal(calls.length,0);denyClaim=false;
   let response=await invoke();let result=await response.json();
   assert.equal(response.status,200);assert.equal(result.extraction_status,"partial_pages");

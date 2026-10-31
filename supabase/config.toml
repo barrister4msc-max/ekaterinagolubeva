@@ -42,3 +42,8 @@ verify_jwt = false
 # tokens are not an alternative. Both server flags default off. No cron here.
 [functions.dispatch-document-ocr]
 verify_jwt = false
+
+# Normal user JWT -> getUser -> admin -> transactional session/document scope.
+# No service-role bearer bypass and no caller-controlled server enable flag.
+[functions.document-ocr-control]
+verify_jwt = false

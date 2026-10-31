@@ -1,9 +1,12 @@
 import { runLeasedPdfOcr, type ClaimedPdfJob } from "./leased-pdf-ocr.ts";
 import type { OcrPdfSource, PdfOcrWaveDependencies } from "./pdf-ocr-wave.ts";
 
+export function isValidOcrDispatchToken(token:string,serviceKey:string) {
+  return token.length>=32 && token!==serviceKey && !token.startsWith("sb_publishable_") && !token.startsWith("sb_secret_") &&
+    !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token);
+}
 async function authorized(header:string|null,token:string,serviceKey:string) {
-  if(token.length<32 || token===serviceKey || token.startsWith("sb_publishable_") || token.startsWith("sb_secret_") ||
-    /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token) || !header || header.length>1024)return false;
+  if(!isValidOcrDispatchToken(token,serviceKey) || !header || header.length>1024)return false;
   const supplied=header.match(/^Bearer (.+)$/)?.[1];if(!supplied)return false;
   const hash=(s:string)=>crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));
   const [a,b]=await Promise.all([hash(supplied),hash(token)]);
