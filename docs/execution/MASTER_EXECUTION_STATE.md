@@ -130,3 +130,20 @@ Limit: same-path external Storage overwrite DURING a single downloaded-buffer in
 Next FIRST FAILURE: global claim-next/cap/backoff/kill-switch contract and multi-session concurrency tests, then default-off dispatcher/UI ownership and E06. Do not enable KATI_OCR_UNIT_RESERVATIONS_ENABLED or apply migrations/deploy as part of this local source admission change.
 
 Validation: 1019 tests passed, 0 failed; project TypeScript, strict fingerprint-module TypeScript and production build passed. Final SQL guard regression rerun passed after adding a second wall-clock lease check following the document-row lock. Changelog reviewed 31.10.2026: TLS CBC deprecation announced for 10.11+ does not change the Storage/RPC signatures used here; no platform configuration was changed.
+
+
+## HANDOFF E05 — dispatch claims/cap/backoff (31.10.2026)
+
+Prerequisite #213 head `dfa33efc891908ddfed369041c024cd2f90485c2`, tree `7479df3cf40fc3f10a1014f0306d62a16206e1c5` (local `c406abc`). #211/#212/#213 remain open/unmerged. No Production or external provider action.
+
+FIRST FAILURE: concurrent document-specific callers and a future dispatcher had no common global lease cap or due/backoff gate. Additive fields in the existing document_ocr_jobs ledger: dispatch_enabled default false, next_attempt_at, consecutive_no_progress, last_progress_pages. All claim entry points take the same short transaction advisory lock; the cap is one valid active document lease across legacy and reserved paths. claim-next selects only opted-in reserved_v1 jobs, deterministically by due/created/id with FOR UPDATE SKIP LOCKED. No network IO in the transaction and no second queue.
+
+Reserved claims respect due time and the per-job server switch. Expired-lease recovery preserves unit attempts/checkpoint, records actual progress or a stalled recovery, uses bounded 15/30/.../300-second backoff, and becomes needs_manual_review after three no-progress recoveries. Finalization resets stalls on indexed-page progress and otherwise applies the same bounded delay/terminal gate. No sleeps or client-controlled counters. Source admission and stale lease fencing remain prerequisites.
+
+Turning dispatch_enabled off blocks reserved claims/new unit reservations; already accepted settlements/finalization remain allowed. Legacy unpromoted interactive extraction keeps its previous semantics except the common active-lease cap; this field is NOT a promise to cancel all legacy interactive calls or already accepted provider IO. New jobs default off until an explicitly authorized enqueue/rollout. Scheduler/worker remain unimplemented.
+
+Tests: actual handler/shared wave/PostgreSQL integration updated for explicit test opt-in and test-controlled due time; no remote flags. A dedicated OCR dispatch SQL workflow uses ephemeral PostgreSQL 17.6 and pg 8.23.1 (dev-only/pinned) for 20 actual connections: mixed legacy/reserved/claim-next race, SKIP LOCKED, deterministic ordering, advisory wait, expired lease/backoff, stale settlement, no-progress terminal, stop/new-call gate and accepted result completion. This workflow runs on relevant PRs including stacked PRs. Local native PostgreSQL startup is unavailable because this sandbox denies uid/group changes; local PGlite evidence is single-session only, so concurrency acceptance must come from that CI job, not inference.
+
+No remote migration, merge, deploy, secret, scheduler, live AI or paid Supabase environment. Next FIRST FAILURE after queue acceptance: default-off dispatcher that uses an already claimed lease/shared processor without claiming it again; authorized enqueue/status/UI ownership and E06 still follow. Source/object immutability and remote runtime acceptance are not waived.
+
+Local checks: 1019 tests passed, TypeScript/build/actionlint passed. Native multi-session PostgreSQL check is pending the dedicated GitHub workflow; do not label concurrency runtime-verified until that run completes successfully.

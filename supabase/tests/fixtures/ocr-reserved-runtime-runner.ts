@@ -55,6 +55,10 @@ const sb={
       changePointerBeforeFinish=false;
       await db.query("update documents set storage_path='replaced-path' where id=$1",[docId]);
     }
+    if(name==="kati_claim_reserved_document_ocr_job"){
+      // Explicit test enqueue: migration defaults stay disabled in real deployments.
+      await db.query("insert into document_ocr_jobs(document_id,dispatch_enabled) values($1,true) on conflict(document_id) do nothing",[docId]);
+    }
     const data=await invokeRpc(name,args);
     if(name==="kati_claim_reserved_document_ocr_job" && data[0].acquired){
       latestLease=data[0];firstLease??=data[0];
@@ -115,7 +119,7 @@ try{
       metadata jsonb,analysis_status text,review_status text,updated_at timestamptz);
     grant select,update on documents to service_role;`);
   for(const file of ["20260922120000_stage13l2b_durable_ocr_jobs.sql","20260922120554_fix_stage13l2b_lease_counter.sql",
-    "20261029151613_e05_ocr_attempt_reservations.sql","20261029190337_e05_reserved_ocr_runtime.sql","20261031134647_e05_ocr_source_fingerprint.sql"])
+    "20261029151613_e05_ocr_attempt_reservations.sql","20261029190337_e05_reserved_ocr_runtime.sql","20261031134647_e05_ocr_source_fingerprint.sql","20261031135820_e05_ocr_dispatch_claims.sql"])
     await db.exec(await readFile(new URL("../../migrations/"+file,import.meta.url),"utf8"));
   await db.query("insert into documents values($1,'scan.pdf','application/pdf','private-path','', $2,'pending','not_started',now())",[docId,{preserve:"manual"}]);
   for(const role of ["anon","authenticated"]){
@@ -160,6 +164,7 @@ try{
     const failed=await (await invoke()).json();
     assert.equal(failed.extraction_status,n===3?"needs_manual_review":"partial_pages");
     assert.equal(failed.page_index_progress.complete,false);
+    await db.query("update document_ocr_jobs set next_attempt_at=clock_timestamp()-interval '1 second' where document_id=$1",[docId]);
   }
   assert.equal((await (await invoke()).json()).extraction_status,"needs_manual_review");
   assert.deepEqual(calls,[0,6,12,0,0]);
@@ -214,6 +219,7 @@ try{
     const bad=await (await invoke()).json();
     assert.equal(bad.extraction_status,n===3?"needs_manual_review":"ocr_required");
     assert.equal(bad.continuation_required,n<3);
+    await db.query("update document_ocr_jobs set next_attempt_at=clock_timestamp()-interval '1 second' where document_id=$1",[docId]);
   }
   assert.equal(calls.length,beforeCorruptCalls);
   assert.ok(!JSON.stringify(logs).includes(canary));
