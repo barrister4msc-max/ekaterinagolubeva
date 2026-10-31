@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Sparkles, ChevronDown, ChevronUp, AlertTriangle, Search, FilePlus2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { shouldContinueDurableOcr } from "@/lib/document-ocr-continuation";
 
 export type DocumentAIAnalysisPanelProps = {
   documentId: string;
@@ -173,17 +174,28 @@ export function DocumentAIAnalysisPanel({
         }
 
         if (ocrLen < 50) {
-          const { data: ex, error: exErr } = await supabase.functions.invoke(
-            "extract-document-text",
-            { body: { document_id: documentId } },
-          );
-          if (exErr) {
-            console.error("[extract-document-text]", exErr);
-            toast.error(exErr.message || "Не удалось извлечь текст");
-            return;
+          const extract = async () => {
+            const { data, error } = await supabase.functions.invoke(
+              "extract-document-text",
+              { body: { document_id: documentId } },
+            );
+            if (error) {
+              console.error("[extract-document-text]", error);
+              toast.error(error.message || "Не удалось извлечь текст");
+              return null;
+            }
+            return data as { extraction_status?: string; text_length?: number; continuation_required?: boolean };
+          };
+
+          let ex = await extract();
+          if (!ex) return;
+          while (shouldContinueDurableOcr(ex)) {
+            ex = await extract();
+            if (!ex) return;
           }
-          const status = (ex as any)?.extraction_status as string | undefined;
-          const len = Number((ex as any)?.text_length || 0);
+
+          const status = ex.extraction_status;
+          const len = Number(ex.text_length || 0);
           await loadDoc();
           if (status === "ocr_required") {
             toast.error("Нужен OCR / скан");
