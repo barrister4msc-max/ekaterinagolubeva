@@ -1,7 +1,7 @@
 import { extractExplicitLegalEntityInns, normalizeLegalEntityInn } from "./fns-company-factual-evidence.ts";
 
 type SbClient = {
-  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
+  rpc: (fn: string, args?: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message?: string } | null }>;
 };
 
 const REVEXP_DATASET_ID = "7707329152-revexp" as const;

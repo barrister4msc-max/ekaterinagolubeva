@@ -105,7 +105,7 @@ export function buildCanonicalConsumerParityObservation(input: {
 
 export interface CanonicalConsumerObservationInsertResult { readonly error?: unknown; }
 export interface CanonicalConsumerObservationInsertClient {
-  insertCanonicalConsumerObservation(record: CanonicalConsumerObservationRecord): Promise<CanonicalConsumerObservationInsertResult>;
+  insertCanonicalConsumerObservation(record: CanonicalConsumerObservationRecord): PromiseLike<CanonicalConsumerObservationInsertResult>;
 }
 export interface CanonicalConsumerObservationPersistenceLogger {
   info(message: string, details: Record<string, unknown>): void;

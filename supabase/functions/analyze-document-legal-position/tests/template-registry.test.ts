@@ -17,7 +17,7 @@ const activeTemplate: TemplateRegistryEntry = {
   metadata: {},
 };
 
-function client(result: { data: TemplateRegistryEntry | null; error: unknown | null }) {
+function client(result: { data: unknown; error: unknown | null }) {
   const calls: Array<[string, string?]> = [];
   return {
     calls,
@@ -47,6 +47,22 @@ describe("getTemplateByCode", () => {
     });
     expect(fake.calls[0]).toEqual(["from", "legal_document_templates"]);
     expect(fake.calls.at(-1)).toEqual(["code", activeTemplate.code]);
+  });
+
+  test("accepts a query-builder thenable without Promise catch/finally methods",async()=>{
+    const result={data:activeTemplate,error:null},promise=Promise.resolve(result);
+    const thenable={then:promise.then.bind(promise)};
+    const fake={from:()=>({select:()=>({eq:()=>({maybeSingle:()=>thenable})})})};
+    expect("catch" in thenable).toBe(false);
+    expect(await getTemplateByCode(fake,activeTemplate.code)).toEqual({status:"found",template:activeTemplate});
+  });
+
+  test("rejects malformed or mismatched registry rows without a type assertion",async()=>{
+    for(const data of [{code:activeTemplate.code}, {...activeTemplate,code:"other"}, {...activeTemplate,languages:null}]){
+      const result=await getTemplateByCode(client({data,error:null}),activeTemplate.code);
+      expect(result.status).toBe("error");
+      if(result.status==="error")expect((result.error as Error).message).toBe("invalid_template_registry_entry");
+    }
   });
 
   test("returns not_found only for a successful empty result", async () => {

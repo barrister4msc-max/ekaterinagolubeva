@@ -418,7 +418,7 @@ Deno.serve(async (req) => {
             company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
             company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
             company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
-            company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+            company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_evidence_matrix,
             company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
           } as any,
           problems: ["Нет прикрепленных документов или извлеченного текста"] as any,
@@ -444,7 +444,7 @@ Deno.serve(async (req) => {
             company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
             company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
             company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
-            company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+            company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_evidence_matrix,
             company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
             external_research: stagedExternalResearchSnapshot,
           bras_kad_browser_handoff: brasKadBrowserHandoff?.handoff ?? null,
@@ -541,7 +541,7 @@ Deno.serve(async (req) => {
           company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
           company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
           company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
-          company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+          company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_evidence_matrix,
           company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
           bras_kad_partner_shadow: brasKadShadow,
@@ -823,12 +823,12 @@ Deno.serve(async (req) => {
     };
     // P0-A12: DEBTAM identity/matrix persistence remains a separate factual channel.
     parsed.company_tax_debt_factual_evidence_matrix =
-      companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix;
+      companyTaxDebtFactualMatrix.company_tax_debt_evidence_matrix;
     parsed.company_tax_debt_factual_identity = {
       canonical_company_tax_debt_facts:
         companyTaxDebtFactualMatrix.canonical_company_tax_debt_facts,
       company_tax_debt_evidence_links:
-        companyTaxDebtFactualMatrix.company_tax_debt_evidence_links,
+        companyTaxDebtFactualMatrix.company_tax_debt_fact_evidence_links,
       diagnostics: companyTaxDebtFactualMatrix.diagnostics,
     };
     parsed.source_sufficiency = sufficiency;
@@ -938,7 +938,7 @@ Deno.serve(async (req) => {
           company_factual_dataset_diagnostics: companyFactualRuntime.dataset_diagnostics,
           company_factual_evidence_matrix: companyFactualMatrix.company_factual_evidence_matrix,
           company_factual_matrix_diagnostics: companyFactualMatrix.diagnostics,
-          company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_factual_evidence_matrix,
+          company_tax_debt_factual_evidence_matrix: companyTaxDebtFactualMatrix.company_tax_debt_evidence_matrix,
           company_tax_debt_factual_matrix_diagnostics: companyTaxDebtFactualMatrix.diagnostics,
           external_research: externalResearchRunSnapshot,
           ...parsed.research_summary,

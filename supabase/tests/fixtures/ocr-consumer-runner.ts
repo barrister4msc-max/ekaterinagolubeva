@@ -425,6 +425,10 @@ try {
       r = await invoke(name);
       assert.equal(r.status, 200, `${name} valid: ${JSON.stringify(r)}`);
       assert.equal(r.body.success, true);
+      if(name==="analyze-document-legal-position"){
+        assert.ok(Array.isArray(r.body.analysis.company_tax_debt_factual_evidence_matrix));
+        assert.ok(Array.isArray(r.body.analysis.company_tax_debt_factual_identity.company_tax_debt_evidence_links));
+      }
       assert.ok(models >= 1);
       assert.ok(
         !writes.some(
