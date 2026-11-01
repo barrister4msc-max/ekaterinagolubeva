@@ -1,6 +1,6 @@
 # E06 — temporary Preview acceptance for server-owned OCR
 
-Prepared 01.11.2026. This is a reviewable runbook, not authorization or evidence of a deployed runtime. No environment, migration, secret, scheduler or inference was created/run while preparing it.
+Prepared 01.11.2026. This is a reviewable runbook, not authorization or evidence of a deployed runtime. No remote Supabase environment, migration, secret, scheduler or inference was created/run while preparing it.
 
 ## Candidate and scope
 
