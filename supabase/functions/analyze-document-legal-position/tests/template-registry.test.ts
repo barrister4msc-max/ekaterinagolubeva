@@ -58,7 +58,7 @@ describe("getTemplateByCode", () => {
   });
 
   test("rejects malformed or mismatched registry rows without a type assertion",async()=>{
-    for(const data of [{code:activeTemplate.code}, {...activeTemplate,code:"other"}, {...activeTemplate,languages:null}]){
+    for(const data of [{code:activeTemplate.code}, {...activeTemplate,code:"other"}, {...activeTemplate,languages:null}, {...activeTemplate,complexity:{toString:()=>"expert"}}]){
       const result=await getTemplateByCode(client({data,error:null}),activeTemplate.code);
       expect(result.status).toBe("error");
       if(result.status==="error")expect((result.error as Error).message).toBe("invalid_template_registry_entry");

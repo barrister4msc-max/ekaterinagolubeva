@@ -42,7 +42,7 @@ function isTemplateRegistryEntry(value:unknown):value is TemplateRegistryEntry {
   const strings=(key:string)=>Array.isArray(row[key]) && row[key].every(v=>typeof v==="string");
   return ["code","title","category"].every(key=>typeof row[key]==="string") &&
     ["subcategory","practice_area","description"].every(nullableString) && strings("jurisdiction") && strings("languages") &&
-    ["basic","advanced","expert"].includes(String(row.complexity)) && typeof row.is_active==="boolean" && typeof row.requires_intake==="boolean" &&
+    typeof row.complexity==="string" && ["basic","advanced","expert"].includes(row.complexity) && typeof row.is_active==="boolean" && typeof row.requires_intake==="boolean" &&
     typeof row.sort_order==="number" && Number.isFinite(row.sort_order) && Boolean(row.metadata) && typeof row.metadata==="object" && !Array.isArray(row.metadata);
 }
 
