@@ -310,7 +310,15 @@ Deno.serve(async (req) => {
     let practiceArea: string | null = null;
     let templateTitle: string | null = null;
     if (session.template_code) {
-      const templateLookup = await getTemplateByCode(sb, session.template_code);
+      // Limit the structural SDK boundary to the awaited result. Comparing the
+      // entire generic PostgREST builder to the registry port recurses in TS6.
+      const registryClient={from:(relation:string)=>({select:(columns:string)=>({eq:(column:string,value:string)=>({
+        async maybeSingle():Promise<{data:unknown;error:unknown}>{
+          const {data,error}=await sb.from(relation).select(columns).eq(column,value).maybeSingle();
+          return {data,error};
+        },
+      })})})};
+      const templateLookup = await getTemplateByCode(registryClient, session.template_code);
       if (templateLookup.status === "found") {
         practiceArea = templateLookup.template.practice_area;
         templateTitle = templateLookup.template.title;

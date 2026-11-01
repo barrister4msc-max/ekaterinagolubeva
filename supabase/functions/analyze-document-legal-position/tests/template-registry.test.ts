@@ -100,7 +100,7 @@ describe("getTemplateByCode", () => {
 describe("Analyzer template-registry wiring", () => {
   test("uses the canonical adapter and preserves the document-intent fallback", async () => {
     const source = await Bun.file(new URL("../index.ts", import.meta.url)).text();
-    expect(source).toContain("getTemplateByCode(sb, session.template_code)");
+    expect(source).toContain("getTemplateByCode(registryClient, session.template_code)");
     expect(source).toContain(
       "resolveDocumentIntent(\n      session.template_code as string | null,\n      templateTitle,",
     );
