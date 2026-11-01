@@ -1,3 +1,4 @@
+import { createOcrConsumerAdmission, OcrSourceAdmissionError } from "../_shared/ocr-consumer-admission.ts";
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import {
@@ -10,7 +11,7 @@ import {
 } from "../_shared/legal-analysis/canonical-shadow-observer.ts";
 import { buildGeneratorPromptInputs } from "./conclusion-contract.ts";
 import { providerHttpFailure, safeRuntimeErrorCode } from "../_shared/ai-privacy-diagnostics.ts";
-import { evaluateFullCorpusAdmission } from "../_shared/full-corpus-admission.ts";
+import { evaluateFullCorpusAdmission, matchesFullCorpusAdmissionSnapshot } from "../_shared/full-corpus-admission.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -79,6 +80,8 @@ Deno.serve(async (req) => {
 
 const effectiveSessionId = intake_session_id || session_id || null;
 
+    let generationCorpus:any[]=[];
+    let generationCorpusAdmission:any=null;
     let validatedSession: Record<string, any> | null = null;
     if (effectiveSessionId) {
       const { data: session, error: sessionError } = await supabase
@@ -114,6 +117,7 @@ const effectiveSessionId = intake_session_id || session_id || null;
         .filter("metadata->>intake_session_id", "eq", effectiveSessionId);
       if (fullCorpusError) throw fullCorpusError;
       const corpusAdmission = await evaluateFullCorpusAdmission(fullCorpusDocuments ?? []);
+      generationCorpus=fullCorpusDocuments??[];generationCorpusAdmission=corpusAdmission;
       if ((fullCorpusDocuments ?? []).length > 0 && !corpusAdmission.allowed) {
         return json(
           {
@@ -128,6 +132,9 @@ const effectiveSessionId = intake_session_id || session_id || null;
       }
     }
 
+    const sourceAdmission=createOcrConsumerAdmission(supabase,user.id,effectiveSessionId,generationCorpus);
+    await sourceAdmission.check();
+
     if (legal_analysis && !legal_analysis_run_id) {
       return json({ success: false, error: "legal_analysis_run_id is required with legal_analysis" }, 400);
     }
@@ -139,7 +146,7 @@ const effectiveSessionId = intake_session_id || session_id || null;
     if (legal_analysis_run_id) {
       const { data: run, error: runError } = await supabase
         .from("document_intake_ai_runs")
-        .select("id,session_id,run_type,status,ai_result")
+        .select("id,session_id,run_type,status,ai_result,input_snapshot")
         .eq("id", legal_analysis_run_id)
         .eq("session_id", effectiveSessionId)
         .eq("run_type", "legal_analysis")
@@ -149,6 +156,11 @@ const effectiveSessionId = intake_session_id || session_id || null;
       if (runError) throw runError;
       if (!run || !run.ai_result || typeof run.ai_result !== "object") {
         return json({ success: false, error: "Accepted legal analysis run not found" }, 409);
+      }
+      const admittedAnalysis=(run.input_snapshot as any)?.full_corpus_admission;
+      if(sourceAdmission.managed || admittedAnalysis?.source_generation_required===true){
+        if(admittedAnalysis?.source_generation_required!==true || !generationCorpusAdmission ||
+          !matchesFullCorpusAdmissionSnapshot(admittedAnalysis,generationCorpusAdmission))throw new OcrSourceAdmissionError();
       }
       validatedLegalAnalysis = run.ai_result as Record<string, any>;
     }
@@ -776,7 +788,7 @@ and explain in "why_used" what must be checked manually.
 `;
   
 
-    const geminiResponse = await fetch(
+    const geminiResponse = await sourceAdmission.fetch()(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${geminiKey}`,
       {
         method: "POST",
@@ -799,6 +811,7 @@ and explain in "why_used" what must be checked manually.
     }
 
     const geminiJson = await geminiResponse.json();
+    await sourceAdmission.check();
     const raw = geminiJson?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     console.log("generate-legal-document response received", {
       provider: "gemini",
@@ -811,6 +824,7 @@ and explain in "why_used" what must be checked manually.
       generated.title ||
       `${template.title} — черновик`;
 
+    await sourceAdmission.check();
     const { data: inserted, error: insertError } = await supabase
       .from("generated_legal_documents")
       .insert({
@@ -826,6 +840,7 @@ and explain in "why_used" what must be checked manually.
 intake_session_id: effectiveSessionId,
 metadata: {
           source: "generate-legal-document-v2",
+          full_corpus_admission:generationCorpusAdmission,
           generation_mode,
           template_code,
           template,
@@ -1028,6 +1043,7 @@ const sourceRows = [
 ].filter((row) => row.source_title && row.source_title !== "[object Object]");
 
 if (sourceRows.length > 0) {
+  await sourceAdmission.check();
   const { error: sourcesError } = await supabase
     .from("generated_document_sources")
     .insert(
@@ -1054,6 +1070,7 @@ if (sourceRows.length > 0) {
   }
 }
     if (effectiveSessionId) {
+  await sourceAdmission.check();
   await supabase
     .from("document_intake_sessions")
     .update({
@@ -1066,7 +1083,7 @@ if (sourceRows.length > 0) {
         // Auto AI legal review (не блокирует генерацию)
     if (effectiveSessionId) {
   try {
-    const reviewResponse = await fetch(
+    const reviewResponse = await sourceAdmission.fetch()(
       `${supabaseUrl}/functions/v1/review-generated-legal-document`,
       {
         method: "POST",
@@ -1092,6 +1109,7 @@ if (sourceRows.length > 0) {
       console.log("Auto AI review completed:", inserted.id);
     }
   } catch (_reviewError) {
+    if(_reviewError instanceof OcrSourceAdmissionError)throw _reviewError;
     console.error("Auto AI review exception", { error_code: "review_request_failed" });
   }
 } else {
@@ -1107,6 +1125,7 @@ if (sourceRows.length > 0) {
       generated,
     });
   } catch (error) {
+    if(error instanceof OcrSourceAdmissionError)return json({success:false,error:error.code},error.code==="ocr_source_changed"?409:503);
     console.error("generate-legal-document failed", { error_code: safeRuntimeErrorCode(error) });
     return json({
       success: false,

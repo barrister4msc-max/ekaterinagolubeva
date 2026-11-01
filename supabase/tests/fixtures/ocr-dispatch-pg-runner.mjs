@@ -65,12 +65,13 @@ try {
   await admin.query(await readFile(new URL('../../migrations/20261031141704_e05_ocr_dispatch_release.sql',import.meta.url),'utf8'));
   await admin.query(await readFile(new URL('../../migrations/20261031144205_e05_ocr_enqueue_status.sql',import.meta.url),'utf8'));
   await admin.query(await readFile(new URL('../../migrations/20261031151327_e05_ocr_storage_generation.sql',import.meta.url),'utf8'));
+  await admin.query(await readFile(new URL('../../migrations/20261031154501_e05_ocr_consumer_admission.sql',import.meta.url),'utf8'));
   assert.deepEqual(await q('select status,checkpoint,invocation_count from document_ocr_jobs'),before);
   assert.equal((await state(99)).dispatch_enabled,false);
   await reset();
   for(const role of ['anon','authenticated']){
     await admin.query('set role '+role);
-    for(const sql of ['select kati_claim_next_reserved_ocr_job()','select kati_recover_expired_ocr_job(null)','select kati_release_reserved_ocr_job(null,null,null,null)','select kati_ocr_document_access(null,null,null)','select kati_read_ocr_storage_generation(null,null)',
+    for(const sql of ['select kati_claim_next_reserved_ocr_job()','select kati_recover_expired_ocr_job(null)','select kati_release_reserved_ocr_job(null,null,null,null)','select kati_ocr_document_access(null,null,null)','select kati_read_ocr_storage_generation(null,null)',"select kati_check_ocr_consumer_sources(null,null,'[]')",
       "select kati_control_document_ocr('status',null,null,null)"]){
       let code;try{await admin.query(sql);}catch(e){code=e.code;}assert.equal(code,'42501');
     }await admin.query('reset role');
@@ -207,9 +208,30 @@ try {
   assert.equal((await expiredFinish).persisted,false);
   assert.equal((await q('select ocr_text from documents where id=$1',[doc(77)]))[0].ocr_text,'');
   assert.equal((await state(77)).checkpoint.page_index.units[0].text,'accepted original');
+  // Managed consumer admission holds the same generation locks, detects
+  // exact representation/corpus changes, and returns only an allow/deny bit.
+  job=await freshScoped();assert.equal((await finish(pool[1],77,job)).persisted,true);
+  const consumerExpected=async()=> (await q(`select jsonb_build_array(jsonb_build_object('id',id,'managed',true,
+    'source',metadata->'ocr_source_fingerprint','extraction_status',metadata->'extraction_status',
+    'page_index_progress',metadata->'page_index_progress','representation_version','ocr_text_v1',
+    'representation_sha256',encode(sha256(convert_to(ocr_text,'UTF8')),'hex'))) e from documents where id=$1`,[doc(77)]))[0].e;
+  const expected=await consumerExpected();
+  const consumerCheck=async(c,inputs=expected)=>(await c.query('select kati_check_ocr_consumer_sources($1,$2,$3) r',[actor,session,JSON.stringify(inputs)])).rows[0].r;
+  assert.deepEqual(await consumerCheck(pool[1]),{allowed:true});
+  assert.deepEqual(await consumerCheck(pool[1],[]),{allowed:false});
+  await pool[0].query('begin');assert.equal((await consumerCheck(pool[0])).allowed,true);
+  const consumerWriter=pool[1].query("update storage.objects set version='generation-b'");await waitBlocked(pid1);
+  await pool[0].query('commit');await consumerWriter;
+  assert.deepEqual(await consumerCheck(pool[1]),{allowed:false});
+  job=await freshScoped();await finish(pool[1],77,job);const beforeRepresentation=await consumerExpected();
+  await admin.query("update documents set ocr_text='replaced original' where id=$1",[doc(77)]);
+  assert.equal((await consumerCheck(pool[1],beforeRepresentation)).allowed,false);
+  job=await freshScoped();await finish(pool[1],77,job);const beforeUpload=await consumerExpected();
+  await admin.query("insert into documents(id,ocr_text,metadata) values($1,'legacy text',$2)",[doc(78),{intake_session_id:session,extraction_status:'completed'}]);
+  assert.equal((await consumerCheck(pool[1],beforeUpload)).allowed,false);
   console.log(JSON.stringify({engine:(await q('show server_version'))[0].server_version,
     concurrent_sessions:20,global_cap:'passed',skip_locked:'passed',ordering:'passed',backoff:'passed',
-    expired_recovery:'passed',terminal_no_progress:'passed',stale_fence:'passed',kill_switch:'passed',role_isolation:'passed',preplan_release:'passed',enqueue_idempotency:'passed',scope_recheck:'passed',storage_generation_fence:'passed',storage_row_lock:'passed',lease_after_storage_wait:'passed'}));
+    expired_recovery:'passed',terminal_no_progress:'passed',stale_fence:'passed',kill_switch:'passed',role_isolation:'passed',preplan_release:'passed',enqueue_idempotency:'passed',scope_recheck:'passed',storage_generation_fence:'passed',storage_row_lock:'passed',lease_after_storage_wait:'passed',consumer_generation_admission:'passed',consumer_representation_fence:'passed',consumer_corpus_fence:'passed'}));
 } finally {
   await Promise.allSettled(clients.map(c=>c.end()));
 }

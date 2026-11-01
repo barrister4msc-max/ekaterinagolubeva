@@ -1,3 +1,4 @@
+import { createOcrConsumerAdmission, OcrSourceAdmissionError } from "../_shared/ocr-consumer-admission.ts";
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import {
@@ -20,6 +21,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let sourceFailureRun:{client:any;id:string}|null=null;
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -123,6 +125,9 @@ serve(async (req) => {
       );
     }
 
+    const sourceAdmission=createOcrConsumerAdmission(supabase,user.id,session_id,documents);
+    await sourceAdmission.check();
+
     const privacyDecision = resolveAiFillPrivacyDecision({
       authenticated: true,
       isAdmin: isAdmin === true,
@@ -222,6 +227,7 @@ serve(async (req) => {
         continue;
       }
 
+      await sourceAdmission.check();
       const { error } = await supabase.from("document_intake_answers").upsert(
         {
           session_id,
@@ -273,6 +279,7 @@ serve(async (req) => {
     }
 
     const aiFillRunId: string = runRow.id;
+    sourceFailureRun={client:supabase,id:aiFillRunId};
 
     const caseIntelligenceMatrix =
       ((session.metadata ?? {}) as Record<string, any>)?.case_intelligence_matrix ?? null;
@@ -281,6 +288,7 @@ serve(async (req) => {
     try {
       aiResult = await extractAnswersWithGemini({
         apiKey: geminiApiKey,
+        fetcher:sourceAdmission.fetch(),
         documentText: documentTextForAiFill,
         caseIntelligenceMatrix,
         fields,
@@ -291,7 +299,7 @@ serve(async (req) => {
         .from("document_intake_ai_runs")
         .update({
           status: "failed",
-          error_message: "provider_failed",
+          error_message: error instanceof OcrSourceAdmissionError ? error.code : "provider_failed",
           completed_at: new Date().toISOString(),
         })
         .eq("id", aiFillRunId);
@@ -299,6 +307,7 @@ serve(async (req) => {
     }
 
 
+    await sourceAdmission.check();
     const rawAnswers = Array.isArray(aiResult.answers) ? aiResult.answers : [];
 
     const answers = sanitizeAnswers(rawAnswers);
@@ -396,6 +405,7 @@ serve(async (req) => {
         continue;
       }
 
+      await sourceAdmission.check();
       await supabase.from("document_intake_answers").upsert(
         {
           session_id,
@@ -423,6 +433,7 @@ serve(async (req) => {
       inserted++;
     }
 
+    await sourceAdmission.check();
     await supabase
       .from("documents")
       .update({
@@ -434,6 +445,7 @@ serve(async (req) => {
       })
       .in("id", readyDocuments.map((item) => item.document.id));
 
+    await sourceAdmission.check();
     await supabase
       .from("document_intake_ai_runs")
       .update({
@@ -451,6 +463,7 @@ serve(async (req) => {
 
     const sessionMetadata = ((session.metadata ?? {}) as Record<string, unknown>) ?? {};
 
+    await sourceAdmission.check();
     await supabase
       .from("document_intake_sessions")
       .update({
@@ -484,6 +497,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
+    if(error instanceof OcrSourceAdmissionError){
+      if(sourceFailureRun)await sourceFailureRun.client.from("document_intake_ai_runs").update({status:"failed",error_message:error.code,completed_at:new Date().toISOString()}).eq("id",sourceFailureRun.id);
+      return json({success:false,error:error.code},error.code==="ocr_source_changed"?409:503);
+    }
     console.error("document-intake-ai-fill failed", {
       error_code: safeRuntimeErrorCode(error),
     });
@@ -523,7 +540,9 @@ async function extractAnswersWithGemini({
   caseIntelligenceMatrix,
   fields,
   templateCode,
+  fetcher=fetch,
 }: {
+  fetcher?:typeof fetch;
   apiKey: string;
   documentText: string;
   caseIntelligenceMatrix: any | null;
@@ -624,12 +643,12 @@ ${documentText.slice(0, 120000)}
 }
 `;
 
-  const models = await resolveGeminiModels(apiKey);
+  const models = await resolveGeminiModels(apiKey,fetcher);
 
   let lastError = "";
 
   for (const model of models) {
-    const response = await fetch(
+    const response = await fetcher(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: "POST",
@@ -687,7 +706,7 @@ ${documentText.slice(0, 120000)}
 
   throw new Error(lastError || "All Gemini models failed");
 }
-async function resolveGeminiModels(apiKey: string): Promise<string[]> {
+async function resolveGeminiModels(apiKey: string,fetcher:typeof fetch=fetch): Promise<string[]> {
   const fallbackModels = [
     "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
@@ -695,7 +714,7 @@ async function resolveGeminiModels(apiKey: string): Promise<string[]> {
   ];
 
   try {
-    const response = await fetch(
+    const response = await fetcher(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
     );
 
@@ -723,7 +742,8 @@ async function resolveGeminiModels(apiKey: string): Promise<string[]> {
     // available model: that could introduce more expensive or incompatible
     // models into a routine intake fill.
     return ordered.length > 0 ? ordered : fallbackModels;
-  } catch {
+  } catch(error) {
+    if(error instanceof OcrSourceAdmissionError)throw error;
     return fallbackModels;
   }
 }
