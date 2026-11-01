@@ -1,3 +1,4 @@
+import { OcrSourceAdmissionError } from "../_shared/ocr-consumer-admission.ts";
 // Phase A — AI Challenge / Critical Review pass.
 // Second LLM pass INSIDE analyze-document-legal-position (no new edge function).
 // Receives the first-pass analysis + trusted sources + conclusions and must
@@ -55,6 +56,7 @@ const EMPTY_RESULT: ChallengeResult = {
 };
 
 export async function runChallenge(opts: {
+  fetcher?:typeof fetch;
   parsed: any;
   trusted: TrustedSource[];
   conclusions: Conclusion[];
@@ -149,6 +151,7 @@ export async function runChallenge(opts: {
       const prompt = buildChallengePrompt(opts);
       const { text } = await callGeminiWithFallback(prompt, {
         models: FLASH_GEMINI_MODELS,
+        fetcher:opts.fetcher,
         temperature: 0.15,
         maxOutputTokens: 2048,
         responseMimeType: "application/json",
@@ -174,6 +177,7 @@ export async function runChallenge(opts: {
         }
       }
     } catch (e) {
+      if(e instanceof OcrSourceAdmissionError)throw e;
       executionStatus = "failed";
       console.warn("[challenge] LLM pass failed:", (e as Error).message);
     }

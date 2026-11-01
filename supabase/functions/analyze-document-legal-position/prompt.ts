@@ -229,9 +229,10 @@ import {
 
 // Backwards-compatible wrapper: now uses cross-model fallback under the hood.
 // Order: gemini-2.5-pro → 2.5-flash → 2.0-flash → 1.5-pro → 1.5-flash.
-export async function callGeminiPro(prompt: string): Promise<GeminiCallResult> {
+export async function callGeminiPro(prompt: string,fetcher?:typeof fetch): Promise<GeminiCallResult> {
   return await callGeminiWithFallback(prompt, {
     models: FULL_GEMINI_MODELS,
+    fetcher,
     temperature: 0.2,
     maxOutputTokens: 16384,
     responseMimeType: "application/json",

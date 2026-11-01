@@ -23,6 +23,7 @@ export type FullCorpusAdmission = {
   version: "13L-1B";
   fingerprint: string;
   document_ids: string[];
+  source_generation_required?:true;
   blocked_document_count: number;
   block_reasons: FullCorpusBlockReason[];
 };
@@ -96,6 +97,13 @@ function reasonFor(document: FullCorpusDocument): FullCorpusBlockReason | null {
  * representation, and its extraction/page state. It never includes document
  * content or a human-readable filename.
  */
+function managedSourceIdentity(document:FullCorpusDocument):unknown {
+  const meta=record(document.metadata),source=record(meta.ocr_source_fingerprint),generation=record(source.generation);
+  if(meta.ocr_execution_owner!=="server" && !Object.hasOwn(meta,"ocr_source_fingerprint"))return null;
+  return [meta.ocr_execution_owner??null,source.version??null,source.bucket??null,source.storage_path??null,
+    source.sha256??null,source.byte_length??null,generation.object_id??null,generation.version??null];
+}
+
 export async function buildFullCorpusFingerprint(documents: readonly FullCorpusDocument[]): Promise<string> {
   const identities = await Promise.all(documents.map(async (document) => {
     const representation = representationOf(document);
@@ -106,6 +114,7 @@ export async function buildFullCorpusFingerprint(documents: readonly FullCorpusD
       textLengthOf(document),
       await sha256Hex(representation.text),
       pageIndexSignature(document),
+      ...(managedSourceIdentity(document)!==null?[await sha256Hex(JSON.stringify(managedSourceIdentity(document)))]:[]),
     ].join(":");
   }));
   return identities.sort().join("|");
@@ -121,6 +130,7 @@ export async function evaluateFullCorpusAdmission(
   return {
     allowed: blocked.length === 0,
     version: "13L-1B",
+    ...(documents.some(d=>managedSourceIdentity(d)!==null)?{source_generation_required:true as const}:{}),
     fingerprint: await buildFullCorpusFingerprint(documents),
     document_ids: documents.map((document) => document.id).sort(),
     blocked_document_count: blocked.length,
@@ -137,8 +147,12 @@ export function matchesFullCorpusAdmissionSnapshot(
   admitted: FullCorpusAdmission,
   consumed: FullCorpusAdmission,
 ): boolean {
-  return admitted.allowed
-    && consumed.allowed
+  return admitted?.allowed === true
+    && consumed?.allowed === true
+    && typeof admitted.fingerprint === "string"
+    && typeof consumed.fingerprint === "string"
+    && Array.isArray(admitted.document_ids)
+    && Array.isArray(consumed.document_ids)
     && admitted.fingerprint === consumed.fingerprint
     && admitted.document_ids.length === consumed.document_ids.length
     && admitted.document_ids.every((documentId, index) => documentId === consumed.document_ids[index]);

@@ -1,3 +1,4 @@
+import { createOcrConsumerAdmission, OcrSourceAdmissionError } from "../_shared/ocr-consumer-admission.ts";
 // Legal Research Engine — orchestrator (Stage 2).
 // Pipeline:
 //   load → classify docs → FactExtraction → Repositories → Ranking → Dedupe
@@ -226,6 +227,9 @@ Deno.serve(async (req) => {
         409,
       );
     }
+    const sourceAdmission=createOcrConsumerAdmission(sb,authResult.userId,sessionId,fullCorpusDocuments??[]);
+    await sourceAdmission.check();
+
     if ((fullCorpusDocuments ?? []).length > MAX_ANALYSIS_CORPUS_DOCUMENTS) {
       const message = "Пакет превышает безопасный лимит полного правового анализа; документы не были частично обработаны.";
       await sb
@@ -465,8 +469,9 @@ Deno.serve(async (req) => {
       practiceArea,
       answers,
       documents: docsForExtraction,
+      fetcher:sourceAdmission.fetch(),
     });
-    const queryEmbedding = await embedQuery(queryToSearchString(researchQuery));
+    const queryEmbedding = await embedQuery(queryToSearchString(researchQuery),sourceAdmission.fetch());
 
     // Layer 2: Repositories + discovery-only External Legal Research Import.
     const { sources: repositorySources, counts, researchPlan } = await runAllRepositories(
@@ -598,7 +603,8 @@ Deno.serve(async (req) => {
       model,
       attempts: modelAttempts,
       fallback_used,
-    } = await callGeminiPro(prompt);
+    } = await callGeminiPro(prompt,sourceAdmission.fetch());
+    await sourceAdmission.check();
     lastRawResponse = rawResponse ?? "";
     lastModel = model ?? MODEL_NAME;
 
@@ -699,6 +705,7 @@ Deno.serve(async (req) => {
 
     // Layer 8: AI CHALLENGE / critical review pass (second LLM, cheap flash).
     const challengeResult = await runChallenge({
+      fetcher:sourceAdmission.fetch(),
       parsed,
       trusted,
       conclusions: validatedConclusions,
@@ -896,6 +903,7 @@ Deno.serve(async (req) => {
       trustedSources: parsed.trusted_sources,
     });
 
+    await sourceAdmission.check();
     const { error: updErr } = await sb
       .from("document_intake_ai_runs")
       .update({
@@ -914,6 +922,7 @@ Deno.serve(async (req) => {
           : (parsed.generation_instructions ?? [])) as any,
         problems: (parsed.weak_points ?? []) as any,
         input_snapshot: {
+          full_corpus_admission:corpusAdmission,
           template_code: session.template_code,
           practice_area: practiceArea,
           answers_count: Object.keys(answers).length,
@@ -958,6 +967,10 @@ Deno.serve(async (req) => {
 
     return json({ success: true, run_id: runId, analysis: parsed, metrics });
   } catch (e) {
+    if(e instanceof OcrSourceAdmissionError){
+      await sb.from("document_intake_ai_runs").update({status:"failed",completed_at:new Date().toISOString(),error_message:e.code,needs_lawyer_review:true}).eq("id",runId);
+      return json({success:false,run_id:runId,error:e.code},e.code==="ocr_source_changed"?409:503);
+    }
     const msg = (e as Error).message ?? String(e);
 
     if (e instanceof AllModelsFailedError) {

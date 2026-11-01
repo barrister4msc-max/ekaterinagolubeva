@@ -1,3 +1,4 @@
+import { OcrSourceAdmissionError } from "../_shared/ocr-consumer-admission.ts";
 // Layer 1: Fact Extraction — OCR + answers → ResearchQuery (+ optional query embedding)
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
@@ -156,17 +157,19 @@ import { callGeminiWithFallback, FLASH_GEMINI_MODELS } from "./gemini-fallback.t
 import { normalizeTemporalDate } from "./temporal-date.ts";
 import { parseFailure, providerException } from "../_shared/ai-privacy-diagnostics.ts";
 
-async function callFlashViaGemini(prompt: string): Promise<string | null> {
+async function callFlashViaGemini(prompt: string,fetcher?:typeof fetch): Promise<string | null> {
   if (!GEMINI_API_KEY) return null;
   try {
     const { text } = await callGeminiWithFallback(prompt, {
       models: FLASH_GEMINI_MODELS,
+      fetcher,
       temperature: 0.1,
       maxOutputTokens: 4096,
       responseMimeType: "application/json",
     });
     return text || null;
-  } catch {
+  } catch(error) {
+    if(error instanceof OcrSourceAdmissionError)throw error;
     console.error("[fact-extraction] gemini fallback exhausted", {
       error_code: "provider_exception",
       provider: "gemini",
@@ -176,6 +179,7 @@ async function callFlashViaGemini(prompt: string): Promise<string | null> {
 }
 
 export async function extractFacts(input: {
+  fetcher?:typeof fetch;
   templateCode: string;
   practiceArea: string | null;
   answers: Record<string, unknown>;
@@ -251,7 +255,7 @@ ${docsBlock || "(нет документов)"}
 - Можно расширять поиск по контексту и смыслу, но нельзя переносить поисковую гипотезу в facts.
 - Никаких выдумок в facts/requisites. Если установленного факта нет — не добавляй его как факт.`;
 
-  const raw = await callFlashViaGemini(prompt);
+  const raw = await callFlashViaGemini(prompt,input.fetcher);
 
   let llmQuery: Partial<ResearchQuery> = {};
   if (raw) {
@@ -343,10 +347,10 @@ export function queryToSearchString(q: ResearchQuery): string {
     .join(". ");
 }
 
-export async function embedQuery(text: string): Promise<number[] | null> {
+export async function embedQuery(text: string,fetcher:typeof fetch=fetch): Promise<number[] | null> {
   if (!GEMINI_API_KEY || !text.trim()) return null;
   try {
-    const res = await fetch(
+    const res = await fetcher(
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent",
       {
         method: "POST",
@@ -371,7 +375,8 @@ export async function embedQuery(text: string): Promise<number[] | null> {
     const data = await res.json();
     const embedding = data?.embedding?.values;
     return Array.isArray(embedding) && embedding.length === 1536 ? embedding : null;
-  } catch {
+  } catch(error) {
+    if(error instanceof OcrSourceAdmissionError)throw error;
     console.error("[fact-extraction] Gemini embedding exception", providerException("gemini-embedding-001"));
     return null;
   }

@@ -1,3 +1,4 @@
+import { OcrSourceAdmissionError } from "../_shared/ocr-consumer-admission.ts";
 // Gemini call with cross-model fallback.
 // Retries on 429/500/502/503/504 by trying the next model.
 // Fails fast on 400/401/403.
@@ -63,6 +64,7 @@ export class FatalGeminiError extends Error {
 export async function callGeminiWithFallback(
   prompt: string,
   options?: {
+    fetcher?:typeof fetch;
     models?: string[];
     maxOutputTokens?: number;
     temperature?: number;
@@ -80,7 +82,7 @@ export async function callGeminiWithFallback(
     const model = models[i];
     try {
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${KEY}`;
-      const res = await fetch(url, {
+      const res = await (options?.fetcher??fetch)(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -117,7 +119,7 @@ export async function callGeminiWithFallback(
       }
       // else continue to next model
     } catch (e) {
-      if (e instanceof FatalGeminiError) throw e;
+      if (e instanceof FatalGeminiError || e instanceof OcrSourceAdmissionError) throw e;
       const diagnostic = providerException(model);
       attempts.push({ model, status: "exception", error: diagnostic.error_code });
       lastError = diagnostic.error_code;
