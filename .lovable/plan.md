@@ -3,6 +3,8 @@
 Единственный действующий control plane: [MASTER_EXECUTION_STATE](../docs/execution/MASTER_EXECUTION_STATE.md).
 Target: Master v5.6.2 от 03.10.2026; фактический статус подтверждают GitHub и runtime.
 
+01.11 latest: [E06 SQL checkpoint](../docs/execution/E06_20261101_PREVIEW_SQL_CHECKPOINT.md). В единственном временном Preview применены восемь E05 sources, проверены RLS/ACL и 14 реальных отказов private RPC. Автоматический legacy replay потребовал baseline/schema-only prerequisites; полный replay не принят. Edge deploy заблокирован automatic approval review из-за неотменённого Draft-only/no-deploy ограничения. Preview удалён, inventory содержит только Production; live inference/flags/secrets/cron не запускались. Следующий gate — явное разрешение deploy шести функций только во временный Preview, затем оставшиеся E06 сценарии в разрешённом scope. Runtime E06/E07 не закрыты.
+
 Проверенная база: `79ed884208b11e990551319e21ef7b0060e14fd4`, 29.10.2026.
 E01 privacy (#204) и reconciliation (#205) merged/deployed; три Preview и Q0 удалены после проверенного backup. Production продолжает использовать `wiylzbdbjokignwvizxt`.
 
