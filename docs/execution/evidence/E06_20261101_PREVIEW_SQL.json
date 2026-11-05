@@ -1,0 +1,501 @@
+{
+  "date": "2026-11-01",
+  "candidate": {
+    "remote_commit": "e43dfd1d077dba86a7e731d504eb993e7e5f5fa1",
+    "tree": "06ab5405e44e0ac7c1445574bb04e7c4eb3c80ef",
+    "pr": 219,
+    "ci": 41327213723
+  },
+  "preview": {
+    "branch_id": "07c31e8d-cba3-4830-b4b3-097d8657f701",
+    "ref": "ojdwkplmdxbzywhpfkdb",
+    "created_at": "2026-11-01T16:48:50.194529Z",
+    "name": "e06-ocr-20261101-temporary",
+    "production_mutated": false
+  },
+  "baseline": {
+    "sha256": "119474aec2489f0b83c2071eedc80b1b2cbbe69c2469a29aaf1677a28e356e47",
+    "legacy_replay_status": "MIGRATIONS_FAILED after five original migrations",
+    "reset": "empty disposable public schema only",
+    "role": "kati_internal_kb_writer NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS",
+    "omitted_production_data_repair": "20260914160000_guarded_user_supplied_canonical_identity; schema index retained; original not recorded as applied"
+  },
+  "sources": [
+    {
+      "name": "20260815093501_rename_tax_court_flagship_title",
+      "sha256": "da5e774ad4bf2a162b6dbe0088566f5341ad13ea7e71e264ed41bf057707fd3c"
+    },
+    {
+      "name": "20260815124500_retire_additional_control_objections",
+      "sha256": "d65f9fd66e04c7b7bc91cacbd277835d77701cbfc11a9c581bd50979df78f875"
+    },
+    {
+      "name": "20260816140000_pr27_tax_intake_company_fields",
+      "sha256": "64f817cd1785313bbfaa27c28d0123531d529aa3feb244a33f4f4b173a11e0cf"
+    },
+    {
+      "name": "20260818133000_law7_mirror_poc",
+      "sha256": "2cd7c99e8c6a02e36c3329e86f0af83f1f092d87700aa15151defcef720f296f"
+    },
+    {
+      "name": "20260818152000_law7_mirror_temporal_fail_closed",
+      "sha256": "c76a21d2cccdacf74ad8194fecd3bfc9d7a05c5d5d9c1155c79e958eea4a9b67"
+    },
+    {
+      "name": "20260818173000_law7_article_temporal_verifications",
+      "sha256": "01d9eceb3ded1a31b0176d37fd3ab7691ef031186c86694e9fd55069b55192fa"
+    },
+    {
+      "name": "20260818203000_source_freshness_change_signal_contract",
+      "sha256": "afaaf06f3096035c28e3141ac7cee646ac185cff6695db57828da0250a575a6c"
+    },
+    {
+      "name": "20260819223000_register_interim_legal_research_sources",
+      "sha256": "84f556df0b04558aa664ed4e587bffe9a091a429e34eadf2c03ec359cda5ca60"
+    },
+    {
+      "name": "20260820133000_p0a_source_family_catalog",
+      "sha256": "1e8b51a789feb6988a5690eaf11f9a71a849ae8d7fc074a03185707cf1ef91d5"
+    },
+    {
+      "name": "20260820173000_fns_open_data_snr_company_facts",
+      "sha256": "73bcb2fa390812b2ddc58c83d4a6dc94b4c9ffad8e108ec46156fd61beacbdb8"
+    },
+    {
+      "name": "20260820214000_fns_open_data_debtam_company_facts",
+      "sha256": "ed59081883ab194814c3cd2ecfa230e6581034fa556a868b706294b7281ff169",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260821001000_fns_open_data_debtam_text_rpc",
+      "sha256": "8831987363941e17b4d5747f81a6cbeef54525e681bb3f5bae3147a24acd5c56",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260821103000_fns_open_data_revexp_company_facts",
+      "sha256": "dc9d768f379d34fbb83842d4d4b3003def417fb959fa71917bc75905a795dec3",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260821190000_fns_open_data_sshr2019_company_facts",
+      "sha256": "645c0d2ce49463aaad9d473f60daab0ae24bde16d4619dcc2f7ef71369fe1f49",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260823090000_fns_open_data_taxoffence_company_facts",
+      "sha256": "1a62aa7b3bdded591fbc3ea3ce2d29ba345b05a36f14ee297c9882c4efb94c49",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260825220000_fns_factual_storage_rls_hardening",
+      "sha256": "a63b62a97ad8321d446fd6d8078eab10d7c4a86f3a5fe79654604668097e6fa5",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260826090000_production_migration_replay_probe",
+      "sha256": "7755bb77d3d9f0046d953199c890d220935cd27614b496c91c6f3bb4c0e5f907",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260828210000_p1b1_private_model_shadow_store",
+      "sha256": "a816f7e5f8d54ee0fa352ea34894784d91a4bda203538ca2ea9e2fa6aba85e92",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260828223000_p1b1_shadow_store_retry_safe",
+      "sha256": "b050d5d70ba02441d2bd79bb266c85323aaae1ea2b44ea05855ba862cde1fc8c",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260909120000_law7_mirror_rls_hardening",
+      "sha256": "804e799c60c92afa64bad13416154ff7bd7bef18018c73af209177b4f7cb9b20",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260914095322_grant_guarded_intake_writer_knowledge_chunks",
+      "sha256": "d53e4f2d431af1fb00f758b1ca60557a65977a38bab934be6ecc7539b3961bc3",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260914100800_allow_guarded_embedding_writer_updates",
+      "sha256": "491b7e29ebf2910d2c521f7807db7052ebd36e1bd3c27be83e49e5a4b8ce10d5",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260914153000_legal_source_verification_audit_rpc",
+      "sha256": "83540bb5ec223bb8fa4b96fc4b6a0c6e3bf7a3e6f6e91f1004d25a36c6aca1b8",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260914154500_fix_legal_source_verification_audit_rpc",
+      "sha256": "4fc1d2601918c6651f42b4721f6fa98d3033c0f8162dc02247c5e30539a49869",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260914160000_guarded_user_supplied_canonical_identity",
+      "sha256": "1ce0b020fd4b042c2a206f150d133e9a0ecfb512bd77218b5dbc2a05686e04de",
+      "receipt": "e06_empty_preview_schema_dependencies",
+      "status": "index_only_data_repair_not_applicable"
+    },
+    {
+      "name": "20260914183000_guarded_official_origin_observation_rpc",
+      "sha256": "3a3956853436e5684476fd4b61bc578de404bd1c82e48654248d56799406e9f6",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260914210000_fix_guarded_official_origin_rpc_count",
+      "sha256": "e8da5601db89255fb23c275a4f6337ae06ec9ee4e115107d1916907dfc4ffbd4",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260914220000_legacy_legal_source_content_read_rpc",
+      "sha256": "4ab38b876dec50043411fde8ce8ba791af824321b7af1b9d48cf2169933e6c31",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260914230000_fix_legacy_content_read_rpc_hash_and_grants",
+      "sha256": "31672af430fad2b5a4e13811857600f9165099d91394783197119ee23c759b5b",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260914240000_expose_legacy_chunk_order",
+      "sha256": "37b3dca786866dffb4db0006fa9abbea342cbbe8f36a77e82f40d68b2a0b2229",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260916181519_expose_legacy_verification_metadata",
+      "sha256": "0747dc0608917d09b68ce699a086ecee0f531346b5e92da552e97d5d5f81f752",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260917220605_guarded_legacy_legal_source_repair_rpc",
+      "sha256": "aba5e45cea78540c00d59fdc24be355bb5c9e346682354ac56f505917be0c13d",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260919100000_fix_guarded_legacy_repair_legacy_counts",
+      "sha256": "b3f79f4718578f825c437a95f3ddea0e6feaa2808d32199355c5412c757b26a8",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260920075803_revoke_guarded_official_origin_rpc_public_execute",
+      "sha256": "87979b158e98c70073c67e67830b73ed2f465e85b53e53579da3061968549cc0",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260920120000_pin_vas53_rederived_ocr_contract",
+      "sha256": "2132ab51d6e61005f432452a5be51df991460de2cd5a67ead260a6ef3650fe87",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260922120000_stage13l2b_durable_ocr_jobs",
+      "sha256": "a400f2b55ab12562df0c4573c8587d93b6b41b7308996fd3c4fa8c6de96c85df",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20260922120554_fix_stage13l2b_lease_counter",
+      "sha256": "d3cd93b05d248b97d46a05924d27fe56860222e75c4a19f6cc0c1c056565529d",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20261028163542_reconcile_canonical_shadow_tables",
+      "sha256": "00e1b61b2e523024a168d134b47120ef711dda47e322e428195620acc008d0d3",
+      "receipt": "e06_empty_preview_schema_dependencies"
+    },
+    {
+      "name": "20261029151613_e05_ocr_attempt_reservations",
+      "sha256": "7cc75b50f60f339e2cbf5b87a8ce30dc440b1235b3ff5e1cd9e2d3b645a4e553",
+      "receipt": "e06_e05_ocr_candidate_chain"
+    },
+    {
+      "name": "20261029190337_e05_reserved_ocr_runtime",
+      "sha256": "00ccaecccb970e4775d33c42f2941b04c86ddccff6b5661296de59f7e29ee566",
+      "receipt": "e06_e05_ocr_candidate_chain"
+    },
+    {
+      "name": "20261031134647_e05_ocr_source_fingerprint",
+      "sha256": "f8acc2645e8d8589f65b0b84de9d19c7c957b2117493623c7c6013aa448bd017",
+      "receipt": "e06_e05_ocr_candidate_chain"
+    },
+    {
+      "name": "20261031135820_e05_ocr_dispatch_claims",
+      "sha256": "7e3a000174d830a05d5e37b93cdf4d469b70ef24e22c5ce110600bb76919b5cf",
+      "receipt": "e06_e05_ocr_candidate_chain"
+    },
+    {
+      "name": "20261031141704_e05_ocr_dispatch_release",
+      "sha256": "44f7e26b61b186807dfa70546ef6d78bb34d6f045dd52bdfac8da486dade3d30",
+      "receipt": "e06_e05_ocr_candidate_chain"
+    },
+    {
+      "name": "20261031144205_e05_ocr_enqueue_status",
+      "sha256": "ec34f367992cf4fd1a0294fb95304edc1f30064b20ffb21507c6de6a1ad95e24",
+      "receipt": "e06_e05_ocr_candidate_chain"
+    },
+    {
+      "name": "20261031151327_e05_ocr_storage_generation",
+      "sha256": "4e0af016b0f6279a1b3eec3c0b0f3f924ab025a0a8c1b7772c551ebb5f473ce6",
+      "receipt": "e06_e05_ocr_candidate_chain"
+    },
+    {
+      "name": "20261031154501_e05_ocr_consumer_admission",
+      "sha256": "81fa92c2a716fc458d3d75b015c75c08fb111154a0c263826a072c17a46e558d",
+      "receipt": "e06_e05_ocr_candidate_chain"
+    }
+  ],
+  "catalog": {
+    "counts": {
+      "jobs": 0,
+      "users": 0,
+      "objects": 0,
+      "documents": 0
+    },
+    "ledger": {
+      "rls": true,
+      "owner": "postgres"
+    },
+    "ocr_functions": [
+      {
+        "anon": false,
+        "args": "p_actor_id uuid, p_session_id uuid, p_expected jsonb",
+        "name": "kati_check_ocr_consumer_sources",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_document_id uuid, p_lease_seconds integer",
+        "name": "kati_claim_document_ocr_job",
+        "definer": true,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_lease_seconds integer",
+        "name": "kati_claim_next_reserved_ocr_job",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_document_id uuid, p_lease_seconds integer",
+        "name": "kati_claim_reserved_document_ocr_job",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_action text, p_actor_id uuid, p_session_id uuid, p_document_id uuid, p_source jsonb, p_direct_text text",
+        "name": "kati_control_document_ocr",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_document_id uuid, p_job_id uuid, p_lease_token uuid, p_page_count integer",
+        "name": "kati_finish_reserved_document_ocr_wave",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_document_id uuid, p_job_id uuid, p_lease_token uuid, p_source jsonb, p_bind boolean",
+        "name": "kati_guard_reserved_ocr_source",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_actor_id uuid, p_session_id uuid, p_document_id uuid",
+        "name": "kati_ocr_document_access",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_document_id uuid, p_job_id uuid, p_lease_token uuid, p_job_status text, p_checkpoint jsonb, p_metadata_patch jsonb, p_ocr_text text, p_analysis_status text, p_review_status text, p_last_error_code text",
+        "name": "kati_persist_document_ocr_checkpoint",
+        "definer": true,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_bucket text, p_storage_path text",
+        "name": "kati_read_ocr_storage_generation",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_job_id uuid",
+        "name": "kati_recover_expired_ocr_job",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_document_id uuid, p_job_id uuid, p_lease_token uuid, p_reason text",
+        "name": "kati_release_reserved_ocr_job",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_document_id uuid, p_job_id uuid, p_lease_token uuid, p_page_count integer, p_unit_start integer, p_unit_end integer",
+        "name": "kati_reserve_document_ocr_unit",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "args": "p_document_id uuid, p_job_id uuid, p_lease_token uuid, p_unit_start integer, p_reservation_id uuid, p_text text, p_error_code text",
+        "name": "kati_settle_document_ocr_unit",
+        "definer": false,
+        "service": true,
+        "authenticated": false
+      }
+    ],
+    "private_buckets": [
+      {
+        "id": "communication-attachments",
+        "public": false
+      },
+      {
+        "id": "hero",
+        "public": true
+      },
+      {
+        "id": "lead-documents",
+        "public": false
+      }
+    ],
+    "storage_columns": [
+      "id",
+      "bucket_id",
+      "name",
+      "owner",
+      "created_at",
+      "updated_at",
+      "last_accessed_at",
+      "metadata",
+      "path_tokens",
+      "version",
+      "owner_id",
+      "user_metadata",
+      "archived_at",
+      "is_delete_marker",
+      "is_versioned"
+    ]
+  },
+  "security_advisors": [
+    {
+      "name": "rls_enabled_no_policy",
+      "level": "INFO",
+      "count": 15,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy"
+    },
+    {
+      "name": "extension_in_public",
+      "level": "WARN",
+      "count": 1,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0014_extension_in_public"
+    },
+    {
+      "name": "authenticated_security_definer_function_executable",
+      "level": "WARN",
+      "count": 4,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable"
+    }
+  ],
+  "performance_advisors": [
+    {
+      "name": "unindexed_foreign_keys",
+      "level": "INFO",
+      "count": 52,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys"
+    },
+    {
+      "name": "auth_rls_initplan",
+      "level": "WARN",
+      "count": 127,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0003_auth_rls_initplan"
+    },
+    {
+      "name": "unused_index",
+      "level": "INFO",
+      "count": 247,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index"
+    },
+    {
+      "name": "multiple_permissive_policies",
+      "level": "WARN",
+      "count": 26,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0006_multiple_permissive_policies"
+    },
+    {
+      "name": "duplicate_index",
+      "level": "WARN",
+      "count": 9,
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0009_duplicate_index"
+    },
+    {
+      "name": "auth_db_connections_absolute",
+      "level": "INFO",
+      "count": 1,
+      "remediation": "https://supabase.com/docs/guides/deployment/going-into-prod"
+    }
+  ],
+  "execution_probes": {
+    "jobs": 0,
+    "actors": 0,
+    "objects": 0,
+    "documents": 0,
+    "empty_claim": true,
+    "private_rpc_denials": 14,
+    "invalid_scope_denied": true,
+    "public_bucket_denied": true,
+    "invalid_control_denied": true,
+    "invalid_consumer_denied": true,
+    "missing_private_object_denied": true
+  },
+  "edge": {
+    "deployments_completed": 0,
+    "blocked_by": "automatic approval review",
+    "reason": "Draft-only/no-deploy authorization not explicitly overridden for deployment with verify_jwt=false",
+    "function_inventory": "Excluded as Preview proof: returned parent-linked function metadata",
+    "http_runtime": "not accepted"
+  },
+  "inference": {
+    "calls": 0,
+    "cron_configured": false,
+    "temporary_auth_actors_created": 0,
+    "synthetic_storage_objects_created": 0,
+    "provider_credentials_configured_by_this_run": false,
+    "backend_flags_modified_by_this_run": false
+  },
+  "acceptance": "SQL/catalog/negative-RPC evidence only; E06 runtime acceptance remains open",
+  "cleanup": {
+    "status": "deleted",
+    "verified_at": "2026-11-01T17:00:01Z",
+    "inventory": [
+      {
+        "name": "main",
+        "ref": "wiylzbdbjokignwvizxt",
+        "is_default": true
+      }
+    ]
+  }
+}

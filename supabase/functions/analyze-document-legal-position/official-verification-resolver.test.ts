@@ -158,4 +158,13 @@ describe("Pravo ↔ Law7 deterministic official verification", () => {
     expect(applied.metadata.actuality_status).toBe("verified");
     expect(applied.metadata.substantive_use_allowed).toBe(true);
   });
+  test("nullable and unrelated observations cannot contaminate one exact verified match",()=>{
+    const valid=pravo(observation());
+    const malformed={...pravo(null),metadata:{...valid.metadata,content_observation:{...observation(),article_text:null}}};
+    const unrelated=pravo(observation({article:"99"}));
+    const result=resolveLaw7OfficialVerification(law7(),[pravo(null),malformed,unrelated,valid]);
+    expect(result.status).toBe("verified");expect(result.official_source_id).toBe(valid.source_id);
+    expect(resolveLaw7OfficialVerification(law7(),[malformed]).substantive_use_allowed).toBe(false);
+  });
+
 });

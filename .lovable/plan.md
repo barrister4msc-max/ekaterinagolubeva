@@ -3,6 +3,8 @@
 Единственный действующий control plane: [MASTER_EXECUTION_STATE](../docs/execution/MASTER_EXECUTION_STATE.md).
 Target: Master v5.6.2 от 03.10.2026; фактический статус подтверждают GitHub и runtime.
 
+05.11 latest: [E06 Edge smoke checkpoint](../docs/execution/E06_20261105_PREVIEW_EDGE_SMOKE.md). По явному разрешению пользователя шесть функций #219 развёрнуты только во временном Preview: все 121 file instances совпали с candidate, 20 hosted HTTP cases (401/CORS/405) прошли, model calls ноль. Preview удалён; Production versions/hashes не изменились. Automatic approval review отклонила DB reset/broad bootstrap как действие вне function-deploy scope; DDL не применялся. SQL checkpoint 01.11 относится к другому удалённому Preview и не закрывает integrated E06. Следующий gate — отдельно разрешённые schema/bootstrap и положительные Auth/Storage/PDF scenarios, затем разрешённый OCR/scheduler scope. E06/E07 открыты.
+
 Проверенная база: `79ed884208b11e990551319e21ef7b0060e14fd4`, 29.10.2026.
 E01 privacy (#204) и reconciliation (#205) merged/deployed; три Preview и Q0 удалены после проверенного backup. Production продолжает использовать `wiylzbdbjokignwvizxt`.
 
@@ -37,3 +39,7 @@ E05 #214: native PostgreSQL 17.6 concurrency CI run 41209012007 passed (20 conne
 01.11 consumer source admission: stacked after #217 (`5151ea24`). AI-fill/Analysis/Generator now revalidate captured source generation and exact model representation through a service-only batch RPC, including per-attempt fallback and post-response boundaries. Prior analysis must match the current managed packet. Legacy-only routing/manual values remain; 1029 local tests/project types/new-shared strict checks/build passed. Native 20-session consumer-generation/representation/corpus acceptance pending. Next: [temporary Preview/E06 runbook](../docs/execution/E06_OCR_PREVIEW_ACCEPTANCE.md), full Edge compile preflight and separately authorized runtime/inference/scheduler/cleanup. No remote rollout.
 
 #218 consumer admission acceptance: native PostgreSQL 17.6/20-session run 41324730847 GREEN, including source-generation, exact representation and late corpus-member fences; all 20 targeted tests passed. Code tree `ec335a4e58220111487d573fb509ea249f4cdf07`. Draft remains unmerged/unapplied/undeployed. Next: full Edge/Deno preflight and the prepared temporary Preview/E06 acceptance plan.
+
+01.11 Edge preflight: stacked after #218 (`98b82fba`). Fix Challenge execution-status return/fail-closed verdict and official-observation type narrowing; 1031 offline tests pass. New pinned Deno 2.9.8 CI checks the six candidate entrypoints with no model/project secrets. Local remote-import resolution is network-blocked, so do not claim local/full Edge typecheck green until CI evidence is recorded. No remote rollout; E06 runtime remains pending.
+
+#219 full Edge preflight: Deno 2.9.8 run 41326784850 GREEN on all six actual entrypoints (job 124908286888), plus PostgreSQL 17.6/20 sessions and 31 targeted tests (job 124908286641). Local 1033 tests/types/build passed. Additional awaitable SDK ports, template reader recursion/row validation and missing DEBTAM audit values were fixed in the same Draft. No deployed runtime changes. Source/compiler preflight is closed; actual temporary Preview/E06 remains pending explicit operational scope.

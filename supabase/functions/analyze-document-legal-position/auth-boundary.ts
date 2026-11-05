@@ -12,7 +12,7 @@ type AnalyzerAuthClient = {
   rpc: (
     fn: "is_admin_or_superadmin",
     args: { _user_id: string },
-  ) => Promise<{ data: boolean | null; error: unknown }>;
+  ) => PromiseLike<{ data: boolean | null; error: unknown }>;
 };
 
 export async function authorizeAnalyzerRequest(

@@ -461,7 +461,7 @@ serve(async (req) => {
       })
       .eq("id", aiFillRunId);
 
-    const sessionMetadata = ((session.metadata ?? {}) as Record<string, unknown>) ?? {};
+    const sessionMetadata = (session.metadata ?? {}) as Record<string, unknown>;
 
     await sourceAdmission.check();
     await supabase

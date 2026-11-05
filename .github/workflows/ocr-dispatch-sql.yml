@@ -11,10 +11,11 @@ on:
       - 'supabase/functions/document-intake-ai-fill/**'
       - 'supabase/functions/analyze-document-legal-position/**'
       - 'supabase/functions/generate-legal-document-v2/**'
-      - 'supabase/functions/_shared/full-corpus-admission.ts'
+      - 'supabase/functions/_shared/**'
       - 'supabase/tests/ocr-consumer-admission.test.ts'
+      - 'supabase/tests/challenge-execution.test.ts'
+      - 'supabase/tests/fixtures/challenge-execution-runner.ts'
       - 'supabase/tests/fixtures/ocr-consumer-runner.ts'
-      - 'supabase/functions/_shared/pdf-text-layer.ts'
       - 'src/lib/server-document-ocr*'
       - 'src/components/document-builder/intake-form.tsx'
       - 'supabase/tests/ocr-control.test.ts'
@@ -23,7 +24,6 @@ on:
       - 'supabase/tests/ocr-storage-fetch.test.ts'
       - 'supabase/tests/fixtures/ocr-control-runner.ts'
       - 'supabase/functions/extract-document-text/**'
-      - 'supabase/functions/_shared/*ocr*.ts'
       - 'supabase/tests/ocr-dispatcher.test.ts'
       - 'supabase/tests/fixtures/ocr-dispatcher-runner.ts'
       - 'package.json'
@@ -65,4 +65,22 @@ jobs:
           KATI_OCR_SQL_TEST_URL: postgresql://postgres:local_test_only@127.0.0.1:5432/kati_ocr_claims_test_ci
         run: node supabase/tests/fixtures/ocr-dispatch-pg-runner.mjs
       - name: Dispatcher and closed-tab recovery without live providers
-        run: bun test supabase/tests/ocr-dispatcher.test.ts supabase/tests/ocr-reserved-runtime.test.ts supabase/tests/extract-document-text-privacy.test.ts supabase/tests/ocr-control.test.ts supabase/tests/server-document-ocr.test.ts supabase/tests/ocr-source-fingerprint.test.ts supabase/tests/ocr-storage-fetch.test.ts supabase/tests/ocr-consumer-admission.test.ts supabase/tests/p0c-full-corpus-admission.test.ts
+        run: bun test supabase/tests/ocr-dispatcher.test.ts supabase/tests/ocr-reserved-runtime.test.ts supabase/tests/extract-document-text-privacy.test.ts supabase/tests/ocr-control.test.ts supabase/tests/server-document-ocr.test.ts supabase/tests/ocr-source-fingerprint.test.ts supabase/tests/ocr-storage-fetch.test.ts supabase/tests/ocr-consumer-admission.test.ts supabase/tests/p0c-full-corpus-admission.test.ts supabase/tests/challenge-execution.test.ts supabase/functions/analyze-document-legal-position/official-verification-resolver.test.ts supabase/functions/analyze-document-legal-position/tests/template-registry.test.ts
+
+  edge-typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.8
+      - name: Check all six candidate Edge entrypoints without executing them
+        run: >-
+          deno check --no-config --no-lock --node-modules-dir=none
+          supabase/functions/extract-document-text/index.ts
+          supabase/functions/dispatch-document-ocr/index.ts
+          supabase/functions/document-ocr-control/index.ts
+          supabase/functions/document-intake-ai-fill/index.ts
+          supabase/functions/analyze-document-legal-position/index.ts
+          supabase/functions/generate-legal-document-v2/index.ts

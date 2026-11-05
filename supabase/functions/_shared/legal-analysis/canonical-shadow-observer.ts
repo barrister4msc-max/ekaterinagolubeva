@@ -30,7 +30,7 @@ export interface ObserveCanonicalShadowParityInput {
 
 export interface CanonicalConsumerObservationSupabaseClient {
   from(table: "document_intake_canonical_consumer_observations"): {
-    insert(record: CanonicalConsumerObservationRecord): Promise<{ readonly error?: unknown }>;
+    insert(record: CanonicalConsumerObservationRecord): PromiseLike<{ readonly error?: unknown }>;
   };
 }
 

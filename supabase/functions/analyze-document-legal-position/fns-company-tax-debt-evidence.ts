@@ -4,7 +4,7 @@ type SbClient = {
   rpc: (
     fn: string,
     args?: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message?: string } | null }>;
+  ) => PromiseLike<{ data: unknown; error: { message?: string } | null }>;
 };
 
 const DEBTAM_DATASET_ID = "7707329152-debtam" as const;
