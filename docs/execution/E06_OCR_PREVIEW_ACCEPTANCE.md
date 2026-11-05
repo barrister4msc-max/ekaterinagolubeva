@@ -4,6 +4,8 @@ Prepared 01.11.2026. This is a reviewable runbook, not authorization or evidence
 
 01.11 execution update: [temporary Preview SQL checkpoint](E06_20261101_PREVIEW_SQL_CHECKPOINT.md) records actual schema/ACL/negative-RPC evidence and deletion of the one temporary branch. Edge deployment was blocked by automatic approval review; E06 runtime acceptance remains open. Fresh replay requires the documented replacement baseline, a NOLOGIN role prerequisite and explicit handling of the Production-only five-document data repair; do not copy Production data or claim the automatic migration pipeline passed.
 
+05.11 execution update: [hosted Edge smoke checkpoint](E06_20261105_PREVIEW_EDGE_SMOKE.md) supersedes the deployment-authorization stop: explicit user approval covered six functions, no model calls, checks and cleanup. All six deployed sources matched; 20 hosted auth-denial/CORS/method cases passed; that temporary Preview was deleted. A proposed broad DB reconstruction was rejected before execution as outside function-deploy scope. Positive authenticated/document/Storage/PDF/scheduler scenarios remain open; the SQL and Edge checkpoints came from separate deleted environments and are not integrated E06 acceptance.
+
 ## Candidate and scope
 
 Use one reviewed candidate containing the stacked E05 changes through `feat/e05-ocr-consumer-admission`. Record the exact commit/tree before any remote action. Production remains excluded. At most one explicitly temporary Preview, with an agreed lifetime/spend ceiling and cleanup owner. Do not recreate the three removed Preview environments or Q0.
