@@ -4,8 +4,9 @@ import { isValidOcrDispatchToken } from "../_shared/ocr-dispatcher.ts";
 import { createOcrControl } from "../_shared/ocr-control.ts";
 import { createPdfTextLayerExtractor } from "../_shared/pdf-text-layer.ts";
 import { loadDenoPdfJs } from "../_shared/deno-pdfjs.ts";
+import { readSupabaseServerKey } from "../_shared/supabase-server-key.ts";
 const url = Deno.env.get("SUPABASE_URL") ?? "",
-  key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  key = readSupabaseServerKey((name) => Deno.env.get(name));
 const extractText = createPdfTextLayerExtractor(loadDenoPdfJs);
 Deno.serve(
   createOcrControl({

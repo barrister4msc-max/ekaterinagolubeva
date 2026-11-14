@@ -12,6 +12,8 @@ import { createOcrDispatcher } from "../../functions/_shared/ocr-dispatcher.ts";
 
 const db=new PGlite();const docId="10000000-0000-4000-8000-000000000001";
 const token="DISPATCH_TEST_"+"a".repeat(48),service="SERVICE_TEST_"+"b".repeat(48),canary="PRIVATE_DISPATCH_CANARY";
+const hostedService="sb_secret_"+"x".repeat(32);
+let hostedKeys:string|undefined;
 let enabled=true,configuredToken=token,pageCount=601,mode="success",storage="ok",loseFinish=false,claimError=false,badClaim=false;
 let calls:number[]=[],rpcNames:string[]=[],clients=0,storageReads=0,bytes="original PDF bytes";
 const diagnostics:unknown[]=[];const output=console.log;
@@ -49,11 +51,13 @@ const pdf={load:async()=>{if(mode==="corrupt")throw new Error(canary);return {ge
     addPage(){},save:async()=>new Uint8Array([start>>8,start&255])};}};
 (globalThis as any).testPdf=pdf;
 (globalThis as any).testCreateClient=(_url:unknown,_key:unknown,options:any)=>{
+  assert.equal(_key,hostedKeys ? hostedService : service);
   clients++;assert.equal(typeof options.global.fetch,"function");return sb;
 };
 (globalThis as any).Deno={env:{get:(name:string)=>({
   KATI_OCR_DISPATCH_ENABLED:String(enabled),KATI_OCR_UNIT_RESERVATIONS_ENABLED:String(enabled),
   KATI_OCR_DISPATCH_TOKEN:configuredToken,SUPABASE_SERVICE_ROLE_KEY:service,
+  SUPABASE_SECRET_KEYS:hostedKeys,
   SUPABASE_URL:"https://offline.test",GEMINI_API_KEY:"offline-api-key",
 } as Record<string,string>)[name]},serve:(fn:typeof handler)=>{handler=fn;}};
 globalThis.fetch=(async(url:unknown,init:any)=>{
@@ -117,6 +121,12 @@ try{
   claimError=true;assert.equal((await tick()).status,503);claimError=false;
   badClaim=true;assert.equal((await tick()).status,503);badClaim=false;assert.equal(storageReads,0);assert.equal(calls.length,0);
   assert.equal((await tick()).body.status,"idle");
+
+  hostedKeys=JSON.stringify({default:hostedService});await load();
+  assert.equal((await tick()).body.status,"idle");
+  configuredToken=hostedService;await load();
+  assert.equal((await handler(request("{}",hostedService))).status,401);
+  hostedKeys=undefined;configuredToken=token;await load();
 
   // Only the first wave is interactive. All remaining invocations are server
   // wakeups, with no tab/UI calls and no second claim in application code.
