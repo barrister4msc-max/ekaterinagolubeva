@@ -163,7 +163,10 @@ const load = async () => {
       /import \{ createClient \} from "[^"]+";/,
       "const createClient = globalThis.testClient;",
     )
-    .replace(/await import\(\s*"https:[^"]+"\s*\)/g, "await Promise.resolve(globalThis.testPdfjs)")
+    .replace(
+      'import { loadDenoPdfJs } from "../_shared/deno-pdfjs.ts";',
+      "const loadDenoPdfJs = async () => globalThis.testPdfjs;",
+    )
     .replaceAll('"../_shared/', '"' + new URL("../../functions/_shared/", import.meta.url).href);
   const path = join(folder, `entry-${loaded++}.ts`);
   await writeFile(path, source);

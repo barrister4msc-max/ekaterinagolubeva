@@ -3,7 +3,7 @@
 Единственный действующий control plane: [MASTER_EXECUTION_STATE](../docs/execution/MASTER_EXECUTION_STATE.md).
 Target: Master v5.6.2 от 03.10.2026; фактический статус подтверждают GitHub и runtime.
 
-05.11 latest: [E06 Edge smoke checkpoint](../docs/execution/E06_20261105_PREVIEW_EDGE_SMOKE.md). По явному разрешению пользователя шесть функций #219 развёрнуты только во временном Preview: все 121 file instances совпали с candidate, 20 hosted HTTP cases (401/CORS/405) прошли, model calls ноль. Preview удалён; Production versions/hashes не изменились. Automatic approval review отклонила DB reset/broad bootstrap как действие вне function-deploy scope; DDL не применялся. SQL checkpoint 01.11 относится к другому удалённому Preview и не закрывает integrated E06. Следующий gate — отдельно разрешённые schema/bootstrap и положительные Auth/Storage/PDF scenarios, затем разрешённый OCR/scheduler scope. E06/E07 открыты.
+14.11. E06: в удалённом после прогона Preview проверены Auth двух пользователей, приватный Storage, текстовый PDF и защита от смены поколения файла. PDF.js потребовал явной загрузки worker. Исправление в Draft #219. Полный сценарий большого скана и планировщика открыт. См. [Master](../docs/execution/MASTER_EXECUTION_STATE.md).
 
 Проверенная база: `79ed884208b11e990551319e21ef7b0060e14fd4`, 29.10.2026.
 E01 privacy (#204) и reconciliation (#205) merged/deployed; три Preview и Q0 удалены после проверенного backup. Production продолжает использовать `wiylzbdbjokignwvizxt`.

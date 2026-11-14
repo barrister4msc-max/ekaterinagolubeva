@@ -18,6 +18,7 @@ import { processPdfOcrWave } from "../_shared/pdf-ocr-wave.ts";
 import { runLeasedPdfOcr } from "../_shared/leased-pdf-ocr.ts";
 import { createGeminiOcrExtractor, diagnosticMime, GEMINI_OCR_MODEL as GEMINI_MODEL } from "../_shared/gemini-ocr-provider.ts";
 import { createPdfTextLayerExtractor, sanitizeExtractedText, isUsablePdfTextLayer } from "../_shared/pdf-text-layer.ts";
+import { loadDenoPdfJs } from "../_shared/deno-pdfjs.ts";
 import { ocrSourceFingerprint } from "../_shared/ocr-source-fingerprint.ts";
 
 const corsHeaders = {
@@ -169,10 +170,7 @@ function extractHtml(buf: ArrayBuffer): string {
     .trim();
 }
 
-const extractPdfTextLayer = createPdfTextLayerExtractor(async () => {
-  // @ts-ignore Bundled Deno PDF.js build, same parser as before.
-  return await import("https://esm.sh/pdfjs-dist@4.10.38/deno/legacy/build/pdf.bundle.mjs");
-});
+const extractPdfTextLayer = createPdfTextLayerExtractor(loadDenoPdfJs);
 
 type Detected = {
   method: ExtractionMethod;

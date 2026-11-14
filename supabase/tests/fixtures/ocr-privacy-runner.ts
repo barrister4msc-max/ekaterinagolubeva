@@ -114,14 +114,14 @@ source = source.replace(
   /import \{ PDFDocument \} from "[^"]+";/,
   "const PDFDocument = globalThis.testPdf;",
 );
+// PDF.js is an external SDK too: simulate a sensitive text-layer exception.
+source = source.replace(
+  'import { loadDenoPdfJs } from "../_shared/deno-pdfjs.ts";',
+  'const loadDenoPdfJs = async () => { throw new Error("' + canary + '"); };',
+);
 source = source.replaceAll(
   '"../_shared/',
   '"' + new URL("../../functions/_shared/", import.meta.url).href,
-);
-// PDF.js is an external SDK too: simulate a sensitive text-layer exception.
-source = source.replace(
-  /await import\(\s*"https:[^"]+"\s*\)/g,
-  'await Promise.reject(new Error("' + canary + '"))',
 );
 const folder = await mkdtemp(join(tmpdir(), "kati-ocr-privacy-"));
 try {
