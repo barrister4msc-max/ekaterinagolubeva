@@ -5,6 +5,7 @@ import { createOcrControl } from "../_shared/ocr-control.ts";
 import { createPdfTextLayerExtractor } from "../_shared/pdf-text-layer.ts";
 import { loadDenoPdfJs } from "../_shared/deno-pdfjs.ts";
 import { readSupabaseServerKey } from "../_shared/supabase-server-key.ts";
+import { readOcrProvider } from "../_shared/ocr-provider.ts";
 const url = Deno.env.get("SUPABASE_URL") ?? "",
   key = readSupabaseServerKey((name) => Deno.env.get(name));
 const extractText = createPdfTextLayerExtractor(loadDenoPdfJs);
@@ -18,7 +19,7 @@ Deno.serve(
     ready: Boolean(
       url &&
       key &&
-      Deno.env.get("GEMINI_API_KEY") &&
+      readOcrProvider((name) => Deno.env.get(name)).ready &&
       isValidOcrDispatchToken(Deno.env.get("KATI_OCR_DISPATCH_TOKEN") ?? "", key),
     ),
     client: () => {

@@ -14,6 +14,7 @@ const db=new PGlite();const docId="10000000-0000-4000-8000-000000000001";
 const token="DISPATCH_TEST_"+"a".repeat(48),service="SERVICE_TEST_"+"b".repeat(48),canary="PRIVATE_DISPATCH_CANARY";
 const hostedService="sb_secret_"+"x".repeat(32);
 let hostedKeys:string|undefined;
+let providerName: string | undefined, geminiKey = "offline-api-key", openaiKey = "";
 let enabled=true,configuredToken=token,pageCount=601,mode="success",storage="ok",loseFinish=false,claimError=false,badClaim=false;
 let calls:number[]=[],rpcNames:string[]=[],clients=0,storageReads=0,bytes="original PDF bytes";
 const diagnostics:unknown[]=[];const output=console.log;
@@ -58,9 +59,27 @@ const pdf={load:async()=>{if(mode==="corrupt")throw new Error(canary);return {ge
   KATI_OCR_DISPATCH_ENABLED:String(enabled),KATI_OCR_UNIT_RESERVATIONS_ENABLED:String(enabled),
   KATI_OCR_DISPATCH_TOKEN:configuredToken,SUPABASE_SERVICE_ROLE_KEY:service,
   SUPABASE_SECRET_KEYS:hostedKeys,
-  SUPABASE_URL:"https://offline.test",GEMINI_API_KEY:"offline-api-key",
+  SUPABASE_URL:"https://offline.test",GEMINI_API_KEY:geminiKey,
+  KATI_OCR_PROVIDER:providerName,OPENAI_API_KEY:openaiKey,
 } as Record<string,string>)[name]},serve:(fn:typeof handler)=>{handler=fn;}};
 globalThis.fetch=(async(url:unknown,init:any)=>{
+  if (String(url) === "https://api.openai.com/v1/responses") {
+    assert.equal(providerName, "openai");
+    assert.equal(init.headers.Authorization, "Bearer " + openaiKey);
+    const payload = JSON.parse(init.body);
+    assert.equal(payload.store, false);
+    assert.equal(payload.max_output_tokens, 8192);
+    const attachment = payload.input[0].content[1];
+    const data = Buffer.from(attachment.file_data.split(",")[1], "base64");
+    const start = data[0] * 256 + data[1];
+    calls.push(start);
+    if (mode === "provider_error") return new Response(canary, { status: 503 });
+    const status = mode === "incomplete" ? "incomplete" : "completed";
+    return new Response(JSON.stringify({status, output: [{
+      type: "message", role: "assistant", status: "completed",
+      content: [{type: "output_text", text: "window-" + start}],
+    }]}));
+  }
   assert.ok(String(url).startsWith("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:"));
   const payload=JSON.parse(init.body);assert.deepEqual(payload.generationConfig,{temperature:0});
   assert.equal(payload.contents[0].parts[0].text,"Извлеки весь читаемый текст с изображения/скана. Верни только текст. Если текста нет — верни пустую строку.");
@@ -164,6 +183,29 @@ try{
   assert.equal((await state()).status,"needs_manual_review");
   await seed();await db.query("update document_ocr_jobs set dispatch_enabled=false where document_id=$1",[docId]);
   assert.equal((await tick()).body.status,"idle");assert.equal(calls.length,0);
+  // OpenAI-only configuration through the real entrypoint and durable SQL.
+  providerName = "openai"; geminiKey = ""; openaiKey = "offline-openai-key";
+  await load();
+  await seed(6);
+  assert.equal((await tick()).body.outcome, "completed");
+  assert.deepEqual(calls, [0]);
+  assert.equal((await state()).checkpoint.page_index.units[0].attempts, 1);
+
+  await seed(6); mode = "incomplete";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await due();
+    await tick();
+  }
+  assert.equal((await state()).status, "needs_manual_review");
+  assert.equal(calls.length, 3);
+  assert.equal((await q("select ocr_text from documents where id=$1", [docId]))[0].ocr_text, "");
+  assert.equal((await tick()).body.status, "idle");
+  assert.equal(calls.length, 3);
+
+  providerName = "unknown"; geminiKey = "offline-api-key";
+  await load();
+  assert.equal((await tick()).status, 503);
+  providerName = undefined; openaiKey = ""; await load();
   assert.ok(!JSON.stringify(diagnostics).includes(canary));
   assert.ok(!JSON.stringify(diagnostics).includes(token));assert.ok(!JSON.stringify(diagnostics).includes(service));
 

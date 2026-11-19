@@ -13,6 +13,7 @@ const session = "30000000-0000-4000-8000-000000000001",
   doc = "10000000-0000-4000-8000-000000000001";
 const secret = "PRIVATE_CONTROL_CANARY",
   token = "offline-dispatch-" + "x".repeat(40);
+let providerName: string | undefined, geminiKey = "offline-key", openaiKey = "";
 let enabled = true,
   auth = actor,
   text = "",
@@ -142,7 +143,9 @@ const sb = {
           KATI_OCR_UNIT_RESERVATIONS_ENABLED: String(enabled),
           SUPABASE_URL: "https://offline.test",
           SUPABASE_SERVICE_ROLE_KEY: secret,
-          GEMINI_API_KEY: "offline-key",
+          GEMINI_API_KEY: geminiKey,
+          OPENAI_API_KEY: openaiKey,
+          KATI_OCR_PROVIDER: providerName,
           KATI_OCR_DISPATCH_TOKEN: token,
         }) as Record<string, string>
       )[name],
@@ -326,7 +329,14 @@ try {
   assert.equal((await invoke()).status, 503);
   assert.equal(reads, 0);
   enabled = true;
+  providerName = "openai"; geminiKey = "";
   await load();
+  assert.equal((await invoke()).status, 503);
+  assert.equal(reads, 0);
+  openaiKey = "offline-openai-key";
+  await load();
+  // Native text and queue admission below also work with only the selected key.
+
   for (const change of [
     "update documents set is_archived=true",
     "update document_intake_sessions set archived_at=now()",

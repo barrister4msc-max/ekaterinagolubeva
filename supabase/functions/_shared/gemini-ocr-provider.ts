@@ -1,7 +1,7 @@
 import { providerException, providerHttpFailure } from "./ai-privacy-diagnostics.ts";
 
 export const GEMINI_OCR_MODEL = "gemini-2.5-flash";
-function arrayBufferToBase64(buf: ArrayBuffer): string {
+export function arrayBufferToBase64(buf: ArrayBuffer): string {
   let binary = "";
   const bytes = new Uint8Array(buf);
 
