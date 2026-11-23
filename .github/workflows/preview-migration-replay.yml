@@ -34,3 +34,8 @@ jobs:
         run: supabase start
       - name: Replay exact stored candidate history on a second isolated Supabase
         run: node supabase/tests/final-history-isolated-replay.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kati-candidate-history
+          path: ${{ runner.temp }}/kati_candidate_history.json
+          retention-days: 1
