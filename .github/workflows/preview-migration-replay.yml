@@ -8,6 +8,7 @@ on:
       - 'supabase/config.toml'
       - 'supabase/roles.sql'
       - 'supabase/seed.sql'
+      - 'supabase/tests/guarded-source-preview-replay.test.ts'
   workflow_dispatch:
 
 permissions:
@@ -19,6 +20,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Prove empty and partial guarded-source behavior offline
+        run: bun test supabase/tests/guarded-source-preview-replay.test.ts
       - uses: supabase/setup-cli@v1
         with:
           version: 2.81.3
