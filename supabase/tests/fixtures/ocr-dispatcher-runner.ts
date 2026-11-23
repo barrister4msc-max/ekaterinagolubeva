@@ -1,6 +1,7 @@
 // Actual dispatcher entrypoint/shared leased processor/SQL; external SDKs,
-// Storage and Gemini transport are doubled. This is not a real-PDF E06 run.
+// Storage, Auth and provider transport are doubled. PDF splitting uses real pdf-lib.
 import { PGlite } from "@electric-sql/pglite";
+import { PDFDocument } from "pdf-lib";
 import assert from "node:assert/strict";
 import { readFile,writeFile,mkdtemp,rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -16,7 +17,8 @@ const hostedService="sb_secret_"+"x".repeat(32);
 let hostedKeys:string|undefined;
 let providerName: string | undefined, geminiKey = "offline-api-key", openaiKey = "";
 let enabled=true,configuredToken=token,pageCount=601,mode="success",storage="ok",loseFinish=false,claimError=false,badClaim=false;
-let calls:number[]=[],rpcNames:string[]=[],clients=0,storageReads=0,bytes="original PDF bytes";
+let calls:number[]=[],rpcNames:string[]=[],clients=0,storageReads=0;
+let bytes: Uint8Array<ArrayBuffer> | string = "original PDF bytes";
 const diagnostics:unknown[]=[];const output=console.log;
 for(const k of ["log","warn","error"] as const)console[k]=(...args)=>{diagnostics.push(args);};
 let handler:(req:Request)=>Promise<Response>;
@@ -47,9 +49,35 @@ const sb={
     return {data,error:null};
   },
 };
-const pdf={load:async()=>{if(mode==="corrupt")throw new Error(canary);return {getPageCount:()=>pageCount};},
-  create:async()=>{let start=0;return {copyPages:async(_source:unknown,pages:number[])=>{start=pages[0];return pages;},
-    addPage(){},save:async()=>new Uint8Array([start>>8,start&255])};}};
+// Each page contains a raster image and a unique width, with no text layer.
+// Width markers let the transport double inspect the actual serialized windows.
+const raster = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1XcAAAAASUVORK5CYII=", "base64");
+const makePdf = async (pages: number) => {
+  const document = await PDFDocument.create();
+  const image = await document.embedPng(raster);
+  for (let page = 0; page < pages; page++) {
+    document.addPage([300 + page / 10, 420]).drawImage(image, { x: 20, y: 20, width: 260, height: 380 });
+  }
+  return await document.save({ useObjectStreams: false });
+};
+const readWindowStart = async (data: Uint8Array) => {
+  const window = await PDFDocument.load(data);
+  const pages = window.getPages();
+  assert.ok(pages.length > 0 && pages.length <= 6);
+  const start = Math.round((pages[0].getWidth() - 300) * 10);
+  assert.equal(pages.length, Math.min(6, pageCount - start));
+  for (let offset = 0; offset < pages.length; offset++) {
+    assert.equal(Math.round((pages[offset].getWidth() - 300) * 10), start + offset);
+  }
+  return start;
+};
+const pdf = {
+  load: async (data: ArrayBuffer) => {
+    if (mode === "corrupt") throw new Error(canary);
+    return await PDFDocument.load(data);
+  },
+  create: () => PDFDocument.create(),
+};
 (globalThis as any).testPdf=pdf;
 (globalThis as any).testCreateClient=(_url:unknown,_key:unknown,options:any)=>{
   assert.equal(_key,hostedKeys ? hostedService : service);
@@ -71,7 +99,7 @@ globalThis.fetch=(async(url:unknown,init:any)=>{
     assert.equal(payload.max_output_tokens, 8192);
     const attachment = payload.input[0].content[1];
     const data = Buffer.from(attachment.file_data.split(",")[1], "base64");
-    const start = data[0] * 256 + data[1];
+    const start = await readWindowStart(data);
     calls.push(start);
     if (mode === "provider_error") return new Response(canary, { status: 503 });
     const status = mode === "incomplete" ? "incomplete" : "completed";
@@ -84,7 +112,7 @@ globalThis.fetch=(async(url:unknown,init:any)=>{
   const payload=JSON.parse(init.body);assert.deepEqual(payload.generationConfig,{temperature:0});
   assert.equal(payload.contents[0].parts[0].text,"Извлеки весь читаемый текст с изображения/скана. Верни только текст. Если текста нет — верни пустую строку.");
   const data=Buffer.from(payload.contents[0].parts[1].inline_data.data,"base64");
-  const start=data[0]*256+data[1];calls.push(start);
+  const start=await readWindowStart(data);calls.push(start);
   if(mode==="provider_error")return new Response(canary,{status:503});
   return new Response(JSON.stringify({candidates:[{finishReason:"STOP",content:{parts:[{text:`window-${start}`}]}}]}));
 }) as typeof fetch;
@@ -105,7 +133,7 @@ const tick=async()=>{const response=await handler(request());const body=await re
 const state=async()=>(await q("select * from document_ocr_jobs where document_id=$1",[docId]))[0];
 const due=async()=>db.query("update document_ocr_jobs set next_attempt_at=clock_timestamp()-interval '1 second' where document_id=$1",[docId]);
 const seed=async(pages=18)=>{
-  pageCount=pages;mode="success";storage="ok";loseFinish=false;bytes="original PDF bytes";calls=[];rpcNames=[];
+  pageCount=pages;mode="success";storage="ok";loseFinish=false;bytes=await makePdf(pages);calls=[];rpcNames=[];
   await db.exec("reset role");await db.query("delete from document_ocr_jobs where document_id=$1",[docId]);
   await db.query("update documents set metadata=$2,ocr_text='' where id=$1",[docId,{manual:"preserve"}]);
   await db.query("insert into document_ocr_jobs(document_id,dispatch_enabled,checkpoint) values($1,true,$2)",[docId,{ocr_protocol:"reserved_v1"}]);
