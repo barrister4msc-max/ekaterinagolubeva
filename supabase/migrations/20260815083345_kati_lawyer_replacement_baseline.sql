@@ -6,6 +6,18 @@
 -- Production migration history must not be reconciled by this file without a
 -- separate approved rollback plan.
 
+-- Self-contained Preview prerequisite: historical migrations grant narrowly
+-- scoped privileges to this internal role. roles.sql also creates it for local
+-- development, but branch replay must not depend on that external hook.
+DO $
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kati_internal_kb_writer') THEN
+    CREATE ROLE kati_internal_kb_writer
+      NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS;
+  END IF;
+END
+$;
+
 
 -- =============================================================================
 -- 1. Production-equivalent public schema core
