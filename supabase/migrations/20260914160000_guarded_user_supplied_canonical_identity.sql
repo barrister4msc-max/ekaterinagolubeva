@@ -30,6 +30,19 @@ begin
     )
     and chunks.metadata->>'source_class' = 'user_supplied_retrieval_snapshot';
 
+  -- A fresh Preview has no Production source rows. Keep the schema index, but
+  -- do not invent identities or copy the guarded user-supplied content.
+  -- Partial source loads, and orphaned guarded heads, must still fail closed.
+  if actual_group_count = 0 and actual_chunk_count = 0 then
+    if exists (
+      select 1 from public.legal_source_registry registry
+      where registry.metadata->>'canonical_identity_scope' = 'guarded_user_supplied_v1'
+    ) then
+      raise exception 'guarded user-source identity orphaned registry heads';
+    end if;
+    return;
+  end if;
+
   if actual_group_count <> expected_group_count or actual_chunk_count <> expected_chunk_count then
     raise exception
       'guarded user-source identity preflight mismatch: expected % groups / % chunks, got % / %',
