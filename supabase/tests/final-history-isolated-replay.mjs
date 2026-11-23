@@ -87,6 +87,14 @@ async function main() {
   if (prefix.length !== 78 || prefix.at(-1)?.version !== productionTip) {
     throw new Error(`Unexpected Production-prefix candidate: ${prefix.length} rows`);
   }
+  // Digest-only manifest: compare the candidate against the privately held
+  // Production backup without publishing full historic SQL or user data.
+  const statementHash = (statements) => createHash("sha256")
+    .update(JSON.stringify(statements)).digest("hex");
+  console.log(`CANDIDATE_PREFIX_MANIFEST=${JSON.stringify(prefix.map((row) => ({
+    version: row.version, name: row.name, count: row.statements.length,
+    sha256: statementHash(row.statements),
+  })))}`);
   const baseline = stored.find((row) => row.version === baselineVersion);
   const baselineSql = baseline?.statements.join("\n") || "";
   for (const text of ["CREATE ROLE kati_internal_kb_writer", "INSERT INTO public.legal_document_templates", "INSERT INTO storage.buckets"]) {
