@@ -23,6 +23,9 @@ describe("legal research source family contract", () => {
 
   test("keeps judicial discovery distinguishable from official court material", () => {
     expect(sourceTypesForBucket("court_practice")).toContain("vsrf_act");
+    expect(sourceTypesForBucket("court_practice")).toContain("vsrf_case_card");
+    expect(sourceFamilyForType("vsrf_case_card")).toBe("judicial");
+    expect(sourceFamilyForType("vsrf_court_act")).toBe("judicial");
     expect(sourceTypesForBucket("court_practice")).toContain("kad_case");
     expect(sourceTypesForBucket("court_practice")).toContain("sudact_case");
     expect(sourceFamilyForType("vsrf_act")).toBe("judicial");
