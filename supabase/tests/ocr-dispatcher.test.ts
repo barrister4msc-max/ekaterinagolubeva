@@ -1,6 +1,6 @@
 import { expect,test } from "bun:test";
 
-test("server dispatcher completes the corpus after the UI stops and fails closed on unsafe wakeups",async()=>{
+test("server dispatcher splits a real 601-page PDF, resumes after the UI stops and fences unsafe wakeups",async()=>{
   const path=new URL("./fixtures/ocr-dispatcher-runner.ts",import.meta.url).pathname;
   const child=Bun.spawn([process.execPath,path],{stdout:"pipe",stderr:"pipe"});
   const [code,out,err]=await Promise.all([child.exited,new Response(child.stdout).text(),new Response(child.stderr).text()]);

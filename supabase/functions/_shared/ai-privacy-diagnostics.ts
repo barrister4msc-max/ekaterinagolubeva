@@ -1,6 +1,6 @@
 export type SafeProviderFailure = {
   error_code: "provider_http_error" | "provider_exception" | "parse_failed";
-  provider: "gemini";
+  provider: "gemini" | "openai";
   model?: string;
   http_status?: number;
   response_chars?: number;
@@ -10,18 +10,19 @@ export function providerHttpFailure(
   model: string,
   httpStatus: number,
   rawResponse: string,
+  provider: SafeProviderFailure["provider"] = "gemini",
 ): SafeProviderFailure {
   return {
     error_code: "provider_http_error",
-    provider: "gemini",
+    provider,
     model,
     http_status: httpStatus,
     response_chars: rawResponse.length,
   };
 }
 
-export function providerException(model: string): SafeProviderFailure {
-  return { error_code: "provider_exception", provider: "gemini", model };
+export function providerException(model: string, provider: SafeProviderFailure["provider"] = "gemini"): SafeProviderFailure {
+  return { error_code: "provider_exception", provider, model };
 }
 
 export function parseFailure(rawResponse: string): SafeProviderFailure {

@@ -1,0 +1,1195 @@
+{
+  "date": "2026-11-05",
+  "candidate": {
+    "pr": 219,
+    "remote_commit": "9832baa97806aca8e612bbde89fd61087ea0b692",
+    "tree": "c2dbdd6d669a349aac8b406b10e3f86a1b9ee8d7",
+    "runtime_source_unchanged_from_commit": "e43dfd1d077dba86a7e731d504eb993e7e5f5fa1"
+  },
+  "authorization": "User explicitly authorized deploy six functions from PR #219 in one temporary Preview, no model calls, verify and delete.",
+  "preview": {
+    "id": "699e456d-1f9d-484e-8c24-77991e677d37",
+    "name": "e06-ocr-20261105-temporary",
+    "project_ref": "hbzeifkjzexkltvktwjc",
+    "is_default": false,
+    "persistent": false,
+    "status": "CREATING_PROJECT",
+    "created_at": "2026-11-05T14:21:04.804216+00:00",
+    "updated_at": "2026-11-05T14:21:04.804216+00:00",
+    "parent_project_ref": "wiylzbdbjokignwvizxt",
+    "with_data": false
+  },
+  "target_verification": {
+    "anon_jwt_claims": {
+      "ref": "hbzeifkjzexkltvktwjc",
+      "role": "anon",
+      "iss": "supabase"
+    },
+    "invalid_project_ref": "read-only function inventory denied",
+    "first_dispatcher_receipt_and_http": "Preview ref in receipt; GET405 and POST missing/invalid bearer401; Production metadata unchanged"
+  },
+  "deployments": [
+    {
+      "id": "a9174a7f-2439-4ab4-8ff6-dc49c3ac0020",
+      "slug": "dispatch-document-ocr",
+      "name": "dispatch-document-ocr",
+      "status": "ACTIVE",
+      "version": 1,
+      "created_at": 1793888668513,
+      "updated_at": 1793888668513,
+      "verify_jwt": false,
+      "import_map": false,
+      "entrypoint_path": "file:///tmp/user_fn_hbzeifkjzexkltvktwjc_a9174a7f-2439-4ab4-8ff6-dc49c3ac0020_1/source/dispatch-document-ocr/index.ts",
+      "ezbr_sha256": "3dcf2329c140436bd4b881469eeb471062b2caffc7a9a09014f3135fb8f275d4"
+    },
+    {
+      "id": "387c6991-2541-4d6c-b20b-e17d9502c414",
+      "slug": "extract-document-text",
+      "name": "extract-document-text",
+      "status": "ACTIVE",
+      "version": 114,
+      "created_at": 1781294574592,
+      "updated_at": 1793888762519,
+      "verify_jwt": false,
+      "import_map": false,
+      "entrypoint_path": "file:///tmp/user_fn_hbzeifkjzexkltvktwjc_387c6991-2541-4d6c-b20b-e17d9502c414_114/source/extract-document-text/index.ts",
+      "ezbr_sha256": "d6441728d0d8321baaa369132940dc583fd1b2f78b98a937fd10cd9028ae1d47"
+    },
+    {
+      "id": "40565657-6ed8-44fb-a65e-a93b05e1d1c8",
+      "slug": "document-ocr-control",
+      "name": "document-ocr-control",
+      "status": "ACTIVE",
+      "version": 1,
+      "created_at": 1793888771139,
+      "updated_at": 1793888771139,
+      "verify_jwt": false,
+      "import_map": false,
+      "entrypoint_path": "file:///tmp/user_fn_hbzeifkjzexkltvktwjc_40565657-6ed8-44fb-a65e-a93b05e1d1c8_1/source/document-ocr-control/index.ts",
+      "ezbr_sha256": "6ba5b37756aed8f38b73420054595d635846d60611d2e9a3df0f6a82e7f76186"
+    },
+    {
+      "id": "08ffb816-d066-4f0f-b078-519cbca87f62",
+      "slug": "document-intake-ai-fill",
+      "name": "document-intake-ai-fill",
+      "status": "ACTIVE",
+      "version": 67,
+      "created_at": 1781523091586,
+      "updated_at": 1793888779166,
+      "verify_jwt": false,
+      "import_map": false,
+      "entrypoint_path": "file:///tmp/user_fn_hbzeifkjzexkltvktwjc_08ffb816-d066-4f0f-b078-519cbca87f62_67/source/document-intake-ai-fill/index.ts",
+      "ezbr_sha256": "5cdab332ef598c5b0bf1e28b48d40f02a18a70073d006fbb10f9c85fdb36585a"
+    },
+    {
+      "id": "f4fb801f-10a4-4588-bd25-fce1792fcd2e",
+      "slug": "analyze-document-legal-position",
+      "name": "analyze-document-legal-position",
+      "status": "ACTIVE",
+      "version": 125,
+      "created_at": 1782001594233,
+      "updated_at": 1793888795572,
+      "verify_jwt": false,
+      "import_map": false,
+      "entrypoint_path": "file:///tmp/user_fn_hbzeifkjzexkltvktwjc_f4fb801f-10a4-4588-bd25-fce1792fcd2e_125/source/analyze-document-legal-position/index.ts",
+      "ezbr_sha256": "40fbc084dc7bfb5352ac78d65d25326a9f821a5de10de7827876fc43798da1c8"
+    },
+    {
+      "id": "77559ace-00fd-459e-91e9-875a39ab9e02",
+      "slug": "generate-legal-document-v2",
+      "name": "generate-legal-document-v2",
+      "status": "ACTIVE",
+      "version": 92,
+      "created_at": 1781303378416,
+      "updated_at": 1793888806752,
+      "verify_jwt": false,
+      "import_map": false,
+      "entrypoint_path": "file:///tmp/user_fn_hbzeifkjzexkltvktwjc_77559ace-00fd-459e-91e9-875a39ab9e02_92/source/generate-legal-document-v2/index.ts",
+      "ezbr_sha256": "d268149ef9fdea50c3e1b1bf1551053270a4623403461b2c6ffeb161394ed57e"
+    }
+  ],
+  "source_verification": [
+    {
+      "name": "dispatch-document-ocr",
+      "files": 10,
+      "version": 1,
+      "ref": "hbzeifkjzexkltvktwjc"
+    },
+    {
+      "name": "extract-document-text",
+      "files": 10,
+      "version": 114,
+      "ref": "hbzeifkjzexkltvktwjc"
+    },
+    {
+      "name": "document-ocr-control",
+      "files": 10,
+      "version": 1,
+      "ref": "hbzeifkjzexkltvktwjc"
+    },
+    {
+      "name": "document-intake-ai-fill",
+      "files": 6,
+      "version": 67,
+      "ref": "hbzeifkjzexkltvktwjc"
+    },
+    {
+      "name": "analyze-document-legal-position",
+      "files": 64,
+      "version": 125,
+      "ref": "hbzeifkjzexkltvktwjc"
+    },
+    {
+      "name": "generate-legal-document-v2",
+      "files": 21,
+      "version": 92,
+      "ref": "hbzeifkjzexkltvktwjc"
+    }
+  ],
+  "packages": [
+    {
+      "name": "extract-document-text",
+      "files": [
+        {
+          "name": "_shared/ai-privacy-diagnostics.ts",
+          "sha256": "6402913620d36a272ee5dec5cb33d15c05141af9eaf81ba305f799017b287339"
+        },
+        {
+          "name": "_shared/gemini-ocr-provider.ts",
+          "sha256": "59399f3b1cf0f310670f0937ee6b30d1013801e9a01484a468036bf813bbcad2"
+        },
+        {
+          "name": "_shared/leased-pdf-ocr.ts",
+          "sha256": "c0760d6f24dc348ebfb4046746b78986e31d4f70937a99f4f544f1369bcf07d8"
+        },
+        {
+          "name": "_shared/ocr-reservation-runtime.ts",
+          "sha256": "71cf8751c2c37ad95fb8584cc06ec75381f909510b393474aec40107a41a8837"
+        },
+        {
+          "name": "_shared/ocr-source-fingerprint.ts",
+          "sha256": "d2c6ac27bc3e775c7f42afa7f629d411d94b23797da923077c0eddc51b81739d"
+        },
+        {
+          "name": "_shared/page-index-plan.ts",
+          "sha256": "00e7792e1b348d3f93084d17218487d939b2bfd3338a1aa563e82778205a42f0"
+        },
+        {
+          "name": "_shared/pdf-ocr-wave.ts",
+          "sha256": "0ecde745c5db98e9bf859640d463cea847b017d98059cbcd835e2c5dff64de95"
+        },
+        {
+          "name": "_shared/pdf-text-layer.ts",
+          "sha256": "c1c40884aa9e4db0df76a6ef8d7258abca6e5d39d30000eb89278ae9511f67df"
+        },
+        {
+          "name": "_shared/xlsx-text.ts",
+          "sha256": "95a5cb883e543e8ff33d08e2030a22c9d0d9e0cd05cf0d059383a50a6e195d70"
+        },
+        {
+          "name": "extract-document-text/index.ts",
+          "sha256": "8bdd7afd082a16b3ed0c9dde1f6b80a6b3855563ee728c2ea4ececc194671ae6"
+        }
+      ]
+    },
+    {
+      "name": "dispatch-document-ocr",
+      "files": [
+        {
+          "name": "_shared/ai-privacy-diagnostics.ts",
+          "sha256": "6402913620d36a272ee5dec5cb33d15c05141af9eaf81ba305f799017b287339"
+        },
+        {
+          "name": "_shared/gemini-ocr-provider.ts",
+          "sha256": "59399f3b1cf0f310670f0937ee6b30d1013801e9a01484a468036bf813bbcad2"
+        },
+        {
+          "name": "_shared/leased-pdf-ocr.ts",
+          "sha256": "c0760d6f24dc348ebfb4046746b78986e31d4f70937a99f4f544f1369bcf07d8"
+        },
+        {
+          "name": "_shared/ocr-dispatcher.ts",
+          "sha256": "0226efe7f5061f38ef3acac334bad29a5097f082c6b7aaae7ae53bffd9e5d60c"
+        },
+        {
+          "name": "_shared/ocr-reservation-runtime.ts",
+          "sha256": "71cf8751c2c37ad95fb8584cc06ec75381f909510b393474aec40107a41a8837"
+        },
+        {
+          "name": "_shared/ocr-source-fingerprint.ts",
+          "sha256": "d2c6ac27bc3e775c7f42afa7f629d411d94b23797da923077c0eddc51b81739d"
+        },
+        {
+          "name": "_shared/ocr-storage-fetch.ts",
+          "sha256": "d80f096326657fc54fb3b1a20b58247d6b0975a0497f5f2f4a9aa2cb22a5920a"
+        },
+        {
+          "name": "_shared/page-index-plan.ts",
+          "sha256": "00e7792e1b348d3f93084d17218487d939b2bfd3338a1aa563e82778205a42f0"
+        },
+        {
+          "name": "_shared/pdf-ocr-wave.ts",
+          "sha256": "0ecde745c5db98e9bf859640d463cea847b017d98059cbcd835e2c5dff64de95"
+        },
+        {
+          "name": "dispatch-document-ocr/index.ts",
+          "sha256": "11547d8925548cdf2e7bcd394e8c5e4a9de15fe541027efb75488145cbb0fdd0"
+        }
+      ]
+    },
+    {
+      "name": "document-ocr-control",
+      "files": [
+        {
+          "name": "_shared/leased-pdf-ocr.ts",
+          "sha256": "c0760d6f24dc348ebfb4046746b78986e31d4f70937a99f4f544f1369bcf07d8"
+        },
+        {
+          "name": "_shared/ocr-control.ts",
+          "sha256": "7a71039f5e5c72ce6107ab8a1e265631c0cbfc3aa613d992fc4d18a47292d418"
+        },
+        {
+          "name": "_shared/ocr-dispatcher.ts",
+          "sha256": "0226efe7f5061f38ef3acac334bad29a5097f082c6b7aaae7ae53bffd9e5d60c"
+        },
+        {
+          "name": "_shared/ocr-reservation-runtime.ts",
+          "sha256": "71cf8751c2c37ad95fb8584cc06ec75381f909510b393474aec40107a41a8837"
+        },
+        {
+          "name": "_shared/ocr-source-fingerprint.ts",
+          "sha256": "d2c6ac27bc3e775c7f42afa7f629d411d94b23797da923077c0eddc51b81739d"
+        },
+        {
+          "name": "_shared/ocr-storage-fetch.ts",
+          "sha256": "d80f096326657fc54fb3b1a20b58247d6b0975a0497f5f2f4a9aa2cb22a5920a"
+        },
+        {
+          "name": "_shared/page-index-plan.ts",
+          "sha256": "00e7792e1b348d3f93084d17218487d939b2bfd3338a1aa563e82778205a42f0"
+        },
+        {
+          "name": "_shared/pdf-ocr-wave.ts",
+          "sha256": "0ecde745c5db98e9bf859640d463cea847b017d98059cbcd835e2c5dff64de95"
+        },
+        {
+          "name": "_shared/pdf-text-layer.ts",
+          "sha256": "c1c40884aa9e4db0df76a6ef8d7258abca6e5d39d30000eb89278ae9511f67df"
+        },
+        {
+          "name": "document-ocr-control/index.ts",
+          "sha256": "05b3e0b19c115fe25a3d49d99c6d482d12cb30e92407d7d02f32dbf9090d1f3e"
+        }
+      ]
+    },
+    {
+      "name": "document-intake-ai-fill",
+      "files": [
+        {
+          "name": "_shared/ai-privacy-diagnostics.ts",
+          "sha256": "6402913620d36a272ee5dec5cb33d15c05141af9eaf81ba305f799017b287339"
+        },
+        {
+          "name": "_shared/full-corpus-admission.ts",
+          "sha256": "c63a5f16d7ba4216f4ed460cb457bd447461e5febdcd713508a6ce53e465db3a"
+        },
+        {
+          "name": "_shared/ocr-consumer-admission.ts",
+          "sha256": "5866dac5980956bcade48e3c3718cf166720aebca1e855777a256af3ae28e2b0"
+        },
+        {
+          "name": "document-intake-ai-fill/index.ts",
+          "sha256": "4066c387dffd10004150425a9836c8867a0b9021f4391ea1f0f99924375c5d46"
+        },
+        {
+          "name": "document-intake-ai-fill/privacy-policy.ts",
+          "sha256": "9b826d4399ab5cc03cefd6ee9fb2eea40905fdf2568cd3b279741a89b987ba9e"
+        },
+        {
+          "name": "document-intake-ai-fill/redaction-safety.ts",
+          "sha256": "f54935ccf8eef06e92d34c57ae62cb83ba1ca4b7c5d52a994b25332deb8a798c"
+        }
+      ]
+    },
+    {
+      "name": "analyze-document-legal-position",
+      "files": [
+        {
+          "name": "_shared/ai-privacy-diagnostics.ts",
+          "sha256": "6402913620d36a272ee5dec5cb33d15c05141af9eaf81ba305f799017b287339"
+        },
+        {
+          "name": "_shared/full-corpus-admission.ts",
+          "sha256": "c63a5f16d7ba4216f4ed460cb457bd447461e5febdcd713508a6ce53e465db3a"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/constants.ts",
+          "sha256": "500b8192967eebb2da561625173acb4140867da4a7dca3c99892e07fcd70691f"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/errors.ts",
+          "sha256": "9961445efbaba26fd7c791b550337320c6905fcb760de1cdc3c6dde00790e69d"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/feature-flags.ts",
+          "sha256": "7373b1a5e3debf91fb85b08c293f47fce43f2c31e8dac5daf2c08f09dd5a7cd8"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/index.ts",
+          "sha256": "70e45699d4dc8ab9789ca4b45b504af717bc48e39c21f330e7ac2d991fe65446"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/projection-builder.ts",
+          "sha256": "0cedfcb9eb7ad63d5f991ff378c5a1de8593b38589b8faa9f4e520453f8a9ce1"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/relation-validator.ts",
+          "sha256": "5c4049ddbabe87dd65b455b62e32a1836e21d33729ce6984f5b337cebaeaf9f0"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/result.ts",
+          "sha256": "60e770f45ede6ff5419d65051df8f7c1bf66f94a9eda5a1d841f316e39ea46cc"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/source-identity.ts",
+          "sha256": "419c6881e00924f2b2f5a28370d81bae793983493682af70bdea0453269a8caf"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/stable-json.ts",
+          "sha256": "f00ce6822910a40e3607d27093d46492a0b98ab6340c58c658c7e604b3a6f162"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/types.ts",
+          "sha256": "f972259509a62ed04319ea18fd84f53293ee993b9cfff1421769365e75dd7d35"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/usage-claims.ts",
+          "sha256": "b160e36ebaed759e5f0e9b312a6e07d01beef407ac417e4d67af7bb3ce277a95"
+        },
+        {
+          "name": "_shared/ocr-consumer-admission.ts",
+          "sha256": "5866dac5980956bcade48e3c3718cf166720aebca1e855777a256af3ae28e2b0"
+        },
+        {
+          "name": "_shared/template-registry.ts",
+          "sha256": "2c3017d4aa1f5e2e9bf1edbcc0970b851367f7abdd1131b78118dfc960d15291"
+        },
+        {
+          "name": "analyze-document-legal-position/auth-boundary.ts",
+          "sha256": "0b0fd941a62ce5e2d1a7b897076314a2944bbfedc792e8a7074f9eb4210c2102"
+        },
+        {
+          "name": "analyze-document-legal-position/bras-kad-api-cloud.ts",
+          "sha256": "3bcfeacbcfc0a84373b67b330c9d0d858b234f3953d337c78d5c9cfa567c77d7"
+        },
+        {
+          "name": "analyze-document-legal-position/bras-kad-browser-handoff.ts",
+          "sha256": "86f33a10815859e6daefcd51f4019b387e9d259314f5c20ff6780d5e45e37414"
+        },
+        {
+          "name": "analyze-document-legal-position/bras-kad-shadow-harness.ts",
+          "sha256": "6aed55b8d21b92a0a36024ea5e52a66b0926455de7962d96069c0f6f2d5dba2c"
+        },
+        {
+          "name": "analyze-document-legal-position/canonical-shadow-persistence.ts",
+          "sha256": "982b7bbe7d9dda20c929de0bf2ab5bd99386507ef3929efeeaab3f2fab3ff264"
+        },
+        {
+          "name": "analyze-document-legal-position/canonical-shadow.ts",
+          "sha256": "c535199cfc75577b7143bcf4a0b2ac1aa90169dfbafb10cf4386707a5cf22aba"
+        },
+        {
+          "name": "analyze-document-legal-position/challenge.ts",
+          "sha256": "1ddb8eecce15042c5d3371f89d0a6cc30acbaae253c8e0521b041d462f2861ed"
+        },
+        {
+          "name": "analyze-document-legal-position/company-factual-evidence-matrix.ts",
+          "sha256": "b595d2912fe45f1609d1fcddc6b24d934bd416c29d9f9d774f195dfdf569ed39"
+        },
+        {
+          "name": "analyze-document-legal-position/company-factual-identity.ts",
+          "sha256": "fe58e815956cb9c668dac57071d124025429b4c94b43473b20902b8002c225e9"
+        },
+        {
+          "name": "analyze-document-legal-position/company-financial-statement-evidence-matrix.ts",
+          "sha256": "92935fdac93d1f5fddb3b07653de2095aeaf87f6afc712572fe7da2dd6e37357"
+        },
+        {
+          "name": "analyze-document-legal-position/company-financial-statement-identity.ts",
+          "sha256": "1bd0f1b50ea88d36261fc6da84fc94ea4b4a6314294d9d2366fd2626c1007910"
+        },
+        {
+          "name": "analyze-document-legal-position/company-headcount-evidence-matrix.ts",
+          "sha256": "0580454f585e89bbf79f66e3e00ab9f5252f0fa443fc67ff0a25b075c2ea91dd"
+        },
+        {
+          "name": "analyze-document-legal-position/company-headcount-identity.ts",
+          "sha256": "50e0d517712f7c099a515a7d40ebb22bda395f8fe4e58a6130655c85dff1b8e2"
+        },
+        {
+          "name": "analyze-document-legal-position/company-tax-debt-evidence-matrix.ts",
+          "sha256": "150ce6ae086ce107fe1075cd4e55a524c3c5a3b061ed8eec61a720e31de39446"
+        },
+        {
+          "name": "analyze-document-legal-position/company-tax-debt-identity.ts",
+          "sha256": "b8f96be94c90159091deab69738b3093fbfd79786cbce4df933949f2abb3340c"
+        },
+        {
+          "name": "analyze-document-legal-position/dedupe.ts",
+          "sha256": "a1d3b4ada737e87e35c5ef25f142e14518910102b2c9114237cf99a2f86eebca"
+        },
+        {
+          "name": "analyze-document-legal-position/document-intent.ts",
+          "sha256": "5ce2a4223a7aac1d8b4eb580cffa8dc1e1c2597bc74d232b5e012aaf8885a7ae"
+        },
+        {
+          "name": "analyze-document-legal-position/enrich.ts",
+          "sha256": "158996f7eac13f78d735e2ec967fea183d8273841cbd9375e3b3ef47f434158b"
+        },
+        {
+          "name": "analyze-document-legal-position/external-research-import.ts",
+          "sha256": "5dcc0ed9defb377a1f48e913b268d6faed05dcaba71d043fcd0bbaf05abf85e2"
+        },
+        {
+          "name": "analyze-document-legal-position/fact-extraction.ts",
+          "sha256": "8fc221dca51671f20de8a230e5de6d58bf5ab00081948993e22bd64b2f23c041"
+        },
+        {
+          "name": "analyze-document-legal-position/fns-company-factual-evidence.ts",
+          "sha256": "ec5ee208b537b5561fe4157165eb04a6b050015a8db427e0f517f988e1a16ace"
+        },
+        {
+          "name": "analyze-document-legal-position/fns-company-factual-runtime.ts",
+          "sha256": "7dd315f857fa3f8fad4c71310a2fc81e9b7283116179c0a3da5896df56eb450a"
+        },
+        {
+          "name": "analyze-document-legal-position/fns-company-financial-statement-evidence.ts",
+          "sha256": "39cdf51e0de349f6780e0ae5339614cd928237d84923cddd4640cc81856ce353"
+        },
+        {
+          "name": "analyze-document-legal-position/fns-company-headcount-evidence.ts",
+          "sha256": "c6dd14f819953baca64e32aec3bd56721439ddb3054708f5382c57426bae41a9"
+        },
+        {
+          "name": "analyze-document-legal-position/fns-company-tax-debt-evidence.ts",
+          "sha256": "fac0defc0d544849f9e7202f0d86d290613359c500db8338f4ae1018b624d934"
+        },
+        {
+          "name": "analyze-document-legal-position/fns-company-tax-offence-evidence.ts",
+          "sha256": "9a18d133498b0fcecfc48057c2761e0569b9aae6e57b32b532ba312936dfcff2"
+        },
+        {
+          "name": "analyze-document-legal-position/gemini-fallback.ts",
+          "sha256": "6493fe12f5e7c13451749743ed7d585e314ba92810231ba10a3bde179c91ee80"
+        },
+        {
+          "name": "analyze-document-legal-position/index.ts",
+          "sha256": "f45132261cd9f5a66444332e001f3c7b23ee716c2fea1fa843d5076347c0011a"
+        },
+        {
+          "name": "analyze-document-legal-position/law7-provider.ts",
+          "sha256": "dd30b6391a9ba8bb4496a0a97888df8e714e5bdb19a5f73e971113b6029b9feb"
+        },
+        {
+          "name": "analyze-document-legal-position/law7-supabase-transport.ts",
+          "sha256": "66309efa2a47b9f618373f08e504d3567f7116d7128571d89f05965d91feebd4"
+        },
+        {
+          "name": "analyze-document-legal-position/merge.ts",
+          "sha256": "e797579ab913c5fbfc10f1d77ddcfb5027ccbe98ce7ad7e682da792d99940785"
+        },
+        {
+          "name": "analyze-document-legal-position/official-collector-artifacts.ts",
+          "sha256": "0f9d3ca9acbce367dd4f1ad40722cb0efd66935e661dd08f6035bc7c369fcb4c"
+        },
+        {
+          "name": "analyze-document-legal-position/official-sources.ts",
+          "sha256": "2d41c4e9f2a499e43bad0fc975e0e544cfea4623aa4b97224be35c7db37babcb"
+        },
+        {
+          "name": "analyze-document-legal-position/official-verification-resolver.ts",
+          "sha256": "6be3246857165a08f14a19a13dec6bde174e335c5e5feaa61618e5fbd216908c"
+        },
+        {
+          "name": "analyze-document-legal-position/plenum-authority-contract.ts",
+          "sha256": "c2365646fb1176090009a1a4ae903484cea4808bb13ae51805fbcd64e84787cb"
+        },
+        {
+          "name": "analyze-document-legal-position/prompt.ts",
+          "sha256": "180c7c02510f5515afa57b2242d7729581c5691e4b0ddbd7b72a87fdd755c489"
+        },
+        {
+          "name": "analyze-document-legal-position/ranking.ts",
+          "sha256": "010d87036fd6359523332bd6d4f9f118d99de112938887a3d48ba2ab9973fbf2"
+        },
+        {
+          "name": "analyze-document-legal-position/repositories.ts",
+          "sha256": "c02c8523b908e40aac3dd061a928426197facbfdb6e41f620f0c04e14ab8adfe"
+        },
+        {
+          "name": "analyze-document-legal-position/research-coverage.ts",
+          "sha256": "de362a775b07b65db43a25f43074a0749fbbeedf64dde8db8a5a41f600cabf21"
+        },
+        {
+          "name": "analyze-document-legal-position/research-provider-contract.ts",
+          "sha256": "a95adfca3db166c8243d22b7de06ea4ebb2a55146cfddbdda564dd6fe974a67c"
+        },
+        {
+          "name": "analyze-document-legal-position/research-query-plan.ts",
+          "sha256": "261f671368fb1ce03b0c4e5bc4a1e5b6c935ec832efbefc3cad4135e2850b70e"
+        },
+        {
+          "name": "analyze-document-legal-position/research-routing.ts",
+          "sha256": "66671cd8e7f48681ce60779197997a87e6ac8090a42fb79f131c3ea051341c35"
+        },
+        {
+          "name": "analyze-document-legal-position/research-source-admission.ts",
+          "sha256": "1d05dc305aa0090236307d8468b58b34d49eb269df70e1cfbf9b6cf5918587f6"
+        },
+        {
+          "name": "analyze-document-legal-position/research-transport-policy.ts",
+          "sha256": "1d88b838ce991b16e18708f40f4103dcdfff0064ec3608d849f417713324c37d"
+        },
+        {
+          "name": "analyze-document-legal-position/source-family-contract.ts",
+          "sha256": "96ca688d7201eb8adc9d92d1909f81bace7b01a42461d6cf2734f2a7fdd46108"
+        },
+        {
+          "name": "analyze-document-legal-position/source-metadata-bridge.ts",
+          "sha256": "a14171bb97dfc5901dc695ebbd0494c515b4b376da094a406379689a8237d18e"
+        },
+        {
+          "name": "analyze-document-legal-position/source-use-admission.ts",
+          "sha256": "d73ecb4877cdcf298b25de47d7724dfb04fb55a73bc35ab9bf0824933f42bfb5"
+        },
+        {
+          "name": "analyze-document-legal-position/temporal-applicability.ts",
+          "sha256": "670fc42174a9cc90c43d2215a1b97e2ac9d4c4e542cd485a9ff9d9b6a6b8972a"
+        },
+        {
+          "name": "analyze-document-legal-position/temporal-date.ts",
+          "sha256": "52d602e52599827f9d4a6019ef42976da28f8dea358af08f4530305c6f79779f"
+        }
+      ]
+    },
+    {
+      "name": "generate-legal-document-v2",
+      "files": [
+        {
+          "name": "_shared/ai-privacy-diagnostics.ts",
+          "sha256": "6402913620d36a272ee5dec5cb33d15c05141af9eaf81ba305f799017b287339"
+        },
+        {
+          "name": "_shared/full-corpus-admission.ts",
+          "sha256": "c63a5f16d7ba4216f4ed460cb457bd447461e5febdcd713508a6ce53e465db3a"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-consumer-observation-persistence.ts",
+          "sha256": "d42570c3714bb8468fc5662111fc74a1d63bfc4f517e4b5fe1cd7c2740ca7629"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/constants.ts",
+          "sha256": "500b8192967eebb2da561625173acb4140867da4a7dca3c99892e07fcd70691f"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/errors.ts",
+          "sha256": "9961445efbaba26fd7c791b550337320c6905fcb760de1cdc3c6dde00790e69d"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/feature-flags.ts",
+          "sha256": "7373b1a5e3debf91fb85b08c293f47fce43f2c31e8dac5daf2c08f09dd5a7cd8"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/index.ts",
+          "sha256": "70e45699d4dc8ab9789ca4b45b504af717bc48e39c21f330e7ac2d991fe65446"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/projection-builder.ts",
+          "sha256": "0cedfcb9eb7ad63d5f991ff378c5a1de8593b38589b8faa9f4e520453f8a9ce1"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/relation-validator.ts",
+          "sha256": "5c4049ddbabe87dd65b455b62e32a1836e21d33729ce6984f5b337cebaeaf9f0"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/result.ts",
+          "sha256": "60e770f45ede6ff5419d65051df8f7c1bf66f94a9eda5a1d841f316e39ea46cc"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/source-identity.ts",
+          "sha256": "419c6881e00924f2b2f5a28370d81bae793983493682af70bdea0453269a8caf"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/stable-json.ts",
+          "sha256": "f00ce6822910a40e3607d27093d46492a0b98ab6340c58c658c7e604b3a6f162"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/types.ts",
+          "sha256": "f972259509a62ed04319ea18fd84f53293ee993b9cfff1421769365e75dd7d35"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-relations/usage-claims.ts",
+          "sha256": "b160e36ebaed759e5f0e9b312a6e07d01beef407ac417e4d67af7bb3ce277a95"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-shadow-observer.ts",
+          "sha256": "886f7ad33b8dbeb6e55208830617987e99aa62b1068be7a11b5f60723b454776"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-shadow-parity.ts",
+          "sha256": "2d4abb6bead28fe464dfdbf3658944e2b8c366b7f8743c3a735be2914079f09b"
+        },
+        {
+          "name": "_shared/legal-analysis/canonical-shadow-reader.ts",
+          "sha256": "858c75720915a3a387c72fdcc9c3be25955df4f5b0a1b8d8534c3276f006fde0"
+        },
+        {
+          "name": "_shared/ocr-consumer-admission.ts",
+          "sha256": "5866dac5980956bcade48e3c3718cf166720aebca1e855777a256af3ae28e2b0"
+        },
+        {
+          "name": "generate-legal-document-v2/conclusion-contract.ts",
+          "sha256": "1f97b1d6f9e8d3a00c1c6d0d0bd4cd20055ea9922d90c9e1fa1118fc2a4c44b3"
+        },
+        {
+          "name": "generate-legal-document-v2/index.ts",
+          "sha256": "af44cfd448bd7ceaf875a35159832b59f19e30ed43ae7cc015252b403bfac5aa"
+        },
+        {
+          "name": "generate-legal-document-v2/template-profiles.ts",
+          "sha256": "75517130d6eaaef2945568112a49ed692da22351b785c243f1c556554c6768e2"
+        }
+      ]
+    }
+  ],
+  "http": {
+    "project_ref": "hbzeifkjzexkltvktwjc",
+    "checks": [
+      {
+        "function": "extract-document-text",
+        "mode": "missing_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "Unauthorized",
+        "body_sha256": "3be5b8e53fdc8b0a2996590589456db33504977f3d1ce9bb75016c8a707e1a71",
+        "body_bytes": 24,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 7350,
+        "execution_id": "bdcef1df-1426-428a-8ff5-36d7733bf340",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "extract-document-text",
+        "mode": "invalid_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "Unauthorized",
+        "body_sha256": "3be5b8e53fdc8b0a2996590589456db33504977f3d1ce9bb75016c8a707e1a71",
+        "body_bytes": 24,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 7907,
+        "execution_id": "bdcef1df-1426-428a-8ff5-36d7733bf340",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "extract-document-text",
+        "mode": "preflight",
+        "method": "OPTIONS",
+        "status": 200,
+        "expected_statuses": [
+          200,
+          204
+        ],
+        "error_code": null,
+        "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "body_bytes": 0,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 7350,
+        "execution_id": "bdcef1df-1426-428a-8ff5-36d7733bf340",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "dispatch-document-ocr",
+        "mode": "missing_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "unauthorized",
+        "body_sha256": "782eeaa7f1915f6783146f8180751785584f0f24bd4e503165c7fc4a597da600",
+        "body_bytes": 24,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 7296,
+        "execution_id": "d0f4f462-36f8-4d9b-8c43-55dab48504cf",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "dispatch-document-ocr",
+        "mode": "invalid_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "unauthorized",
+        "body_sha256": "782eeaa7f1915f6783146f8180751785584f0f24bd4e503165c7fc4a597da600",
+        "body_bytes": 24,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5829,
+        "execution_id": "d0f4f462-36f8-4d9b-8c43-55dab48504cf",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "dispatch-document-ocr",
+        "mode": "preflight",
+        "method": "OPTIONS",
+        "status": 405,
+        "expected_statuses": [
+          405
+        ],
+        "error_code": "method_not_allowed",
+        "body_sha256": "48ceae43089b9c26f0b2e5e53afe122639812aaa791c84f311d6b992f2332fef",
+        "body_bytes": 30,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5733,
+        "execution_id": "d0f4f462-36f8-4d9b-8c43-55dab48504cf",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "document-ocr-control",
+        "mode": "missing_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "unauthorized",
+        "body_sha256": "782eeaa7f1915f6783146f8180751785584f0f24bd4e503165c7fc4a597da600",
+        "body_bytes": 24,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 6008,
+        "execution_id": "f2bfda27-5307-40c0-ae7d-fbf8fd529c19",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "document-ocr-control",
+        "mode": "invalid_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "unauthorized",
+        "body_sha256": "782eeaa7f1915f6783146f8180751785584f0f24bd4e503165c7fc4a597da600",
+        "body_bytes": 24,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5800,
+        "execution_id": "f2bfda27-5307-40c0-ae7d-fbf8fd529c19",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "document-ocr-control",
+        "mode": "preflight",
+        "method": "OPTIONS",
+        "status": 204,
+        "expected_statuses": [
+          200,
+          204
+        ],
+        "error_code": null,
+        "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "body_bytes": 0,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5729,
+        "execution_id": "f2bfda27-5307-40c0-ae7d-fbf8fd529c19",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "document-intake-ai-fill",
+        "mode": "missing_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "Unauthorized",
+        "body_sha256": "71a00434e128051d5e330d4fd663ee42df2508218808d4509c4591ef34b7eca4",
+        "body_bytes": 40,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5874,
+        "execution_id": "4ac0b5f8-ad5d-4679-882b-f5d127eedf18",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "document-intake-ai-fill",
+        "mode": "invalid_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "Unauthorized",
+        "body_sha256": "71a00434e128051d5e330d4fd663ee42df2508218808d4509c4591ef34b7eca4",
+        "body_bytes": 40,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5988,
+        "execution_id": "4ac0b5f8-ad5d-4679-882b-f5d127eedf18",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "document-intake-ai-fill",
+        "mode": "preflight",
+        "method": "OPTIONS",
+        "status": 200,
+        "expected_statuses": [
+          200,
+          204
+        ],
+        "error_code": null,
+        "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "body_bytes": 0,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5291,
+        "execution_id": "4ac0b5f8-ad5d-4679-882b-f5d127eedf18",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "analyze-document-legal-position",
+        "mode": "missing_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "Unauthorized",
+        "body_sha256": "3be5b8e53fdc8b0a2996590589456db33504977f3d1ce9bb75016c8a707e1a71",
+        "body_bytes": 24,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5720,
+        "execution_id": "10a760c0-86ba-4f87-bbad-fd54454bd544",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "analyze-document-legal-position",
+        "mode": "invalid_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "Unauthorized",
+        "body_sha256": "3be5b8e53fdc8b0a2996590589456db33504977f3d1ce9bb75016c8a707e1a71",
+        "body_bytes": 24,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5886,
+        "execution_id": "10a760c0-86ba-4f87-bbad-fd54454bd544",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "analyze-document-legal-position",
+        "mode": "preflight",
+        "method": "OPTIONS",
+        "status": 200,
+        "expected_statuses": [
+          200,
+          204
+        ],
+        "error_code": null,
+        "body_sha256": "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df",
+        "body_bytes": 2,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5540,
+        "execution_id": "10a760c0-86ba-4f87-bbad-fd54454bd544",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "generate-legal-document-v2",
+        "mode": "missing_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "Unauthorized",
+        "body_sha256": "71a00434e128051d5e330d4fd663ee42df2508218808d4509c4591ef34b7eca4",
+        "body_bytes": 40,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5189,
+        "execution_id": "90b1f279-6190-43e1-9585-d23d3c07ddcd",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "generate-legal-document-v2",
+        "mode": "invalid_bearer",
+        "method": "POST",
+        "status": 401,
+        "expected_statuses": [
+          401
+        ],
+        "error_code": "Unauthorized",
+        "body_sha256": "71a00434e128051d5e330d4fd663ee42df2508218808d4509c4591ef34b7eca4",
+        "body_bytes": 40,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 6061,
+        "execution_id": "90b1f279-6190-43e1-9585-d23d3c07ddcd",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "generate-legal-document-v2",
+        "mode": "preflight",
+        "method": "OPTIONS",
+        "status": 200,
+        "expected_statuses": [
+          200,
+          204
+        ],
+        "error_code": null,
+        "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "body_bytes": 0,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5813,
+        "execution_id": "718f8759-fe61-4ae5-bf29-181a8fefac5a",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "dispatch-document-ocr",
+        "mode": "method",
+        "method": "GET",
+        "status": 405,
+        "expected_statuses": [
+          405
+        ],
+        "error_code": "method_not_allowed",
+        "body_sha256": "48ceae43089b9c26f0b2e5e53afe122639812aaa791c84f311d6b992f2332fef",
+        "body_bytes": 30,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5914,
+        "execution_id": "d0f4f462-36f8-4d9b-8c43-55dab48504cf",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      },
+      {
+        "function": "document-ocr-control",
+        "mode": "method",
+        "method": "GET",
+        "status": 405,
+        "expected_statuses": [
+          405
+        ],
+        "error_code": "method_not_allowed",
+        "body_sha256": "48ceae43089b9c26f0b2e5e53afe122639812aaa791c84f311d6b992f2332fef",
+        "body_bytes": 30,
+        "canary_echoed": false,
+        "cors_ok": true,
+        "duration_ms": 5396,
+        "execution_id": "f2bfda27-5307-40c0-ae7d-fbf8fd529c19",
+        "served_by": "supabase-edge-runtime",
+        "passed": true
+      }
+    ],
+    "harness_correction": "The initial GET control probe expected 401; source contract is 405. Corrected the probe and repeated only that request successfully; handlers unchanged.",
+    "deployed_handler_requests_by_test": 24,
+    "predeployment_route_probe_requests": 1
+  },
+  "logs": {
+    "result": [
+      {
+        "canary_messages": 0,
+        "entries": 9,
+        "source": "auth_logs"
+      },
+      {
+        "canary_messages": 0,
+        "entries": 6,
+        "source": "edge_logs"
+      },
+      {
+        "canary_messages": 0,
+        "entries": 25,
+        "source": "function_edge_logs"
+      },
+      {
+        "canary_messages": 0,
+        "entries": 10,
+        "source": "function_logs"
+      },
+      {
+        "canary_messages": 0,
+        "entries": 10,
+        "source": "pgbouncer_logs"
+      },
+      {
+        "canary_messages": 0,
+        "entries": 60,
+        "source": "postgres_logs"
+      },
+      {
+        "canary_messages": 0,
+        "entries": 48,
+        "source": "postgrest_logs"
+      },
+      {
+        "canary_messages": 0,
+        "entries": 3,
+        "source": "realtime_logs"
+      },
+      {
+        "canary_messages": 0,
+        "entries": 1,
+        "source": "storage_logs"
+      }
+    ]
+  },
+  "database": {
+    "schema_rebuild": "automatic approval review rejected before execution; no workaround",
+    "reason": "reset public schema and broad DDL not covered by function deployment authorization",
+    "actual_state": [
+      {
+        "final_database_state": {
+          "jobs": null,
+          "users": 0,
+          "objects": 0,
+          "documents": null,
+          "public_tables": 4
+        }
+      }
+    ]
+  },
+  "production": {
+    "before": {
+      "functions": [
+        {
+          "id": "387c6991-2541-4d6c-b20b-e17d9502c414",
+          "slug": "extract-document-text",
+          "version": 113,
+          "updated_at": 1793287226405,
+          "verify_jwt": false,
+          "ezbr_sha256": "4562258dd4db25576729d87bc7d08b6205d25a43d90bde2ad77364d6fca477c8"
+        },
+        {
+          "id": "77559ace-00fd-459e-91e9-875a39ab9e02",
+          "slug": "generate-legal-document-v2",
+          "version": 91,
+          "updated_at": 1791131249014,
+          "verify_jwt": false,
+          "ezbr_sha256": "c6ff52caa0a2c9843ae8e4387cd22e99c0d3df8c003a0b1a85f1921122c87f7a"
+        },
+        {
+          "id": "08ffb816-d066-4f0f-b078-519cbca87f62",
+          "slug": "document-intake-ai-fill",
+          "version": 66,
+          "updated_at": 1791131249014,
+          "verify_jwt": false,
+          "ezbr_sha256": "fdc4a55a6a16cc8b4bec09b139c0a7fb56e02e5041bd2f08119286ed5f84c3f0"
+        },
+        {
+          "id": "f4fb801f-10a4-4588-bd25-fce1792fcd2e",
+          "slug": "analyze-document-legal-position",
+          "version": 124,
+          "updated_at": 1793204285441,
+          "verify_jwt": false,
+          "ezbr_sha256": "c81a1a73b7ccb37449bd2bf1b02b1e4c3cd29202162df51d3b325937fd15ea13"
+        }
+      ]
+    },
+    "after": {
+      "functions": [
+        {
+          "id": "387c6991-2541-4d6c-b20b-e17d9502c414",
+          "slug": "extract-document-text",
+          "version": 113,
+          "updated_at": 1793287226405,
+          "verify_jwt": false,
+          "ezbr_sha256": "4562258dd4db25576729d87bc7d08b6205d25a43d90bde2ad77364d6fca477c8"
+        },
+        {
+          "id": "77559ace-00fd-459e-91e9-875a39ab9e02",
+          "slug": "generate-legal-document-v2",
+          "version": 91,
+          "updated_at": 1791131249014,
+          "verify_jwt": false,
+          "ezbr_sha256": "c6ff52caa0a2c9843ae8e4387cd22e99c0d3df8c003a0b1a85f1921122c87f7a"
+        },
+        {
+          "id": "08ffb816-d066-4f0f-b078-519cbca87f62",
+          "slug": "document-intake-ai-fill",
+          "version": 66,
+          "updated_at": 1791131249014,
+          "verify_jwt": false,
+          "ezbr_sha256": "fdc4a55a6a16cc8b4bec09b139c0a7fb56e02e5041bd2f08119286ed5f84c3f0"
+        },
+        {
+          "id": "f4fb801f-10a4-4588-bd25-fce1792fcd2e",
+          "slug": "analyze-document-legal-position",
+          "version": 124,
+          "updated_at": 1793204285441,
+          "verify_jwt": false,
+          "ezbr_sha256": "c81a1a73b7ccb37449bd2bf1b02b1e4c3cd29202162df51d3b325937fd15ea13"
+        }
+      ]
+    },
+    "unchanged": true
+  },
+  "model_requests_by_this_test": 0,
+  "provider_credentials_configured_by_this_run": false,
+  "backend_flags_configured_by_this_run": false,
+  "scheduler_configured_by_this_run": false,
+  "temporary_actors_created": 0,
+  "storage_objects_created": 0,
+  "scope": "Hosted source parity, worker boot, unauthenticated denial, CORS and method checks only; no positive authenticated/document/Storage/model/scheduler acceptance.",
+  "cleanup": {
+    "status": "deleted",
+    "verified_at": "2026-11-05T14:31:21.503Z",
+    "inventory": [
+      {
+        "name": "main",
+        "ref": "wiylzbdbjokignwvizxt",
+        "is_default": true
+      }
+    ]
+  }
+}

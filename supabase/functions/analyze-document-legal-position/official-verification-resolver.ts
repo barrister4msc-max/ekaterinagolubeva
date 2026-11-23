@@ -142,7 +142,8 @@ export function resolveLaw7OfficialVerification(
 
   const exact = pravoCandidates
     .map((candidate) => ({ candidate, observation: observationOf(candidate) }))
-    .filter(({ candidate, observation }) => {
+    .filter((entry): entry is {candidate:PravoVerificationCandidate;observation:OfficialContentObservation} => {
+      const {candidate,observation}=entry;
       if (!observation) return false;
       const safety = candidateSafety(candidate);
       if (!safety?.official_origin_verified || !safety?.document_identity_verified) return false;

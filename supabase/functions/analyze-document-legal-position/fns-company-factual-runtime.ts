@@ -21,7 +21,7 @@ import {
 } from "./fns-company-tax-offence-evidence.ts";
 
 type SbClient = {
-  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
+  rpc: (fn: string, args?: Record<string, unknown>) => PromiseLike<{ data: unknown; error: { message?: string } | null }>;
 };
 
 type DatasetRuntimeDiagnostics = {

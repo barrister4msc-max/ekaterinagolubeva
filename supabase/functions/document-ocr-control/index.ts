@@ -3,12 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { isValidOcrDispatchToken } from "../_shared/ocr-dispatcher.ts";
 import { createOcrControl } from "../_shared/ocr-control.ts";
 import { createPdfTextLayerExtractor } from "../_shared/pdf-text-layer.ts";
+import { loadDenoPdfJs } from "../_shared/deno-pdfjs.ts";
+import { readSupabaseServerKey } from "../_shared/supabase-server-key.ts";
+import { readOcrProvider } from "../_shared/ocr-provider.ts";
 const url = Deno.env.get("SUPABASE_URL") ?? "",
-  key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const extractText = createPdfTextLayerExtractor(async () => {
-  // @ts-ignore Same bundled parser as extract-document-text.
-  return await import("https://esm.sh/pdfjs-dist@4.10.38/deno/legacy/build/pdf.bundle.mjs");
-});
+  key = readSupabaseServerKey((name) => Deno.env.get(name));
+const extractText = createPdfTextLayerExtractor(loadDenoPdfJs);
 Deno.serve(
   createOcrControl({
     enabled: [
@@ -19,7 +19,7 @@ Deno.serve(
     ready: Boolean(
       url &&
       key &&
-      Deno.env.get("GEMINI_API_KEY") &&
+      readOcrProvider((name) => Deno.env.get(name)).ready &&
       isValidOcrDispatchToken(Deno.env.get("KATI_OCR_DISPATCH_TOKEN") ?? "", key),
     ),
     client: () => {

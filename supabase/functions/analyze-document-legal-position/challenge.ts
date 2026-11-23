@@ -173,13 +173,13 @@ export async function runChallenge(opts: {
           }
         } catch (e) {
           executionStatus = "invalid_response";
-          console.warn("[challenge] invalid response:", (e as Error).message);
+          console.warn("[challenge] invalid response", {error_code:"challenge_invalid_response"});
         }
       }
     } catch (e) {
       if(e instanceof OcrSourceAdmissionError)throw e;
       executionStatus = "failed";
-      console.warn("[challenge] LLM pass failed:", (e as Error).message);
+      console.warn("[challenge] LLM pass failed", {error_code:"challenge_provider_failed"});
     }
   }
 
@@ -202,7 +202,8 @@ export async function runChallenge(opts: {
   const needsRevision = issues.length > 0 && !blocked;
 
   return {
-    status: blocked ? "blocked" : needsRevision ? "needs_revision" : "passed",
+    execution_status: executionStatus,
+    status: blocked ? "blocked" : executionStatus !== "passed" ? null : needsRevision ? "needs_revision" : "passed",
     issues,
     required_changes: deriveRequiredChanges(issues),
     adverse_sources: [...adverseRefs],

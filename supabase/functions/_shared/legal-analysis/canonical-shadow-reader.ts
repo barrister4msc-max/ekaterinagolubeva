@@ -64,7 +64,7 @@ export interface CanonicalShadowReadClient {
         column: "analysis_run_id",
         value: string,
       ): {
-        maybeSingle(): Promise<MaybeSingleResult>;
+        maybeSingle(): PromiseLike<MaybeSingleResult>;
       };
     };
   };

@@ -1,6 +1,7 @@
 // Actual dispatcher entrypoint/shared leased processor/SQL; external SDKs,
-// Storage and Gemini transport are doubled. This is not a real-PDF E06 run.
+// Storage, Auth and provider transport are doubled. PDF splitting uses real pdf-lib.
 import { PGlite } from "@electric-sql/pglite";
+import { PDFDocument } from "pdf-lib";
 import assert from "node:assert/strict";
 import { readFile,writeFile,mkdtemp,rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,8 +13,12 @@ import { createOcrDispatcher } from "../../functions/_shared/ocr-dispatcher.ts";
 
 const db=new PGlite();const docId="10000000-0000-4000-8000-000000000001";
 const token="DISPATCH_TEST_"+"a".repeat(48),service="SERVICE_TEST_"+"b".repeat(48),canary="PRIVATE_DISPATCH_CANARY";
+const hostedService="sb_secret_"+"x".repeat(32);
+let hostedKeys:string|undefined;
+let providerName: string | undefined, geminiKey = "offline-api-key", openaiKey = "";
 let enabled=true,configuredToken=token,pageCount=601,mode="success",storage="ok",loseFinish=false,claimError=false,badClaim=false;
-let calls:number[]=[],rpcNames:string[]=[],clients=0,storageReads=0,bytes="original PDF bytes";
+let calls:number[]=[],rpcNames:string[]=[],clients=0,storageReads=0;
+let bytes: Uint8Array<ArrayBuffer> | string = "original PDF bytes";
 const diagnostics:unknown[]=[];const output=console.log;
 for(const k of ["log","warn","error"] as const)console[k]=(...args)=>{diagnostics.push(args);};
 let handler:(req:Request)=>Promise<Response>;
@@ -44,24 +49,70 @@ const sb={
     return {data,error:null};
   },
 };
-const pdf={load:async()=>{if(mode==="corrupt")throw new Error(canary);return {getPageCount:()=>pageCount};},
-  create:async()=>{let start=0;return {copyPages:async(_source:unknown,pages:number[])=>{start=pages[0];return pages;},
-    addPage(){},save:async()=>new Uint8Array([start>>8,start&255])};}};
+// Each page contains a raster image and a unique width, with no text layer.
+// Width markers let the transport double inspect the actual serialized windows.
+const raster = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1XcAAAAASUVORK5CYII=", "base64");
+const makePdf = async (pages: number) => {
+  const document = await PDFDocument.create();
+  const image = await document.embedPng(raster);
+  for (let page = 0; page < pages; page++) {
+    document.addPage([300 + page / 10, 420]).drawImage(image, { x: 20, y: 20, width: 260, height: 380 });
+  }
+  return await document.save({ useObjectStreams: false });
+};
+const readWindowStart = async (data: Uint8Array) => {
+  const window = await PDFDocument.load(data);
+  const pages = window.getPages();
+  assert.ok(pages.length > 0 && pages.length <= 6);
+  const start = Math.round((pages[0].getWidth() - 300) * 10);
+  assert.equal(pages.length, Math.min(6, pageCount - start));
+  for (let offset = 0; offset < pages.length; offset++) {
+    assert.equal(Math.round((pages[offset].getWidth() - 300) * 10), start + offset);
+  }
+  return start;
+};
+const pdf = {
+  load: async (data: ArrayBuffer) => {
+    if (mode === "corrupt") throw new Error(canary);
+    return await PDFDocument.load(data);
+  },
+  create: () => PDFDocument.create(),
+};
 (globalThis as any).testPdf=pdf;
 (globalThis as any).testCreateClient=(_url:unknown,_key:unknown,options:any)=>{
+  assert.equal(_key,hostedKeys ? hostedService : service);
   clients++;assert.equal(typeof options.global.fetch,"function");return sb;
 };
 (globalThis as any).Deno={env:{get:(name:string)=>({
   KATI_OCR_DISPATCH_ENABLED:String(enabled),KATI_OCR_UNIT_RESERVATIONS_ENABLED:String(enabled),
   KATI_OCR_DISPATCH_TOKEN:configuredToken,SUPABASE_SERVICE_ROLE_KEY:service,
-  SUPABASE_URL:"https://offline.test",GEMINI_API_KEY:"offline-api-key",
+  SUPABASE_SECRET_KEYS:hostedKeys,
+  SUPABASE_URL:"https://offline.test",GEMINI_API_KEY:geminiKey,
+  KATI_OCR_PROVIDER:providerName,OPENAI_API_KEY:openaiKey,
 } as Record<string,string>)[name]},serve:(fn:typeof handler)=>{handler=fn;}};
 globalThis.fetch=(async(url:unknown,init:any)=>{
+  if (String(url) === "https://api.openai.com/v1/responses") {
+    assert.equal(providerName, "openai");
+    assert.equal(init.headers.Authorization, "Bearer " + openaiKey);
+    const payload = JSON.parse(init.body);
+    assert.equal(payload.store, false);
+    assert.equal(payload.max_output_tokens, 8192);
+    const attachment = payload.input[0].content[1];
+    const data = Buffer.from(attachment.file_data.split(",")[1], "base64");
+    const start = await readWindowStart(data);
+    calls.push(start);
+    if (mode === "provider_error") return new Response(canary, { status: 503 });
+    const status = mode === "incomplete" ? "incomplete" : "completed";
+    return new Response(JSON.stringify({status, output: [{
+      type: "message", role: "assistant", status: "completed",
+      content: [{type: "output_text", text: "window-" + start}],
+    }]}));
+  }
   assert.ok(String(url).startsWith("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:"));
   const payload=JSON.parse(init.body);assert.deepEqual(payload.generationConfig,{temperature:0});
   assert.equal(payload.contents[0].parts[0].text,"Извлеки весь читаемый текст с изображения/скана. Верни только текст. Если текста нет — верни пустую строку.");
   const data=Buffer.from(payload.contents[0].parts[1].inline_data.data,"base64");
-  const start=data[0]*256+data[1];calls.push(start);
+  const start=await readWindowStart(data);calls.push(start);
   if(mode==="provider_error")return new Response(canary,{status:503});
   return new Response(JSON.stringify({candidates:[{finishReason:"STOP",content:{parts:[{text:`window-${start}`}]}}]}));
 }) as typeof fetch;
@@ -82,7 +133,7 @@ const tick=async()=>{const response=await handler(request());const body=await re
 const state=async()=>(await q("select * from document_ocr_jobs where document_id=$1",[docId]))[0];
 const due=async()=>db.query("update document_ocr_jobs set next_attempt_at=clock_timestamp()-interval '1 second' where document_id=$1",[docId]);
 const seed=async(pages=18)=>{
-  pageCount=pages;mode="success";storage="ok";loseFinish=false;bytes="original PDF bytes";calls=[];rpcNames=[];
+  pageCount=pages;mode="success";storage="ok";loseFinish=false;bytes=await makePdf(pages);calls=[];rpcNames=[];
   await db.exec("reset role");await db.query("delete from document_ocr_jobs where document_id=$1",[docId]);
   await db.query("update documents set metadata=$2,ocr_text='' where id=$1",[docId,{manual:"preserve"}]);
   await db.query("insert into document_ocr_jobs(document_id,dispatch_enabled,checkpoint) values($1,true,$2)",[docId,{ocr_protocol:"reserved_v1"}]);
@@ -117,6 +168,12 @@ try{
   claimError=true;assert.equal((await tick()).status,503);claimError=false;
   badClaim=true;assert.equal((await tick()).status,503);badClaim=false;assert.equal(storageReads,0);assert.equal(calls.length,0);
   assert.equal((await tick()).body.status,"idle");
+
+  hostedKeys=JSON.stringify({default:hostedService});await load();
+  assert.equal((await tick()).body.status,"idle");
+  configuredToken=hostedService;await load();
+  assert.equal((await handler(request("{}",hostedService))).status,401);
+  hostedKeys=undefined;configuredToken=token;await load();
 
   // Only the first wave is interactive. All remaining invocations are server
   // wakeups, with no tab/UI calls and no second claim in application code.
@@ -154,6 +211,29 @@ try{
   assert.equal((await state()).status,"needs_manual_review");
   await seed();await db.query("update document_ocr_jobs set dispatch_enabled=false where document_id=$1",[docId]);
   assert.equal((await tick()).body.status,"idle");assert.equal(calls.length,0);
+  // OpenAI-only configuration through the real entrypoint and durable SQL.
+  providerName = "openai"; geminiKey = ""; openaiKey = "offline-openai-key";
+  await load();
+  await seed(6);
+  assert.equal((await tick()).body.outcome, "completed");
+  assert.deepEqual(calls, [0]);
+  assert.equal((await state()).checkpoint.page_index.units[0].attempts, 1);
+
+  await seed(6); mode = "incomplete";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await due();
+    await tick();
+  }
+  assert.equal((await state()).status, "needs_manual_review");
+  assert.equal(calls.length, 3);
+  assert.equal((await q("select ocr_text from documents where id=$1", [docId]))[0].ocr_text, "");
+  assert.equal((await tick()).body.status, "idle");
+  assert.equal(calls.length, 3);
+
+  providerName = "unknown"; geminiKey = "offline-api-key";
+  await load();
+  assert.equal((await tick()).status, 503);
+  providerName = undefined; openaiKey = ""; await load();
   assert.ok(!JSON.stringify(diagnostics).includes(canary));
   assert.ok(!JSON.stringify(diagnostics).includes(token));assert.ok(!JSON.stringify(diagnostics).includes(service));
 
