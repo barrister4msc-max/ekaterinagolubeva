@@ -1,12 +1,24 @@
 import type { Bucket, RawSource } from "./repositories.ts";
 
-export type ExternalResearchProviderId = "bras_kad" | "strizh" | "garant" | "consultant" | "other";
+export type ExternalResearchProviderId = "bras_kad" | "cbr" | "strizh" | "garant" | "consultant" | "other";
 
 export type ExternalResearchCandidate = {
   title?: string | null;
   url?: string | null;
   citation?: string | null;
   excerpt?: string | null;
+  full_text?: string | null;
+  cbr_document_kind?: "regulation" | "position" | "instruction" | "letter" | "decision" | "other" | null;
+  document_status?: "effective" | "not_effective" | "withdrawn" | "draft" | "unknown" | null;
+  effective_from?: string | null;
+  language?: string | null;
+  version?: string | null;
+  withdrawn?: boolean;
+  draft?: boolean;
+  duplicate_of?: string | null;
+  authority?: string | null;
+  authority_class?: "regulator" | "guidance" | "administrative" | "unknown" | null;
+  full_text_available?: boolean;
   source_type?: string | null;
   bucket?: Bucket | null;
   code?: string | null;
@@ -83,7 +95,7 @@ export type ExternalResearchRunSnapshot = {
   }>;
 };
 
-const PROVIDERS = new Set<ExternalResearchProviderId>(["bras_kad", "strizh", "garant", "consultant", "other"]);
+const PROVIDERS = new Set<ExternalResearchProviderId>(["bras_kad", "cbr", "strizh", "garant", "consultant", "other"]);
 const MAX_IMPORTS = 20;
 const MAX_LINKS_PER_IMPORT = 50;
 const MAX_CANDIDATES_PER_IMPORT = 50;
@@ -117,6 +129,13 @@ function isBrasKadUrl(value: unknown): boolean {
   const hostname = new URL(url).hostname.toLowerCase();
   return hostname === "kad.arbitr.ru" || hostname.endsWith(".kad.arbitr.ru") ||
     hostname === "ras.arbitr.ru" || hostname.endsWith(".ras.arbitr.ru");
+}
+
+function isCbrUrl(value: unknown): boolean {
+  const url = normalizeUrl(value);
+  if (!url) return false;
+  const hostname = new URL(url).hostname.toLowerCase();
+  return hostname === "cbr.ru" || hostname === "www.cbr.ru";
 }
 
 function isArbitrationCaseNumber(value: unknown): boolean {
@@ -188,7 +207,13 @@ function normalizedCandidate(
     return null;
   }
 
-  const bucket = provider === "bras_kad" ? "court_practice" : inferBucket(candidate);
+  if (
+    provider === "cbr" &&
+    (!candidate.url || !isCbrUrl(candidate.url) || !candidate.cbr_document_kind ||
+      !candidate.document_status || typeof candidate.full_text_available !== "boolean")
+  ) return null;
+
+  const bucket = provider === "bras_kad" ? "court_practice" : provider === "cbr" ? "manuals" : inferBucket(candidate);
   const issueIds = uniq([...(candidate.research_issue_ids ?? []), ...inheritedIssueIds]);
   const excerpt = text(candidate.excerpt);
 
@@ -201,14 +226,26 @@ function normalizedCandidate(
     // Imported URLs are references, not verified official URLs.
     official_url: null,
     citation,
-    snippet: excerpt?.slice(0, 1800) ?? "",
+    snippet: (text(candidate.full_text) ?? excerpt)?.slice(0, 1800) ?? "",
+    content_text: provider === "cbr" ? text(candidate.full_text) : null,
     metadata: {
       provider_id: provider,
       discovered_via_providers: [provider],
       provider_type: "research",
       provider_integration_mode: "manual_import",
       provider_source_class: "retrieval_intermediary",
-      source_family: provider === "bras_kad" ? "bras_kad" : undefined,
+      source_family: provider === "bras_kad" ? "bras_kad" : provider === "cbr" ? "cbr_official" : undefined,
+      cbr_document_kind: candidate.cbr_document_kind ?? null,
+      document_status: candidate.document_status ?? null,
+      effective_from: text(candidate.effective_from),
+      language: text(candidate.language),
+      version: text(candidate.version),
+      withdrawn: candidate.withdrawn === true,
+      draft: candidate.draft === true,
+      duplicate_of: text(candidate.duplicate_of),
+      authority: text(candidate.authority),
+      authority_class: candidate.authority_class ?? null,
+      full_text_available: candidate.full_text_available ?? null,
       external_research_import: true,
       imported_reference_only: true,
       imported_url: importedUrl,
