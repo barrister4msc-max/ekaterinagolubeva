@@ -116,8 +116,16 @@ async function main() {
     cli(["start"], isolated);
     started = true;
     db = await connect();
-    const empty = (await db.query("SELECT count(*)::int AS n FROM supabase_migrations.schema_migrations")).rows[0].n;
-    if (empty !== 0) throw new Error(`Isolated database was not empty: ${empty} migrations`);
+    const existingHistory = (await db.query("SELECT to_regclass('supabase_migrations.schema_migrations') AS name")).rows[0].name;
+    if (existingHistory !== null) throw new Error("Isolated database unexpectedly has migration history");
+    // CLI creates this metadata table only when it applies a file. We must not
+    // apply any source file to the second database, so model just its columns.
+    await db.query(`
+      CREATE SCHEMA supabase_migrations;
+      CREATE TABLE supabase_migrations.schema_migrations (
+        version text PRIMARY KEY, name text, statements text[] NOT NULL
+      );
+    `);
     for (const [i, migration] of stored.entries()) {
       try {
         for (const sql of migration.statements) await db.query(sql);
