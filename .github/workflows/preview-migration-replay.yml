@@ -6,6 +6,7 @@ on:
       - '.github/workflows/preview-migration-replay.yml'
       - 'supabase/migrations/**'
       - 'supabase/config.toml'
+      - 'supabase/roles.sql'
       - 'supabase/seed.sql'
   workflow_dispatch:
 
