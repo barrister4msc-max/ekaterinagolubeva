@@ -1,0 +1,26 @@
+name: Preview migration replay (local only)
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/preview-migration-replay.yml'
+      - 'supabase/migrations/**'
+      - 'supabase/config.toml'
+      - 'supabase/roles.sql'
+      - 'supabase/seed.sql'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean-preview-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.81.3
+      - name: Replay active migrations in disposable local Supabase
+        run: supabase start
