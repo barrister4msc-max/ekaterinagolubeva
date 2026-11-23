@@ -1,0 +1,40 @@
+name: Official Tax Core Collector
+on:
+  push:
+    branches:
+      - feat/official-tax-core-collector
+    paths:
+      - scripts/official_tax_core_collect.py
+      - scripts/test_official_tax_core_collect.py
+      - .github/workflows/official-tax-core-collect.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test collector provenance and representation handling
+        run: python scripts/test_official_tax_core_collect.py
+      - name: Download requested official Tax Core corpus
+        run: python scripts/official_tax_core_collect.py --output-dir official-tax-core
+      - name: Package original files and audit indexes
+        run: tar -czf official-tax-core.tar.gz official-tax-core
+      - uses: actions/upload-artifact@v4
+        with:
+          name: official-tax-core-archive
+          path: official-tax-core.tar.gz
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: official-tax-core-audit
+          path: |
+            official-tax-core/index.csv
+            official-tax-core/errors.csv
+            official-tax-core/manifest.json
+          retention-days: 7
