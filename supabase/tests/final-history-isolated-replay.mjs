@@ -95,6 +95,10 @@ async function main() {
     version: row.version, name: row.name, count: row.statements.length,
     sha256: statementHash(row.statements),
   })))}`);
+  if (process.env.RUNNER_TEMP) {
+    writeFileSync(join(process.env.RUNNER_TEMP, "kati_candidate_history.json"),
+      JSON.stringify({ source: "replayed CLI migration history", rows: prefix }));
+  }
   const baseline = stored.find((row) => row.version === baselineVersion);
   const baselineSql = baseline?.statements.join("\n") || "";
   for (const text of ["CREATE ROLE kati_internal_kb_writer", "INSERT INTO public.legal_document_templates", "INSERT INTO storage.buckets"]) {
