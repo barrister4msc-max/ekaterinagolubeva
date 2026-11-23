@@ -9,6 +9,7 @@ on:
       - 'supabase/roles.sql'
       - 'supabase/seed.sql'
       - 'supabase/tests/guarded-source-preview-replay.test.ts'
+      - 'supabase/tests/final-history-isolated-replay.mjs'
   workflow_dispatch:
 
 permissions:
@@ -17,7 +18,7 @@ permissions:
 jobs:
   clean-preview-replay:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -31,3 +32,5 @@ jobs:
           version: 2.81.3
       - name: Replay active migrations in disposable local Supabase
         run: supabase start
+      - name: Replay exact stored candidate history on a second isolated Supabase
+        run: node supabase/tests/final-history-isolated-replay.mjs
