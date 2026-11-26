@@ -60,7 +60,17 @@ async function fingerprint(db) {
       'role', (SELECT jsonb_build_array(rolcanlogin,rolsuper,rolcreatedb,rolcreaterole,rolinherit,rolbypassrls)
         FROM pg_roles WHERE rolname='kati_internal_kb_writer'),
       'writer_select', has_table_privilege('kati_internal_kb_writer','public.legal_knowledge_chunks','SELECT'),
-      'writer_insert', has_table_privilege('kati_internal_kb_writer','public.legal_knowledge_chunks','INSERT')
+      'writer_insert', has_table_privilege('kati_internal_kb_writer','public.legal_knowledge_chunks','INSERT'),
+      'table_grants', (SELECT jsonb_agg(jsonb_build_array(table_schema,table_name,grantee,privilege_type,is_grantable)
+        ORDER BY table_schema,table_name,grantee,privilege_type)
+        FROM information_schema.role_table_grants WHERE table_schema IN ('public','private','law7_mirror')),
+      'constraints', (SELECT jsonb_agg(jsonb_build_array(n.nspname,c.relname,k.conname,pg_get_constraintdef(k.oid))
+        ORDER BY n.nspname,c.relname,k.conname)
+        FROM pg_constraint k JOIN pg_class c ON c.oid=k.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname IN ('public','private','law7_mirror')),
+      'indexes', (SELECT jsonb_agg(jsonb_build_array(schemaname,tablename,indexname,indexdef)
+        ORDER BY schemaname,tablename,indexname)
+        FROM pg_indexes WHERE schemaname IN ('public','private','law7_mirror'))
     ) AS result
   `);
   const counts = {};
@@ -150,6 +160,12 @@ async function main() {
       }
       if (migration.version === productionTip) {
         const atProductionTip = await fingerprint(db);
+        // Candidate-only catalog at the same 78-version boundary as Production.
+        // No Production credentials or user rows enter this runner.
+        if (process.env.RUNNER_TEMP) {
+          writeFileSync(join(process.env.RUNNER_TEMP, "kati_candidate_catalog.json"),
+            JSON.stringify({ productionTip, candidateOnly: true, fingerprint: atProductionTip }, null, 2));
+        }
         if (atProductionTip.refs["public.legal_document_templates"].n < 100 || atProductionTip.refs["storage.buckets"].n === 0) {
           throw new Error("78-row candidate lost baseline reference data");
         }
