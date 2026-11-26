@@ -44,6 +44,14 @@ async function fingerprint(db) {
       FROM (SELECT to_jsonb(t) - 'id' - 'created_at' - 'updated_at' AS normalized FROM ${table} t) s
     `);
     refs[table] = result.rows[0];
+    // Field hashes identify drift without exporting template contents.
+    const fields = await db.query(`
+      SELECT coalesce(to_jsonb(t)->>'code',to_jsonb(t)->>'template_code',to_jsonb(t)->>'name',to_jsonb(t)->>'id') AS key,
+        to_jsonb(t)->>'is_active' AS active, e.key AS field, md5(e.value::text) AS digest
+      FROM ${table} t CROSS JOIN LATERAL jsonb_each(to_jsonb(t) - 'id' - 'created_at' - 'updated_at') e
+      ORDER BY 1,2,3
+    `);
+    refs[table].fields = fields.rows;
   }
   const catalog = await db.query(`
     SELECT jsonb_build_object(
