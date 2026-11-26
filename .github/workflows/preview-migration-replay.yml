@@ -37,5 +37,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: kati-candidate-history
-          path: ${{ runner.temp }}/kati_candidate_history.json
+          path: |
+            ${{ runner.temp }}/kati_candidate_history.json
+            ${{ runner.temp }}/kati_candidate_catalog.json
           retention-days: 1
