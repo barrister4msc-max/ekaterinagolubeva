@@ -168,6 +168,15 @@ async function main() {
       }
       if (migration.version === productionTip) {
         const atProductionTip = await fingerprint(db);
+        // Read-only Production reference snapshot, 2026-11-26. Excludes IDs/timestamps.
+        for (const [table, digest] of Object.entries({
+          "public.legal_document_templates": "f3452405871a4bca61968cf3d5b9241a",
+          "public.document_intake_schemas": "8286dd31bbce3eb668ae8550459baca0"
+        })) {
+          if (atProductionTip.refs[table].digest !== digest) {
+            throw new Error(`Production reference content mismatch: ${table}`);
+          }
+        }
         const intakeRows = (await db.query("SELECT template_code,is_active FROM public.document_intake_schemas ORDER BY template_code,is_active")).rows;
         const expectedIntake = [{"template_code":"corporate_50_50_agreement","is_active":false},{"template_code":"corporate_50_50_agreement","is_active":true},{"template_code":"objections_tax_audit","is_active":true},{"template_code":"response_to_tax_request","is_active":true},{"template_code":"tax_54_1_risk_opinion","is_active":true},{"template_code":"tax_arbitration_claim","is_active":true},{"template_code":"tax_arbitration_position","is_active":true},{"template_code":"tax_audit_objections_extended","is_active":true},{"template_code":"tax_business_splitting_analysis","is_active":true},{"template_code":"tax_counterparty_due_diligence","is_active":true},{"template_code":"tax_court_position","is_active":true},{"template_code":"tax_decision_analysis","is_active":true},{"template_code":"tax_dispute_strategy","is_active":true},{"template_code":"tax_due_diligence","is_active":true},{"template_code":"tax_evidence_matrix","is_active":true},{"template_code":"tax_explanations","is_active":true},{"template_code":"tax_fns_explanations","is_active":true},{"template_code":"tax_fns_request_response","is_active":true},{"template_code":"tax_reconstruction_analysis","is_active":true},{"template_code":"tax_strategy_memo","is_active":true},{"template_code":"tax_ufns_appeal","is_active":true},{"template_code":"tax_vat_explanations","is_active":true}];
         if (JSON.stringify(intakeRows) !== JSON.stringify(expectedIntake)) {
