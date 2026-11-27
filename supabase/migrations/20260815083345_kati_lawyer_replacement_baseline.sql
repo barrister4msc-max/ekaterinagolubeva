@@ -4520,10 +4520,10 @@ $guard$;
 
 WITH flagship(code, title, flagship_rank) AS (
   VALUES
-    ('response_to_tax_request', 'Ответ на требование налогового органа', 1),
-    ('tax_explanations', 'Пояснения в налоговый орган', 2),
+    ('response_to_tax_request', 'Ответ на требование ФНС', 1),
+    ('tax_explanations', 'Пояснения в ФНС', 2),
     ('tax_vat_explanations', 'Пояснения по НДС', 3),
-    ('tax_strategy_memo', 'Меморандум по налоговой стратегии', 4),
+    ('tax_strategy_memo', 'Стратегия защиты по налоговому спору', 4),
     ('tax_court_position', 'Позиция в суд', 5)
 )
 UPDATE public.legal_document_templates AS template
