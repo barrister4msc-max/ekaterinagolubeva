@@ -4709,3 +4709,18 @@ alter default privileges for role postgres in schema public
   grant usage, select on sequences to service_role;
 alter default privileges for role postgres in schema public
   grant execute on functions to service_role;
+
+-- Preview replay prerequisite for the existing GARANT NK importer.
+-- Matches the deployed namespace-limited writer surface; no legal data copied.
+GRANT USAGE ON SCHEMA public TO kati_internal_kb_writer;
+GRANT SELECT, INSERT, UPDATE ON public.legal_law_chunks TO kati_internal_kb_writer;
+CREATE POLICY kati_garant_nk_writer_select ON public.legal_law_chunks
+  FOR SELECT TO kati_internal_kb_writer
+  USING (metadata->>'source_namespace' = 'garant_user_supplied_nk');
+CREATE POLICY kati_garant_nk_writer_insert ON public.legal_law_chunks
+  FOR INSERT TO kati_internal_kb_writer
+  WITH CHECK (metadata->>'source_namespace' = 'garant_user_supplied_nk');
+CREATE POLICY kati_garant_nk_writer_update ON public.legal_law_chunks
+  FOR UPDATE TO kati_internal_kb_writer
+  USING (metadata->>'source_namespace' = 'garant_user_supplied_nk')
+  WITH CHECK (metadata->>'source_namespace' = 'garant_user_supplied_nk');
