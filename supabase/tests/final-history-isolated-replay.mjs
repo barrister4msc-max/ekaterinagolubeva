@@ -65,6 +65,21 @@ async function fingerprint(db) {
         ORDER BY n.nspname,p.proname,pg_get_function_identity_arguments(p.oid))
         FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
         WHERE n.nspname IN ('public','private','law7_mirror')),
+      'function_details', (SELECT jsonb_agg(jsonb_build_array(n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),
+        md5(replace(pg_get_functiondef(p.oid),chr(13),'')),p.proconfig,p.provolatile,p.proisstrict,p.proleakproof,p.proparallel)
+        ORDER BY n.nspname,p.proname,pg_get_function_identity_arguments(p.oid))
+        FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname IN ('public','private','law7_mirror') AND p.prokind IN ('f','p')),
+      'function_acl', (SELECT jsonb_agg(jsonb_build_array(n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),
+        CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE pg_get_userbyid(a.grantee) END,a.privilege_type,a.is_grantable)
+        ORDER BY n.nspname,p.proname,pg_get_function_identity_arguments(p.oid),a.grantee::regrole::text,a.privilege_type)
+        FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+        CROSS JOIN LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
+        WHERE n.nspname IN ('public','private','law7_mirror')),
+      'rls_flags', (SELECT jsonb_agg(jsonb_build_array(n.nspname,c.relname,c.relrowsecurity,c.relforcerowsecurity)
+        ORDER BY n.nspname,c.relname)
+        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname IN ('public','private','law7_mirror') AND c.relkind IN ('r','p')),
       'role', (SELECT jsonb_build_array(rolcanlogin,rolsuper,rolcreatedb,rolcreaterole,rolinherit,rolbypassrls)
         FROM pg_roles WHERE rolname='kati_internal_kb_writer'),
       'writer_select', has_table_privilege('kati_internal_kb_writer','public.legal_knowledge_chunks','SELECT'),
