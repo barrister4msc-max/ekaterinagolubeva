@@ -168,6 +168,24 @@ async function main() {
       }
       if (migration.version === productionTip) {
         const atProductionTip = await fingerprint(db);
+        const acl = (await db.query(`
+          SELECT has_table_privilege('kati_internal_kb_writer','public.legal_law_chunks','SELECT')
+            AND has_table_privilege('kati_internal_kb_writer','public.legal_law_chunks','INSERT')
+            AND has_table_privilege('kati_internal_kb_writer','public.legal_law_chunks','UPDATE')
+            AND NOT has_table_privilege('kati_internal_kb_writer','public.legal_law_chunks','DELETE')
+            AND NOT has_table_privilege('kati_internal_kb_writer','public.legal_law_chunks','TRUNCATE')
+            AND NOT has_table_privilege('anon','public.leads','INSERT')
+            AND has_table_privilege('service_role','public.leads','INSERT') AS ok
+        `)).rows[0];
+        if (!acl.ok) throw new Error("NK writer or server-owned lead privilege contract failed");
+        const nkPolicies = atProductionTip.catalog.policies.filter(
+          (p) => p[0] === "public" && p[1] === "legal_law_chunks" &&
+            p[2].startsWith("kati_garant_nk_writer_"));
+        if (nkPolicies.length !== 3 || nkPolicies.some(
+          (p) => JSON.stringify(p[4]) !== JSON.stringify(["kati_internal_kb_writer"]) ||
+            !String(p[6] || p[7]).includes("garant_user_supplied_nk"))) {
+          throw new Error("NK writer namespace policy contract failed");
+        }
         // Read-only Production reference snapshot, 2026-11-26. Excludes IDs/timestamps.
         for (const [table, digest] of Object.entries({
           "public.legal_document_templates": "f3452405871a4bca61968cf3d5b9241a",
